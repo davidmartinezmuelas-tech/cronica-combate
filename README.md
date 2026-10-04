@@ -57,4 +57,6 @@ This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1
 
 La traducción al español se basa en [translate-dnd5e-sdr2-es](https://github.com/foundryvtt-sinregistrar/translate-dnd5e-sdr2-es) de foundryvtt-sinregistrar (CC-BY-4.0), con cambios: plantillas resueltas, textos que faltaban traducidos y metadatos de conjuros corregidos a partir de [5e-database](https://github.com/5e-bits/5e-database). Los datos estructurados de monstruos combinan 5e-database y el sistema dnd5e de Foundry VTT.
 
+Las fuentes Alegreya, Alegreya Sans e IM Fell English SC se distribuyen con la app bajo la SIL Open Font License 1.1 (ver `src/fonts/OFL-*.txt`); se sirven desde la propia app, sin peticiones a Google Fonts.
+
 Aplicación no oficial, sin afiliación ni respaldo de Wizards of the Coast. «Dungeons & Dragons» y «D&D» son marcas de Wizards of the Coast y no se usan en esta app.
