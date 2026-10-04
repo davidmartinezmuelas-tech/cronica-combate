@@ -7,7 +7,11 @@ export default defineConfig({
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? 'github' : 'list',
-  use: { baseURL: 'http://localhost:4173', locale: 'es-ES', trace: 'retain-on-failure' },
+  use: {
+    baseURL: 'http://localhost:4173', locale: 'es-ES', trace: 'retain-on-failure',
+    // WebGL por software para probar los dados 3D también sin GPU (CI)
+    launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
+  },
   projects: [
     { name: 'escritorio', use: { ...devices['Desktop Chrome'], viewport: { width: 1366, height: 860 } } },
     { name: 'tablet', use: { ...devices['Galaxy Tab S9 landscape'], browserName: 'chromium' } },

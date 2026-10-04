@@ -5,6 +5,13 @@ import { throwOrigin } from '../engine/throw';
 import { uid } from '../engine/util';
 import type { GetState, SetState, State } from './state';
 
+/** Mesa 3D registrada por la interfaz: reproduce la tirada y avisa al terminar. */
+export interface DiceStage {
+  play: (shown: DieView[], size: number) => Promise<void>;
+  skip: () => void;
+}
+export const diceStage: { current: DiceStage | null } = { current: null };
+
 export type Finish = () => Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] };
 
 /** Utilidades compartidas por las partes del store: historial y animación de los dados. */
@@ -76,6 +83,7 @@ export function createKit(set: SetState, get: GetState): Kit {
     const p = pending;
     if (!p) return;
     pending = null;
+    diceStage.current?.skip();
     clearTimeout(t1);
     if (iv) { clearInterval(iv); iv = undefined; }
     completeRoll(p.finish, p.shown.map((d) => faceView(d, true)));
@@ -110,6 +118,16 @@ export function createKit(set: SetState, get: GetState): Kit {
     set({ dieSize: size, moreDice: Math.max(0, dice.length - shown.length) });
     if (reducedMotion()) {
       completeRoll(finish, shown.map((d) => faceView(d, true)));
+      return;
+    }
+    const stage = diceStage.current;
+    if (stage) {
+      // dados 3D: la física es solo estética; el resultado ya está decidido
+      const mine = { finish, shown };
+      pending = mine;
+      set({ dice: shown, rolling: true, result: null });
+      const done = () => { if (pending !== mine) return; pending = null; completeRoll(finish, shown.map((d) => faceView(d, true))); };
+      stage.play(shown, size).then(done, done);
       return;
     }
     pending = { finish, shown };

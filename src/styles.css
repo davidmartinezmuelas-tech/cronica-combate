@@ -265,3 +265,4 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .felt-legend{position:absolute;left:8px;bottom:8px;right:8px;display:flex;flex-wrap:wrap;gap:4px 6px;pointer-events:none}
 .felt-legend span{display:inline-flex;align-items:center;gap:5px;font-weight:800;font-size:13px;color:#f3ead8;background:rgba(0,0,0,.5);border-radius:6px;padding:2px 8px}
 .felt-legend i{width:10px;height:10px;border-radius:50%;background:var(--die-b);box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+.felt-3d{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:manipulation;cursor:pointer}

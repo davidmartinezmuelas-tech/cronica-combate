@@ -106,6 +106,7 @@ export interface DiceSlice {
   expr: string;
   exprError: boolean;
   diceTheme: string;
+  dice3d: boolean; // dados 3D con física (si el equipo puede); si no, los 2D
   roll: (spec: RollSpec) => void;
   applyRolled: () => void;
 }

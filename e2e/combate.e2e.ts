@@ -104,3 +104,39 @@ test('la página no se sale de la pantalla', async ({ page }) => {
     expect(over, 'desborde horizontal en ' + tab).toBeLessThanOrEqual(0);
   }
 });
+
+test('dados 3D: se usan cuando el equipo puede, un toque salta la animación y se pueden cambiar a 2D', async ({ page }) => {
+  await open(page);
+  const toggle = page.getByLabel(/^Dados 3D/);
+  await expect(toggle).toBeChecked();
+  await expect(page.locator('canvas.felt-3d')).toBeVisible();
+  await page.waitForTimeout(2500); // la escena 3D se carga en segundo plano
+  await page.getByRole('button', { name: 'Tirar d20' }).click();
+  await page.waitForTimeout(150);
+  await page.locator('canvas.felt-3d').click();
+  await expect(page.locator('.plaque-in')).toBeVisible({ timeout: 1000 });
+  await expect(page.locator('.die-spot')).toHaveCount(0); // en 3D no se pintan los dados 2D
+  await page.waitForTimeout(700); // el total sube hasta su valor
+  const total = Number(await page.locator('.plaque-total').textContent());
+  expect(total).toBeGreaterThanOrEqual(1);
+  expect(total).toBeLessThanOrEqual(20);
+
+  await toggle.uncheck();
+  await expect(page.locator('canvas.felt-3d')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Tirar d20' }).click();
+  await expect(page.locator('.die-spot')).toHaveCount(1);
+  await page.waitForTimeout(600); // guardado automático
+  await page.reload();
+  await expect(page.getByLabel(/^Dados 3D/)).not.toBeChecked(); // la preferencia se guarda
+});
+
+test('con «reducir movimiento» se usan los dados 2D sin animación', async ({ browser }) => {
+  const ctx = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await ctx.newPage();
+  await open(page);
+  await expect(page.locator('canvas.felt-3d')).toHaveCount(0);
+  await expect(page.getByLabel(/^Dados 3D/)).toBeDisabled();
+  await page.getByRole('button', { name: 'Tirar d20' }).click();
+  await expect(page.locator('.plaque-in')).toBeVisible();
+  await ctx.close();
+});

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import Die, { DieShape } from './Die';
+import Dice3D, { hasWebGL } from './Dice3D';
 
 const QUICK = [4, 6, 8, 10, 12, 20, 100];
 export const THEMES: [string, string][] = [['ruby', 'Rubí'], ['bone', 'Hueso'], ['obsidian', 'Obsidiana'], ['gem', 'Gema'], ['metal', 'Metal'], ['wood', 'Madera']];
@@ -74,7 +75,11 @@ export default function DiceTable() {
   const expr = useStore((s) => s.expr);
   const exprError = useStore((s) => s.exprError);
   const log = useStore((s) => s.log);
+  const dice3d = useStore((s) => s.dice3d);
   const { set, roll } = useStore.getState();
+  const can3d = hasWebGL() && !reducedMotion();
+  const [ready3d, setReady3d] = useState(false);
+  const use3d = dice3d && can3d;
   const rim = useRef<HTMLDivElement>(null);
   const done = !!result && !rolling;
   const fx = done ? result!.cls : '';
@@ -108,8 +113,9 @@ export default function DiceTable() {
       </svg>
       <div className="rim" ref={rim}>
         <div className="felt" style={{ ['--ds' as string]: dieSize + 'px' }} aria-hidden="true">
+          {use3d && <Dice3D theme={theme} onReady={setReady3d} />}
           {!dice.length && <div className="felt-hint">Los dados caerán aquí</div>}
-          {dice.map((d) => <Die key={d.id} d={d} />)}
+          {!(use3d && ready3d) && dice.map((d) => <Die key={d.id} d={d} />)}
           {fx && <div key={fxKey} className={'felt-fx ' + fx} />}
           {(legend.length > 0 || (done && moreDice > 0)) && (
             <div className="felt-legend">
@@ -160,6 +166,9 @@ export default function DiceTable() {
       </div>
       {exprError && <p className="warn" role="alert" style={{ fontSize: 14 }}>Fórmula no válida. Usa algo como 3d8+2.</p>}
 
+      <label className="check" title={can3d ? 'Dados con física real. Desactívalo si la tablet va lenta.' : 'Este equipo no puede mostrar dados 3D (o tiene activado reducir movimiento)'}>
+        <input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (no disponible en este equipo)'}
+      </label>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <span className="muted small" style={{ fontWeight: 700 }}>Color de los dados</span>
         <div style={{ display: 'flex', gap: 8 }}>

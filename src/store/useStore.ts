@@ -47,7 +47,7 @@ export function startAutosave() {
   const unsub = useStore.subscribe((s, prev) => {
     if (!s.loaded) return;
     if (s.custom !== prev.custom || s.roster !== prev.roster || s.combatants !== prev.combatants || s.round !== prev.round || s.activeId !== prev.activeId ||
-      s.started !== prev.started || s.log !== prev.log || s.diceTheme !== prev.diceTheme || s.turnEvents !== prev.turnEvents || s.encounters !== prev.encounters) {
+      s.started !== prev.started || s.log !== prev.log || s.diceTheme !== prev.diceTheme || s.turnEvents !== prev.turnEvents || s.encounters !== prev.encounters || s.dice3d !== prev.dice3d) {
       clearTimeout(saveT);
       saveT = setTimeout(() => { void saveNow(); }, 250);
     }

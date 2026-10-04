@@ -8,6 +8,10 @@ const base = process.env.BASE_PATH || '/';
 
 export default defineConfig({
   base,
+  // el worker de la física de los dados se empaqueta como módulo
+  worker: { format: 'es' },
+  // la escena 3D (three.js) es un trozo aparte que solo se descarga al usar los dados
+  build: { chunkSizeWarningLimit: 600 },
   plugins: [
     react(),
     VitePWA({
