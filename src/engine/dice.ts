@@ -66,7 +66,6 @@ export function rollFormula(expr: string, rng: Rng = defaultRng): number {
 export const prettyExpr = (e: string | null | undefined) =>
   String(e ?? '').replace(/\s+/g, '').replace(/([+-])/g, ' $1 ').replace(/-/g, '−').trim();
 
-export const shapeClass = (sides: number) => ({ 4: 'd4', 6: 'd6', 8: 'd8', 10: 'd10', 12: 'd12', 20: 'd20', 100: 'd10' } as Record<number, string>)[sides] || 'd6';
 
 export type AdvMode = 'normal' | 'adv' | 'dis';
 export type RollKind = 'attack' | 'check' | 'save' | 'damage' | 'free' | 'death' | 'init';
@@ -80,6 +79,7 @@ export interface PhysicalDie {
   sides: number;
   final: number;
   dim?: boolean;
+  type?: string; // tipo de daño de la parte a la que pertenece
 }
 
 export interface RollOutcome {
@@ -126,7 +126,7 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
         for (let i = 0; i < n; i++) {
           const v = rollDie(g.sides, rng);
           vals.push(v);
-          dice.push({ sides: g.sides, final: v });
+          dice.push(part.type && opts.kind === 'damage' ? { sides: g.sides, final: v, type: part.type } : { sides: g.sides, final: v });
         }
         sub += g.sign * vals.reduce((x, y) => x + y, 0);
         if (g.sides === 20 && n === 1) nat = vals[0];

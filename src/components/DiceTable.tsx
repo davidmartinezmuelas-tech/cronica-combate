@@ -1,7 +1,33 @@
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
+import Die, { DieShape } from './Die';
 
 const QUICK = [4, 6, 8, 10, 12, 20, 100];
-const THEMES: [string, string][] = [['ruby', 'Rubí'], ['bone', 'Hueso'], ['obsidian', 'Obsidiana']];
+export const THEMES: [string, string][] = [['ruby', 'Rubí'], ['bone', 'Hueso'], ['obsidian', 'Obsidiana'], ['gem', 'Gema'], ['metal', 'Metal'], ['wood', 'Madera']];
+
+const reducedMotion = () => {
+  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+};
+
+/** El total sube rápido hasta su valor en vez de aparecer de golpe. */
+function CountUp({ value }: { value: string }) {
+  const target = /^-?\d+$/.test(value) ? parseInt(value, 10) : null;
+  const [shown, setShown] = useState(() => (target != null && Math.abs(target) >= 2 && !reducedMotion() ? '0' : value));
+  useEffect(() => {
+    if (target == null || reducedMotion() || Math.abs(target) < 2) { setShown(value); return; }
+    const start = performance.now();
+    const dur = Math.min(520, 220 + Math.abs(target) * 6);
+    let raf = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / dur);
+      setShown(String(Math.round(target * (1 - Math.pow(1 - t, 3)))));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value, target]);
+  return <>{shown}</>;
+}
 
 function Targets() {
   const r = useStore((s) => s.result);
@@ -43,13 +69,23 @@ export default function DiceTable() {
   const adv = useStore((s) => s.adv);
   const critFor = useStore((s) => s.critFor);
   const theme = useStore((s) => s.diceTheme);
-  const manyDice = useStore((s) => s.manyDice);
+  const dieSize = useStore((s) => s.dieSize);
   const moreDice = useStore((s) => s.moreDice);
   const expr = useStore((s) => s.expr);
   const exprError = useStore((s) => s.exprError);
   const log = useStore((s) => s.log);
   const { set, roll } = useStore.getState();
-  const half = manyDice ? 25 : 32;
+  const rim = useRef<HTMLDivElement>(null);
+  const done = !!result && !rolling;
+  const fx = done ? result!.cls : '';
+  const fxKey = log[0]?.id || '';
+  // pifia: el tapete se sacude
+  useEffect(() => {
+    if (fx === 'fumble' && rim.current && typeof rim.current.animate === 'function' && !reducedMotion()) {
+      rim.current.animate([{ transform: 'none' }, { transform: 'translateX(-7px)' }, { transform: 'translateX(6px)' }, { transform: 'translateX(-4px)' }, { transform: 'translateX(2px)' }, { transform: 'none' }], { duration: 380, easing: 'ease-out' });
+    }
+  }, [fx, fxKey]);
+  const legend = done && result!.isDmg && (result!.parts.length > 1 || moreDice > 0) ? result!.parts : [];
   const rollFree = () => roll({ label: 'Tirada libre · ' + expr, kind: 'free', parts: [{ expr }] });
   return (
     <div className={'panel dice-' + theme}>
@@ -61,18 +97,26 @@ export default function DiceTable() {
           ))}
         </div>
       </div>
-      <div className="rim">
-        <div className={manyDice ? 'felt many' : 'felt'} aria-hidden="true">
+      <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+        <defs>
+          <radialGradient id="die-shine" cx="0.32" cy="0.28" r="0.7">
+            <stop offset="0" stopColor="#fff" stopOpacity="0.42" />
+            <stop offset="0.6" stopColor="#fff" stopOpacity="0.06" />
+            <stop offset="1" stopColor="#fff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+      </svg>
+      <div className="rim" ref={rim}>
+        <div className="felt" style={{ ['--ds' as string]: dieSize + 'px' }} aria-hidden="true">
           {!dice.length && <div className="felt-hint">Los dados caerán aquí</div>}
-          {!rolling && moreDice > 0 && dice.length > 0 && <span className="felt-more">+{moreDice} dados</span>}
-          {dice.map((d) => (
-            <div key={d.id}>
-              <div className="die-shadow" style={{ left: `calc(${d.x}% - ${half - 3}px)`, top: `calc(${d.y}% + ${half - 8}px)`, animationDelay: d.delay + 'ms' }} />
-              <div className={'die-wrap ' + d.tumble} style={{ left: `calc(${d.x}% - ${half}px)`, top: `calc(${d.y}% - ${half}px)`, animationDelay: d.delay + 'ms' }}>
-                <div className={['shape die', d.cls, d.extra, d.done && d.dim ? 'dim' : ''].join(' ')}><span className="facet" /><span className="die-num">{d.face}</span></div>
-              </div>
+          {dice.map((d) => <Die key={d.id} d={d} />)}
+          {fx && <div key={fxKey} className={'felt-fx ' + fx} />}
+          {(legend.length > 0 || (done && moreDice > 0)) && (
+            <div className="felt-legend">
+              {legend.map((p) => <span key={p.type || 'x'} data-dt={p.type || undefined}><i />{p.type || 'sin tipo'} {p.amt}</span>)}
+              {moreDice > 0 && <span>+{moreDice} dados más</span>}
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -80,7 +124,7 @@ export default function DiceTable() {
         {result && !rolling && (
           <div className={'plaque plaque-in ' + result.cls}>
             <div className="plaque-top">
-              <div className="plaque-total">{result.total}</div>
+              <div className="plaque-total"><CountUp value={result.total} /></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span className="plaque-label">{result.label}</span>
                 <span className="plaque-detail">{result.detail}</span>
@@ -104,7 +148,7 @@ export default function DiceTable() {
       <div className="qgrid">
         {QUICK.map((sd, i) => (
           <button key={sd} className="qdie" onClick={() => roll({ label: 'd' + sd, kind: 'free', parts: [{ expr: '1d' + sd }] })} aria-label={'Tirar d' + sd} title={'Tirar d' + sd + ' (tecla ' + (i + 1) + ')'}>
-            <span className={'shape mini ' + ({ 4: 'd4', 6: 'd6', 8: 'd8', 10: 'd10', 12: 'd12', 20: 'd20', 100: 'd10' } as Record<number, string>)[sd]} />d{sd}
+            <span className="mini"><DieShape sides={sd} uidKey={'q' + sd} /></span>d{sd}
           </button>
         ))}
       </div>

@@ -101,7 +101,7 @@ export interface DiceSlice {
   adv: AdvMode;
   critFor: { who: string } | null;
   dmgTargets: Record<string, 'full' | 'half'>;
-  manyDice: boolean;
+  dieSize: number; // px, según cuántos dados haya que mostrar
   moreDice: number;
   expr: string;
   exprError: boolean;

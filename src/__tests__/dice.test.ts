@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { avgOf, combineAdv, parseExpr, rollParts } from '../engine/dice';
+import { layoutFor, pickShown } from '../store/kit';
 
 const seq = (vals: number[]) => { let i = 0; return () => vals[i++ % vals.length]; };
 
@@ -43,5 +44,33 @@ describe('rollParts', () => {
   it('ventaja y desventaja se anulan', () => {
     expect(combineAdv('adv', false, true)).toBe('normal');
     expect(combineAdv('normal', false, true)).toBe('dis');
+  });
+});
+
+describe('dados en el tapete', () => {
+  it('los dados de daño llevan su tipo para colorearlos', () => {
+    const r = rollParts([{ expr: '2d6', type: 'cortante' }, { expr: '1d8', type: 'fuego' }], { kind: 'damage', rng: seq([0.5]) })!;
+    expect(r.dice.map((d) => d.type)).toEqual(['cortante', 'cortante', 'fuego']);
+    expect(rollParts([{ expr: '1d20+3', type: 'x' }], { kind: 'attack', rng: seq([0.5]) })!.dice[0].type).toBeUndefined();
+  });
+  it('si no caben todos, se ven dados de cada tipo en proporción', () => {
+    const dice = [...Array.from({ length: 30 }, () => ({ sides: 6, final: 3, type: 'fuego' })), ...Array.from({ length: 4 }, () => ({ sides: 8, final: 5, type: 'frío' }))];
+    const shown = pickShown(dice, 24);
+    expect(shown).toHaveLength(24);
+    expect(shown.filter((d) => d.type === 'frío').length).toBeGreaterThanOrEqual(2);
+    expect(pickShown(dice.slice(0, 10), 24)).toHaveLength(10);
+  });
+});
+
+describe('reparto en el tapete', () => {
+  it('usa el dado más grande con el que caben todos sin solaparse', () => {
+    expect(layoutFor(1, 260, 280)).toEqual({ size: 64, cols: 3, rows: 3 });
+    expect(layoutFor(12, 260, 280).size).toBe(50);
+    const big = layoutFor(17, 260, 280);
+    expect(big.size).toBe(40);
+    expect(big.cols * big.rows).toBeGreaterThanOrEqual(17);
+    // separación entre centros mayor que el dado
+    const l = layoutFor(9, 260, 280);
+    expect((260 - 8 - l.size) / (l.cols - 1)).toBeGreaterThan(l.size);
   });
 });

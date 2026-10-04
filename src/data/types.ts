@@ -183,13 +183,18 @@ export interface DieView {
   sides: number;
   final: number;
   face: number;
-  dim: boolean;
-  x: number;
+  dim: boolean; // descartado por ventaja o desventaja
+  kept: boolean; // el que cuenta cuando hay uno descartado
+  dtype: string; // tipo de daño (colorea el dado)
+  x: number; // sitio final, en % del tapete
   y: number;
+  ox: number; // origen del lanzamiento, en fracción del tapete (fuera de él)
+  oy: number;
+  spin: number;
+  tilt: number;
   delay: number;
-  tumble: string;
-  cls: string;
-  extra: string;
+  dur: number;
+  extra: string; // 'nat20' | 'nat1' | ''
   done: boolean;
 }
 
