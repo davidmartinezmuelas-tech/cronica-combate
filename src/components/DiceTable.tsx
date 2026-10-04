@@ -77,9 +77,11 @@ export default function DiceTable() {
   const log = useStore((s) => s.log);
   const dice3d = useStore((s) => s.dice3d);
   const { set, roll } = useStore.getState();
-  const can3d = hasWebGL() && !reducedMotion();
+  const can3d = hasWebGL();
+  const reduced = reducedMotion();
   const [ready3d, setReady3d] = useState(false);
-  const use3d = dice3d && can3d;
+  // automático: 3D salvo que el sistema pida reducir movimiento; lo que elija el usuario manda
+  const use3d = can3d && (dice3d ?? !reduced);
   const rim = useRef<HTMLDivElement>(null);
   const done = !!result && !rolling;
   const fx = done ? result!.cls : '';
@@ -166,8 +168,8 @@ export default function DiceTable() {
       </div>
       {exprError && <p className="warn" role="alert" style={{ fontSize: 14 }}>Fórmula no válida. Usa algo como 3d8+2.</p>}
 
-      <label className="check" title={can3d ? 'Dados con física real. Desactívalo si la tablet va lenta.' : 'Este equipo no puede mostrar dados 3D (o tiene activado reducir movimiento)'}>
-        <input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (no disponible en este equipo)'}
+      <label className="check" title={!can3d ? 'Este navegador no puede mostrar gráficos 3D (WebGL desactivado o sin aceleración por hardware)' : reduced ? 'Tu sistema pide reducir las animaciones, por eso empiezan desactivados. Puedes activarlos igualmente.' : 'Dados con física real. Desactívalo si la tablet va lenta.'}>
+        <input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (este navegador no tiene gráficos 3D)'}
       </label>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <span className="muted small" style={{ fontWeight: 700 }}>Color de los dados</span>

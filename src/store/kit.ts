@@ -116,11 +116,12 @@ export function createKit(set: SetState, get: GetState): Kit {
       delay: Math.round(i * (many ? 28 : 50) + Math.random() * 40), dur: Math.round((many ? 720 : 820) + Math.random() * 220),
     }));
     set({ dieSize: size, moreDice: Math.max(0, dice.length - shown.length) });
-    if (reducedMotion()) {
+    // los dados 3D solo están montados si el usuario los quiere (aunque el sistema pida reducir movimiento)
+    const stage = diceStage.current;
+    if (!stage && reducedMotion()) {
       completeRoll(finish, shown.map((d) => faceView(d, true)));
       return;
     }
-    const stage = diceStage.current;
     if (stage) {
       // dados 3D: la física es solo estética; el resultado ya está decidido
       const mine = { finish, shown };

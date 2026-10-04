@@ -95,7 +95,7 @@ export function normRoster(r: unknown): RosterEntry | null {
 }
 
 export function emptySaved(): SavedState {
-  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], encounters: [], dice3d: true };
+  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], encounters: [], dice3d: null };
 }
 
 /** Repara y migra cualquier dato guardado o importado. Nunca lanza. */
@@ -112,7 +112,7 @@ export function normalizeSaved(raw: unknown): SavedState {
   out.log = (Array.isArray(x.log) ? x.log : []).filter((l): l is LogEntry => !!l && typeof (l as LogEntry).label === 'string').slice(0, 30);
   out.turnEvents = (Array.isArray(x.turnEvents) ? x.turnEvents : []).filter((e): e is TurnEvent => !!e && typeof (e as TurnEvent).text === 'string');
   out.diceTheme = ['ruby', 'bone', 'obsidian', 'gem', 'metal', 'wood'].includes(String(x.diceTheme)) ? String(x.diceTheme) : 'ruby';
-  out.dice3d = x.dice3d !== false;
+  out.dice3d = typeof x.dice3d === 'boolean' ? x.dice3d : null;
   // v4: encuentros guardados (las versiones anteriores no los tienen)
   out.encounters = (Array.isArray(x.encounters) ? x.encounters : []).map(normEncounter).filter((e): e is Encounter => !!e);
   return out;

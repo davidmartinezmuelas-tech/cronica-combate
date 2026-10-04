@@ -220,5 +220,5 @@ export interface SavedState {
   diceTheme: string;
   turnEvents: TurnEvent[];
   encounters: Encounter[];
-  dice3d?: boolean; // preferencia: dados 3D (por defecto) o 2D
+  dice3d?: boolean | null; // dados 3D o 2D; null = automático (3D salvo que el sistema pida reducir movimiento)
 }

@@ -130,13 +130,21 @@ test('dados 3D: se usan cuando el equipo puede, un toque salta la animación y s
   await expect(page.getByLabel(/^Dados 3D/)).not.toBeChecked(); // la preferencia se guarda
 });
 
-test('con «reducir movimiento» se usan los dados 2D sin animación', async ({ browser }) => {
+test('con «reducir movimiento» empiezan los dados 2D, pero se pueden activar los 3D', async ({ browser }) => {
   const ctx = await browser.newContext({ reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   await open(page);
+  const toggle = page.getByLabel(/^Dados 3D/);
   await expect(page.locator('canvas.felt-3d')).toHaveCount(0);
-  await expect(page.getByLabel(/^Dados 3D/)).toBeDisabled();
+  await expect(toggle).toBeEnabled();
+  await expect(toggle).not.toBeChecked();
   await page.getByRole('button', { name: 'Tirar d20' }).click();
   await expect(page.locator('.plaque-in')).toBeVisible();
+  await toggle.check();
+  await expect(page.locator('canvas.felt-3d')).toBeVisible();
+  await page.waitForTimeout(2500);
+  await page.getByRole('button', { name: 'Tirar d20' }).click();
+  await expect(page.locator('.plaque-in')).toBeVisible({ timeout: 4000 });
+  await expect(page.locator('.die-spot')).toHaveCount(0);
   await ctx.close();
 });
