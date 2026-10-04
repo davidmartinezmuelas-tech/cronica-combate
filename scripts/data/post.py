@@ -80,5 +80,7 @@ for k, v in d['sp'].items():
     if not v.get('d') and k in SPELL_DESC: v['d'] = SPELL_DESC[k]
 print('spells meta from 5e-db', fixed, '/', len(d['sp']), 'no desc', [k for k, v in d['sp'].items() if not v.get('d')])
 for k in ['clairvoyance', 'fireball', 'command', 'detect-magic', 'shield']: print(k, {x: d['sp'][k].get(x) for x in ['n', 'l', 'ct', 'r', 'du', 'c', 'cmp']})
+from fixdmg import fix
+print('dmg condicional quitado', fix(d))
 d['v'] = 2
 json.dump(d, open('srd52_es_v2.json', 'w'), ensure_ascii=False, separators=(',', ':'))

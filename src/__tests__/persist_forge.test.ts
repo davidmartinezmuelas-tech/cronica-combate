@@ -21,6 +21,21 @@ describe('datos SRD', () => {
     expect(d.la).toBe(3);
     expect(d.ac_!.find((f) => f.n === 'Aliento de fuego')?.rc).toBe(5);
   });
+  it('el botón de daño no suma tiradas condicionales ni alternativas', () => {
+    const norm = (s: string) => s.replace(/\s/g, '').replace('−', '-');
+    const conditional = (text: string, expr: string) => {
+      for (const m of text.matchAll(/\((\d+d\d+(?: ?[+−-] ?\d+)?)\)/g)) {
+        if (norm(m[1]) === norm(expr)) return /\bsi\b/.test(text.slice(m.index! + m[0].length).split(/[.,—]/)[0]);
+      }
+      return false;
+    };
+    const bad = srd.m.flatMap((m) => (['tr', 'ac_', 'ba', 're', 'lg'] as const).flatMap((k) =>
+      (m[k] || []).filter((f) => f.dmg && f.dmg.slice(1).some(([e]) => conditional(f.d, e))).map((f) => m.id + ' · ' + f.n)));
+    expect(bad).toEqual([]);
+    const goblin = srd.m.find((m) => m.id === 'goblin-warrior')!.ac_![0];
+    expect(goblin.dmg).toEqual([['1d6+2', 'cortante']]);
+    expect(goblin.d.match(/2 \(1d4\)/g)).toHaveLength(1);
+  });
 });
 
 describe('forja', () => {
