@@ -22,7 +22,7 @@ export const CONDITIONS: [string, string][] = [
   ['Inconsciente', 'Incapacitado y derribado; suelta lo que sostiene. Falla salvaciones de Fuerza y Destreza. Ataques contra él con ventaja; los impactos a 5 pies o menos son críticos.'],
   ['Invisible', 'Ventaja en iniciativa. Sus ataques tienen ventaja y los ataques contra él, desventaja, salvo que algo permita verlo.'],
   ['Paralizado', 'Incapacitado y Velocidad 0. Falla salvaciones de Fuerza y Destreza. Ataques contra él con ventaja; los impactos a 5 pies o menos son críticos.'],
-  ['Petrificado', 'Incapacitado y Velocidad 0. Resistencia a todo el daño e inmune a veneno. Ataques contra él con ventaja; falla salvaciones de Fuerza y Destreza.'],
+  ['Petrificado', 'Incapacitado y Velocidad 0. Resistencia a todo el daño e inmune al estado Envenenado. Ataques contra él con ventaja; falla salvaciones de Fuerza y Destreza.'],
 ];
 
 export const CONDITION_IMMUNITIES = ['agarrado', 'agotamiento', 'apresado', 'asustado', 'aturdido', 'cegado', 'derribado', 'ensordecido', 'envenenado', 'hechizado', 'incapacitado', 'inconsciente', 'paralizado', 'petrificado'];

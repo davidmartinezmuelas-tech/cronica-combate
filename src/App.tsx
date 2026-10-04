@@ -49,7 +49,8 @@ export default function App() {
       </footer>
       {helpOpen && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" onClick={() => useStore.getState().set({ helpOpen: false })}>
-          <div className="panel dialog" onClick={(e) => e.stopPropagation()}>
+          {/* único control enfocable: Tab no debe sacar el foco del diálogo */}
+          <div className="panel dialog" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Tab') e.preventDefault(); }}>
             <div className="panel-head"><h2 id="help-title">Atajos de teclado</h2><button className="btn small ghost" onClick={() => useStore.getState().set({ helpOpen: false })} autoFocus>Cerrar</button></div>
             <ul className="rem">
               {HOTKEYS.map(([k, d]) => (<li key={k}><span className="kbd">{k}</span><span style={{ flex: 1 }}>{d}</span></li>))}

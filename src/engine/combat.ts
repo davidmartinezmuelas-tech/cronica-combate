@@ -94,9 +94,12 @@ export function applyDamage(c: Combatant, m: Monster | null, parts: DmgPart[], f
   for (const p of parts) {
     let a = factor === 0.5 ? Math.floor(p.amt / 2) : p.amt;
     const t = p.type;
-    if (t && (imm.includes(t) || (petrified && t === 'veneno'))) { notes.push('inmune a ' + t); a = 0; }
-    else if ((t && res.includes(t)) || petrified) { notes.push(petrified && !(t && res.includes(t)) ? 'petrificado: resiste' : 'resiste ' + t); a = Math.floor(a / 2); }
-    else if (t && vul.includes(t)) { notes.push('vulnerable a ' + t); a = a * 2; }
+    if (t && imm.includes(t)) { notes.push('inmune a ' + t); a = 0; }
+    else {
+      // 2024: primero la resistencia y después la vulnerabilidad; Petrificado resiste todo el daño
+      if ((t && res.includes(t)) || petrified) { notes.push(t && res.includes(t) ? 'resiste ' + t : 'petrificado: resiste'); a = Math.floor(a / 2); }
+      if (t && vul.includes(t)) { notes.push('vulnerable a ' + t); a = a * 2; }
+    }
     total += a;
   }
   const absorbed = Math.min(c.temp || 0, total);
@@ -111,7 +114,10 @@ export function applyDamage(c: Combatant, m: Monster | null, parts: DmgPart[], f
   }];
   let conc: ConcPrompt | null = null;
   if (c.kind === 'pc') {
-    if (was === 0 && total > 0 && !c.dead) {
+    if (was === 0 && dmg > 0 && !c.dead && dmg >= c.maxHp) {
+      out.dead = true;
+      logs.push({ label: c.name + ' muere en el acto', detail: 'Recibe a 0 PG un daño igual o mayor que sus PG máximos', total: '†' });
+    } else if (was === 0 && total > 0 && !c.dead) {
       const f = Math.min(3, (c.death?.f || 0) + (crit ? 2 : 1));
       out.death = { s: c.death?.s || 0, f };
       out.stable = false;
@@ -221,7 +227,7 @@ export interface RollMods {
  */
 export function rollModifiers(c: Combatant | null, kind: RollKind, ability?: number): RollMods {
   const out: RollMods = { adv: false, dis: false, flat: 0, autoFail: false, reasons: [] };
-  if (!c || kind === 'damage' || kind === 'free' || kind === 'death') return out;
+  if (!c || kind === 'damage' || kind === 'free') return out;
   const has = (k: string) => hasCond(c, k);
   const dis = (why: string) => { out.dis = true; out.reasons.push('desventaja: ' + why); };
   const adv = (why: string) => { out.adv = true; out.reasons.push('ventaja: ' + why); };
@@ -249,6 +255,14 @@ export function rollModifiers(c: Combatant | null, kind: RollKind, ability?: num
     out.reasons.push('agotamiento ' + c.exh + ': ' + out.flat);
   }
   return out;
+}
+
+/** Cambia el nivel de agotamiento (0–6). El nivel 6 mata a la criatura (2024). */
+export function setExhaustion(c: Combatant, n: number): { patch: Partial<Combatant>; log: LogDraft | null } {
+  const exh = Math.max(0, Math.min(6, n));
+  if (exh < 6 || c.kind === 'lair') return { patch: { exh }, log: null };
+  const patch: Partial<Combatant> = c.kind === 'pc' ? { exh, dead: true } : { exh, hp: 0 };
+  return { patch, log: { label: c.name + ' muere', detail: 'Agotamiento de nivel 6', total: '†' } };
 }
 
 /** Resuelve una salvación de muerte (2024). */

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Monster } from '../data/types';
-import { applyDamage, applyHeal, encounterDifficulty, resolveDeathSave, rollModifiers, sortCombatants, stepTurn, turnStart, uniqueName } from '../engine/combat';
+import { applyDamage, applyHeal, encounterDifficulty, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, stepTurn, turnStart, uniqueName } from '../engine/combat';
+import { useStore } from '../store/useStore';
 
 const base = (o: Partial<Combatant>): Combatant => ({
   id: 'x', kind: 'monster', name: 'X', init: 10, initBonus: 0, hp: 20, maxHp: 20, temp: 0, ac: 12, conds: [], conc: false, exh: 0, react: false,
@@ -107,5 +108,46 @@ describe('dificultad 2024', () => {
     const d = encounterDifficulty(cs, () => m);
     expect(d.budget).toEqual([1000, 1500, 2200]);
     expect(d.label).toBe('Baja');
+  });
+});
+
+describe('correcciones de la auditoría', () => {
+  it('Petrificado resiste el veneno en vez de ser inmune', () => {
+    const r = applyDamage(base({ conds: [{ k: 'Petrificado', r: null }] }), null, [{ type: 'veneno', amt: 10 }], 1);
+    expect(r.total).toBe(5);
+  });
+  it('resistencia y vulnerabilidad al mismo tipo se aplican las dos', () => {
+    expect(applyDamage(base({}), mon({ res: ['fuego'], vul: ['fuego'] }), [{ type: 'fuego', amt: 7 }], 1).total).toBe(6);
+  });
+  it('jugador a 0 PG muere si recibe daño igual o mayor que sus PG máximos', () => {
+    const pc = base({ kind: 'pc', hp: 0, maxHp: 20, death: { s: 0, f: 0 } });
+    expect(applyDamage(pc, null, [{ type: '', amt: 20 }], 1).c.dead).toBe(true);
+    expect(applyDamage(pc, null, [{ type: '', amt: 19 }], 1).c.dead).toBeFalsy();
+  });
+  it('el agotamiento también resta a las salvaciones de muerte', () => {
+    expect(rollModifiers(base({ kind: 'pc', exh: 2 }), 'death').flat).toBe(-4);
+  });
+  it('agotamiento 6 mata', () => {
+    expect(setExhaustion(base({ kind: 'pc' }), 6).patch.dead).toBe(true);
+    expect(setExhaustion(base({}), 7).patch).toEqual({ exh: 6, hp: 0 });
+    expect(setExhaustion(base({ kind: 'pc' }), 5).log).toBeNull();
+  });
+  it('quitar a quien está en turno pasa al siguiente, no vuelve al primero', () => {
+    const cs = [base({ id: 'a', name: 'A', init: 20 }), base({ id: 'b', name: 'B', init: 15 }), base({ id: 'c', name: 'C', init: 10 })];
+    useStore.setState({ combatants: cs, started: true, activeId: 'b', round: 2, undoStack: [] });
+    useStore.getState().removeCombatant('b');
+    const s = useStore.getState();
+    expect(s.activeId).toBe('c');
+    expect(s.round).toBe(2);
+    expect(s.combatants.map((c) => c.id)).toEqual(['a', 'c']);
+    s.undo();
+    expect(useStore.getState().activeId).toBe('b');
+  });
+  it('quitar al último de la ronda empieza la siguiente', () => {
+    const cs = [base({ id: 'a', name: 'A', init: 20 }), base({ id: 'c', name: 'C', init: 10 })];
+    useStore.setState({ combatants: cs, started: true, activeId: 'c', round: 1, undoStack: [] });
+    useStore.getState().removeCombatant('c');
+    expect(useStore.getState().activeId).toBe('a');
+    expect(useStore.getState().round).toBe(2);
   });
 });

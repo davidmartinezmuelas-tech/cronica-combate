@@ -1,8 +1,9 @@
 import { create } from 'zustand';
+import { SCHEMA_VERSION } from '../data/constants';
 import type { Combatant, ConcPrompt, DieView, DmgPart, LogEntry, Monster, RollResult, RosterEntry, SavedState, Spell, SrdData, TurnEvent } from '../data/types';
 import { combineAdv, rollParts, shapeClass, rollDie, sgn, type AdvMode, type PhysicalDie, type RollKind, type RollPart } from '../engine/dice';
 import {
-  addCondition, applyDamage, applyHeal, makeLair, makeMonsterCombatant, makePcCombatant, resolveDeathSave, rollModifiers, sortCombatants,
+  addCondition, applyDamage, applyHeal, makeLair, makeMonsterCombatant, makePcCombatant, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants,
   stepTurn, turnStart, uniqueName, type LogDraft, type RechargeCheck,
 } from '../engine/combat';
 import { blankForge, forgeToMonster, monsterToForge, type ForgeFeat, type ForgeState } from '../engine/forge';
@@ -120,6 +121,7 @@ export interface State {
   heal: (id: string, amt: number, src?: string) => void;
   giveTemp: (id: string, amt: number) => void;
   toggleCond: (id: string, k: string) => void;
+  setExh: (id: string, n: number) => void;
   setUsed: (id: string, key: string, v: number, max: number) => void;
   setSpUsed: (id: string, key: string, v: number, max: number) => void;
   setSpent: (id: string, key: string, v: boolean) => void;
@@ -256,6 +258,22 @@ export const useStore = create<State>()((set, get) => {
     });
   };
 
+  /** Empieza el turno de `nx.id`: efectos de inicio de turno, nueva ronda y recargas. */
+  const beginTurn = (nx: { id: string; round: number }) => {
+    const s = get();
+    const next = s.combatants.find((c) => c.id === nx.id);
+    if (!next) return;
+    const r = turnStart(next, get().monById(next.monsterId) || null);
+    const waiting = s.combatants.filter((c) => c.init == null);
+    const events = r.events.concat(waiting.length ? [{ text: 'Sin iniciativa (no actúan hasta que la pongas): ' + waiting.map((c) => c.name).join(', ') + '.' }] : []);
+    set({
+      activeId: next.id, selId: next.id, round: nx.round, tab: 'combat', spellOpen: null, turnEvents: events,
+      combatants: s.combatants.map((c) => (c.id === next.id ? r.c : c)),
+      log: nx.round !== s.round ? pushLog([{ label: 'Ronda ' + nx.round, detail: 'Empieza una nueva ronda', total: 'R' + nx.round }]) : s.log,
+    });
+    if (r.recharge.length) rollRecharge(next.id, r.recharge);
+  };
+
   return {
     tab: 'combat', loaded: false, loadError: '', srd: [], spells: {}, types: [], storageOk: true, persistent: false,
     custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [],
@@ -281,7 +299,8 @@ export const useStore = create<State>()((set, get) => {
     },
 
     set: (patch) => set(patch),
-    monById: (id) => (id ? get().custom.find((m) => m.id === id) || get().srd.find((m) => m.id === id) : undefined),
+    // el SRD manda: una criatura propia importada con un id del SRD no puede suplantarla
+    monById: (id) => (id ? get().srd.find((m) => m.id === id) || get().custom.find((m) => m.id === id) : undefined),
 
     showToast(msg) {
       set({ toast: msg });
@@ -455,7 +474,10 @@ export const useStore = create<State>()((set, get) => {
       if (!c) return;
       get().snap('quitar a ' + c.name);
       const s = get();
+      // si se quita a quien está en turno, el turno pasa al siguiente en la iniciativa (no vuelve al primero)
+      const nx = s.started && s.activeId === id ? stepTurn(s.combatants, id, s.round, 1) : null;
       set({ combatants: s.combatants.filter((x) => x.id !== id), selId: null, activeId: s.activeId === id ? null : s.activeId, concPrompts: s.concPrompts.filter((p) => p.id !== id) });
+      if (nx && nx.id !== id) beginTurn(nx);
     },
 
     startCombat() {
@@ -491,15 +513,7 @@ export const useStore = create<State>()((set, get) => {
       const next = s.combatants.find((c) => c.id === nx.id)!;
       if (dir > 0) {
         get().snap('turno de ' + next.name);
-        const r = turnStart(next, get().monById(next.monsterId) || null);
-        const waiting = s.combatants.filter((c) => c.init == null);
-        const events = r.events.concat(waiting.length ? [{ text: 'Sin iniciativa (no actúan hasta que la pongas): ' + waiting.map((c) => c.name).join(', ') + '.' }] : []);
-        set({
-          activeId: next.id, selId: next.id, round: nx.round, tab: 'combat', spellOpen: null, turnEvents: events,
-          combatants: s.combatants.map((c) => (c.id === next.id ? r.c : c)),
-          log: nx.round !== s.round ? pushLog([{ label: 'Ronda ' + nx.round, detail: 'Empieza una nueva ronda', total: 'R' + nx.round }]) : s.log,
-        });
-        if (r.recharge.length) rollRecharge(next.id, r.recharge);
+        beginTurn(nx);
       } else {
         get().snap('volver a ' + next.name);
         set({ activeId: next.id, selId: next.id, round: nx.round, turnEvents: [{ text: 'Has vuelto a este turno. Como ya hubo acciones después, los efectos de inicio de turno no se han deshecho: usa Deshacer si necesitas revertirlos.' }] });
@@ -560,6 +574,13 @@ export const useStore = create<State>()((set, get) => {
         return { conds: has ? c.conds.filter((x) => x.k !== k) : addCondition(c.conds, k, isNaN(r) || r <= 0 ? null : r) };
       }, 'estado ' + k);
     },
+    setExh(id, n) {
+      const c = get().combatants.find((x) => x.id === id);
+      if (!c) return;
+      const r = setExhaustion(c, n);
+      get().patchC(id, r.patch, 'agotamiento');
+      if (r.log) set({ log: pushLog([r.log]) });
+    },
     setUsed: (id, key, v, max) => get().patchC(id, (c) => ({ used: { ...c.used, [key]: Math.max(0, Math.min(max, v)) } }), 'usos'),
     setSpUsed: (id, key, v, max) => get().patchC(id, (c) => ({ spUsed: { ...c.spUsed, [key]: Math.max(0, Math.min(max, v)) } }), 'usos de conjuro'),
     setSpent: (id, key, v) => get().patchC(id, (c) => ({ spent: { ...c.spent, [key]: v } }), 'recarga'),
@@ -597,7 +618,7 @@ export const useStore = create<State>()((set, get) => {
       if (!c) return;
       get().snap('salvación de muerte');
       get().roll({
-        label: 'Salvación de muerte · ' + c.name, kind: 'death', noAdv: true, parts: [{ expr: '1d20' }],
+        label: 'Salvación de muerte · ' + c.name, kind: 'death', cid: id, noAdv: true, parts: [{ expr: '1d20' }],
         after: (total, nat) => {
           const cc = get().combatants.find((x) => x.id === id);
           if (!cc) return {};
@@ -702,7 +723,7 @@ export const useStore = create<State>()((set, get) => {
 });
 
 export const savedSlice = (s: State): SavedState => ({
-  v: 3, custom: s.custom, roster: s.roster, combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started,
+  v: SCHEMA_VERSION, custom: s.custom, roster: s.roster, combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started,
   log: s.log.slice(0, 30), diceTheme: s.diceTheme, turnEvents: s.turnEvents,
 });
 

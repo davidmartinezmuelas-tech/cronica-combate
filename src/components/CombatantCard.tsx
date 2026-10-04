@@ -10,7 +10,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
   const condRounds = useStore((s) => s.condRounds);
   const confirmKey = useStore((s) => s.confirmKey);
   const initDraft = useStore((s) => s.initDraft);
-  const { set, patchC, applyParts, heal, giveTemp, removeCombatant, confirm, toggleCond, deathMark, rollDeath } = useStore.getState();
+  const { set, patchC, applyParts, heal, giveTemp, removeCombatant, confirm, toggleCond, setExh, deathMark, rollDeath } = useStore.getState();
   const amt = parseInt(amount, 10);
   const defs: string[] = [];
   if (m) {
@@ -95,9 +95,9 @@ export default function CombatantCard({ c }: { c: Combatant }) {
             <button className={c.conc ? 'chip on' : 'chip'} aria-pressed={c.conc} onClick={() => patchC(c.id, { conc: !c.conc }, 'concentración')}>Concentrando</button>
             <span className="res">Agotamiento
               <span className="stepper">
-                <button className="step" aria-label="Reducir agotamiento" onClick={() => patchC(c.id, { exh: Math.max(0, c.exh - 1) }, 'agotamiento')}>−</button>
+                <button className="step" aria-label="Reducir agotamiento" onClick={() => setExh(c.id, c.exh - 1)}>−</button>
                 <span className="qty" aria-live="polite">{c.exh}</span>
-                <button className="step" aria-label="Aumentar agotamiento" onClick={() => patchC(c.id, { exh: Math.min(6, c.exh + 1) }, 'agotamiento')}>+</button>
+                <button className="step" aria-label="Aumentar agotamiento" onClick={() => setExh(c.id, c.exh + 1)}>+</button>
               </span>
             </span>
           </div>
