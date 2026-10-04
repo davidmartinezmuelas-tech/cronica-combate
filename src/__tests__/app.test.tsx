@@ -80,6 +80,34 @@ describe('flujo completo de un combate', () => {
     expect(data.started).toBe(true);
   });
 
+  it('herramientas del DM: CD del conjuro, daño alternativo y aviso de concentración', async () => {
+    render(<App />);
+    await flush();
+    await act(async () => { await vi.waitFor(() => expect(useStore.getState().loaded).toBe(true)); });
+    act(() => useStore.getState().set({ combatants: [], started: false, encounters: [], concPrompts: [] }));
+    const gob = useStore.getState().srd.find((m) => m.id === 'goblin-warrior')!;
+    act(() => useStore.getState().addMonster(gob, 1));
+    const g = useStore.getState().combatants[0];
+    act(() => useStore.getState().set({ selId: g.id, tab: 'combat' }));
+
+    // salvación contra la CD del conjuro
+    fireEvent.change(screen.getByLabelText('CD del conjuro del jugador'), { target: { value: '30' } });
+    fireEvent.click(screen.getByRole('button', { name: /Salvación de Destreza/ }));
+    expect(useStore.getState().result!.note).toMatch(/^Falla la CD 30\./);
+    fireEvent.change(screen.getByLabelText('CD del conjuro del jugador'), { target: { value: '1' } });
+    fireEvent.click(screen.getByRole('button', { name: /Salvación de Destreza/ }));
+    expect(useStore.getState().result!.note).toMatch(/^Supera la CD 1\./);
+
+    // botón de daño con ventaja
+    fireEvent.click(screen.getAllByRole('button', { name: /^Daño con ventaja: 1d6 \+ 2 cortante \+ 1d4 cortante/ })[0]);
+    expect(useStore.getState().result!.label).toBe('Guerrero goblin · Cimitarra: daño con ventaja');
+
+    // aviso de concentración de un jugador (sin tirada)
+    act(() => useStore.getState().set({ concPrompts: [{ pid: 'p1', id: 'x', name: 'Jimena', dc: 12, save: null }] }));
+    expect(screen.getByRole('alert').textContent).toBe('Jimena ha recibido daño: tiene que sacar 12 o más en la salvación de Constitución para mantener la concentración.MantieneLa pierde');
+    expect(screen.queryByRole('button', { name: /^Tirar \(CON/ })).toBeNull();
+  });
+
   it('la ayuda de atajos se abre con ?', async () => {
     render(<App />);
     await flush();

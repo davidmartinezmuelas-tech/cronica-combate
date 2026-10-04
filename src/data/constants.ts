@@ -51,4 +51,4 @@ export const SECTIONS: [SectionKey, string][] = [['tr', 'Rasgos'], ['ac_', 'Acci
 export const SIZES = ['Diminuto', 'Pequeño', 'Mediano', 'Grande', 'Enorme', 'Gargantuesco'];
 
 export const STORAGE_KEY = 'cronica-combate';
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;

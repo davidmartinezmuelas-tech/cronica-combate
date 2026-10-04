@@ -67,9 +67,10 @@ function TurnCard() {
   const m = useStore((s) => s.monById(active?.monsterId));
   const round = useStore((s) => s.round);
   const events = useStore((s) => s.turnEvents);
+  const combatants = useStore((s) => s.combatants);
   const { step, heal, rollDeath } = useStore.getState();
   if (!active) return null;
-  const rem = reminders(active, m || null);
+  const rem = reminders(active, m || null, combatants);
   return (
     <div className="turncard" aria-live="polite">
       <div className="panel-head">
@@ -105,7 +106,9 @@ function ConcPrompts() {
     <>
       {prompts.map((p) => (
         <div className="conc" role="alert" key={p.pid}>
-          <span><strong>{p.name}</strong> recibió daño mientras se concentraba: salvación de Constitución CD {p.dc}.</span>
+          {p.save == null
+            ? <span><strong>{p.name}</strong> ha recibido daño: tiene que sacar <strong>{p.dc}</strong> o más en la salvación de Constitución para mantener la concentración.</span>
+            : <span><strong>{p.name}</strong> recibió daño mientras se concentraba: salvación de Constitución CD {p.dc}.</span>}
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
             {p.save != null && <button className="btn small gold" onClick={() => rollConc(p)}>Tirar (CON {fmt(p.save)})</button>}
             <button className="btn small" onClick={() => resolveConc(p, true)}>Mantiene</button>

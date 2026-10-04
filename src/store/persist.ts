@@ -1,6 +1,6 @@
 import { createStore, get, set } from 'idb-keyval';
 import { SCHEMA_VERSION, SECTIONS, STORAGE_KEY, XP_BY_CR } from '../data/constants';
-import type { Combatant, LogEntry, Monster, RosterEntry, SavedState, TurnEvent } from '../data/types';
+import type { Combatant, Condition, Encounter, LogEntry, Monster, RosterEntry, SavedState, TurnEvent } from '../data/types';
 import { avgOf, modOf } from '../engine/dice';
 import { norm, num, pbOf, uid } from '../engine/util';
 
@@ -23,11 +23,34 @@ export function normCombatant(c: unknown): Combatant | null {
   o.temp = num(o.temp, 0);
   o.exh = Math.max(0, Math.min(6, num(o.exh, 0)));
   o.init = o.init == null || (o.init as unknown) === '' ? null : num(o.init, 0);
-  o.conds = (Array.isArray(o.conds) ? o.conds : [])
-    .map((k: unknown) => (typeof k === 'string' ? { k, r: null } : (k as { k: string; r: number | null })))
-    .filter((k) => k && typeof k.k === 'string');
+  o.conds = (Array.isArray(o.conds) ? o.conds : []).map(normCondition).filter((k): k is Condition => !!k);
   if (o.kind === 'pc') o.death = { s: 0, f: 0, ...(o.death || {}) };
   return o;
+}
+
+function normCondition(v: unknown): Condition | null {
+  if (typeof v === 'string') return { k: v, r: null };
+  if (!v || typeof v !== 'object') return null;
+  const x = v as Record<string, unknown>;
+  if (typeof x.k !== 'string') return null;
+  const cd: Condition = { k: x.k, r: x.r == null ? null : Math.max(1, num(x.r, 1)) };
+  if (cd.r != null) {
+    if (x.at === 'end') cd.at = 'end';
+    if (typeof x.by === 'string' && x.by) cd.by = x.by;
+    if (x.sk === 1) cd.sk = 1;
+  }
+  return cd;
+}
+
+export function normEncounter(e: unknown): Encounter | null {
+  if (!e || typeof e !== 'object') return null;
+  const x = e as Record<string, unknown>;
+  if (typeof x.name !== 'string' || !x.name.trim()) return null;
+  const items = (Array.isArray(x.items) ? x.items : [])
+    .filter((i): i is Record<string, unknown> => !!i && typeof i === 'object' && typeof (i as Record<string, unknown>).monsterId === 'string')
+    .map((i) => ({ monsterId: String(i.monsterId), qty: Math.max(1, Math.min(20, num(i.qty, 1))), inLair: !!i.inLair }));
+  if (!items.length) return null;
+  return { id: String(x.id || 'e-' + uid()), name: x.name.trim(), items, lair: !!x.lair };
 }
 
 export function normMonster(m: unknown): Monster | null {
@@ -72,7 +95,7 @@ export function normRoster(r: unknown): RosterEntry | null {
 }
 
 export function emptySaved(): SavedState {
-  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [] };
+  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], encounters: [] };
 }
 
 /** Repara y migra cualquier dato guardado o importado. Nunca lanza. */
@@ -89,6 +112,8 @@ export function normalizeSaved(raw: unknown): SavedState {
   out.log = (Array.isArray(x.log) ? x.log : []).filter((l): l is LogEntry => !!l && typeof (l as LogEntry).label === 'string').slice(0, 30);
   out.turnEvents = (Array.isArray(x.turnEvents) ? x.turnEvents : []).filter((e): e is TurnEvent => !!e && typeof (e as TurnEvent).text === 'string');
   out.diceTheme = ['ruby', 'bone', 'obsidian'].includes(String(x.diceTheme)) ? String(x.diceTheme) : 'ruby';
+  // v4: encuentros guardados (las versiones anteriores no los tienen)
+  out.encounters = (Array.isArray(x.encounters) ? x.encounters : []).map(normEncounter).filter((e): e is Encounter => !!e);
   return out;
 }
 
@@ -135,12 +160,13 @@ export interface ExportFile {
   exportedAt: string;
   roster: RosterEntry[];
   custom: Monster[];
+  encounters: Encounter[];
   combat: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
 }
 
 export function buildExport(s: SavedState): ExportFile {
   return {
-    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom,
+    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters,
     combat: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents },
   };
 }
@@ -150,6 +176,7 @@ export interface ImportResult {
   message: string;
   roster?: RosterEntry[];
   custom?: Monster[];
+  encounters?: Encounter[];
   combat?: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
 }
 
@@ -159,7 +186,7 @@ export function mergeImport(text: string, current: SavedState): ImportResult {
   try { d = JSON.parse(text); } catch { return { ok: false, message: 'El archivo no es una copia válida.' }; }
   if (!d || typeof d !== 'object') return { ok: false, message: 'El archivo no es una copia válida.' };
   const x = d as Record<string, unknown>;
-  if (!Array.isArray(x.roster) && !Array.isArray(x.custom)) return { ok: false, message: 'No parece una copia de Crónica de Combate.' };
+  if (!Array.isArray(x.roster) && !Array.isArray(x.custom) && !Array.isArray(x.encounters)) return { ok: false, message: 'No parece una copia de Crónica de Combate.' };
   const inR = (Array.isArray(x.roster) ? x.roster : []).map(normRoster);
   const goodR = inR.filter((r): r is RosterEntry => !!r);
   const inM = (Array.isArray(x.custom) ? x.custom : []).map(normMonster);
@@ -169,7 +196,11 @@ export function mergeImport(text: string, current: SavedState): ImportResult {
   const roster = current.roster.filter((r) => !rIds.has(r.id) && !rNames.has(norm(r.name))).concat(goodR);
   const mIds = new Set(goodM.map((m) => m.id));
   const custom = goodM.concat(current.custom.filter((m) => !mIds.has(m.id)));
-  const bad = inR.length - goodR.length + (inM.length - goodM.length);
+  const inE = (Array.isArray(x.encounters) ? x.encounters : []).map(normEncounter);
+  const goodE = inE.filter((e): e is Encounter => !!e);
+  const eIds = new Set(goodE.map((e) => e.id));
+  const encounters = current.encounters.filter((e) => !eIds.has(e.id)).concat(goodE);
+  const bad = inR.length - goodR.length + (inM.length - goodM.length) + (inE.length - goodE.length);
   let combat: ImportResult['combat'];
   let extra = '';
   const c = x.combat as Record<string, unknown> | undefined;
@@ -181,7 +212,7 @@ export function mergeImport(text: string, current: SavedState): ImportResult {
     } else extra = '. El combate de la copia no se ha cargado porque ya tienes uno abierto: vacíalo y vuelve a importar si lo quieres';
   }
   return {
-    ok: true, roster, custom, combat,
-    message: 'Importado: ' + goodR.length + ' jugadores y ' + goodM.length + ' criaturas, fusionados con los tuyos' + extra + '.' + (bad ? ' Se han descartado ' + bad + ' registros dañados.' : ''),
+    ok: true, roster, custom, encounters, combat,
+    message: 'Importado: ' + goodR.length + ' jugadores, ' + goodM.length + ' criaturas y ' + goodE.length + ' encuentros, fusionados con los tuyos' + extra + '.' + (bad ? ' Se han descartado ' + bad + ' registros dañados.' : ''),
   };
 }

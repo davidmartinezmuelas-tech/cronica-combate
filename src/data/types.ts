@@ -7,7 +7,8 @@ export interface Feature {
   d: string; // descripción
   en?: 1; // texto original en inglés
   atk?: number; // bonificador de ataque
-  dmg?: [string, string][]; // [fórmula, tipo de daño]
+  dmg?: [string, string][]; // [fórmula, tipo de daño] que se aplica siempre
+  alt?: { l: string; dmg: [string, string][] }[]; // daño completo en un caso concreto («con ventaja», «si está Ensangrentado»…)
   dc?: [number, string]; // [CD, característica abreviada]
   half?: 1; // mitad de daño si supera la salvación
   rc?: number; // recarga X–6
@@ -82,7 +83,10 @@ export interface SrdData {
 
 export interface Condition {
   k: string;
-  r: number | null; // rondas restantes (null = indefinido)
+  r: number | null; // turnos restantes de `by` (null = indefinido)
+  at?: 'start' | 'end'; // se descuenta al inicio (por defecto) o al final del turno de `by`
+  by?: string; // id del combatiente cuyo turno cuenta (por defecto, quien tiene el estado)
+  sk?: 1; // se puso durante el turno de `by` y acaba al final: ese final no cuenta
 }
 
 export type CombatantKind = 'pc' | 'monster' | 'lair';
@@ -189,6 +193,14 @@ export interface DieView {
   done: boolean;
 }
 
+/** Encuentro preparado: qué monstruos y cuántos, sin PG ni iniciativa. */
+export interface Encounter {
+  id: string;
+  name: string;
+  items: { monsterId: string; qty: number; inLair: boolean }[];
+  lair: boolean; // añade la tarjeta de acciones de guarida
+}
+
 /** Datos persistentes de la app. */
 export interface SavedState {
   v: number;
@@ -202,4 +214,5 @@ export interface SavedState {
   log: LogEntry[];
   diceTheme: string;
   turnEvents: TurnEvent[];
+  encounters: Encounter[];
 }

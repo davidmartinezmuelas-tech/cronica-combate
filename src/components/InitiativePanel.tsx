@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { Combatant } from '../data/types';
 import { sortCombatants } from '../engine/combat';
 import { useStore } from '../store/useStore';
@@ -57,6 +57,45 @@ function Row({ c }: { c: Combatant }) {
   );
 }
 
+function Encounters() {
+  const encounters = useStore((s) => s.encounters);
+  const hasMonsters = useStore((s) => s.combatants.some((c) => c.kind === 'monster'));
+  const confirmKey = useStore((s) => s.confirmKey);
+  const { saveEncounter, loadEncounter, deleteEncounter, monById } = useStore.getState();
+  const [name, setName] = useState('');
+  const save = () => { if (saveEncounter(name)) setName(''); };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #33271c', paddingTop: 12 }}>
+      <span className="eyebrow">Encuentros preparados</span>
+      {encounters.length > 0 && (
+        <ul className="rem">
+          {encounters.map((e) => (
+            <li key={e.id}>
+              <span style={{ flex: 1, minWidth: 160 }}>
+                <strong>{e.name}</strong>
+                <span className="muted small" style={{ display: 'block' }}>
+                  {e.items.map((it) => it.qty + ' × ' + (monById(it.monsterId)?.n || it.monsterId)).join(', ')}{e.lair ? ' · guarida' : ''}
+                </span>
+              </span>
+              <span style={{ display: 'flex', gap: 6 }}>
+                <button className="btn small" onClick={() => loadEncounter(e.id)}>Cargar</button>
+                <button className="btn small ghost" onClick={() => deleteEncounter(e.id)}>{confirmKey === 'enc-' + e.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {hasMonsters ? (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="field" style={{ flex: 1, minWidth: 160 }}><label htmlFor="enc-name">Guardar los monstruos actuales como</label>
+            <input id="enc-name" className="input" value={name} placeholder="Emboscada en el puente" onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} /></div>
+          <button className="btn small" onClick={save}>Guardar encuentro</button>
+        </div>
+      ) : !encounters.length && <p className="muted small" style={{ margin: 0 }}>Añade monstruos y guárdalos aquí para cargarlos de un clic el día de la sesión.</p>}
+    </div>
+  );
+}
+
 export default function InitiativePanel() {
   const combatants = useStore((s) => s.combatants);
   const roster = useStore((s) => s.roster);
@@ -87,6 +126,7 @@ export default function InitiativePanel() {
         </div>
       )}
       {!roster.length && <button className="btn small ghost" onClick={() => set({ tab: 'group' })} style={{ alignSelf: 'flex-start' }}>Guardar a tus jugadores en Grupo</button>}
+      <Encounters />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, borderTop: '1px solid #33271c', paddingTop: 12 }}>
         {!combatants.some((c) => c.kind === 'lair') && <button className="btn small ghost" onClick={addLairCombatant}>Añadir acciones de guarida (ini 20)</button>}
         {started && <button className="btn small ghost" onClick={() => confirm('end', endCombat)}>{confirmKey === 'end' ? '¿Seguro? Pulsa otra vez' : 'Terminar combate'}</button>}

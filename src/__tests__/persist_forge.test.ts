@@ -36,6 +36,14 @@ describe('datos SRD', () => {
     expect(goblin.dmg).toEqual([['1d6+2', 'cortante']]);
     expect(goblin.d.match(/2 \(1d4\)/g)).toHaveLength(1);
   });
+  it('el daño condicional queda como botón alternativo con el daño completo', () => {
+    const feat = (id: string) => srd.m.find((m) => m.id === id)!.ac_!.find((f) => f.alt)!;
+    expect(feat('goblin-warrior').alt).toEqual([{ l: 'con ventaja', dmg: [['1d6+2', 'cortante'], ['1d4', 'cortante']] }]);
+    expect(feat('chimera').alt).toEqual([{ l: 'con ventaja', dmg: [['4d6+4', 'perforante']] }]);
+    expect(feat('mimic').alt).toEqual([{ l: 'si el objetivo está agarrado', dmg: [['2d8+3', 'perforante'], ['1d8', 'ácido']] }]);
+    expect(feat('swarm-of-rats').alt![0].l).toBe('si está Ensangrentado');
+    expect(srd.m.flatMap((m) => m.ac_ || []).filter((f) => f.alt)).toHaveLength(15);
+  });
 });
 
 describe('forja', () => {
@@ -83,5 +91,25 @@ describe('guardado e importación', () => {
   it('rechaza archivos que no son copias', () => {
     expect(mergeImport('no json', emptySaved()).ok).toBe(false);
     expect(mergeImport('{"a":1}', emptySaved()).ok).toBe(false);
+  });
+});
+
+describe('esquema v4: encuentros y duración de estados', () => {
+  it('migra datos v3 sin encuentros y conserva las duraciones nuevas', () => {
+    const s = normalizeSaved({ v: 3, combatants: [{ id: 'a', kind: 'monster', name: 'G', conds: [{ k: 'Asustado', r: 2, at: 'end', by: 'j', sk: 1 }, { k: 'Cegado', r: 'x', at: 'raro' }] }] });
+    expect(s.v).toBe(4);
+    expect(s.encounters).toEqual([]);
+    expect(s.combatants[0].conds).toEqual([{ k: 'Asustado', r: 2, at: 'end', by: 'j', sk: 1 }, { k: 'Cegado', r: 1 }]);
+  });
+  it('descarta encuentros dañados y limita cantidades', () => {
+    const s = normalizeSaved({ encounters: [{ id: 'e1', name: 'Puente', items: [{ monsterId: 'goblin-warrior', qty: 99 }, { qty: 2 }] }, { name: '', items: [] }, { name: 'Vacío', items: [] }] });
+    expect(s.encounters).toEqual([{ id: 'e1', name: 'Puente', items: [{ monsterId: 'goblin-warrior', qty: 20, inLair: false }], lair: false }]);
+  });
+  it('las copias llevan los encuentros y se fusionan por id', () => {
+    const cur = { ...emptySaved(), encounters: [{ id: 'e1', name: 'Viejo', items: [{ monsterId: 'x', qty: 1, inLair: false }], lair: false }] };
+    const file = JSON.stringify(buildExport({ ...emptySaved(), encounters: [{ id: 'e1', name: 'Nuevo', items: [{ monsterId: 'y', qty: 2, inLair: true }], lair: true }] }));
+    const r = mergeImport(file, cur);
+    expect(r.encounters!.map((e) => e.name)).toEqual(['Nuevo']);
+    expect(r.message).toContain('1 encuentros');
   });
 });

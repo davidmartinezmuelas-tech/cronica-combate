@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Combatant, Monster } from '../data/types';
-import { applyDamage, applyHeal, encounterDifficulty, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, stepTurn, turnStart, uniqueName } from '../engine/combat';
+import { addCondition, applyDamage, applyHeal, durationText, encounterDifficulty, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, stepTurn, tickConditions, turnStart, uniqueName } from '../engine/combat';
 import { useStore } from '../store/useStore';
 
 const base = (o: Partial<Combatant>): Combatant => ({
@@ -64,13 +64,53 @@ describe('daño', () => {
 });
 
 describe('inicio de turno', () => {
-  it('reinicia legendarias y reacción, descuenta estados y lista recargas gastadas', () => {
+  it('reinicia legendarias y reacción y lista recargas gastadas', () => {
     const m = mon({ ac_: [{ n: 'Aliento', d: '', rc: 5 }] });
-    const r = turnStart(base({ laMax: 3, laUsed: 2, react: true, conds: [{ k: 'Aturdido', r: 1 }, { k: 'Derribado', r: null }], spent: { ac_0: true } }), m);
+    const r = turnStart(base({ laMax: 3, laUsed: 2, react: true, spent: { ac_0: true } }), m);
     expect(r.c.laUsed).toBe(0);
     expect(r.c.react).toBe(false);
-    expect(r.c.conds).toEqual([{ k: 'Derribado', r: null }]);
     expect(r.recharge).toEqual([{ key: 'ac_0', name: 'Aliento', min: 5 }]);
+  });
+});
+
+describe('duración de los estados', () => {
+  const j = base({ id: 'j', name: 'Jimena', kind: 'pc' });
+  it('por defecto se descuenta al inicio del turno de quien lo tiene', () => {
+    const g = base({ id: 'g', name: 'Goblin', conds: [{ k: 'Aturdido', r: 1 }, { k: 'Derribado', r: null }] });
+    const t = tickConditions([g, j], 'g', 'start');
+    expect(t.cs[0].conds).toEqual([{ k: 'Derribado', r: null }]);
+    expect(t.events[0].text).toBe('Termina el estado «Aturdido».');
+    expect(tickConditions([g, j], 'g', 'end').cs[0].conds).toHaveLength(2);
+  });
+  it('«hasta el final del siguiente turno de Jimena», puesto en su turno, no acaba al final de este', () => {
+    const conds = addCondition([], 'Asustado', 1, { at: 'end', by: 'j', activeId: 'j', holderId: 'g' });
+    expect(conds).toEqual([{ k: 'Asustado', r: 1, at: 'end', by: 'j', sk: 1 }]);
+    let cs = [base({ id: 'g', name: 'Goblin', conds }), j];
+    cs = tickConditions(cs, 'j', 'end').cs; // final del turno actual de Jimena
+    expect(cs[0].conds).toEqual([{ k: 'Asustado', r: 1, at: 'end', by: 'j' }]);
+    expect(tickConditions(cs, 'g', 'end').cs[0].conds).toHaveLength(1); // el turno del goblin no cuenta
+    const t = tickConditions(cs, 'j', 'end'); // final del siguiente turno de Jimena
+    expect(t.cs[0].conds).toEqual([]);
+    expect(t.events[0].text).toBe('Termina el estado «Asustado» de Goblin.');
+  });
+  it('texto de la duración', () => {
+    const g = base({ id: 'g', name: 'Goblin' });
+    expect(durationText({ k: 'Asustado', r: 2, at: 'end', by: 'j' }, g, [g, j])).toBe('2 turnos de Jimena, acaba al final');
+    expect(durationText({ k: 'Aturdido', r: 1 }, g, [g])).toBe('1 turno, acaba al inicio');
+  });
+  it('en el combate: el estado puesto por Jimena dura hasta el final de su siguiente turno', () => {
+    const cs = [base({ id: 'j', name: 'Jimena', kind: 'pc', init: 20 }), base({ id: 'g', name: 'Goblin', init: 10 })];
+    useStore.setState({ combatants: cs, started: true, activeId: 'j', round: 1, undoStack: [], condRounds: '1', condAt: 'end', condBy: 'j' });
+    useStore.getState().toggleCond('g', 'Asustado');
+    const st = () => useStore.getState();
+    st().step(1); // turno del goblin
+    expect(st().combatants.find((c) => c.id === 'g')!.conds.map((c) => c.k)).toEqual(['Asustado']);
+    st().step(1); // turno de Jimena, ronda 2
+    expect(st().combatants.find((c) => c.id === 'g')!.conds.map((c) => c.k)).toEqual(['Asustado']);
+    st().step(1); // acaba el turno de Jimena
+    expect(st().combatants.find((c) => c.id === 'g')!.conds).toEqual([]);
+    expect(st().turnEvents[0].text).toBe('Termina el estado «Asustado» de Goblin.');
+    useStore.setState({ condRounds: '', condAt: 'start', condBy: '' });
   });
 });
 
@@ -149,5 +189,24 @@ describe('correcciones de la auditoría', () => {
     useStore.getState().removeCombatant('c');
     expect(useStore.getState().activeId).toBe('a');
     expect(useStore.getState().round).toBe(2);
+  });
+});
+
+describe('encuentros guardados', () => {
+  it('guarda los monstruos agrupados y los carga de una vez con un solo deshacer', () => {
+    const gob = mon({ id: 'goblin', n: 'Goblin' });
+    useStore.setState({ srd: [gob], custom: [], combatants: [], encounters: [], started: false, undoStack: [], addLair: false });
+    const st = () => useStore.getState();
+    st().addMonster(gob, 3);
+    expect(st().saveEncounter('Emboscada')).toBe(true);
+    expect(st().encounters[0]).toMatchObject({ name: 'Emboscada', items: [{ monsterId: 'goblin', qty: 3, inLair: false }], lair: false });
+    st().clearAll();
+    const before = st().undoStack.length;
+    st().loadEncounter(st().encounters[0].id);
+    expect(st().combatants.map((c) => c.name)).toEqual(['Goblin 1', 'Goblin 2', 'Goblin 3']);
+    expect(st().undoStack.length).toBe(before + 1);
+    expect(st().saveEncounter('emboscada')).toBe(true); // mismo nombre: actualiza
+    expect(st().encounters).toHaveLength(1);
+    expect(st().saveEncounter('')).toBe(false);
   });
 });

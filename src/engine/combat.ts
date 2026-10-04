@@ -35,9 +35,43 @@ export function uniqueName(base: string, taken: Set<string>): string {
   return base + ' ' + n;
 }
 
-export function addCondition(conds: Condition[], k: string, r: number | null = null): Condition[] {
+export function addCondition(conds: Condition[], k: string, r: number | null = null, opts: { at?: 'start' | 'end'; by?: string; activeId?: string | null; holderId?: string } = {}): Condition[] {
   if (conds.some((x) => x.k === k)) return conds;
-  return conds.concat([{ k, r }]);
+  const cd: Condition = { k, r };
+  if (r != null) {
+    if (opts.at === 'end') cd.at = 'end';
+    if (opts.by && opts.by !== opts.holderId) cd.by = opts.by;
+    // «hasta el final de su siguiente turno» puesto en su propio turno: el final de este turno no cuenta
+    const owner = opts.by || opts.holderId;
+    if (opts.at === 'end' && owner && owner === opts.activeId) cd.sk = 1;
+  }
+  return conds.concat([cd]);
+}
+
+/** Descuenta los estados cuya duración depende del turno de `ownerId` en la fase indicada. */
+export function tickConditions(cs: Combatant[], ownerId: string, phase: 'start' | 'end'): { cs: Combatant[]; events: TurnEvent[] } {
+  const events: TurnEvent[] = [];
+  const out = cs.map((c) => {
+    let changed = false;
+    const conds: Condition[] = [];
+    for (const cd of c.conds) {
+      if (cd.r == null || (cd.by || c.id) !== ownerId || (cd.at || 'start') !== phase) { conds.push(cd); continue; }
+      changed = true;
+      if (cd.sk) { const { sk: _sk, ...rest } = cd; conds.push(rest); continue; }
+      const r = cd.r - 1;
+      if (r <= 0) events.push({ text: 'Termina el estado «' + cd.k + '»' + (c.id === ownerId ? '' : ' de ' + c.name) + '.' });
+      else conds.push({ ...cd, r });
+    }
+    return changed ? { ...c, conds } : c;
+  });
+  return { cs: out, events };
+}
+
+/** Texto de la duración de un estado para la interfaz. */
+export function durationText(cd: Condition, holder: Combatant, cs: Combatant[]): string {
+  if (cd.r == null) return '';
+  const owner = cd.by && cd.by !== holder.id ? cs.find((x) => x.id === cd.by)?.name || 'otro' : '';
+  return cd.r + ' turno' + (cd.r > 1 ? 's' : '') + (owner ? ' de ' + owner : '') + ', acaba al ' + (cd.at === 'end' ? 'final' : 'inicio');
 }
 
 export function hasCond(c: Combatant, k: string) {
@@ -158,18 +192,10 @@ export interface RechargeCheck {
   min: number;
 }
 
-/** Efectos al inicio del turno de una criatura. */
+/** Efectos al inicio del turno de una criatura (los estados se descuentan aparte con tickConditions). */
 export function turnStart(c: Combatant, m: Monster | null): { c: Combatant; events: TurnEvent[]; recharge: RechargeCheck[] } {
   const events: TurnEvent[] = [];
-  const kept: Condition[] = [];
-  for (const cd of c.conds) {
-    if (cd.r != null) {
-      const r = cd.r - 1;
-      if (r <= 0) events.push({ text: 'Termina el estado «' + cd.k + '».' });
-      else kept.push({ k: cd.k, r });
-    } else kept.push(cd);
-  }
-  const out: Combatant = { ...c, react: false, conds: kept };
+  const out: Combatant = { ...c, react: false };
   if (c.laMax) {
     if (c.laUsed) events.push({ text: 'Recupera sus ' + c.laMax + ' usos de acción legendaria.' });
     out.laUsed = 0;
@@ -290,12 +316,13 @@ export interface Reminder {
 const conditionText = (k: string) => CONDITIONS.find((x) => x[0] === k)?.[1] || '';
 
 /** Lo que el DM debe recordar al inicio del turno de una criatura. */
-export function reminders(c: Combatant, m: Monster | null): Reminder[] {
+export function reminders(c: Combatant, m: Monster | null, cs: Combatant[] = []): Reminder[] {
   const out: Reminder[] = [];
   if (c.kind === 'lair') {
     out.push({ text: c.note ? c.note : 'Escribe en su ficha las acciones de guarida que vayas a usar.' });
     return out;
   }
+  if (c.note && c.note.trim()) out.push({ text: 'Nota: ' + c.note.trim() });
   if (c.kind === 'pc' && c.hp === 0 && !c.dead && !c.stable) out.push({ text: 'Está a 0 PG: hace una tirada de salvación de muerte (CD 10).', action: { type: 'death' }, label: 'Tirar salvación de muerte' });
   if (c.kind === 'pc' && c.dead) out.push({ text: 'Ha muerto.' });
   if (m) {
@@ -309,7 +336,7 @@ export function reminders(c: Combatant, m: Monster | null): Reminder[] {
   }
   if (c.conc) out.push({ text: 'Mantiene la concentración en un conjuro.' });
   if (c.exh) out.push({ text: 'Agotamiento ' + c.exh + ': −' + 2 * c.exh + ' a tiradas d20 y −' + 5 * c.exh + ' pies de velocidad.' });
-  c.conds.forEach((cd) => out.push({ text: cd.k + (cd.r != null ? ' (' + cd.r + ' ronda' + (cd.r > 1 ? 's' : '') + ' más)' : '') + ': ' + conditionText(cd.k) }));
+  c.conds.forEach((cd) => out.push({ text: cd.k + (cd.r != null ? ' (' + durationText(cd, c, cs) + ')' : '') + ': ' + conditionText(cd.k) }));
   return out;
 }
 

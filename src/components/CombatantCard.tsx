@@ -1,5 +1,6 @@
 import { CONDITIONS, DMG_TYPES } from '../data/constants';
 import type { Combatant } from '../data/types';
+import { durationText } from '../engine/combat';
 import { useStore } from '../store/useStore';
 import { Pips } from './StatBlock';
 
@@ -8,6 +9,10 @@ export default function CombatantCard({ c }: { c: Combatant }) {
   const amount = useStore((s) => s.amount);
   const dmgType = useStore((s) => s.dmgType);
   const condRounds = useStore((s) => s.condRounds);
+  const condAt = useStore((s) => s.condAt);
+  const condBy = useStore((s) => s.condBy);
+  const combatants = useStore((s) => s.combatants);
+  const others = combatants.filter((x) => x.id !== c.id && x.kind !== 'lair');
   const confirmKey = useStore((s) => s.confirmKey);
   const initDraft = useStore((s) => s.initDraft);
   const { set, patchC, applyParts, heal, giveTemp, removeCombatant, confirm, toggleCond, setExh, deathMark, rollDeath } = useStore.getState();
@@ -105,10 +110,20 @@ export default function CombatantCard({ c }: { c: Combatant }) {
           {c.laMax > 0 && <div className="res-row"><span className="res">Acciones legendarias ({c.laMax - c.laUsed}/{c.laMax})<Pips max={c.laMax} used={c.laUsed} label="Acciones legendarias" onSet={(v) => patchC(c.id, { laUsed: Math.max(0, Math.min(c.laMax, v)) }, 'acción legendaria')} /></span></div>}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <span className="eyebrow">Estados</span>
-              <label className="small muted" htmlFor="crounds" style={{ marginLeft: 'auto' }}>Duración al añadir (rondas)</label>
-              <input id="crounds" type="number" min={0} className="input" value={condRounds} onChange={(e) => set({ condRounds: e.target.value })} placeholder="∞" style={{ width: 70, minHeight: 34, padding: '4px 8px' }} />
+            <span className="eyebrow">Estados</span>
+            <div className="cond-dur" role="group" aria-label="Duración al añadir un estado">
+              <label className="small muted" htmlFor="crounds">Dura</label>
+              <input id="crounds" type="number" min={0} className="input" value={condRounds} onChange={(e) => set({ condRounds: e.target.value })} placeholder="∞" style={{ width: 64, minHeight: 34, padding: '4px 8px' }} />
+              <span className="small muted">turnos; acaba al</span>
+              <select aria-label="Cuándo acaba" className="input" value={condAt} onChange={(e) => set({ condAt: e.target.value as 'start' | 'end' })} style={{ width: 'auto', minHeight: 34, padding: '4px 8px' }} disabled={!condRounds}>
+                <option value="start">inicio</option>
+                <option value="end">final</option>
+              </select>
+              <span className="small muted">del turno de</span>
+              <select aria-label="De quién es el turno que cuenta" className="input" value={condBy} onChange={(e) => set({ condBy: e.target.value })} style={{ width: 'auto', maxWidth: 200, minHeight: 34, padding: '4px 8px' }} disabled={!condRounds}>
+                <option value="">la propia criatura</option>
+                {others.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              </select>
             </div>
             <div className="chips" role="group" aria-label="Estados">
               {CONDITIONS.map(([k]) => {
@@ -118,11 +133,13 @@ export default function CombatantCard({ c }: { c: Combatant }) {
             </div>
             {c.conds.length > 0 && (
               <ul className="rem">
-                {c.conds.map((cd) => <li key={cd.k}><span><strong>{cd.k}:</strong> {CONDITIONS.find((x) => x[0] === cd.k)?.[1]}</span></li>)}
+                {c.conds.map((cd) => <li key={cd.k}><span><strong>{cd.k}</strong>{cd.r != null && <span className="muted"> ({durationText(cd, c, combatants)})</span>}<strong>:</strong> {CONDITIONS.find((x) => x[0] === cd.k)?.[1]}</span></li>)}
               </ul>
             )}
             {(c.conds.length > 0 || c.exh > 0) && c.kind === 'monster' && <p className="muted small" style={{ margin: 0 }}>Las tiradas de esta criatura ya aplican sus estados y su agotamiento.</p>}
           </div>
+          <div className="field"><label htmlFor="c-note">Notas (tácticas, botín, «huye a 10 PG»…). Aparecen al inicio de su turno.</label>
+            <textarea id="c-note" className="input" rows={2} value={c.note || ''} onChange={(e) => patchC(c.id, { note: e.target.value }, 'notas')} /></div>
         </>
       )}
     </div>

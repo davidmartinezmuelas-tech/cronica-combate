@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { SCHEMA_VERSION } from '../data/constants';
-import type { Combatant, ConcPrompt, DieView, DmgPart, LogEntry, Monster, RollResult, RosterEntry, SavedState, Spell, SrdData, TurnEvent } from '../data/types';
+import type { Combatant, ConcPrompt, DieView, DmgPart, Encounter, LogEntry, Monster, RollResult, RosterEntry, SavedState, Spell, SrdData, TurnEvent } from '../data/types';
 import { combineAdv, rollParts, shapeClass, rollDie, sgn, type AdvMode, type PhysicalDie, type RollKind, type RollPart } from '../engine/dice';
 import {
   addCondition, applyDamage, applyHeal, makeLair, makeMonsterCombatant, makePcCombatant, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants,
-  stepTurn, turnStart, uniqueName, type LogDraft, type RechargeCheck,
+  stepTurn, tickConditions, turnStart, uniqueName, type LogDraft, type RechargeCheck,
 } from '../engine/combat';
 import { blankForge, forgeToMonster, monsterToForge, type ForgeFeat, type ForgeState } from '../engine/forge';
 import { uid } from '../engine/util';
@@ -28,7 +28,7 @@ export interface RollSpec {
 interface Snapshot {
   label: string;
   at: number;
-  data: Pick<State, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents' | 'concPrompts' | 'critFor' | 'selId' | 'roster' | 'custom'>;
+  data: Pick<State, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents' | 'concPrompts' | 'critFor' | 'selId' | 'roster' | 'custom' | 'encounters'>;
 }
 
 export interface State {
@@ -50,6 +50,7 @@ export interface State {
   log: LogEntry[];
   diceTheme: string;
   turnEvents: TurnEvent[];
+  encounters: Encounter[];
   // combate
   selId: string | null;
   concPrompts: ConcPrompt[];
@@ -57,6 +58,9 @@ export interface State {
   amount: string;
   dmgType: string;
   condRounds: string;
+  condAt: 'start' | 'end';
+  condBy: string; // '' = la propia criatura
+  saveDc: string; // CD del conjuro de un jugador para las salvaciones de los monstruos
   // bestiario
   search: string;
   fType: string;
@@ -108,7 +112,10 @@ export interface State {
   patchC: (id: string, patch: Partial<Combatant> | ((c: Combatant) => Partial<Combatant>), label?: string) => void;
   roll: (spec: RollSpec) => void;
   rollInit: () => void;
-  addMonster: (m: Monster, qty: number) => void;
+  addMonster: (m: Monster, qty: number, opts?: { inLair?: boolean; silent?: boolean }) => void;
+  saveEncounter: (name: string) => boolean;
+  loadEncounter: (id: string) => void;
+  deleteEncounter: (id: string) => void;
   addPc: (r: RosterEntry) => void;
   addAllPcs: () => void;
   addLairCombatant: () => void;
@@ -258,17 +265,26 @@ export const useStore = create<State>()((set, get) => {
     });
   };
 
-  /** Empieza el turno de `nx.id`: efectos de inicio de turno, nueva ronda y recargas. */
-  const beginTurn = (nx: { id: string; round: number }) => {
+  /**
+   * Termina el turno de `prevId` (si lo hay) y empieza el de `nx.id`: estados que caducan,
+   * efectos de inicio de turno, nueva ronda y recargas.
+   */
+  const beginTurn = (nx: { id: string; round: number }, prevId: string | null) => {
     const s = get();
-    const next = s.combatants.find((c) => c.id === nx.id);
+    let cs = s.combatants;
+    const ticked: TurnEvent[] = [];
+    if (prevId) { const t = tickConditions(cs, prevId, 'end'); cs = t.cs; ticked.push(...t.events); }
+    const t = tickConditions(cs, nx.id, 'start');
+    cs = t.cs;
+    ticked.push(...t.events);
+    const next = cs.find((c) => c.id === nx.id);
     if (!next) return;
     const r = turnStart(next, get().monById(next.monsterId) || null);
-    const waiting = s.combatants.filter((c) => c.init == null);
-    const events = r.events.concat(waiting.length ? [{ text: 'Sin iniciativa (no actúan hasta que la pongas): ' + waiting.map((c) => c.name).join(', ') + '.' }] : []);
+    const waiting = cs.filter((c) => c.init == null);
+    const events = ticked.concat(r.events, waiting.length ? [{ text: 'Sin iniciativa (no actúan hasta que la pongas): ' + waiting.map((c) => c.name).join(', ') + '.' }] : []);
     set({
       activeId: next.id, selId: next.id, round: nx.round, tab: 'combat', spellOpen: null, turnEvents: events,
-      combatants: s.combatants.map((c) => (c.id === next.id ? r.c : c)),
+      combatants: cs.map((c) => (c.id === next.id ? r.c : c)),
       log: nx.round !== s.round ? pushLog([{ label: 'Ronda ' + nx.round, detail: 'Empieza una nueva ronda', total: 'R' + nx.round }]) : s.log,
     });
     if (r.recharge.length) rollRecharge(next.id, r.recharge);
@@ -276,8 +292,8 @@ export const useStore = create<State>()((set, get) => {
 
   return {
     tab: 'combat', loaded: false, loadError: '', srd: [], spells: {}, types: [], storageOk: true, persistent: false,
-    custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [],
-    selId: null, concPrompts: [], surprised: false, amount: '', dmgType: 'cortante', condRounds: '',
+    custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], encounters: [],
+    selId: null, concPrompts: [], surprised: false, amount: '', dmgType: 'cortante', condRounds: '', condAt: 'start', condBy: '', saveDc: '',
     search: '', fType: '', fCr: 'all', fLeg: false, fMine: false, viewId: null, qty: {}, hpMode: 'avg', shareInit: true, addLair: true, bLimit: 50,
     dice: [], rolling: false, result: null, adv: 'normal', critFor: null, dmgTargets: {}, manyDice: false, moreDice: 0, expr: '', exprError: false,
     pcForm: blankRoster(), editingPcId: null, pcMsg: '', ioMsg: '',
@@ -314,7 +330,7 @@ export const useStore = create<State>()((set, get) => {
       const stack = s.undoStack.slice();
       const top = stack[stack.length - 1];
       if (top && top.label === label && now - top.at < 1500) { top.at = now; return; }
-      stack.push({ label, at: now, data: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents, concPrompts: s.concPrompts, critFor: s.critFor, selId: s.selId, roster: s.roster, custom: s.custom } });
+      stack.push({ label, at: now, data: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents, concPrompts: s.concPrompts, critFor: s.critFor, selId: s.selId, roster: s.roster, custom: s.custom, encounters: s.encounters } });
       set({ undoStack: stack.slice(-50) });
     },
 
@@ -417,9 +433,10 @@ export const useStore = create<State>()((set, get) => {
       });
     },
 
-    addMonster(m, qty) {
-      get().snap('añadir ' + m.n);
+    addMonster(m, qty, opts = {}) {
+      if (!opts.silent) get().snap('añadir ' + m.n);
       const s = get();
+      const inLair = opts.inLair ?? s.addLair;
       const n = Math.max(1, Math.min(20, qty || 1));
       let cs = s.combatants;
       const taken = new Set(cs.map((c) => c.name));
@@ -436,10 +453,52 @@ export const useStore = create<State>()((set, get) => {
       for (let i = 0; i < n; i++) {
         const name = numbered ? uniqueName(m.n, taken) : m.n;
         taken.add(name);
-        add.push(makeMonsterCombatant(m, { name, inLair: s.addLair, rollHp: s.hpMode === 'roll', grp }));
+        add.push(makeMonsterCombatant(m, { name, inLair, rollHp: s.hpMode === 'roll', grp }));
       }
       set({ combatants: cs.concat(add) });
-      get().showToast(n + ' × ' + m.n + (s.addLair && m.lair ? ' (en su guarida)' : '') + ' al combate' + (s.started ? '. Tira o escribe su iniciativa: hasta entonces no actúa.' : ''));
+      if (!opts.silent) get().showToast(n + ' × ' + m.n + (inLair && m.lair ? ' (en su guarida)' : '') + ' al combate' + (s.started ? '. Tira o escribe su iniciativa: hasta entonces no actúa.' : ''));
+    },
+
+    saveEncounter(name) {
+      const s = get();
+      const nm = name.trim();
+      const items: Encounter['items'] = [];
+      s.combatants.filter((c) => c.kind === 'monster' && c.monsterId).forEach((c) => {
+        const it = items.find((x) => x.monsterId === c.monsterId && x.inLair === !!c.inLair);
+        if (it) it.qty++;
+        else items.push({ monsterId: c.monsterId!, qty: 1, inLair: !!c.inLair });
+      });
+      if (!nm || !items.length) { get().showToast(!items.length ? 'Añade monstruos antes de guardar el encuentro' : 'Ponle nombre al encuentro'); return false; }
+      get().snap('guardar encuentro');
+      const same = s.encounters.find((e) => e.name.toLowerCase() === nm.toLowerCase());
+      const enc: Encounter = { id: same?.id || 'e-' + uid(), name: nm, items, lair: s.combatants.some((c) => c.kind === 'lair') };
+      set({ encounters: same ? s.encounters.map((e) => (e.id === same.id ? enc : e)) : s.encounters.concat([enc]) });
+      get().showToast('Encuentro «' + nm + '» ' + (same ? 'actualizado' : 'guardado'));
+      return true;
+    },
+
+    loadEncounter(id) {
+      const s = get();
+      const e = s.encounters.find((x) => x.id === id);
+      if (!e) return;
+      get().snap('cargar ' + e.name);
+      const missing: string[] = [];
+      let n = 0;
+      e.items.forEach((it) => {
+        const m = get().monById(it.monsterId);
+        if (!m) { missing.push(it.monsterId); return; }
+        get().addMonster(m, it.qty, { inLair: it.inLair, silent: true });
+        n += it.qty;
+      });
+      if (e.lair && !get().combatants.some((c) => c.kind === 'lair')) set({ combatants: get().combatants.concat([makeLair()]) });
+      set({ tab: 'combat' });
+      get().showToast(n + ' monstruos de «' + e.name + '» al combate' + (missing.length ? '. No encontrados: ' + missing.join(', ') : '') + (s.started ? '. Tira su iniciativa.' : ''));
+    },
+
+    deleteEncounter(id) {
+      const e = get().encounters.find((x) => x.id === id);
+      if (!e) return;
+      get().confirm('enc-' + id, () => { get().snap('borrar ' + e.name); set({ encounters: get().encounters.filter((x) => x.id !== id) }); });
     },
 
     addPc(r) {
@@ -476,8 +535,13 @@ export const useStore = create<State>()((set, get) => {
       const s = get();
       // si se quita a quien está en turno, el turno pasa al siguiente en la iniciativa (no vuelve al primero)
       const nx = s.started && s.activeId === id ? stepTurn(s.combatants, id, s.round, 1) : null;
-      set({ combatants: s.combatants.filter((x) => x.id !== id), selId: null, activeId: s.activeId === id ? null : s.activeId, concPrompts: s.concPrompts.filter((p) => p.id !== id) });
-      if (nx && nx.id !== id) beginTurn(nx);
+      const moved = !!nx && nx.id !== id;
+      if (moved) beginTurn(nx!, id);
+      const s2 = get();
+      // los estados que dependían de su turno pasan a contar con el turno de quien los tiene
+      const combatants = s2.combatants.filter((x) => x.id !== id)
+        .map((x) => (x.conds.some((cd) => cd.by === id) ? { ...x, conds: x.conds.map((cd) => (cd.by === id ? { k: cd.k, r: cd.r, ...(cd.at ? { at: cd.at } : {}) } : cd)) } : x));
+      set({ combatants, selId: moved ? s2.selId : null, activeId: s2.activeId === id ? null : s2.activeId, concPrompts: s2.concPrompts.filter((p) => p.id !== id) });
     },
 
     startCombat() {
@@ -488,11 +552,12 @@ export const useStore = create<State>()((set, get) => {
       if (missing.length) { get().showToast('Falta la iniciativa de: ' + missing.slice(0, 4).join(', ') + (missing.length > 4 ? '…' : '')); return; }
       const order = sortCombatants(s.combatants);
       const first = order[0];
-      const r = turnStart(first, get().monById(first.monsterId) || null);
+      const t = tickConditions(s.combatants, first.id, 'start');
+      const r = turnStart(t.cs.find((c) => c.id === first.id)!, get().monById(first.monsterId) || null);
       get().snap('empezar combate');
       set({
-        started: true, round: 1, activeId: first.id, selId: first.id, tab: 'combat', turnEvents: r.events,
-        combatants: s.combatants.map((c) => (c.id === first.id ? r.c : c)),
+        started: true, round: 1, activeId: first.id, selId: first.id, tab: 'combat', turnEvents: t.events.concat(r.events),
+        combatants: t.cs.map((c) => (c.id === first.id ? r.c : c)),
         log: pushLog([{ label: '¡Comienza el combate!', detail: 'Orden: ' + order.map((c) => c.name + ' ' + c.init).join(' · '), total: 'R1' }]),
       });
     },
@@ -513,7 +578,7 @@ export const useStore = create<State>()((set, get) => {
       const next = s.combatants.find((c) => c.id === nx.id)!;
       if (dir > 0) {
         get().snap('turno de ' + next.name);
-        beginTurn(nx);
+        beginTurn(nx, s.activeId);
       } else {
         get().snap('volver a ' + next.name);
         set({ activeId: next.id, selId: next.id, round: nx.round, turnEvents: [{ text: 'Has vuelto a este turno. Como ya hubo acciones después, los efectos de inicio de turno no se han deshecho: usa Deshacer si necesitas revertirlos.' }] });
@@ -568,10 +633,12 @@ export const useStore = create<State>()((set, get) => {
     },
 
     toggleCond(id, k) {
-      const r = parseInt(get().condRounds, 10);
+      const s = get();
+      const r = parseInt(s.condRounds, 10);
+      const by = s.condBy && s.combatants.some((x) => x.id === s.condBy) ? s.condBy : id;
       get().patchC(id, (c) => {
         const has = c.conds.some((x) => x.k === k);
-        return { conds: has ? c.conds.filter((x) => x.k !== k) : addCondition(c.conds, k, isNaN(r) || r <= 0 ? null : r) };
+        return { conds: has ? c.conds.filter((x) => x.k !== k) : addCondition(c.conds, k, isNaN(r) || r <= 0 ? null : r, { at: s.condAt, by, activeId: s.started ? s.activeId : null, holderId: id }) };
       }, 'estado ' + k);
     },
     setExh(id, n) {
@@ -717,14 +784,14 @@ export const useStore = create<State>()((set, get) => {
       const r = mergeImport(text, savedSlice(get()));
       if (!r.ok) { set({ ioMsg: r.message }); return; }
       get().snap('importar');
-      set({ roster: r.roster!, custom: r.custom!, ...(r.combat || {}), ioMsg: r.message });
+      set({ roster: r.roster!, custom: r.custom!, encounters: r.encounters!, ...(r.combat || {}), ioMsg: r.message });
     },
   };
 });
 
 export const savedSlice = (s: State): SavedState => ({
   v: SCHEMA_VERSION, custom: s.custom, roster: s.roster, combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started,
-  log: s.log.slice(0, 30), diceTheme: s.diceTheme, turnEvents: s.turnEvents,
+  log: s.log.slice(0, 30), diceTheme: s.diceTheme, turnEvents: s.turnEvents, encounters: s.encounters,
 });
 
 // --- guardado automático ---
@@ -747,7 +814,7 @@ export function startAutosave() {
   const unsub = useStore.subscribe((s, prev) => {
     if (!s.loaded) return;
     if (s.custom !== prev.custom || s.roster !== prev.roster || s.combatants !== prev.combatants || s.round !== prev.round || s.activeId !== prev.activeId ||
-      s.started !== prev.started || s.log !== prev.log || s.diceTheme !== prev.diceTheme || s.turnEvents !== prev.turnEvents) {
+      s.started !== prev.started || s.log !== prev.log || s.diceTheme !== prev.diceTheme || s.turnEvents !== prev.turnEvents || s.encounters !== prev.encounters) {
       clearTimeout(saveT);
       saveT = setTimeout(() => { void saveNow(); }, 250);
     }
