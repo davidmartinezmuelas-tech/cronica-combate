@@ -55,6 +55,20 @@ describe('forja', () => {
     expect(m.ac_![0].d).toBe('Tirada de ataque cuerpo a cuerpo: +5, alcance 5 pies. Impacto: 10 (2d6 + 3) de daño cortante.');
     expect(m.ac_![0].atk).toBe(5);
   });
+  it('daño alternativo: genera el texto y el botón, y sobrevive a «Usar de base»', () => {
+    const f = blankForge();
+    f.name = 'Lobo';
+    f.feats[0] = { ...f.feats[0], name: 'Mordisco', atk: '4', d1: '1d6+2', t1: 'perforante', altL: 'con ventaja', altD1: '1d6+2', altT1: 'perforante', altD2: '1d6', altT2: 'perforante' };
+    const m = forgeToMonster(f, 'c-3', srd.sp);
+    expect(m.ac_![0].alt).toEqual([{ l: 'con ventaja', dmg: [['1d6+2', 'perforante'], ['1d6', 'perforante']] }]);
+    expect(m.ac_![0].d).toBe('Tirada de ataque cuerpo a cuerpo: +4, alcance 5 pies. Impacto: 5 (1d6 + 2) de daño perforante. Con ventaja: 5 (1d6 + 2) de daño perforante más 3 (1d6) de daño perforante.');
+    const gob = srd.m.find((x) => x.id === 'goblin-warrior')!;
+    const back = forgeToMonster(monsterToForge(gob, srd.sp), 'c-4', srd.sp);
+    expect(back.ac_![0].alt).toEqual(gob.ac_![0].alt);
+    expect(back.ac_![0].dmg).toEqual(gob.ac_![0].dmg);
+    f.feats[0] = { ...f.feats[0], altL: '' };
+    expect(forgeToMonster(f, 'c-5', srd.sp).ac_![0].alt).toBeUndefined();
+  });
   it('ida y vuelta de un monstruo del SRD conserva su mecánica', () => {
     const lich = srd.m.find((m) => m.id === 'lich')!;
     const back = forgeToMonster(monsterToForge(lich, srd.sp), 'c-2', srd.sp);

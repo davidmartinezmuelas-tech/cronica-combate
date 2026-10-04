@@ -17,6 +17,11 @@ export interface ForgeFeat {
   t1: string;
   d2: string;
   t2: string;
+  altL: string; // cuándo se usa el daño alternativo («con ventaja», «si está Ensangrentado»…)
+  altD1: string;
+  altT1: string;
+  altD2: string;
+  altT2: string;
   sab: string;
   dc: string;
   half: boolean;
@@ -60,7 +65,7 @@ export interface ForgeState {
 
 export const newFeat = (sec: SectionKey = 'ac_'): ForgeFeat => ({
   k: uid(), sec, name: '', kind: sec === 'tr' ? 'text' : 'melee', atk: '', reach: 'alcance 5 pies', d1: '', t1: 'cortante', d2: '', t2: 'fuego',
-  sab: 'DES', dc: '', half: true, area: '', usage: 'none', cost: '1', desc: '', raw: false, spAb: 'Carisma', spDc: '', spAtk: '', spWill: '', spDay1: '', spDay2: '', spDay3: '',
+  altL: '', altD1: '', altT1: 'cortante', altD2: '', altT2: 'fuego', sab: 'DES', dc: '', half: true, area: '', usage: 'none', cost: '1', desc: '', raw: false, spAb: 'Carisma', spDc: '', spAtk: '', spWill: '', spDay1: '', spDay2: '', spDay3: '',
 });
 
 export const blankForge = (): ForgeState => ({
@@ -113,16 +118,24 @@ export function forgeToMonster(f: ForgeState, id: string, spells: Record<string,
       if (parseExpr(ft.d2)) parts.push([ft.d2.replace(/\s+/g, ''), ft.t2]);
     }
     if (parts.length) o.dmg = parts;
+    // daño completo en un caso concreto: botón aparte en la hoja
+    const altParts: [string, string][] = [];
+    if (ft.kind !== 'spells' && ft.altL.trim() && parts.length) {
+      if (parseExpr(ft.altD1)) altParts.push([ft.altD1.replace(/\s+/g, ''), ft.altT1]);
+      if (parseExpr(ft.altD2)) altParts.push([ft.altD2.replace(/\s+/g, ''), ft.altT2]);
+    }
+    if (altParts.length) o.alt = [{ l: ft.altL.trim(), dmg: altParts }];
+    const altText = altParts.length ? ' ' + ft.altL.trim().charAt(0).toUpperCase() + ft.altL.trim().slice(1) + ': ' + dmgText(altParts) + '.' : '';
     let auto = '';
     if (ft.kind === 'melee' || ft.kind === 'ranged') {
       const b = parseInt(ft.atk, 10) || 0;
       o.atk = b;
-      auto = 'Tirada de ataque ' + (ft.kind === 'ranged' ? 'a distancia' : 'cuerpo a cuerpo') + ': ' + fmt(b) + ', ' + (ft.reach || 'alcance 5 pies') + '.' + (parts.length ? ' Impacto: ' + dmgText(parts) + '.' : '');
+      auto = 'Tirada de ataque ' + (ft.kind === 'ranged' ? 'a distancia' : 'cuerpo a cuerpo') + ': ' + fmt(b) + ', ' + (ft.reach || 'alcance 5 pies') + '.' + (parts.length ? ' Impacto: ' + dmgText(parts) + '.' + altText : '');
     } else if (ft.kind === 'save') {
       const dc = parseInt(ft.dc, 10) || 10;
       o.dc = [dc, ft.sab];
       if (ft.half) o.half = 1;
-      auto = 'Tirada de salvación de ' + ABIL_LONG[ABIL_INDEX[ft.sab] ?? 0] + ': CD ' + dc + (ft.area ? ', ' + ft.area : '') + '.' + (parts.length ? ' Fallo: ' + dmgText(parts) + '.' : '') + (ft.half && parts.length ? ' Éxito: mitad de daño.' : '');
+      auto = 'Tirada de salvación de ' + ABIL_LONG[ABIL_INDEX[ft.sab] ?? 0] + ': CD ' + dc + (ft.area ? ', ' + ft.area : '') + '.' + (parts.length ? ' Fallo: ' + dmgText(parts) + '.' + altText : '') + (ft.half && parts.length ? ' Éxito: mitad de daño.' : '');
     } else if (ft.kind === 'spells') {
       const sp: [string, string, string][] = [];
       const lines: string[] = [];
@@ -193,6 +206,14 @@ export function monsterToForge(m: Monster, spells: Record<string, Spell>): Forge
       ft.d1 = f.dmg[0][0];
       ft.t1 = f.dmg[0][1] || 'cortante';
       if (f.dmg[1]) { ft.d2 = f.dmg[1][0]; ft.t2 = f.dmg[1][1] || 'fuego'; }
+    }
+    const alt = f.alt?.[0];
+    if (alt) {
+      ft.altL = alt.l;
+      ft.altD1 = alt.dmg[0]?.[0] || '';
+      ft.altT1 = alt.dmg[0]?.[1] || 'cortante';
+      ft.altD2 = alt.dmg[1]?.[0] || '';
+      ft.altT2 = alt.dmg[1]?.[1] || 'fuego';
     }
     ft.usage = (f.rc ? 'rc' + f.rc : f.day ? 'day' + Math.min(3, f.day) : 'none') as Usage;
     ft.cost = String(f.cost || 1);

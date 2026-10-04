@@ -62,6 +62,21 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
             <div className="field"><label htmlFor={id('d2')}>Daño extra (opcional)</label><input id={id('d2')} className="input" value={ft.d2} onChange={on('d2')} placeholder="2d6" /></div>
             <div className="field"><label htmlFor={id('t2')}>Tipo extra</label><select id={id('t2')} className="input" value={ft.t2} onChange={on('t2')}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
           </div>
+          <div className="field"><label htmlFor={id('al')}>Daño alternativo: cuándo (opcional)</label>
+            <input id={id('al')} className="input" value={ft.altL} onChange={on('altL')} placeholder="con ventaja, si está Ensangrentado, tras cargar…" /></div>
+          {ft.altL.trim() !== '' && (
+            <>
+              <div className="row2">
+                <div className="field"><label htmlFor={id('a1')}>Daño en ese caso</label><input id={id('a1')} className="input" value={ft.altD1} onChange={on('altD1')} placeholder="2d6+4" /></div>
+                <div className="field"><label htmlFor={id('at1')}>Tipo</label><select id={id('at1')} className="input" value={ft.altT1} onChange={on('altT1')}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+              </div>
+              <div className="row2">
+                <div className="field"><label htmlFor={id('a2')}>Daño extra en ese caso</label><input id={id('a2')} className="input" value={ft.altD2} onChange={on('altD2')} placeholder="1d4" /></div>
+                <div className="field"><label htmlFor={id('at2')}>Tipo extra</label><select id={id('at2')} className="input" value={ft.altT2} onChange={on('altT2')}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
+              </div>
+              <span className="muted small">Es el daño completo de ese caso: en la hoja sale como un segundo botón de daño.</span>
+            </>
+          )}
         </>
       )}
       {ft.kind === 'spells' && (
