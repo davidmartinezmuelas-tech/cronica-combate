@@ -1,0 +1,205 @@
+/** Sección de la hoja de un monstruo. */
+export type SectionKey = 'tr' | 'ac_' | 'ba' | 're' | 'lg';
+
+/** Un rasgo, acción, acción adicional, reacción o acción legendaria. */
+export interface Feature {
+  n: string; // nombre
+  d: string; // descripción
+  en?: 1; // texto original en inglés
+  atk?: number; // bonificador de ataque
+  dmg?: [string, string][]; // [fórmula, tipo de daño]
+  dc?: [number, string]; // [CD, característica abreviada]
+  half?: 1; // mitad de daño si supera la salvación
+  rc?: number; // recarga X–6
+  day?: number; // usos por día
+  dayl?: number; // usos por día en la guarida
+  cost?: number; // coste legendario
+  sp?: [string, string, string?][]; // [clave de conjuro, uso, nombre libre]
+  sdc?: number;
+  satk?: number;
+  sot?: 1; // recordatorio al inicio de turno
+  regen?: number; // PG que regenera al inicio de turno
+  isLR?: 1; // es la resistencia legendaria
+}
+
+export interface Monster {
+  id: string;
+  n: string;
+  en?: string;
+  custom?: 1;
+  sz: string;
+  t: string;
+  al: string;
+  ac: number;
+  hp: number;
+  hd: string;
+  ini: number;
+  spd: string;
+  ab: number[];
+  sv: number[];
+  sk?: string;
+  vul: string[];
+  res: string[];
+  imm: string[];
+  ci: string[];
+  sen?: string;
+  pp: number;
+  lang?: string;
+  cr: string;
+  xp: number;
+  xpl?: number;
+  pb: number;
+  lair?: 1;
+  hab?: string[];
+  lr?: number;
+  lrl?: number;
+  la?: number;
+  tr?: Feature[];
+  ac_?: Feature[];
+  ba?: Feature[];
+  re?: Feature[];
+  lg?: Feature[];
+}
+
+export interface Spell {
+  en: string;
+  n: string;
+  l: number;
+  d?: string;
+  ct?: string;
+  r?: string;
+  du?: string;
+  c?: number;
+  rit?: number;
+  cmp?: string;
+}
+
+export interface SrdData {
+  v: number;
+  m: Monster[];
+  sp: Record<string, Spell>;
+}
+
+export interface Condition {
+  k: string;
+  r: number | null; // rondas restantes (null = indefinido)
+}
+
+export type CombatantKind = 'pc' | 'monster' | 'lair';
+
+export interface Combatant {
+  id: string;
+  kind: CombatantKind;
+  name: string;
+  init: number | null;
+  initBonus: number;
+  hp: number;
+  maxHp: number;
+  temp: number;
+  ac: number | string;
+  conds: Condition[];
+  conc: boolean;
+  exh: number;
+  react: boolean;
+  // monstruos
+  monsterId?: string;
+  inLair?: boolean;
+  lrMax: number;
+  lrUsed: number;
+  laMax: number;
+  laUsed: number;
+  used: Record<string, number>;
+  spent: Record<string, boolean>;
+  spUsed: Record<string, number>;
+  grp?: string;
+  // jugadores
+  rosterId?: string;
+  level?: number;
+  res?: string[];
+  death?: { s: number; f: number };
+  stable?: boolean;
+  dead?: boolean;
+  // guarida
+  note?: string;
+}
+
+export interface RosterEntry {
+  id: string;
+  name: string;
+  player: string;
+  cls: string;
+  level: string;
+  ac: string;
+  hp: string;
+  initb: string;
+  pp: string;
+  res: string[];
+}
+
+export interface TurnEvent {
+  text: string;
+}
+
+export interface ConcPrompt {
+  pid: string;
+  id: string;
+  name: string;
+  dc: number;
+  save: number | null;
+}
+
+export interface LogEntry {
+  id: string;
+  label: string;
+  detail: string;
+  total: string;
+}
+
+export interface DmgPart {
+  type: string;
+  amt: number;
+}
+
+export interface RollResult {
+  label: string;
+  total: string;
+  detail: string;
+  cls: '' | 'crit' | 'fumble';
+  note: string;
+  isDmg: boolean;
+  parts: DmgPart[];
+  half: boolean;
+  by: string | null;
+  applied?: boolean;
+  crit?: boolean;
+}
+
+export interface DieView {
+  id: string;
+  sides: number;
+  final: number;
+  face: number;
+  dim: boolean;
+  x: number;
+  y: number;
+  delay: number;
+  tumble: string;
+  cls: string;
+  extra: string;
+  done: boolean;
+}
+
+/** Datos persistentes de la app. */
+export interface SavedState {
+  v: number;
+  savedAt?: number;
+  custom: Monster[];
+  roster: RosterEntry[];
+  combatants: Combatant[];
+  round: number;
+  activeId: string | null;
+  started: boolean;
+  log: LogEntry[];
+  diceTheme: string;
+  turnEvents: TurnEvent[];
+}
