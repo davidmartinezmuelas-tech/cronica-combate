@@ -6,3 +6,5 @@ dev-dist
 coverage
 *.tsbuildinfo
 .claude/
+test-results
+playwright-report
