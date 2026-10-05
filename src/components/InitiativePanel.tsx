@@ -31,7 +31,7 @@ function Row({ c }: { c: Combatant }) {
   const commit = (v: string) => { const n = parseInt(v.replace('−', '-'), 10); if (!isNaN(n)) patchC(c.id, { init: n }, 'iniciativa'); };
   return (
     <li style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
-      <button className={cls} onClick={() => set({ selId: c.id, spellOpen: null })} aria-pressed={isSel}>
+      <button className={cls} onClick={() => { set({ selId: c.id, spellOpen: null }); showCard(); }} aria-pressed={isSel}>
         <span className="init-badge" aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -40,8 +40,8 @@ function Row({ c }: { c: Combatant }) {
             {isActive && <span className="turn-flag">En turno</span>}
           </span>
           {c.kind !== 'lair' && <span className="hpbar"><span className={'hpfill ' + (pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '')} style={{ width: pct + '%' }} /></span>}
-          <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#cdbd9f' }}>
-            <span style={{ minWidth: 0, lineHeight: 1.3 }}>{statusOf(c, started)}</span>
+          <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2px 8px', fontSize: 13, color: '#cdbd9f' }}>
+            <span style={{ minWidth: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{statusOf(c, started)}</span>
             {c.kind !== 'lair' && (
               <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto' }}>CA {c.ac} · {c.hp} / {c.maxHp} PG{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
             )}
@@ -93,6 +93,13 @@ function Encounters() {
       ) : !encounters.length && <p className="muted small" style={{ margin: 0 }}>Añade monstruos y guárdalos aquí para cargarlos de un clic el día de la sesión.</p>}
     </div>
   );
+}
+
+/** En pantallas estrechas la ficha queda debajo de la lista: se baja hasta ella para que se vea qué se ha abierto. */
+function showCard() {
+  if (typeof window === 'undefined' || !window.matchMedia?.('(max-width: 1023px)').matches) return;
+  const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  requestAnimationFrame(() => document.querySelector('.combatant-card')?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' }));
 }
 
 export default function InitiativePanel() {

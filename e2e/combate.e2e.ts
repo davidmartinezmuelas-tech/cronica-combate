@@ -258,3 +258,14 @@ test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en
   expect(Object.values(copy.pdfs as Record<string, string>)[0].startsWith('JVBERi')).toBe(true);
   expect(copy.roster[0].notes).toBe('Busca a su hermana desaparecida');
 });
+
+test('en el móvil, al tocar a alguien de la iniciativa se baja hasta su ficha', async ({ page }) => {
+  test.skip(test.info().project.name !== 'escritorio');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page);
+  await addMonsters(page, 'ogro', 'Ogro', 1);
+  await addMonsters(page, 'goblin', 'Esbirro goblin', 3);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.locator('.init-row', { hasText: 'Ogro' }).click();
+  await expect(page.locator('.combatant-card')).toBeInViewport();
+});

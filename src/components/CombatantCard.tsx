@@ -29,7 +29,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
   const kindLabel = c.kind === 'pc' ? 'Jugador' + (c.level ? ' · nivel ' + c.level : '') : c.kind === 'lair' ? 'Actúa en la cuenta de iniciativa 20 y pierde los empates' : m ? m.n + ' · VD ' + m.cr + (c.inLair ? ' · en su guarida' : '') : 'Monstruo (hoja no disponible)';
 
   return (
-    <div className="panel">
+    <div className="panel combatant-card">
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <h2>{c.name}</h2>
