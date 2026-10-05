@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { ABIL, ABIL_LONG, CONDITION_IMMUNITIES, CR_LIST, DMG_TYPES, SIZES, XP_BY_CR } from '../data/constants';
 import type { SectionKey } from '../data/types';
-import { fmt, modOf } from '../engine/dice';
+import { fmt, modOf, parseExpr } from '../engine/dice';
 import { forgeToMonster, newFeat, type ForgeFeat, type ForgeState } from '../engine/forge';
 import { nfmt, pbOf } from '../engine/util';
 import { useStore } from '../store/useStore';
@@ -11,8 +11,15 @@ const NEXT = { none: 'resist', resist: 'immune', immune: 'vuln', vuln: 'none' } 
 const TAG = { none: '', resist: 'R', immune: 'I', vuln: 'V' };
 const WORD = { none: 'sin efecto', resist: 'resistencia', immune: 'inmunidad', vuln: 'vulnerabilidad' };
 
+/** Aviso bajo un campo de daño que la app no sabe tirar (p. ej. «2d6 + 4 cortante»). */
+function BadExpr({ v }: { v: string }) {
+  if (!v.trim() || parseExpr(v)) return null;
+  return <span className="warn small" role="status">No se entiende «{v}». Escribe solo los dados, como 2d6+4; el tipo va al lado.</span>;
+}
+
 function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
-  const { setFeat, setForge } = useStore.getState();
+  const { setFeat, setForge, confirm } = useStore.getState();
+  const confirmKey = useStore((s) => s.confirmKey);
   const on = (k: keyof ForgeFeat) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setFeat(i, k, e.target instanceof HTMLInputElement && e.target.type === 'checkbox' ? e.target.checked : e.target.value);
   const feats = () => useStore.getState().forge.feats;
@@ -23,7 +30,7 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor={id('n')}>Nombre</label><input id={id('n')} className="input" value={ft.name} onChange={on('name')} /></div>
         <button className="btn small ghost icon" aria-label="Subir" disabled={i === 0} onClick={() => { const a = feats().slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; setForge({ feats: a }); }}><ChevronUp /></button>
-        <button className="btn small ghost" onClick={() => setForge({ feats: feats().filter((_, j) => j !== i) })}>Quitar</button>
+        <button className="btn small ghost" onClick={() => confirm('feat-' + ft.k, () => setForge({ feats: feats().filter((x) => x.k !== ft.k) }))}>{confirmKey === 'feat-' + ft.k ? '¿Seguro? Quitar' : 'Quitar'}</button>
       </div>
       <div className="row2">
         <div className="field"><label htmlFor={id('s')}>Sección</label>
@@ -58,10 +65,12 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
             <div className="field"><label htmlFor={id('d1')}>Daño</label><input id={id('d1')} className="input" value={ft.d1} onChange={on('d1')} placeholder="2d6+4" /></div>
             <div className="field"><label htmlFor={id('t1')}>Tipo</label><select id={id('t1')} className="input" value={ft.t1} onChange={on('t1')}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
           </div>
+          <BadExpr v={ft.d1} />
           <div className="row2">
             <div className="field"><label htmlFor={id('d2')}>Daño extra (opcional)</label><input id={id('d2')} className="input" value={ft.d2} onChange={on('d2')} placeholder="2d6" /></div>
             <div className="field"><label htmlFor={id('t2')}>Tipo extra</label><select id={id('t2')} className="input" value={ft.t2} onChange={on('t2')}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
           </div>
+          <BadExpr v={ft.d2} />
           <div className="field"><label htmlFor={id('al')}>Daño alternativo: cuándo (opcional)</label>
             <input id={id('al')} className="input" value={ft.altL} onChange={on('altL')} placeholder="con ventaja, si está Ensangrentado, tras cargar…" /></div>
           {ft.altL.trim() !== '' && (
@@ -70,10 +79,12 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
                 <div className="field"><label htmlFor={id('a1')}>Daño en ese caso</label><input id={id('a1')} className="input" value={ft.altD1} onChange={on('altD1')} placeholder="2d6+4" /></div>
                 <div className="field"><label htmlFor={id('at1')}>Tipo</label><select id={id('at1')} className="input" value={ft.altT1} onChange={on('altT1')}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
               </div>
+              <BadExpr v={ft.altD1} />
               <div className="row2">
                 <div className="field"><label htmlFor={id('a2')}>Daño extra en ese caso</label><input id={id('a2')} className="input" value={ft.altD2} onChange={on('altD2')} placeholder="1d4" /></div>
                 <div className="field"><label htmlFor={id('at2')}>Tipo extra</label><select id={id('at2')} className="input" value={ft.altT2} onChange={on('altT2')}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
               </div>
+              <BadExpr v={ft.altD2} />
               <span className="muted small">Es el daño completo de ese caso: en la hoja sale como un segundo botón de daño.</span>
             </>
           )}
@@ -134,9 +145,10 @@ export default function ForgePanel() {
         <legend>Defensa y movimiento</legend>
         <div className="row3">
           <div className="field"><label htmlFor="f-ac">CA</label><input id="f-ac" type="number" className="input" value={f.ac} onChange={on('ac')} /></div>
-          <div className="field"><label htmlFor="f-hp">PG (dados)</label><input id="f-hp" className="input" value={f.hpDice} onChange={on('hpDice')} /></div>
+          <div className="field"><label htmlFor="f-hp">PG (dados)</label><input id="f-hp" className="input" value={f.hpDice} onChange={on('hpDice')} placeholder="4d8+4" /></div>
           <div className="field"><label htmlFor="f-ini">Iniciativa</label><input id="f-ini" type="number" className="input" value={f.ini} onChange={on('ini')} placeholder={fmt(modOf(f.abil[1]))} /></div>
         </div>
+        <BadExpr v={f.hpDice} />
         <span className="muted small">Media: {fm.hp} PG</span>
         <div className="field"><label htmlFor="f-speed">Velocidad</label><input id="f-speed" className="input" value={f.speed} onChange={on('speed')} /></div>
       </fieldset>

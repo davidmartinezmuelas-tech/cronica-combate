@@ -298,3 +298,29 @@ test('acciones legendarias: el aviso abre la hoja del monstruo en sus acciones l
   await expect(page.locator('.combatant-card h2')).toHaveText('Dragón rojo adulto');
   await expect(page.locator('.sheet-col section[aria-label="Acciones legendarias"]')).toBeInViewport();
 });
+
+test('forja: avisa del daño mal escrito, pide confirmar al quitar y la criatura llega al combate con su ataque', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Forja', exact: true }).click();
+  await page.getByLabel('Nombre', { exact: true }).first().fill('Ogro de prueba');
+  const feats = page.locator('.sub').filter({ has: page.getByRole('button', { name: /Quitar/ }) });
+  const n = await feats.count();
+  await page.getByRole('button', { name: '+ Acción' }).click();
+  await page.getByRole('button', { name: '+ Rasgo' }).click();
+  await expect(feats).toHaveCount(n + 2);
+  // quitar pide una segunda pulsación
+  await feats.last().getByRole('button', { name: 'Quitar' }).click();
+  await expect(feats).toHaveCount(n + 2);
+  await page.getByRole('button', { name: '¿Seguro? Quitar' }).click();
+  await expect(feats).toHaveCount(n + 1);
+  const act = feats.last();
+  await act.getByLabel('Nombre').fill('Garrote');
+  await act.getByLabel('Daño', { exact: true }).fill('2d6 + 4 contundente');
+  await expect(page.getByText('No se entiende «2d6 + 4 contundente»', { exact: false })).toBeVisible();
+  await act.getByLabel('Daño', { exact: true }).fill('2d6+4');
+  await expect(page.getByText('No se entiende', { exact: false })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Guardar y al combate' }).click();
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.locator('.init-row', { hasText: 'Ogro de prueba' }).click();
+  await expect(page.locator('.sheet-col').getByRole('button', { name: /^Daño 2d6 \+ 4/ })).toBeVisible();
+});
