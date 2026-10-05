@@ -9,6 +9,7 @@ import { createCoreSlice } from './slices/core';
 import { createDiceSlice } from './slices/dice';
 import { createEncounterSlice } from './slices/encounters';
 import { createGroupSlice } from './slices/group';
+import { createRulesSlice } from './slices/rules';
 import type { State } from './state';
 
 export type { RollSpec, State, Tab } from './state';
@@ -24,6 +25,7 @@ export const useStore = create<State>()((rawSet, get) => {
     ...createBestiarySlice(set, get),
     ...createGroupSlice(set, get),
     ...createEncounterSlice(set, get),
+    ...createRulesSlice(set, get),
   };
 });
 

@@ -6,6 +6,7 @@ import InitiativePanel from './components/InitiativePanel';
 import BestiaryPanel from './components/BestiaryPanel';
 import GroupPanel from './components/GroupPanel';
 import ForgePanel from './components/ForgePanel';
+import RulesPanel from './components/RulesPanel';
 import CenterPanel from './components/CenterPanel';
 import DiceTable from './components/DiceTable';
 
@@ -34,6 +35,7 @@ export default function App() {
           {tab === 'bestiary' && <BestiaryPanel />}
           {tab === 'group' && <GroupPanel />}
           {tab === 'forge' && <ForgePanel />}
+          {tab === 'rules' && <RulesPanel />}
         </section>
         <section className="col-center" aria-label="Detalle">
           <CenterPanel />

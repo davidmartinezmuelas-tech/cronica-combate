@@ -17,6 +17,7 @@ export const HOTKEYS: [string, string][] = [
   ['1 – 7', 'Tirar d4, d6, d8, d10, d12, d20, d100'],
   ['I', 'Tirar la iniciativa de los monstruos'],
   ['/', 'Buscar en el bestiario'],
+  ['R', 'Buscar en las reglas'],
   ['?', 'Mostrar u ocultar esta ayuda'],
   ['Esc', 'Cerrar la ayuda o el conjuro abierto'],
 ];
@@ -42,6 +43,7 @@ export function useHotkeys() {
       if (k === 'v' || k === 'V') { s.set({ adv: s.adv === 'adv' ? 'normal' : 'adv' }); return; }
       if (k === 'x' || k === 'X') { s.set({ adv: s.adv === 'dis' ? 'normal' : 'dis' }); return; }
       if (k === 'd' || k === 'D') { e.preventDefault(); s.set({ tab: 'combat' }); setTimeout(() => document.getElementById('amt')?.focus(), 0); return; }
+      if (k === 'r' || k === 'R') { e.preventDefault(); s.set({ tab: 'rules' }); setTimeout(() => document.getElementById('rules-search')?.focus(), 0); return; }
       if (k === '/') { e.preventDefault(); s.set({ tab: 'bestiary' }); setTimeout(() => document.getElementById('search')?.focus(), 0); return; }
       const n = parseInt(k, 10);
       if (n >= 1 && n <= 7) { e.preventDefault(); const sd = sides[n - 1]; s.roll({ label: 'd' + sd, kind: 'free', parts: [{ expr: '1d' + sd }] }); }

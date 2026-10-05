@@ -7,6 +7,7 @@ import { nfmt } from '../engine/util';
 import { useStore } from '../store/useStore';
 import CombatantCard from './CombatantCard';
 import StatBlock, { SpellCard } from './StatBlock';
+import { RuleView } from './RulesPanel';
 
 function Onboarding() {
   const combatants = useStore((s) => s.combatants);
@@ -145,6 +146,7 @@ export default function CenterPanel() {
   const forge = useStore((s) => s.forge);
   const spells = useStore((s) => s.spells);
   const loaded = useStore((s) => s.loaded);
+  const hasRule = useStore((s) => !!s.rules && !!s.ruleId && s.rules.some((x) => x.id === s.ruleId));
   const forgeM = useMemo(() => (tab === 'forge' ? forgeToMonster(forge, 'preview', spells) : null), [tab, forge, spells]);
 
   const isCombat = tab === 'combat';
@@ -173,6 +175,12 @@ export default function CenterPanel() {
             )}
           </div>
         )}
+        {tab === 'rules' && hasRule && (
+          <div className="sheet-col">
+            <span className="eyebrow">Reglas · SRD 5.2.1</span>
+            <RuleView />
+          </div>
+        )}
         {sheet && (
           <div className="sheet-col">
             <span className="eyebrow">{sheet.label}</span>
@@ -181,10 +189,10 @@ export default function CenterPanel() {
           </div>
         )}
       </div>
-      {(emptyCombat || (tab === 'bestiary' && !viewM && loaded)) && (
+      {(emptyCombat || (tab === 'bestiary' && !viewM && loaded) || (tab === 'rules' && !hasRule)) && (
         <div className="panel" style={{ alignItems: 'center', textAlign: 'center', padding: '40px 24px' }}>
-          <h2>{tab === 'bestiary' ? 'Elige una criatura' : 'Nadie seleccionado'}</h2>
-          <p className="muted" style={{ margin: 0 }}>{tab === 'bestiary' ? 'Pulsa una criatura de la lista para ver su hoja.' : 'Pulsa a alguien en la iniciativa para ver su hoja y llevar sus PG y estados.'}</p>
+          <h2>{tab === 'bestiary' ? 'Elige una criatura' : tab === 'rules' ? 'Busca una regla' : 'Nadie seleccionado'}</h2>
+          <p className="muted" style={{ margin: 0 }}>{tab === 'bestiary' ? 'Pulsa una criatura de la lista para ver su hoja.' : tab === 'rules' ? 'Escribe un término en español o en inglés (derribado, prone, cobertura, bola de fuego…) y pulsa el resultado.' : 'Pulsa a alguien en la iniciativa para ver su hoja y llevar sus PG y estados.'}</p>
         </div>
       )}
     </>

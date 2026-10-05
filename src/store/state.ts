@@ -2,8 +2,9 @@ import type { Combatant, ConcPrompt, DieView, DmgPart, Encounter, LogEntry, Mons
 import type { AdvMode, RollKind, RollPart } from '../engine/dice';
 import type { LogDraft } from '../engine/combat';
 import type { ForgeFeat, ForgeState } from '../engine/forge';
+import type { RuleEntry } from '../engine/rules';
 
-export type Tab = 'combat' | 'bestiary' | 'group' | 'forge';
+export type Tab = 'combat' | 'bestiary' | 'group' | 'forge' | 'rules';
 
 export interface RollSpec {
   label: string;
@@ -157,7 +158,21 @@ export interface EncounterSlice {
   deleteEncounter: (id: string) => void;
 }
 
-export type State = CoreSlice & CombatSlice & DiceSlice & BestiarySlice & GroupSlice & EncounterSlice;
+/** Reglas: glosario, capítulos y conjuros (se cargan al abrir la pestaña). */
+export interface RulesSlice {
+  rules: RuleEntry[] | null;
+  rulesError: string;
+  rq: string; // búsqueda
+  rcat: string; // categoría
+  ruleId: string | null; // entrada abierta
+  ruleBack: string[]; // historial para «Atrás»
+  loadRules: () => Promise<void>;
+  openRule: (id: string) => void;
+  openRuleByName: (name: string, cat?: string) => Promise<void>;
+  ruleGoBack: () => void;
+}
+
+export type State = CoreSlice & CombatSlice & DiceSlice & BestiarySlice & GroupSlice & EncounterSlice & RulesSlice;
 
 export type SetState = (patch: Partial<State>) => void;
 export type GetState = () => State;

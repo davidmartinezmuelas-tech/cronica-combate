@@ -16,6 +16,7 @@ Funciona en el navegador, se puede **instalar como app** (PWA) y sigue funcionan
 - **Dificultad**: presupuesto de PX de 2024 según el nivel del grupo.
 - **Deshacer** casi cualquier acción y **atajos de teclado** (pulsa `?`).
 - **Copias de seguridad** en archivo `.json` que se fusionan al cargarlas.
+- **Reglas**: buscador en español o inglés ("prone" → Derribado) con el glosario de reglas completo, los estados, las secciones de combate, acciones, daño, exploración, equipo y lanzamiento de conjuros, y los 340 conjuros del SRD 2024. Los enlaces del texto llevan a la regla citada y los estados del combate abren su regla.
 
 ## Desarrollo
 
@@ -56,6 +57,8 @@ Para otro alojamiento (Netlify, Vercel, Cloudflare Pages) basta con publicar la 
 El código de la aplicación es del autor del repositorio.
 
 This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
+
+El glosario de reglas (155 entradas) es traducción propia del SRD 5.2.1, porque la traducción de origen solo trae sus nombres; las tiradas incrustadas y las notas propias de Foundry VTT se han adaptado o eliminado.
 
 La traducción al español se basa en [translate-dnd5e-sdr2-es](https://github.com/foundryvtt-sinregistrar/translate-dnd5e-sdr2-es) de foundryvtt-sinregistrar (CC-BY-4.0), con cambios: plantillas resueltas, textos que faltaban traducidos y metadatos de conjuros corregidos a partir de [5e-database](https://github.com/5e-bits/5e-database). Los datos estructurados de monstruos combinan 5e-database y el sistema dnd5e de Foundry VTT.
 

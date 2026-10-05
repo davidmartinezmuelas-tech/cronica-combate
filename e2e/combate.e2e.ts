@@ -148,3 +148,27 @@ test('con «reducir movimiento» empiezan los dados 2D, pero se pueden activar l
   await expect(page.locator('.die-spot')).toHaveCount(0);
   await ctx.close();
 });
+
+test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado desde el combate', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('r');
+  const search = page.getByLabel('Buscar (español o inglés)');
+  await search.fill('prone');
+  await page.locator('.rule-item').first().click();
+  await expect(page.locator('.rule-view .sb-name')).toHaveText('Derribado');
+  await page.locator('.rule-view .rule-link', { hasText: 'Velocidad' }).first().click();
+  await expect(page.locator('.rule-view .sb-name')).toHaveText('Velocidad');
+  await page.getByRole('button', { name: '← Atrás' }).click();
+  await expect(page.locator('.rule-view .sb-name')).toHaveText('Derribado');
+  await search.fill('bola de fuego');
+  await page.locator('.rule-item').first().click();
+  await expect(page.locator('.rule-view')).toContainText('Conjuro de nivel 3 de evocación');
+
+  // desde el combate: el estado «Apresado» de la app abre «Restringido»
+  await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 1);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.locator('.init-row', { hasText: 'Guerrero goblin' }).click();
+  await page.getByRole('button', { name: 'Apresado', exact: true }).click();
+  await page.getByTitle('Ver la regla completa de Apresado').click();
+  await expect(page.locator('.rule-view .sb-name')).toHaveText('Restringido');
+});

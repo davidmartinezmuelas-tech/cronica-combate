@@ -1,7 +1,7 @@
 import { useStore, type Tab } from '../store/useStore';
 import { ChevronLeft, ChevronRight, Logo, UndoIcon } from './Icons';
 
-const TABS: [Tab, string][] = [['combat', 'Combate'], ['bestiary', 'Bestiario'], ['group', 'Grupo'], ['forge', 'Forja']];
+const TABS: [Tab, string][] = [['combat', 'Combate'], ['bestiary', 'Bestiario'], ['group', 'Grupo'], ['forge', 'Forja'], ['rules', 'Reglas']];
 
 export default function Header() {
   const tab = useStore((s) => s.tab);

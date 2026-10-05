@@ -15,7 +15,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
   const others = combatants.filter((x) => x.id !== c.id && x.kind !== 'lair');
   const confirmKey = useStore((s) => s.confirmKey);
   const initDraft = useStore((s) => s.initDraft);
-  const { set, patchC, applyParts, heal, giveTemp, removeCombatant, confirm, toggleCond, setExh, deathMark, rollDeath } = useStore.getState();
+  const { set, patchC, applyParts, heal, giveTemp, removeCombatant, confirm, toggleCond, setExh, deathMark, rollDeath, openRuleByName } = useStore.getState();
   const amt = parseInt(amount, 10);
   const defs: string[] = [];
   if (m) {
@@ -133,7 +133,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
             </div>
             {c.conds.length > 0 && (
               <ul className="rem">
-                {c.conds.map((cd) => <li key={cd.k}><span><strong>{cd.k}</strong>{cd.r != null && <span className="muted"> ({durationText(cd, c, combatants)})</span>}<strong>:</strong> {CONDITIONS.find((x) => x[0] === cd.k)?.[1]}</span></li>)}
+                {c.conds.map((cd) => <li key={cd.k}><span><button className="rule-link strong" title={'Ver la regla completa de ' + cd.k} onClick={() => void openRuleByName(cd.k, 'Estados')}>{cd.k}</button>{cd.r != null && <span className="muted"> ({durationText(cd, c, combatants)})</span>}<strong>:</strong> {CONDITIONS.find((x) => x[0] === cd.k)?.[1]}</span></li>)}
               </ul>
             )}
             {(c.conds.length > 0 || c.exh > 0) && c.kind === 'monster' && <p className="muted small" style={{ margin: 0 }}>Las tiradas de esta criatura ya aplican sus estados y su agotamiento.</p>}
