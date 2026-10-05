@@ -220,18 +220,18 @@ test('fichas del grupo: los datos de una hoja rellenable se copian solo tras con
   await expect(dialog).toHaveCount(0);
 
   const sheet = page.locator('.pc-sheet', { hasText: 'Draxx' });
-  await expect(sheet.locator('.pc-sheet-grid')).toContainText('Paladín 3');
-  await expect(sheet.locator('.pc-sheet-grid')).toContainText('35');
+  await expect(sheet.locator('.pc-sheet-sub')).toContainText('Paladín 3');
+  await expect(sheet.locator('.pc-sheet-stats')).toContainText('35');
   await expect(sheet.locator('.pc-sheet-grid')).toContainText('ácido');
   await expect(sheet.locator('.pc-sheet-grid div', { hasText: 'Percepción pasiva' })).toContainText('11');
-  await expect(sheet.locator('.pc-sheet-grid div', { hasText: /^CA/ })).toContainText('—');
+  await expect(sheet.locator('.pc-sheet-stats span', { hasText: /^CA/ })).toContainText('—');
   await expect(page.getByLabel('Notas')).toHaveValue('Odia a los kobolds\n\nEspecie: Dragonborn · Subclase: Oath of Devotion · Velocidad: 30 pies');
 
   // se puede volver a leer, y no se cambia nada si se cancela
   await page.getByRole('button', { name: 'Leer datos de la hoja' }).click();
   await expect(dialog.getByLabel('Añadir resistencias')).toBeDisabled();
   await dialog.getByRole('button', { name: 'No copiar nada' }).click();
-  await expect(sheet.locator('.pc-sheet-grid')).toContainText('35');
+  await expect(sheet.locator('.pc-sheet-stats')).toContainText('35');
   await page.getByText('Hojas de personaje compatibles').click();
   await expect(page.getByRole('link', { name: /Hoja oficial de 2024/ })).toHaveAttribute('href', /dndbeyond\.com/);
 });

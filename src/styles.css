@@ -317,7 +317,7 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .pc-sheet-stats b{color:#e8c062}
 .tag.pdf{background:#2b3a52;color:#c9dcf3}
 .pc-sheet-body{display:flex;flex-direction:column;gap:12px;padding:4px 14px 14px;border-top:1px solid #33271c}
-.pc-sheet-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:10px 0 0}
+.pc-sheet-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:0;flex:1 1 260px}
 .pc-sheet-grid div{background:#15100c;border:1px solid #2f241a;border-radius:8px;padding:6px 10px}
 .pc-sheet-grid dt{font-size:12px;color:#b9a88a;font-weight:700}
 .pc-sheet-grid dd{margin:2px 0 0;color:#f3e6c8;font-weight:700}

@@ -124,10 +124,8 @@ function Sheet({ r, inCombat, open, onToggle, onZoom }: { r: RosterEntry; inComb
     if (!b) { setMsg('La hoja no está en este dispositivo.'); return; }
     window.open(URL.createObjectURL(b), '_blank', 'noopener');
   };
-  const stats: [string, string][] = [
-    ['Jugador', r.player || '—'], ['Clase', r.cls || '—'], ['Nivel', r.level || '1'], ['CA', r.ac || '—'], ['PG máx.', r.hp || '—'],
-    ['Iniciativa', fmt(parseInt(r.initb, 10) || 0)], ['Percepción pasiva', r.pp || '10'], ['Resistencias', r.res.length ? r.res.join(', ') : '—'],
-  ];
+  // clase, nivel, jugador, CA, PG e iniciativa ya van en la cabecera de la ficha
+  const stats: [string, string][] = [['Percepción pasiva', r.pp || '10'], ['Resistencias', r.res.length ? r.res.join(', ') : '—']];
   return (
     <li className={open ? 'pc-sheet open' : 'pc-sheet'}>
       <button className="pc-sheet-head" aria-expanded={open} aria-controls={id} onClick={onToggle}>
@@ -142,10 +140,10 @@ function Sheet({ r, inCombat, open, onToggle, onZoom }: { r: RosterEntry; inComb
       </button>
       {open && (
         <div id={id} className="pc-sheet-body">
-          <dl className="pc-sheet-grid">
-            {stats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
-          </dl>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
+            <dl className="pc-sheet-grid">
+              {stats.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
+            </dl>
             <button className="btn small" onClick={() => set({ pcForm: { ...blankRoster(), ...r }, editingPcId: r.id, pcMsg: '' })}>Editar datos</button>
           </div>
           <div className="field"><label htmlFor={id + '-notes'}>Notas</label>

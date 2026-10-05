@@ -37,7 +37,7 @@ export default function Header() {
         ) : !storageOk && <span className="small" style={{ color: '#f0a090', fontWeight: 700 }} role="alert"><span className="status-dot bad" /> No se puede guardar en este navegador: exporta una copia</span>}
         {undoTop && (
           <button className="btn small ghost undo" onClick={undo} aria-label={'Deshacer: ' + undoTop.label} title={'Deshacer: ' + undoTop.label + ' (Ctrl+Z)'}>
-            <UndoIcon />Deshacer<span className="hide-narrow">: {undoTop.label}</span>
+            <UndoIcon /><span>Deshacer<span className="hide-narrow">: {undoTop.label}</span></span>
           </button>
         )}
         {started ? (
@@ -47,7 +47,7 @@ export default function Header() {
               <span style={{ fontSize: 15, color: '#cdbd9f' }}><span className="hide-narrow">Turno de </span><strong style={{ color: '#e8c062' }}>{activeName}</strong></span>
             </div>
             <button className="btn icon" onClick={() => step(-1)} aria-label="Volver al turno anterior" title="Volver al turno anterior (B)"><ChevronLeft /></button>
-            <button className="btn primary" onClick={() => step(1)} title="Siguiente turno (N)">Siguiente<span className="hide-narrow"> turno</span><ChevronRight /></button>
+            <button className="btn primary" onClick={() => step(1)} title="Siguiente turno (N)"><span>Siguiente<span className="hide-narrow"> turno</span></span><ChevronRight /></button>
           </>
         ) : (
           <>
