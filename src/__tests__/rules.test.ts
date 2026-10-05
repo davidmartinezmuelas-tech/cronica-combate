@@ -47,4 +47,9 @@ describe('formato del texto de las reglas', () => {
     expect(t.head).toHaveLength(2);
     expect(t.rows).toEqual([[[{ k: 't', s: 'Media' }], [{ k: 't', s: '+2' }]]]);
   });
+  it('los enlaces dentro de una tabla no parten la celda', () => {
+    const [t] = parseMarkup('|# Acción | Resumen |\n| [[a1|Ataque]] | Ataca con un arma. |') as Extract<ReturnType<typeof parseMarkup>[number], { k: 'table' }>[];
+    expect(t.rows[0]).toHaveLength(2);
+    expect(t.rows[0][0]).toEqual([{ k: 'a', id: 'a1', s: 'Ataque' }]);
+  });
 });

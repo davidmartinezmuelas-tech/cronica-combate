@@ -49,7 +49,13 @@ export function parseInline(s: string): Inline[] {
   return out;
 }
 
-const cells = (line: string) => line.replace(/^\|#?\s*/, '').replace(/\s*\|\s*$/, '').split(/\s*\|\s*/).map(parseInline);
+// la barra de los enlaces [[id|texto]] no separa celdas: se protege antes de partir la fila
+const LINK_BAR = '\u0000';
+const cells = (line: string) => line
+  .replace(/\[\[([^\]|]+)\|([^\]]+)\]\]/g, '[[$1' + LINK_BAR + '$2]]')
+  .replace(/^\|#?\s*/, '').replace(/\s*\|\s*$/, '')
+  .split(/\s*\|\s*/)
+  .map((c) => parseInline(c.split(LINK_BAR).join('|')));
 
 /** Párrafos separados por línea en blanco; "### " título; "- " lista; "| a | b |" tabla ("|#" = cabecera). */
 export function parseMarkup(t: string): Block[] {

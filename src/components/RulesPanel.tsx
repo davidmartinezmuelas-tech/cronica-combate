@@ -101,7 +101,13 @@ export function RuleView() {
           <div key={i} className="rule-table-wrap">
             <table className="rule-table">
               {b.head && <thead><tr>{b.head.map((h, j) => <th key={j}><Inl c={h} /></th>)}</tr></thead>}
-              <tbody>{b.rows.map((r, j) => <tr key={j}>{r.map((cl, k) => <td key={k}><Inl c={cl} /></td>)}</tr>)}</tbody>
+              <tbody>{b.rows.map((r, j) => {
+                const cols = Math.max(b.head?.length || 0, ...b.rows.map((x) => x.length));
+                // fila de categoría («Armadura ligera…»): una sola celda que ocupa toda la tabla
+                return r.length === 1 && cols > 1
+                  ? <tr key={j} className="rule-cat"><td colSpan={cols}><Inl c={r[0]} /></td></tr>
+                  : <tr key={j}>{r.map((cl, k) => <td key={k}><Inl c={cl} /></td>)}</tr>;
+              })}</tbody>
             </table>
           </div>
         );

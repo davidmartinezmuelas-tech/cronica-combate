@@ -12,6 +12,7 @@ import glob, html, json, os, re, sys
 
 import yaml
 
+from embeds_es import EMBEDS_ES
 from glossary_es import GLOSSARY_ES
 
 # Capítulos que interesan en mesa (se excluyen clases, especies, trasfondos, creación de personaje…)
@@ -38,6 +39,10 @@ ALIASES = {
     'Nonplayer Character (NPC)': ['PNJ', 'NPC'], 'Experience Points': ['PX', 'XP'], 'Opportunity Attacks': ['Ataque de oportunidad'],
     'Bonus Action': ['Acción bonus'], 'Critical Hit': ['Crítico'], 'Temporary Hit Points': ['PG temporales'], 'Death Saving Throw': ['Salvación de muerte'],
     'Proficiency': ['Bonificador por competencia', 'BC'], 'Utilize': ['Usar un objeto'], 'Exhaustion': ['Cansancio'],
+}
+
+TABLE_FIX = {
+    ('phbsplConfusionB', '1-1'): 'El objetivo no realiza ninguna acción y usa todo su movimiento para moverse. Tira 1d4 para la dirección: 1, norte; 2, este; 3, sur; 4, oeste.',
 }
 
 SCHOOLS = {'abj': 'Abjuración', 'con': 'Conjuración', 'div': 'Adivinación', 'enc': 'Encantamiento', 'evo': 'Evocación', 'ill': 'Ilusión', 'nec': 'Nigromancia', 'trs': 'Transmutación'}
@@ -75,9 +80,10 @@ def _roll(m):
 
 def inline(s, resolve):
     s = re.sub(r'\[\[(/[^\]]*|[^\]]*)\]\](?:\{([^}]*)\})?', _roll, s)
-    s = re.sub(r'@Embed\[[^\]]*\](?:\{[^}]*\})?', '', s)
+    # contenido incrustado: se marca y to_markup lo sustituye por el texto en español
+    s = re.sub(r'@Embed\[([^\]\s]+)[^\]]*\](?:\{[^}]*\})?', lambda m: '§EMBED:' + m.group(1).split('.')[-1] + '§', s)
     s = re.sub(r'@UUID\[([^\]]+)\](?:\{([^}]*)\})?', lambda m: resolve.uuid(m.group(1), m.group(2)), s)
-    s = re.sub(r'&(?:amp;)?Reference\[([^\]]+?)\](?:\{([^}]*)\})?', lambda m: resolve.ref(m.group(1), m.group(2)), s)
+    s = re.sub(r'&(?:amp;)?[Rr]eference\[([^\]]+?)\](?:\{([^}]*)\})?', lambda m: resolve.ref(re.sub(r'\s+\w+=\S+', '', m.group(1)), m.group(2)), s)
     s = re.sub(r'<(strong|b)>\s*(.*?)\s*</\1>', r'**\2**', s, flags=re.S)
     s = re.sub(r'<(em|i)>\s*(.*?)\s*</\1>', r'*\2*', s, flags=re.S)
     s = s.replace('***', '**').replace('****', '')
@@ -96,6 +102,8 @@ def to_markup(h, resolve):
     # ayudas propias de Foundry VTT (botones, tokens, notas de configuración): no aplican fuera de Foundry
     h = re.sub(r'<section class="(?:fvtt[^"]*|secret)"[^>]*>.*?</section>', '', h, flags=re.S)
     h = re.sub(r'<(div|section|span|article|aside|figure)[^>]*>|</(div|section|span|article|aside|figure)>', '', h)
+    if not re.search(r'<(h[1-6]|p|ul|ol|table|blockquote)[\s>]', h):
+        h = '<p>' + h + '</p>'
     for m in re.finditer(r'<(h[1-6]|p|ul|ol|table|blockquote)[^>]*>(.*?)</\1>', h, flags=re.S):
         tag, body = m.group(1), m.group(2)
         if tag.startswith('h'):
@@ -111,11 +119,36 @@ def to_markup(h, resolve):
             rows = []
             cap = re.search(r'<caption[^>]*>(.*?)</caption>', body, flags=re.S)
             if cap: rows.append('### ' + inline(cap.group(1), resolve))
+            grid = []
             for tr in re.findall(r'<tr[^>]*>(.*?)</tr>', body, flags=re.S):
                 cells = re.findall(r'<(th|td)[^>]*>(.*?)</\1>', tr, flags=re.S)
-                head = all(c[0] == 'th' for c in cells)
-                rows.append(('|#' if head else '|') + ' ' + ' | '.join(inline(c[1], resolve) for c in cells) + ' |')
+                grid.append((all(c[0] == 'th' for c in cells), [cell_safe(inline(c[1], resolve)) for c in cells]))
+            width = max((len(c) for _, c in grid), default=0)
+            while width > 1 and all(len(c) < width or not c[width - 1] for _, c in grid):
+                width -= 1
+            heads = [i for i, (h_, _) in enumerate(grid) if h_]
+            for i, (head, cells) in enumerate(grid):
+                cells = cells[:width]
+                if head and heads and i != heads[-1] and i < (heads[-1] if heads else 0):
+                    continue  # cabeceras agrupadoras («——— Dificultad ———»): basta la última
+                if len([c for c in cells if c]) == 1 and cells[0] and not head and width > 2:
+                    cells = [cells[0]]  # fila de categoría: una celda que ocupa todo el ancho
+                rows.append(('|#' if head else '|') + ' ' + ' | '.join(cells) + ' |')
             out.append('\n'.join(rows))
+    # secciones incrustadas (@Embed): el texto en español de la página o el objeto citado
+    expanded = []
+    for o in out:
+        mk = re.fullmatch(r'§EMBED:(\w+)§', o.strip())
+        if mk:
+            sub = resolve.embed(mk.group(1)) if hasattr(resolve, 'embed') else ''
+            if sub: expanded.append(sub)
+        else:
+            def flat(mm):
+                sub = resolve.embed(mm.group(1)) if hasattr(resolve, 'embed') else ''
+                return re.sub(r'\s*\n+\s*', ' ', re.sub(r'(^|\n)### ', r'\1', sub)).strip()
+            o = re.sub(r'\*\*([^*]+?[^.:*\s])\*\*\s*(?=§EMBED)', r'**\1.** ', o)
+            expanded.append(re.sub(r'\s{2,}', ' ', re.sub(r'§EMBED:(\w+)§', lambda mm: ' ' + flat(mm), o)).strip())
+    out = expanded
     # notas de configuración de Foundry al final de algunos conjuros y fórmulas internas sin sentido fuera de Foundry
     for i, o in enumerate(out):
         if re.fullmatch(r'\**Nota de Foundry\**', o.strip()):
@@ -124,10 +157,24 @@ def to_markup(h, resolve):
     return '\n\n'.join(o for o in out if o.strip() and not re.search(r'lookup|@item|@attributes', o))
 
 
+def cell_safe(t):
+    return re.sub(r'\|(?![^\[]*\]\])', '/', t)
+
+
+def link_en(t, ref_by_en):
+    """[[Nombre en inglés|texto]] (traducciones propias) -> [[id|texto]]."""
+    return re.sub(r'\[\[([^\]|]+)\|([^\]]+)\]\]', lambda m: '[[' + ref_by_en.get(m.group(1).lower(), (m.group(1),))[0] + '|' + m.group(2) + ']]', t.strip())
+
+
 class Resolver:
-    def __init__(self, known_pages, ref_by_en):
+    def __init__(self, known_pages, ref_by_en, embeds=None):
         self.known = known_pages  # id de página -> nombre en español
         self.ref_by_en = ref_by_en  # nombre en inglés del glosario/regla -> (id, nombre es)
+        self.embeds = embeds or {}  # id de página u objeto incrustado -> función que da su texto
+
+    def embed(self, pid):
+        f = self.embeds.get(pid)
+        return f() if f else ''
 
     def uuid(self, target, label):
         pid = target.split('.')[-1]
@@ -196,8 +243,40 @@ def main(tr_dir, packs, out_path):
                 continue
             known[pid] = p['name']
             ref_by_en.setdefault(str(p.get('key', '')).lower(), (pid, p['name']))
-    # nombres de las referencias de reglas (Apéndice D) que no estén ya: apuntan a la entrada del glosario con el mismo nombre en inglés
     res = Resolver(known, ref_by_en)
+    # contenido que los capítulos incrustan: apéndice de referencias (traducción propia), glosario y trampas del compendio de equipo
+    appx = yaml.safe_load(open(os.path.join(packs, 'content24', 'appendices', 'appendix-d-rule-references.yml'), encoding='utf-8'))['pages']
+    for a in appx:
+        if a['name'] in EMBEDS_ES:
+            res.embeds[a['_id']] = (lambda t=EMBEDS_ES[a['name']]: link_en(t, ref_by_en))
+    for g in gloss_en:
+        if g['name'] in GLOSSARY_ES:
+            res.embeds[g['_id']] = (lambda t=GLOSSARY_ES[g['name']]: link_en(t, ref_by_en))
+    act_path = os.path.join(tr_dir, 'dnd5e.actors24.json')
+    if os.path.exists(act_path):
+        for a in json.load(open(act_path, encoding='utf-8'))['entries'].values():
+            for iid, it in (a.get('items') or {}).items():
+                if it.get('description'):
+                    res.embeds[iid] = (lambda h=it['description']: to_markup(h, res))
+    for sid, sp_ in spells_es.items():
+        res.embeds[sid] = (lambda h=sp_.get('description', ''): to_markup(h, res))
+    tab_path = os.path.join(tr_dir, 'dnd5e.tables24.json')
+    if os.path.exists(tab_path):
+        for tid, tb in json.load(open(tab_path, encoding='utf-8'))['entries'].items():
+            def table_mk(tb=tb, tid_=tid):
+                rows = ['### ' + tb.get('name', ''), '|# Tirada | Resultado |']
+                for rk, rv in (tb.get('results') or {}).items():
+                    rv = TABLE_FIX.get((tid_, rk), rv)
+                    a_, b_ = (rk.split('-') + [''])[:2]
+                    txt = ' '.join(inline(x, res) for x in (re.findall(r'<p[^>]*>(.*?)</p>', rv, flags=re.S) or [rv]))
+                    rows.append('| ' + (a_ if a_ == b_ or not b_ else a_ + '–' + b_) + ' | ' + cell_safe(txt) + ' |')
+                return '\n'.join(rows)
+            res.embeds[tid] = table_mk
+    eq_path = os.path.join(tr_dir, 'dnd5e.equipment24.json')
+    if os.path.exists(eq_path):
+        for iid, it in json.load(open(eq_path, encoding='utf-8'))['entries'].items():
+            if it.get('description'):
+                res.embeds[iid] = (lambda h=it['description']: to_markup(h, res))
 
     entries = []
     missing = []
@@ -207,7 +286,7 @@ def main(tr_dir, packs, out_path):
         if t is None:
             missing.append(g['name'])
             continue
-        t = re.sub(r'\[\[([^\]|]+)\|([^\]]+)\]\]', lambda m: '[[' + (ref_by_en.get(m.group(1).lower(), (m.group(1),))[0]) + '|' + m.group(2) + ']]', t.strip())
+        t = link_en(t, ref_by_en)
         cat = 'Estados' if (g.get('system') or {}).get('type') == 'condition' else 'Glosario'
         e = {'id': g['_id'], 'n': nm, 'en': g['name'], 'cat': cat, 't': t}
         if g['name'] in ALIASES:
@@ -248,6 +327,12 @@ def main(tr_dir, packs, out_path):
     ids = {e['id'] for e in entries}
     for e in entries:
         e['t'] = re.sub(r'\[\[([^\]|]+)\|([^\]]+)\]\]', lambda m: m.group(0) if m.group(1) in ids else m.group(2), e['t'])
+    # control: títulos sin texto debajo (contenido que no se ha podido incrustar)
+    for e in entries:
+        blocks = e['t'].split('\n\n')
+        for i, b in enumerate(blocks):
+            if b.startswith('### ') and '\n' not in b and (i + 1 == len(blocks) or blocks[i + 1].startswith('### ')):
+                missing.append('vacío: ' + e['n'] + ' > ' + b[4:])
     print('entradas', len(entries), '| sin traducir:', missing)
     out = {'v': 1, 'src': 'SRD 5.2.1 (CC-BY-4.0)', 'e': entries}
     json.dump(out, open(out_path, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))

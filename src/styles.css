@@ -138,7 +138,7 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .statblock{background:#f3e6c8;color:#2a1d12;border-radius:3px;padding:22px 26px 18px;font-family:'Alegreya',Georgia,serif;font-size:16px;line-height:1.45;box-shadow:0 0 0 1px #c9b38a,0 18px 40px rgba(0,0,0,.45);border-top:6px solid #7a1f14;border-bottom:6px solid #7a1f14;max-width:780px;width:100%}
 .sb-name{font-family:'IM Fell English SC',Georgia,serif;color:#7a1f14;font-size:34px;margin:0;font-weight:400;line-height:1.05}
 .sb-meta{margin:2px 0 0;font-style:italic}
-.sb-rule{height:4px;background:#7a1f14;margin:10px 0;clip-path:polygon(0 0,100% 50%,0 100%)}
+.sb-rule{height:3px;margin:10px 0;border-radius:2px;background:linear-gradient(90deg,#7a1f14 0%,#7a1f14 55%,rgba(122,31,20,0) 100%)}
 .statblock p{margin:3px 0}
 .sb-label{font-weight:700;color:#7a1f14}
 .sb-top{display:flex;flex-wrap:wrap;gap:4px 22px}
@@ -291,3 +291,17 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 @media (max-width:760px){.rules-panel{position:static;max-height:70vh}}
 /* para que el panel de Reglas se quede fijo al bajar por un texto largo */
 .col-left:has(.rules-panel){align-self:stretch}
+.rule-table tr.rule-cat td{font-weight:700;color:#7a1f14;background:rgba(122,31,20,.08);border-bottom:1px solid #c9b38a}
+/* ---------- Pantalla completa (tablet en horizontal y escritorio) ----------
+   La app ocupa exactamente la ventana: cabecera fija y cada columna con su propio scroll,
+   así una lista larga (bestiario, reglas) no estira la página dejando huecos de fondo. */
+@media (min-width:1024px){
+  html,body{height:100%;overflow:hidden}
+  .app{height:100vh;height:100dvh;min-height:0;overflow:hidden}
+  .app-main{flex:1 1 auto;min-height:0;flex-wrap:nowrap;align-items:stretch;padding:16px 24px 0;overflow:hidden}
+  .col-left,.col-center,.col-right{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 4px 20px 0;scrollbar-width:thin;scrollbar-color:#6b5238 transparent}
+  .col-center .app-footer{padding:12px 0 4px;max-width:none}
+  .sheet-col{position:sticky;top:0;max-height:calc(100dvh - 110px);overflow-y:auto}
+  .col-left:has(.rules-panel){overflow:hidden;padding-bottom:16px}
+  .rules-panel{position:static;max-height:100%}
+}
