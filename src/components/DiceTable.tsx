@@ -173,7 +173,7 @@ export default function DiceTable() {
         <input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (este navegador no tiene gráficos 3D)'}
       </label>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-        <span className="muted small" style={{ fontWeight: 700 }}>Color de los dados</span>
+        <span className="muted small" style={{ fontWeight: 700 }}>Color</span>
         <div style={{ display: 'flex', gap: 8 }}>
           {THEMES.map(([k, l]) => <button key={k} className={'swatch sw-' + k + (theme === k ? ' on' : '')} aria-pressed={theme === k} aria-label={'Dados ' + l} title={l} onClick={() => set({ diceTheme: k })} />)}
         </div>

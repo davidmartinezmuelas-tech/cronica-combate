@@ -435,3 +435,11 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 }
 /* tapete algo más bajo: deja ver la tirada libre y el historial sin tanto scroll */
 .felt{height:clamp(200px,30vh,260px)}
+/* mesa de dados: el selector de ventaja ocupa el ancho del tapete, con tres partes iguales */
+.col-right .panel-head .segbox{width:100%;display:grid;grid-template-columns:repeat(3,1fr)}
+.col-right .panel-head .segbox .seg{padding:6px 4px}
+/* bestiario: los botones de cada criatura caben en una fila */
+.beast .step{width:32px;height:32px}
+.col-left:has(.bestiary-panel){flex:1 1 340px;max-width:440px;min-width:min(100%,320px)}
+.beast .qty{min-width:20px}
+.beast .btn.small{padding:6px 9px}

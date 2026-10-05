@@ -26,7 +26,7 @@ function Beast({ m }: { m: Monster }) {
         <span style={{ fontSize: 13, color: '#b9a88a', fontStyle: 'italic' }}>{m.sz} {m.t} · VD {m.cr} · {nfmt(m.xp)} PX{m.en ? ' · ' + m.en : ''}</span>
         <span style={{ fontSize: 13, fontWeight: 700, color: '#cdbd9f' }}>CA {m.ac} · PG {m.hp} · Ini {fmt(m.ini || 0)}</span>
       </button>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
         <button className="step" onClick={() => setQty(qty - 1)} aria-label={'Uno menos de ' + m.n}>−</button>
         <span className="qty" aria-label="Cantidad">{qty}</span>
         <button className="step" onClick={() => setQty(qty + 1)} aria-label={'Uno más de ' + m.n}>+</button>
@@ -37,7 +37,7 @@ function Beast({ m }: { m: Monster }) {
             <button className="btn small ghost" onClick={() => deleteCustom(m.id)}>{confirmKey === 'del-' + m.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
           </>
         ) : (
-          <button className="btn small ghost" onClick={() => editMonster(m, false)}>Usar de base</button>
+          <button className="btn small ghost" title="Abrir en la Forja como base de una criatura nueva" onClick={() => editMonster(m, false)}>Variante</button>
         )}
       </div>
     </li>
@@ -64,7 +64,7 @@ export default function BestiaryPanel() {
   }, [pool, set]);
   const filtering = !!(s.search.trim() || s.fType || s.fCr !== 'all' || s.fLeg || s.fMine);
   return (
-    <div className="panel">
+    <div className="panel bestiary-panel">
       <div className="panel-head"><h2>Bestiario</h2><span className="muted small">{s.custom.length + s.srd.length} criaturas</span></div>
       {!s.loaded && <p className="muted" style={{ margin: 0 }}>Cargando el bestiario…</p>}
       {s.loadError && <p className="warn">{s.loadError}</p>}
@@ -81,9 +81,9 @@ export default function BestiaryPanel() {
             <option value="all">Todos</option><option value="a">VD 0 – 1</option><option value="b">VD 2 – 4</option><option value="c">VD 5 – 10</option><option value="d">VD 11 – 16</option><option value="e">VD 17+</option>
           </select></div>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px' }}>
-        <label className="check"><input type="checkbox" checked={s.fLeg} onChange={(e) => set({ fLeg: e.target.checked, bLimit: 50 })} />Solo legendarios</label>
-        <label className="check"><input type="checkbox" checked={s.fMine} onChange={(e) => set({ fMine: e.target.checked, bLimit: 50 })} />Solo mis criaturas</label>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 14px' }}>
+        <label className="check"><input type="checkbox" checked={s.fLeg} onChange={(e) => set({ fLeg: e.target.checked, bLimit: 50 })} />Legendarios</label>
+        <label className="check"><input type="checkbox" checked={s.fMine} onChange={(e) => set({ fMine: e.target.checked, bLimit: 50 })} />Mis criaturas</label>
       </div>
       <details className="sub add-opts">
         <summary>
