@@ -63,7 +63,7 @@ textarea.input{resize:vertical;line-height:1.4;font-family:'Alegreya',Georgia,se
 .chip.vuln{background:#9b2c22;color:#fbf1dc;border-color:#c0513c}
 .chip-tag{font-size:11px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:999px;background:rgba(0,0,0,.25)}
 .fs{border:1px solid #3d2f22;border-radius:8px;padding:12px 14px 14px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
-.fs legend{padding:0 6px;font-family:'IM Fell English SC',Georgia,serif;font-size:19px;color:#d4a94f}
+.fs legend{padding:0 6px;font-family:'IM Fell English SC',Georgia,serif;font-size:18px;line-height:1.15;color:#d4a94f}
 .sub{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:#1a140f;border:1px solid #33271c}
 .init-row{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:8px 12px;background:#2a2018;border:1px solid #3d2f22;border-radius:8px;color:#efe3cb;text-align:left}
 .init-row:hover{border-color:#6b5238}
@@ -347,3 +347,12 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .add-opts[open]>summary .eyebrow::after{content:' ▾'}
 .add-opts[open]>summary{margin-bottom:8px}
 .add-opts>:not(summary){margin-top:8px}
+/* formularios en columnas estrechas (tablet): los campos bajan de fila antes de cortarse */
+.fs .row2{grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));align-items:end}
+.fs .row3{grid-template-columns:repeat(auto-fit,minmax(min(100%,96px),1fr));align-items:end}
+.fs .row3.abil-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
+.rules-filter{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:6px 10px}
+.rules-filter>span{grid-column:1/-1}
+.rule-name{font-size:17px}
+.rule-quick{display:flex;flex-direction:column;gap:14px;width:100%;text-align:left;margin-top:8px}
+.rule-quick h3{margin:0 0 6px}

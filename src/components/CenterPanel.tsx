@@ -7,7 +7,7 @@ import { nfmt } from '../engine/util';
 import { useStore } from '../store/useStore';
 import CombatantCard from './CombatantCard';
 import StatBlock, { SpellCard } from './StatBlock';
-import { RuleView } from './RulesPanel';
+import { RuleQuick, RuleView } from './RulesPanel';
 import PartySheets from './PartySheets';
 
 function Onboarding() {
@@ -194,7 +194,8 @@ export default function CenterPanel() {
       {(emptyCombat || (tab === 'bestiary' && !viewM && loaded) || (tab === 'rules' && !hasRule)) && (
         <div className="panel" style={{ alignItems: 'center', textAlign: 'center', padding: '40px 24px' }}>
           <h2>{tab === 'bestiary' ? 'Elige una criatura' : tab === 'rules' ? 'Busca una regla' : 'Nadie seleccionado'}</h2>
-          <p className="muted" style={{ margin: 0 }}>{tab === 'bestiary' ? 'Pulsa una criatura de la lista para ver su hoja.' : tab === 'rules' ? 'Escribe un término en español o en inglés (derribado, prone, cobertura, bola de fuego…) y pulsa el resultado.' : 'Pulsa a alguien en la iniciativa para ver su hoja y llevar sus PG y estados.'}</p>
+          <p className="muted" style={{ margin: 0 }}>{tab === 'bestiary' ? 'Pulsa una criatura de la lista para ver su hoja.' : tab === 'rules' ? 'Escribe un término en español o en inglés (derribado, prone, cobertura, bola de fuego…) o elige una de las más consultadas. Las reglas son las del SRD 5.2.1 (2024) y los enlaces del texto abren la regla citada.' : 'Pulsa a alguien en la iniciativa para ver su hoja y llevar sus PG y estados.'}</p>
+          {tab === 'rules' && <RuleQuick />}
         </div>
       )}
     </>

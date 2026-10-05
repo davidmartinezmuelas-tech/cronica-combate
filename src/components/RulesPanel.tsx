@@ -1,9 +1,36 @@
 import { useEffect, useMemo, useState } from 'react';
-import { parseMarkup, searchRules, type Inline, type RuleEntry } from '../engine/rules';
+import { findRule, parseMarkup, searchRules, type Inline, type RuleEntry } from '../engine/rules';
 import { useStore } from '../store/useStore';
 
 const CATS = ['Estados', 'Glosario', 'Acciones', 'Combate', 'Pruebas de d20', 'Daño y curación', 'Exploración', 'Interacción social', 'Lanzar conjuros', 'Conjuros', 'Equipo', 'Monturas y vehículos', 'Objetos mágicos', 'Dirigir el combate', 'Caja de herramientas del DM'];
 const PAGE = 80;
+
+/** Lo que más se consulta en mesa, a un toque (sin tener que escribir). */
+const QUICK: [string, string[]][] = [
+  ['Acciones', ['Ataque', 'Correr', 'Retirarse', 'Esquivar', 'Ayudar', 'Ocultarse', 'Preparar', 'Buscar', 'Estudiar', 'Influir', 'Magia', 'Utilizar']],
+  ['En combate', ['Ataques de oportunidad', 'Cobertura', 'Sorpresa', 'Golpe crítico', 'Golpe sin armas', 'Agarrar', 'Concentración', 'Tirada de salvación contra la muerte', 'Puntos de golpe temporales', 'Ensangrentado', 'Terreno difícil', 'Caída', 'Descanso corto', 'Descanso largo']],
+];
+
+/** Consulta rápida: acciones, estados y reglas de combate habituales (pantalla vacía de Reglas). */
+export function RuleQuick() {
+  const rules = useStore((s) => s.rules);
+  const { openRule } = useStore.getState();
+  if (!rules) return null;
+  const groups: [string, RuleEntry[]][] = [
+    ...QUICK.map(([t, names]): [string, RuleEntry[]] => [t, names.map((n) => findRule(rules, n, 'Glosario') || findRule(rules, n)).filter((e): e is RuleEntry => !!e)]),
+    ['Estados', rules.filter((e) => e.cat === 'Estados').sort((a, b) => a.n.localeCompare(b.n, 'es'))],
+  ];
+  return (
+    <div className="rule-quick">
+      {groups.filter(([, list]) => list.length).map(([t, list]) => (
+        <section key={t}>
+          <h3 className="eyebrow">{t}</h3>
+          <div className="chips">{list.map((e) => <button key={e.id} className="chip" onClick={() => openRule(e.id)}>{e.n}</button>)}</div>
+        </section>
+      ))}
+    </div>
+  );
+}
 
 /** Buscador de reglas (columna izquierda). */
 export default function RulesPanel() {
@@ -23,16 +50,18 @@ export default function RulesPanel() {
       <div className="panel-head"><h2>Reglas</h2>{rules && <span className="muted small">{rules.length} entradas</span>}</div>
       <div className="field"><label htmlFor="rules-search">Buscar (español o inglés)</label>
         <input id="rules-search" className="input" type="search" value={rq} placeholder="derribado, prone, cobertura, bola de fuego…" onChange={(e) => set({ rq: e.target.value })} /></div>
-      <div className="field"><label htmlFor="rules-cat">Tipo</label>
+      <div className="rules-filter">
+        <label htmlFor="rules-cat" className="small">Tipo</label>
         <select id="rules-cat" className="input" value={rcat} onChange={(e) => set({ rcat: e.target.value })}>
           <option value="">Todo</option>
           {cats.map((c) => <option key={c} value={c}>{c}</option>)}
-        </select></div>
+        </select>
+        {rules && <span className="muted small" role="status">{found.length ? found.length + (found.length === 1 ? ' resultado' : ' resultados') : 'Nada coincide.'}</span>}
+      </div>
       {!rules && !rulesError && <p className="muted" style={{ margin: 0 }}>Cargando las reglas…</p>}
       {rulesError && <p className="warn">{rulesError} <button className="btn small" onClick={() => void loadRules()}>Reintentar</button></p>}
       {rules && (
         <>
-          <span className="muted small" role="status">{found.length ? found.length + (found.length === 1 ? ' resultado' : ' resultados') : 'Nada coincide con la búsqueda.'}</span>
           <ul className="rule-list">
             {found.slice(0, limit).map((e) => (
               <li key={e.id}>
@@ -42,11 +71,10 @@ export default function RulesPanel() {
                 </button>
               </li>
             ))}
+            {found.length > limit && <li><button className="btn" style={{ width: '100%' }} onClick={() => setLimit(limit + PAGE)}>Mostrar más ({found.length - limit} restantes)</button></li>}
           </ul>
-          {found.length > limit && <button className="btn" onClick={() => setLimit(limit + PAGE)}>Mostrar más ({found.length - limit} restantes)</button>}
         </>
       )}
-      <p className="muted small" style={{ margin: 0 }}>Reglas del SRD 5.2.1 (2024). Los enlaces del texto abren la regla citada.</p>
     </div>
   );
 }

@@ -152,6 +152,9 @@ test('con «reducir movimiento» empiezan los dados 2D, pero se pueden activar l
 test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado desde el combate', async ({ page }) => {
   await open(page);
   await page.keyboard.press('r');
+  // consulta rápida sin escribir
+  await page.locator('.rule-quick').getByRole('button', { name: 'Ataques de oportunidad' }).click();
+  await expect(page.locator('.rule-view .sb-name')).toHaveText('Ataques de oportunidad');
   const search = page.getByLabel('Buscar (español o inglés)');
   await search.fill('prone');
   await page.locator('.rule-item').first().click();

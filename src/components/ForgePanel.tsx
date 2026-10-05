@@ -143,7 +143,7 @@ export default function ForgePanel() {
 
       <fieldset className="fs">
         <legend>Características</legend>
-        <div className="row3">
+        <div className="row3 abil-grid">
           {ABIL.map((k, i) => (
             <div className="abil-edit" key={k}>
               <label htmlFor={'fa-' + i}>{k}</label>
