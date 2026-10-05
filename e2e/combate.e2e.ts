@@ -268,4 +268,6 @@ test('en el móvil, al tocar a alguien de la iniciativa se baja hasta su ficha',
   await page.getByRole('button', { name: 'Combate', exact: true }).click();
   await page.locator('.init-row', { hasText: 'Ogro' }).click();
   await expect(page.locator('.combatant-card')).toBeInViewport();
+  await page.getByRole('button', { name: 'Ir a sus acciones' }).click();
+  await expect(page.getByRole('button', { name: /Ataque \+6/ }).first()).toBeInViewport();
 });

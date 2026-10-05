@@ -4,6 +4,13 @@ import { durationText } from '../engine/combat';
 import { useStore } from '../store/useStore';
 import { Pips } from './StatBlock';
 
+/** Baja hasta las acciones de la hoja (en la tablet quedan debajo de la tarjeta). */
+function goToActions() {
+  const target = document.querySelector('.sheet-col section[aria-label="Acciones"]') || document.querySelector('.sheet-col .sb-section');
+  const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  target?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+}
+
 export default function CombatantCard({ c }: { c: Combatant }) {
   const m = useStore((s) => s.monById(c.monsterId));
   const amount = useStore((s) => s.amount);
@@ -35,6 +42,9 @@ export default function CombatantCard({ c }: { c: Combatant }) {
           <h2>{c.name}</h2>
           <span className="muted">{kindLabel}</span>
         </div>
+        {m && c.kind === 'monster' && [m.ac_, m.ba, m.re, m.lg].some((x) => x?.length) && (
+          <button className="btn small" onClick={() => goToActions()}>Ir a sus acciones</button>
+        )}
         <button className="btn small ghost" onClick={() => confirm('rm-' + c.id, () => removeCombatant(c.id))}>{confirmKey === 'rm-' + c.id ? '¿Seguro? Pulsa otra vez' : 'Quitar del combate'}</button>
       </div>
 

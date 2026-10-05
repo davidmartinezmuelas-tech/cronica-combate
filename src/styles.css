@@ -358,3 +358,4 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .rule-name{font-size:17px}
 .rule-quick{display:flex;flex-direction:column;gap:14px;width:100%;text-align:left;margin-top:8px}
 .rule-quick h3{margin:0 0 6px}
+a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
