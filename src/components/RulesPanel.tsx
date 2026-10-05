@@ -19,7 +19,7 @@ export default function RulesPanel() {
   const found = useMemo(() => (rules ? searchRules(rules, rq, rcat) : []), [rules, rq, rcat]);
   const cats = useMemo(() => CATS.filter((c) => rules?.some((e) => e.cat === c)), [rules]);
   return (
-    <div className="panel">
+    <div className="panel rules-panel">
       <div className="panel-head"><h2>Reglas</h2>{rules && <span className="muted small">{rules.length} entradas</span>}</div>
       <div className="field"><label htmlFor="rules-search">Buscar (español o inglés)</label>
         <input id="rules-search" className="input" type="search" value={rq} placeholder="derribado, prone, cobertura, bola de fuego…" onChange={(e) => set({ rq: e.target.value })} /></div>

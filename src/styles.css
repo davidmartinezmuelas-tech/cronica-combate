@@ -284,3 +284,10 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .rule-table th{text-align:left;color:#7a1f14;border-bottom:2px solid #7a1f14;padding:4px 8px}
 .rule-table td{border-bottom:1px solid #d8c49c;padding:4px 8px;vertical-align:top}
 .rule-table tr:nth-child(even) td{background:rgba(122,31,20,.05)}
+/* Reglas: el panel ocupa como mucho la pantalla y la lista hace scroll; el texto no se estira de más */
+.rules-panel{position:sticky;top:16px;max-height:calc(100vh - 110px);overflow:hidden}
+.rules-panel .rule-list{flex:1 1 auto;min-height:120px;overflow-y:auto;overscroll-behavior:contain;padding-right:4px;scrollbar-width:thin;scrollbar-color:#6b5238 transparent}
+.sheet-col .rule-view{max-width:900px}
+@media (max-width:760px){.rules-panel{position:static;max-height:70vh}}
+/* para que el panel de Reglas se quede fijo al bajar por un texto largo */
+.col-left:has(.rules-panel){align-self:stretch}

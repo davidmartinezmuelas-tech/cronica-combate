@@ -85,7 +85,7 @@ def inline(s, resolve):
     s = re.sub(r'<[^>]+>', '', s)
     s = html.unescape(s)
     # palabras partidas en la maquetación original: «con - juro», «murcié - lago»
-    s = re.sub(r'([a-záéíóúñü]) - ([a-záéíóúñü])', r'', s)
+    s = re.sub(r'([a-záéíóúñü]) - ([a-záéíóúñü])', lambda m: m.group(1) + m.group(2), s)
     return re.sub(r'\s+', ' ', s).strip()
 
 
@@ -238,6 +238,8 @@ def main(tr_dir, packs, out_path):
             continue
         meta = spell_meta(en['system'])
         mat = s.get('materials')
+        if mat:
+            mat = re.sub(r'([a-záéíóúñü]) - ([a-záéíóúñü])', lambda m: m.group(1) + m.group(2), mat)
         if mat and 'M' in meta['cmp']:
             meta['cmp'] += ' (' + mat + ')'
         entries.append({'id': 'sp-' + sid, 'n': s['name'], 'en': en['name'], 'cat': 'Conjuros', 't': to_markup(s.get('description', ''), res), **meta})
