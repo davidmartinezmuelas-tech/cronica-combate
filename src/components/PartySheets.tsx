@@ -78,7 +78,7 @@ function ImportDialog({ r, data, onClose }: { r: RosterEntry; data: SheetData; o
         )}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 12 }}>
           <button className="btn ghost" onClick={onClose}>No copiar nada</button>
-          <button className="btn primary" disabled={!any} onClick={apply}>Copiar a la ficha</button>
+          <button className="btn primary" disabled={!any} onClick={apply} autoFocus>Copiar a la ficha</button>
         </div>
       </div>
     </div>

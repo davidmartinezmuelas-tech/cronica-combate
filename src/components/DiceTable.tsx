@@ -75,6 +75,7 @@ export default function DiceTable() {
   const expr = useStore((s) => s.expr);
   const exprError = useStore((s) => s.exprError);
   const log = useStore((s) => s.log);
+  const confirmKey = useStore((s) => s.confirmKey);
   const dice3d = useStore((s) => s.dice3d);
   const { set, roll } = useStore.getState();
   const can3d = hasWebGL();
@@ -179,7 +180,7 @@ export default function DiceTable() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div className="panel-head"><span className="eyebrow">Historial</span>{log.length > 0 && <button className="btn small ghost" onClick={() => set({ log: [] })}>Limpiar</button>}</div>
+        <div className="panel-head"><span className="eyebrow">Historial</span>{log.length > 0 && <button className="btn small ghost" onClick={() => useStore.getState().confirm('clear-log', () => set({ log: [] }))}>{confirmKey === 'clear-log' ? '¿Seguro? Borrar todo' : 'Limpiar'}</button>}</div>
         <ol className="log">
           {log.map((l) => (
             <li key={l.id}>
