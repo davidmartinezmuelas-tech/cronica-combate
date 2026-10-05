@@ -2,6 +2,7 @@ import { CONDITIONS, DMG_TYPES } from '../data/constants';
 import type { Combatant } from '../data/types';
 import { applyDamage, durationText } from '../engine/combat';
 import { useStore } from '../store/useStore';
+import Picker from './Picker';
 import { Pips } from './StatBlock';
 
 /** Baja hasta las acciones de la hoja (en la tablet quedan debajo de la tarjeta). */
@@ -123,7 +124,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
           {c.laMax > 0 && <div className="res-row"><span className="res">Acciones legendarias ({c.laMax - c.laUsed}/{c.laMax})<Pips max={c.laMax} used={c.laUsed} label="Acciones legendarias" onSet={(v) => patchC(c.id, { laUsed: Math.max(0, Math.min(c.laMax, v)) }, 'acción legendaria')} /></span></div>}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <span className="eyebrow">Estados</span>
+            <Picker title="Estados" summary={c.conds.map((cd) => cd.k + (cd.r != null ? ' (' + cd.r + ')' : '')).join(', ')}>
             <div className="cond-dur" role="group" aria-label="Duración al añadir un estado">
               <label className="small muted" htmlFor="crounds">Dura</label>
               <input id="crounds" type="number" min={0} className="input" value={condRounds} onChange={(e) => set({ condRounds: e.target.value })} placeholder="∞" style={{ width: 64, minHeight: 34, padding: '4px 8px' }} />
@@ -144,6 +145,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
                 return <button key={k} className={cd ? 'chip on' : 'chip'} aria-pressed={!!cd} onClick={() => toggleCond(c.id, k)}>{k}{cd && cd.r != null && <span className="chip-tag">{cd.r}</span>}</button>;
               })}
             </div>
+            </Picker>
             {c.conds.length > 0 && (
               <ul className="rem">
                 {c.conds.map((cd) => <li key={cd.k}><span><button className="rule-link strong" title={'Ver la regla completa de ' + cd.k} onClick={() => void openRuleByName(cd.k, 'Estados')}>{cd.k}</button>{cd.r != null && <span className="muted"> ({durationText(cd, c, combatants)})</span>}<strong>:</strong> {CONDITIONS.find((x) => x[0] === cd.k)?.[1]}</span></li>)}

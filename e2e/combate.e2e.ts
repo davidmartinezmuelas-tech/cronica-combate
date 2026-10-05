@@ -182,7 +182,9 @@ test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado des
   await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 1);
   await page.getByRole('button', { name: 'Combate', exact: true }).click();
   await page.locator('.init-row', { hasText: 'Guerrero goblin' }).click();
+  await page.locator('.combatant-card summary', { hasText: 'Estados' }).click(); // los estados van en un desplegable
   await page.getByRole('button', { name: 'Apresado', exact: true }).click();
+  await expect(page.locator('.combatant-card summary', { hasText: 'Estados' })).toContainText('Apresado');
   await page.getByTitle('Ver la regla completa de Apresado').click();
   await expect(page.locator('.rule-view .sb-name')).toHaveText('Apresado');
 });
