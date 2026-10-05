@@ -38,13 +38,12 @@ function Row({ c }: { c: Combatant }) {
             <span style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{c.name}</span>
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
             {isActive && <span className="turn-flag">En turno</span>}
-            {c.kind !== 'lair' && <span style={{ marginLeft: 'auto', fontSize: 13, fontWeight: 700, color: '#cdbd9f', whiteSpace: 'nowrap' }}>CA {c.ac}</span>}
           </span>
           {c.kind !== 'lair' && <span className="hpbar"><span className={'hpfill ' + (pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '')} style={{ width: pct + '%' }} /></span>}
           <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#cdbd9f' }}>
             <span style={{ minWidth: 0, lineHeight: 1.3 }}>{statusOf(c, started)}</span>
             {c.kind !== 'lair' && (
-              <span style={{ whiteSpace: 'nowrap', fontWeight: 700 }}>{c.hp} / {c.maxHp} PG{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
+              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto' }}>CA {c.ac} · {c.hp} / {c.maxHp} PG{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
             )}
           </span>
         </span>
@@ -107,13 +106,16 @@ export default function InitiativePanel() {
   const inC = new Set(combatants.map((c) => c.rosterId).filter(Boolean));
   const rosterOut = roster.filter((r) => !inC.has(r.id));
   const pendingPc = combatants.some((c) => c.init == null && c.kind === 'pc');
+  const pendingMon = combatants.filter((c) => c.init == null && c.kind === 'monster').length;
+  // ya en combate, el botón solo sirve para los refuerzos: volver a tirar a todos desordenaría la ronda
+  const showRoll = !started || pendingMon > 0;
   return (
     <div className="panel">
       <div className="panel-head">
         <h2>Iniciativa</h2>
-        <button className="btn small gold" onClick={rollInit} title="Atajo: I">Tirar iniciativa de monstruos</button>
+        {showRoll && <button className="btn small gold" onClick={rollInit} title="Atajo: I">{started ? 'Tirar iniciativa de los nuevos (' + pendingMon + ')' : 'Tirar iniciativa de monstruos'}</button>}
       </div>
-      <label className="check"><input type="checkbox" checked={surprised} onChange={(e) => set({ surprised: e.target.checked })} />Los monstruos están sorprendidos (desventaja)</label>
+      {(!started || surprised) && <label className="check"><input type="checkbox" checked={surprised} onChange={(e) => set({ surprised: e.target.checked })} />Los monstruos están sorprendidos (desventaja)</label>}
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {order.map((c) => <Row key={c.id} c={c} />)}
       </ol>

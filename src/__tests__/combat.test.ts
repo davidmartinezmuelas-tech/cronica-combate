@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Combatant, Monster } from '../data/types';
 import { addCondition, applyDamage, applyHeal, durationText, encounterDifficulty, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, stepTurn, tickConditions, turnStart, uniqueName } from '../engine/combat';
 import { useStore } from '../store/useStore';
@@ -111,6 +111,24 @@ describe('duración de los estados', () => {
     expect(st().combatants.find((c) => c.id === 'g')!.conds).toEqual([]);
     expect(st().turnEvents[0].text).toBe('Termina el estado «Asustado» de Goblin.');
     useStore.setState({ condRounds: '', condAt: 'start', condBy: '' });
+  });
+});
+
+describe('tirar iniciativa de monstruos', () => {
+  it('en mitad del combate solo tira la de los refuerzos y nunca vuelve a tirar la de todos', () => {
+    const cs = [base({ id: 'j', name: 'Jimena', kind: 'pc', init: 15 }), base({ id: 'g', name: 'Goblin', init: 12 }), base({ id: 'r', name: 'Refuerzo', init: null })];
+    useStore.setState({ combatants: cs, started: true, activeId: 'j', round: 2, undoStack: [] });
+    const st = () => useStore.getState();
+    vi.useFakeTimers();
+    st().rollInit();
+    vi.advanceTimersByTime(5000); // la animación de los dados
+    vi.useRealTimers();
+    expect(st().combatants.find((c) => c.id === 'g')!.init).toBe(12);
+    expect(st().combatants.find((c) => c.id === 'r')!.init).not.toBeNull();
+    const before = st().combatants.map((c) => c.init);
+    st().rollInit();
+    expect(st().combatants.map((c) => c.init)).toEqual(before);
+    useStore.setState({ combatants: [], started: false, activeId: null, round: 1, undoStack: [] });
   });
 });
 

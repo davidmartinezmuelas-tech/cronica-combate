@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import type { Monster } from '../data/types';
 import { fmt } from '../engine/dice';
-import { crNum, nfmt, norm } from '../engine/util';
+import { rankBy } from '../engine/search';
+import { crNum, nfmt } from '../engine/util';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../store/useStore';
 
@@ -47,15 +48,21 @@ export default function BestiaryPanel() {
   const s = useStore(useShallow((st) => ({ srd: st.srd, custom: st.custom, search: st.search, fType: st.fType, fCr: st.fCr, fLeg: st.fLeg, fMine: st.fMine, bLimit: st.bLimit, loaded: st.loaded, loadError: st.loadError, types: st.types, hpMode: st.hpMode, shareInit: st.shareInit, addLair: st.addLair })));
   const { set, newForge } = useStore.getState();
   const pool = useMemo(() => {
-    const q = norm(s.search);
     const r = CR_RANGES[s.fCr];
-    return s.custom.concat(s.srd).filter((m) =>
-      (!q || norm(m.n).includes(q) || norm(m.en).includes(q)) &&
+    const filtered = s.custom.concat(s.srd).filter((m) =>
       (!s.fType || m.t.split(' (')[0] === s.fType) &&
       (!r || (crNum(m.cr) >= r[0] && crNum(m.cr) <= r[1])) &&
       (!s.fLeg || !!m.lg) && (!s.fMine || !!m.custom));
+    // «goblin» muestra antes al Goblin que al Capitán hobgoblin
+    return rankBy(filtered, s.search, (m) => [m.n, m.en]);
   }, [s.custom, s.srd, s.search, s.fType, s.fCr, s.fLeg, s.fMine]);
   const shown = pool.slice(0, s.bLimit);
+  // la ficha de la derecha sigue a la búsqueda: si la criatura abierta ya no está en la lista, se abre la primera
+  useEffect(() => {
+    const { viewId } = useStore.getState();
+    if (pool.length && !pool.some((m) => m.id === viewId)) set({ viewId: pool[0].id, spellOpen: null });
+  }, [pool, set]);
+  const filtering = !!(s.search.trim() || s.fType || s.fCr !== 'all' || s.fLeg || s.fMine);
   return (
     <div className="panel">
       <div className="panel-head"><h2>Bestiario</h2><span className="muted small">{s.custom.length + s.srd.length} criaturas</span></div>
@@ -78,8 +85,11 @@ export default function BestiaryPanel() {
         <label className="check"><input type="checkbox" checked={s.fLeg} onChange={(e) => set({ fLeg: e.target.checked, bLimit: 50 })} />Solo legendarios</label>
         <label className="check"><input type="checkbox" checked={s.fMine} onChange={(e) => set({ fMine: e.target.checked, bLimit: 50 })} />Solo mis criaturas</label>
       </div>
-      <div className="sub">
-        <span className="eyebrow">Al añadir al combate</span>
+      <details className="sub add-opts">
+        <summary>
+          <span className="eyebrow">Al añadir al combate</span>
+          <span className="muted small">{[s.hpMode === 'avg' ? 'PG medios' : 'PG tirados', s.shareInit ? 'iniciativa por grupo' : 'iniciativa individual', s.addLair ? 'en su guarida' : ''].filter(Boolean).join(' · ')}</span>
+        </summary>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span className="small" style={{ fontWeight: 700 }} id="hp-mode">Puntos de golpe</span>
           <div className="segbox" role="group" aria-labelledby="hp-mode">
@@ -89,7 +99,8 @@ export default function BestiaryPanel() {
         </div>
         <label className="check"><input type="checkbox" checked={s.shareInit} onChange={(e) => set({ shareInit: e.target.checked })} />Misma iniciativa para los del mismo grupo</label>
         <label className="check"><input type="checkbox" checked={s.addLair} onChange={(e) => set({ addLair: e.target.checked })} />Están en su guarida (si tienen)</label>
-      </div>
+      </details>
+      {s.loaded && filtering && pool.length > 0 && <p className="muted small" style={{ margin: 0 }} aria-live="polite">{pool.length === 1 ? '1 criatura' : pool.length + ' criaturas'}</p>}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {shown.map((m) => <Beast key={m.id} m={m} />)}
       </ul>

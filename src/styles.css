@@ -65,7 +65,7 @@ textarea.input{resize:vertical;line-height:1.4;font-family:'Alegreya',Georgia,se
 .fs{border:1px solid #3d2f22;border-radius:8px;padding:12px 14px 14px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fs legend{padding:0 6px;font-family:'IM Fell English SC',Georgia,serif;font-size:19px;color:#d4a94f}
 .sub{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:#1a140f;border:1px solid #33271c}
-.init-row{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:10px 12px;background:#2a2018;border:1px solid #3d2f22;border-radius:8px;color:#efe3cb;text-align:left}
+.init-row{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:8px 12px;background:#2a2018;border:1px solid #3d2f22;border-radius:8px;color:#efe3cb;text-align:left}
 .init-row:hover{border-color:#6b5238}
 .init-row.sel{border-color:#b08a45;background:#2f241a}
 .init-row.active{background:#3a2a1a;box-shadow:0 0 0 1px #d4a94f inset,0 0 22px rgba(212,169,79,.16)}
@@ -340,3 +340,10 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .sheet-links summary{cursor:pointer;font-weight:700;color:#e6c98f}
 .sheet-links ul{margin:6px 0 0;padding-left:18px}
 .sheet-import input[type=checkbox],.sheet-import-notes input{accent-color:#b0412f;width:18px;height:18px}
+.add-opts{display:block}
+.add-opts>summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;list-style:none}
+.add-opts>summary::-webkit-details-marker{display:none}
+.add-opts>summary .eyebrow::after{content:' ▸'}
+.add-opts[open]>summary .eyebrow::after{content:' ▾'}
+.add-opts[open]>summary{margin-bottom:8px}
+.add-opts>:not(summary){margin-top:8px}

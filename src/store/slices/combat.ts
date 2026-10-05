@@ -70,6 +70,8 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       if (guard(() => get().rollInit())) return;
       const s = get();
       let targets = s.combatants.filter((c) => c.kind === 'monster' && c.init == null);
+      // en mitad del combate no se vuelve a tirar la de todos (el atajo I tampoco)
+      if (!targets.length && s.started) { get().showToast('Todos los monstruos tienen ya su iniciativa'); return; }
       if (!targets.length) targets = s.combatants.filter((c) => c.kind === 'monster');
       if (!targets.length) { get().showToast('No hay monstruos en el encuentro'); return; }
       const groups = new Map<string, Combatant[]>();
