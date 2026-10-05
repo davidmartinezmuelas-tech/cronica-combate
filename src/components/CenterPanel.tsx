@@ -130,7 +130,16 @@ function LegendaryBanner() {
     <div className="banner">
       <span className="eyebrow" style={{ color: '#f0a090' }}>Acciones legendarias tras este turno</span>
       <div className="banner-row">
-        {list.map((c) => <button key={c.id} className="btn small" onClick={() => set({ selId: c.id, tab: 'combat' })}>{c.name} · {c.laMax - c.laUsed}/{c.laMax}</button>)}
+        {list.map((c) => (
+          <button key={c.id} className="btn small" title="Abre su hoja en las acciones legendarias" onClick={() => {
+            set({ selId: c.id, tab: 'combat' });
+            // cuando ya se ha dibujado su hoja, bajar hasta sus acciones legendarias
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+              const smooth = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+              document.querySelector('.sheet-col section[aria-label="Acciones legendarias"]')?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+            }));
+          }}>{c.name} · {c.laMax - c.laUsed}/{c.laMax}</button>
+        ))}
       </div>
     </div>
   );

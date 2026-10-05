@@ -41,7 +41,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
   return (
     <div className="panel combatant-card">
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <h2>{c.name}</h2>
           <span className="muted">{kindLabel}</span>
         </div>

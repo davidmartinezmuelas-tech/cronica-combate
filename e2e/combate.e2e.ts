@@ -285,3 +285,16 @@ test('daño manual: sin tipo por defecto y aviso si sus defensas cambian la cant
   await page.getByLabel('Tipo de daño').selectOption('veneno');
   await expect(page.getByText('Es inmune: no recibirá daño.')).toBeVisible();
 });
+
+test('acciones legendarias: el aviso abre la hoja del monstruo en sus acciones legendarias', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'dragón rojo adulto', 'Dragón rojo adulto', 1);
+  await addPlayer(page, 'Jimena', '40');
+  await page.getByRole('button', { name: 'Tirar iniciativa de monstruos' }).click();
+  await expect(page.locator('.init-row', { hasText: 'Dragón' }).locator('.init-badge')).not.toHaveText('—', { timeout: 15000 });
+  await page.getByRole('button', { name: 'Empezar combate' }).first().click();
+  await expect(activeName(page)).toContainText('Jimena');
+  await page.locator('.banner').getByRole('button', { name: /Dragón rojo adulto · 4\/4/ }).click();
+  await expect(page.locator('.combatant-card h2')).toHaveText('Dragón rojo adulto');
+  await expect(page.locator('.sheet-col section[aria-label="Acciones legendarias"]')).toBeInViewport();
+});
