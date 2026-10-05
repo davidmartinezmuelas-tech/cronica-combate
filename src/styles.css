@@ -146,7 +146,9 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .ctrl-col{flex:1 1 300px;max-width:520px;min-width:0;display:flex;flex-direction:column;gap:16px}
 .sheet-col{flex:999 1 340px;min-width:0;display:flex;flex-direction:column;gap:10px}
 .sheet-col .statblock,.sheet-col .spellcard{max-width:none}
-@media (min-width:1200px){.sheet-col{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:#6b5238 transparent}}
+/* la hoja solo se queda fija (con su propio scroll) cuando cabe al lado de la tarjeta; si baja debajo, scroll normal */
+.center-grid{container-type:inline-size}
+@container (min-width:660px){.sheet-col{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:#6b5238 transparent}}
 .ctrl-col .row3{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
 .abil-box{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;border-radius:6px;background:#ead8b2}
 .abil-k{font-family:'Alegreya Sans',sans-serif;font-weight:800;color:#7a1f14;font-size:14px;letter-spacing:.04em}
@@ -301,7 +303,7 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
   .app-main{flex:1 1 auto;min-height:0;flex-wrap:nowrap;align-items:stretch;padding:16px 24px 0;overflow:hidden}
   .col-left,.col-center,.col-right{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 4px 20px 0;scrollbar-width:thin;scrollbar-color:#6b5238 transparent}
   .col-center .app-footer{padding:12px 0 4px;max-width:none}
-  .sheet-col{position:sticky;top:0;max-height:calc(100dvh - 110px);overflow-y:auto}
+  @container (min-width:660px){.sheet-col{top:0;max-height:calc(100dvh - 110px)}}
   .col-left:has(.rules-panel){overflow:hidden;padding-bottom:16px}
   .rules-panel{position:static;max-height:100%}
 }
