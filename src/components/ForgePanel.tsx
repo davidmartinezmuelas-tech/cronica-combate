@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ABIL, ABIL_LONG, CONDITION_IMMUNITIES, CR_LIST, DMG_TYPES, SIZES, XP_BY_CR } from '../data/constants';
 import type { SectionKey } from '../data/types';
 import { fmt, modOf, parseExpr } from '../engine/dice';
@@ -6,10 +6,13 @@ import { forgeToMonster, newFeat, type ForgeFeat, type ForgeState } from '../eng
 import { nfmt, pbOf } from '../engine/util';
 import { useStore } from '../store/useStore';
 import { ChevronUp } from './Icons';
+import Picker from './Picker';
 
 const NEXT = { none: 'resist', resist: 'immune', immune: 'vuln', vuln: 'none' } as const;
 const TAG = { none: '', resist: 'R', immune: 'I', vuln: 'V' };
 const WORD = { none: 'sin efecto', resist: 'resistencia', immune: 'inmunidad', vuln: 'vulnerabilidad' };
+const SEC_LABEL: Record<SectionKey, string> = { tr: 'Rasgo', ac_: 'Acción', ba: 'Acción adicional', re: 'Reacción', lg: 'Legendaria' };
+const KIND_LABEL: Record<string, string> = { melee: 'cuerpo a cuerpo', ranged: 'a distancia', save: 'salvación', spells: 'conjuros', text: 'texto' };
 
 /** Aviso bajo un campo de daño que la app no sabe tirar (p. ej. «2d6 + 4 cortante»). */
 function BadExpr({ v }: { v: string }) {
@@ -25,8 +28,13 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
   const feats = () => useStore.getState().forge.feats;
   const id = (p: string) => p + '-' + ft.k;
   const isAtk = ft.kind === 'melee' || ft.kind === 'ranged';
+  const [open, setOpen] = useState(!ft.name);
   return (
-    <div className="sub">
+    <details className="sub feat" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary className="feat-sum">
+        <span className="feat-name">{ft.name || 'Sin nombre'}</span>
+        <span className="muted small">{SEC_LABEL[ft.sec]} · {KIND_LABEL[ft.kind]}</span>
+      </summary>
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor={id('n')}>Nombre</label><input id={id('n')} className="input" value={ft.name} onChange={on('name')} /></div>
         <button className="btn small ghost icon" aria-label="Subir" disabled={i === 0} onClick={() => { const a = feats().slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; setForge({ feats: a }); }}><ChevronUp /></button>
@@ -114,7 +122,7 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
       <div className="field"><label htmlFor={id('de')}>{ft.kind === 'text' ? 'Descripción' : ft.raw ? 'Descripción completa' : 'Efecto adicional (se añade al texto generado)'}</label>
         <textarea id={id('de')} className="input" rows={3} value={ft.desc} onChange={on('desc')} /></div>
       {ft.kind !== 'text' && <label className="check"><input type="checkbox" checked={ft.raw} onChange={on('raw')} />Usar este texto tal cual (no generar)</label>}
-    </div>
+    </details>
   );
 }
 
@@ -127,30 +135,36 @@ export default function ForgePanel() {
   const fm = useMemo(() => forgeToMonster(f, 'x', spells), [f, spells]);
   const on = (k: keyof ForgeState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForge({ [k]: e.target.value } as Partial<ForgeState>);
   const addFeat = (sec: SectionKey) => setForge({ feats: f.feats.concat([newFeat(sec)]) });
+  const dmgSummary = (['resist', 'immune', 'vuln'] as const)
+    .map((mode) => [mode, DMG_TYPES.filter((t) => f.dmg[t] === mode)] as const)
+    .filter(([, ts]) => ts.length)
+    .map(([mode, ts]) => ({ resist: 'Resiste ', immune: 'Inmune a ', vuln: 'Vulnerable a ' })[mode] + ts.join(', '))
+    .join(' · ');
   return (
     <div className="panel forge-panel">
       <div className="panel-head"><h2>Forja</h2><span className="muted small">{editingId ? 'Editando: ' + (f.name || 'sin nombre') : 'Criatura nueva'}</span></div>
 
       <fieldset className="fs">
         <legend>Identidad</legend>
-        <div className="field"><label htmlFor="f-name">Nombre</label><input id="f-name" className="input" value={f.name} onChange={on('name')} /></div>
-        <div className="row2">
+        <div className="row-name">
+          <div className="field"><label htmlFor="f-name">Nombre</label><input id="f-name" className="input" value={f.name} onChange={on('name')} /></div>
           <div className="field"><label htmlFor="f-size">Tamaño</label><select id="f-size" className="input" value={f.size} onChange={on('size')}>{SIZES.map((z) => <option key={z}>{z}</option>)}</select></div>
-          <div className="field"><label htmlFor="f-type">Tipo</label><input id="f-type" className="input" value={f.type} onChange={on('type')} /></div>
         </div>
-        <div className="field"><label htmlFor="f-align">Alineamiento</label><input id="f-align" className="input" value={f.align} onChange={on('align')} /></div>
+        <div className="row2">
+          <div className="field"><label htmlFor="f-type">Tipo</label><input id="f-type" className="input" value={f.type} onChange={on('type')} /></div>
+          <div className="field"><label htmlFor="f-align">Alineamiento</label><input id="f-align" className="input" value={f.align} onChange={on('align')} /></div>
+        </div>
       </fieldset>
 
       <fieldset className="fs">
         <legend>Defensa y movimiento</legend>
-        <div className="row3">
+        <div className="row4f">
           <div className="field"><label htmlFor="f-ac">CA</label><input id="f-ac" type="number" className="input" value={f.ac} onChange={on('ac')} /></div>
-          <div className="field"><label htmlFor="f-hp">PG (dados)</label><input id="f-hp" className="input" value={f.hpDice} onChange={on('hpDice')} placeholder="4d8+4" /></div>
+          <div className="field"><label htmlFor="f-hp">PG <span className="muted">· media {fm.hp}</span></label><input id="f-hp" className="input" value={f.hpDice} onChange={on('hpDice')} placeholder="4d8+4" /></div>
           <div className="field"><label htmlFor="f-ini">Iniciativa</label><input id="f-ini" type="number" className="input" value={f.ini} onChange={on('ini')} placeholder={fmt(modOf(f.abil[1]))} /></div>
+          <div className="field"><label htmlFor="f-speed">Velocidad</label><input id="f-speed" className="input" value={f.speed} onChange={on('speed')} /></div>
         </div>
         <BadExpr v={f.hpDice} />
-        <span className="muted small">Media: {fm.hp} PG</span>
-        <div className="field"><label htmlFor="f-speed">Velocidad</label><input id="f-speed" className="input" value={f.speed} onChange={on('speed')} /></div>
       </fieldset>
 
       <fieldset className="fs">
@@ -162,7 +176,7 @@ export default function ForgePanel() {
               <input id={'fa-' + i} type="number" min={1} max={30} className="input" value={f.abil[i]} onChange={(e) => { const a = f.abil.slice(); a[i] = e.target.value; setForge({ abil: a }); }} />
               <span className="muted small">{fmt(modOf(f.abil[i]))} · salv. {fmt(fm.sv[i])}</span>
               <button className={f.saveProf[i] ? 'ts on' : 'ts'} aria-pressed={f.saveProf[i]} aria-label={'Competencia en salvación de ' + ABIL_LONG[i]}
-                onClick={() => { const p = f.saveProf.slice(); p[i] = !p[i]; setForge({ saveProf: p }); }}>Competente</button>
+                onClick={() => { const p = f.saveProf.slice(); p[i] = !p[i]; setForge({ saveProf: p }); }}>Comp. salv.</button>
             </div>
           ))}
         </div>
@@ -171,19 +185,17 @@ export default function ForgePanel() {
       <fieldset className="fs">
         <legend>Desafío y sentidos</legend>
         <div className="row2">
-          <div className="field"><label htmlFor="f-cr">Valor de desafío</label><select id="f-cr" className="input" value={f.cr} onChange={on('cr')}>{CR_LIST.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
-          <div className="field"><span>Recompensa</span><span style={{ minHeight: 40, display: 'flex', alignItems: 'center', color: '#f3e6c8', fontWeight: 700 }}>{nfmt(XP_BY_CR[f.cr] || 0)} PX · BC {fmt(pbOf(f.cr))}</span></div>
-        </div>
-        <div className="field"><label htmlFor="f-skills">Habilidades</label><input id="f-skills" className="input" value={f.skills} onChange={on('skills')} placeholder="Percepción +4, Sigilo +5" /></div>
-        <div className="row2">
-          <div className="field"><label htmlFor="f-senses">Sentidos</label><input id="f-senses" className="input" value={f.senses} onChange={on('senses')} placeholder="visión en la oscuridad 60 pies" /></div>
+          <div className="field"><label htmlFor="f-cr">VD <span className="muted">· {nfmt(XP_BY_CR[f.cr] || 0)} PX · BC {fmt(pbOf(f.cr))}</span></label><select id="f-cr" className="input" value={f.cr} onChange={on('cr')}>{CR_LIST.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
           <div className="field"><label htmlFor="f-pp">Percepción pasiva</label><input id="f-pp" type="number" className="input" value={f.pp} onChange={on('pp')} /></div>
         </div>
+        <div className="field"><label htmlFor="f-skills">Habilidades</label><input id="f-skills" className="input" value={f.skills} onChange={on('skills')} placeholder="Percepción +4, Sigilo +5" /></div>
+        <div className="field"><label htmlFor="f-senses">Sentidos</label><input id="f-senses" className="input" value={f.senses} onChange={on('senses')} placeholder="visión en la oscuridad 60 pies" /></div>
         <div className="field"><label htmlFor="f-langs">Idiomas</label><input id="f-langs" className="input" value={f.langs} onChange={on('langs')} /></div>
       </fieldset>
 
       <fieldset className="fs">
         <legend>Daño y estados</legend>
+        <Picker title="Defensas contra daño" summary={dmgSummary}>
         <p className="muted small" style={{ margin: 0 }}>Pulsa un tipo para alternar: resistencia (R) → inmunidad (I) → vulnerabilidad (V) → nada.</p>
         <div className="chips">
           {DMG_TYPES.map((t) => {
@@ -195,21 +207,25 @@ export default function ForgePanel() {
             );
           })}
         </div>
-        <span className="small" style={{ fontWeight: 700 }}>Inmune a estados</span>
+        </Picker>
+        <Picker title="Inmune a estados" summary={CONDITION_IMMUNITIES.filter((c) => f.condImm[c]).join(', ')}>
         <div className="chips">
           {CONDITION_IMMUNITIES.map((c) => (
             <button key={c} className={f.condImm[c] ? 'chip on' : 'chip'} aria-pressed={!!f.condImm[c]} onClick={() => setForge({ condImm: { ...f.condImm, [c]: !f.condImm[c] } })}>{c}</button>
           ))}
         </div>
+        </Picker>
       </fieldset>
 
       <fieldset className="fs">
         <legend>Legendario</legend>
+        <Picker title="Resistencias, acciones legendarias y guarida" summary={[+f.lr ? f.lr + ' res. leg./día' : '', +f.la ? f.la + ' usos de acción leg.' : '', f.lair ? 'guarida' : ''].filter(Boolean).join(' · ')} empty="no es legendario">
         <div className="row2">
           <div className="field"><label htmlFor="f-lr">Resistencia legendaria / día</label><input id="f-lr" type="number" min={0} max={6} className="input" value={f.lr} onChange={on('lr')} /></div>
           <div className="field"><label htmlFor="f-la">Usos de acción legendaria</label><input id="f-la" type="number" min={0} max={6} className="input" value={f.la} onChange={on('la')} /></div>
         </div>
         <label className="check"><input type="checkbox" checked={f.lair} onChange={(e) => setForge({ lair: e.target.checked })} />Tiene guarida (+1 uso de cada en ella)</label>
+        </Picker>
       </fieldset>
 
       <fieldset className="fs">

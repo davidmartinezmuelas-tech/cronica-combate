@@ -363,8 +363,8 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
   .app-nav .tab{padding:8px 2px;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 /* Forja: columna del formulario más ancha para que los campos quepan de dos en dos */
-.col-left:has(.forge-panel){flex:1 1 440px;max-width:560px;min-width:min(100%,380px)}
-.app-main:has(.forge-panel) .col-right{min-width:min(100%,240px)}
+.col-left:has(.forge-panel),.col-left:has(.group-panel){flex:1 1 440px;max-width:560px;min-width:min(100%,380px)}
+.app-main:has(.forge-panel) .col-right,.app-main:has(.group-panel) .col-right{min-width:min(100%,240px)}
 /* Reglas: el panel vacío empieza a la misma altura que el buscador */
 .center-grid:empty{display:none}
 /* Consulta rápida: rejilla de losetas iguales en vez de píldoras sueltas */
@@ -395,3 +395,34 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 }
 /* si la hoja no cabe al lado y baja debajo, la tarjeta ocupa todo el ancho (sin hueco a la derecha) */
 @container (max-width:655.98px){.center-grid>.ctrl-col{max-width:none}}
+/* ---------- Densidad: menos aire sin bajar de un toque cómodo en la tablet ---------- */
+.panel{padding:14px;gap:12px}
+.input{min-height:36px;padding:6px 10px}
+.field{gap:3px}
+.fs{padding:10px 12px 12px;gap:8px}
+.sub{padding:10px;gap:8px}
+.chip{min-height:34px;padding:4px 10px;font-size:13px}
+.chips{gap:5px}
+.btn{min-height:40px}
+.row4f{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,72px),1fr));gap:8px;align-items:end}
+/* desplegables de listas largas (tipos de daño, estados, legendario) */
+.picker{border:1px solid #33271c;border-radius:8px;background:#1a140f}
+.picker>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:8px 10px;min-height:36px}
+.picker>summary::-webkit-details-marker{display:none}
+.picker>summary::before{content:'▸';color:#d4a94f;font-size:12px}
+.picker[open]>summary::before{content:'▾'}
+.picker-title{font-weight:700;font-size:14px;color:#efe3cb}
+.picker-sum{font-size:13px;color:#e6c98f;min-width:0;overflow-wrap:anywhere}
+.picker-body{display:flex;flex-direction:column;gap:8px;padding:0 10px 10px}
+/* rasgos de la Forja plegables */
+.feat>summary{cursor:pointer;list-style:none;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.feat>summary::-webkit-details-marker{display:none}
+.feat>summary::before{content:'▸';color:#d4a94f;font-size:12px}
+.feat[open]>summary::before{content:'▾'}
+.feat[open]>summary{margin-bottom:6px}
+.feat-name{font-weight:800;color:#f3e6c8}
+.feat>:not(summary){margin-top:8px}
+.row-name{display:grid;grid-template-columns:minmax(0,2fr) minmax(110px,1fr);gap:8px;align-items:end}
+.abil-edit{padding:6px;gap:3px}
+.stat{padding:8px 10px;gap:2px}
+.stat-v{font-size:28px}

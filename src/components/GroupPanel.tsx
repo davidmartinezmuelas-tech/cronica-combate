@@ -4,6 +4,7 @@ import type { RosterEntry } from '../data/types';
 import { fmt } from '../engine/dice';
 import { blankRoster } from '../store/persist';
 import { useStore } from '../store/useStore';
+import Picker from './Picker';
 
 export default function GroupPanel() {
   const roster = useStore((s) => s.roster);
@@ -41,7 +42,7 @@ export default function GroupPanel() {
   };
 
   return (
-    <div className="panel">
+    <div className="panel group-panel">
       <div className="panel-head">
         <h2>Tu grupo</h2>
         {roster.length > 0 && <button className="btn small" onClick={addAllPcs}>Todos al combate</button>}
@@ -80,14 +81,14 @@ export default function GroupPanel() {
           <div className="field"><label htmlFor="pf-ini">Ini</label><input id="pf-ini" type="number" className="input" value={pf.initb} onChange={(e) => setF('initb', e.target.value)} /></div>
           <div className="field"><label htmlFor="pf-pp">Perc. pas.</label><input id="pf-pp" type="number" className="input" value={pf.pp} onChange={(e) => setF('pp', e.target.value)} /></div>
         </div>
-        <div className="field"><span>Resistencias al daño</span>
+        <Picker title="Resistencias al daño" summary={pf.res.join(', ')}>
           <div className="chips">
             {DMG_TYPES.map((t) => {
               const on = pf.res.includes(t);
               return <button key={t} className={on ? 'chip resist' : 'chip'} aria-pressed={on} onClick={() => setF('res', on ? pf.res.filter((x) => x !== t) : pf.res.concat([t]))}>{t}</button>;
             })}
           </div>
-        </div>
+        </Picker>
         {pcMsg && <p className="warn">{pcMsg}</p>}
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <button className="btn primary" onClick={savePc}>Guardar jugador</button>

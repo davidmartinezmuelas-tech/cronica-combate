@@ -41,14 +41,13 @@ export default function CombatantCard({ c }: { c: Combatant }) {
   return (
     <div className="panel combatant-card">
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-        <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <div style={{ flex: '1 1 160px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <h2>{c.name}</h2>
           <span className="muted">{kindLabel}</span>
         </div>
         {m && c.kind === 'monster' && [m.ac_, m.ba, m.re, m.lg].some((x) => x?.length) && (
           <button className="btn small" onClick={() => goToActions()}>Ir a sus acciones</button>
         )}
-        <button className="btn small ghost" onClick={() => confirm('rm-' + c.id, () => removeCombatant(c.id))}>{confirmKey === 'rm-' + c.id ? '¿Seguro? Pulsa otra vez' : 'Quitar del combate'}</button>
       </div>
 
       {c.kind === 'lair' ? (
@@ -57,8 +56,8 @@ export default function CombatantCard({ c }: { c: Combatant }) {
       ) : (
         <>
           <div className="row3">
-            <div className="stat"><span className="stat-k">Puntos de golpe</span><span className="stat-v">{c.hp}<span className="stat-of"> / {c.maxHp}</span></span>{c.temp > 0 && <span className="stat-tmp">+{c.temp} temporales</span>}</div>
-            <div className="stat"><span className="stat-k">Clase de armadura</span><span className="stat-v">{c.ac}</span></div>
+            <div className="stat"><span className="stat-k" title="Puntos de golpe">PG</span><span className="stat-v">{c.hp}<span className="stat-of"> / {c.maxHp}</span></span>{c.temp > 0 && <span className="stat-tmp">+{c.temp} temporales</span>}</div>
+            <div className="stat"><span className="stat-k" title="Clase de armadura">CA</span><span className="stat-v">{c.ac}</span></div>
             <div className="stat"><label className="stat-k" htmlFor="sel-init">Iniciativa</label>
               <input id="sel-init" type="text" inputMode="numeric" className="input stat-input" value={initVal}
                 onChange={(e) => {
@@ -156,6 +155,10 @@ export default function CombatantCard({ c }: { c: Combatant }) {
             <textarea id="c-note" className="input" rows={2} value={c.note || ''} onChange={(e) => patchC(c.id, { note: e.target.value }, 'notas')} /></div>
         </>
       )}
+      {/* quitar va al final: es poco frecuente y así no comparte fila con el nombre */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <button className="btn small ghost" onClick={() => confirm('rm-' + c.id, () => removeCombatant(c.id))}>{confirmKey === 'rm-' + c.id ? '¿Seguro? Pulsa otra vez' : 'Quitar del combate'}</button>
+      </div>
     </div>
   );
 }
