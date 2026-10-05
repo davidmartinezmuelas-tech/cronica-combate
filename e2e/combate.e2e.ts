@@ -175,6 +175,52 @@ test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado des
 
 const MINI_PDF = '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R/Resources<<>>>>endobj\n4 0 obj<</Length 30>>stream\n0.6 0.1 0.1 rg 40 40 120 120 re f\nendstream\nendobj\ntrailer<</Root 1 0 R>>\n%%EOF\n';
 
+/** PDF inventado con campos rellenables como los de una hoja de personaje (nombre y valor de cada campo). */
+function formPdf(fields: Record<string, string>) {
+  const names = Object.keys(fields);
+  const widgets = names.map((n, i) => `${5 + i} 0 obj<</Type/Annot/Subtype/Widget/FT/Tx/T(${n})/V(${fields[n]})/Rect[10 ${190 - i * 12} 190 ${200 - i * 12}]/P 3 0 R>>endobj\n`);
+  const refs = names.map((_, i) => `${5 + i} 0 R`).join(' ');
+  return '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R/AcroForm<</Fields[' + refs + ']>>>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n' +
+    '3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Annots[' + refs + ']/Resources<<>>>>endobj\n' + widgets.join('') + 'trailer<</Root 1 0 R>>\n%%EOF\n';
+}
+
+test('fichas del grupo: los datos de una hoja rellenable se copian solo tras confirmarlos', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await page.getByLabel('Personaje').fill('Draxx');
+  await page.getByLabel('PG máx.').fill('20');
+  await page.getByRole('button', { name: 'Guardar jugador' }).click();
+  await page.locator('.pc-sheet-head', { hasText: 'Draxx' }).click();
+  await page.getByLabel('Notas').fill('Odia a los kobolds');
+
+  const pdf = formPdf({ Name: 'Draxx', Class: 'Paladin', Subclass: 'Oath of Devotion', Species: 'Dragonborn', Level: '3', AC: '18', 'Max HP': '32', INIT: '+2', PERCEPTION: '+1', SPEED: '30', TRAITS: 'You have resistance to acid damage.' });
+  await page.getByLabel('Hoja de personaje de Draxx').setInputFiles({ name: 'draxx.pdf', mimeType: 'application/pdf', buffer: Buffer.from(pdf) });
+  const dialog = page.getByRole('dialog', { name: 'Datos de la hoja de personaje' });
+  await expect(dialog).toBeVisible({ timeout: 15000 });
+  await expect(dialog.getByLabel('Clase en la hoja')).toHaveValue('Paladín 3');
+  await expect(dialog.getByLabel('Copiar Nombre')).not.toBeChecked(); // ya coincide
+  await dialog.getByLabel('Copiar CA').uncheck();
+  await dialog.getByLabel('PG máx. en la hoja').fill('35');
+  await dialog.getByRole('button', { name: 'Copiar a la ficha' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  const sheet = page.locator('.pc-sheet', { hasText: 'Draxx' });
+  await expect(sheet.locator('.pc-sheet-grid')).toContainText('Paladín 3');
+  await expect(sheet.locator('.pc-sheet-grid')).toContainText('35');
+  await expect(sheet.locator('.pc-sheet-grid')).toContainText('ácido');
+  await expect(sheet.locator('.pc-sheet-grid div', { hasText: 'Percepción pasiva' })).toContainText('11');
+  await expect(sheet.locator('.pc-sheet-grid div', { hasText: /^CA/ })).toContainText('—');
+  await expect(page.getByLabel('Notas')).toHaveValue('Odia a los kobolds\n\nEspecie: Dragonborn · Subclase: Oath of Devotion · Velocidad: 30 pies');
+
+  // se puede volver a leer, y no se cambia nada si se cancela
+  await page.getByRole('button', { name: 'Leer datos de la hoja' }).click();
+  await expect(dialog.getByLabel('Añadir resistencias')).toBeDisabled();
+  await dialog.getByRole('button', { name: 'No copiar nada' }).click();
+  await expect(sheet.locator('.pc-sheet-grid')).toContainText('35');
+  await page.getByText('Hojas de personaje compatibles').click();
+  await expect(page.getByRole('link', { name: /Hoja oficial de 2024/ })).toHaveAttribute('href', /dndbeyond\.com/);
+});
+
 test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en la copia)', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
