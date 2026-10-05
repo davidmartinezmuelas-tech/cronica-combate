@@ -42,7 +42,17 @@ describe('datos SRD', () => {
     expect(feat('chimera').alt).toEqual([{ l: 'con ventaja', dmg: [['4d6+4', 'perforante']] }]);
     expect(feat('mimic').alt).toEqual([{ l: 'si el objetivo está agarrado', dmg: [['2d8+3', 'perforante'], ['1d8', 'ácido']] }]);
     expect(feat('swarm-of-rats').alt![0].l).toBe('si está Ensangrentado');
-    expect(srd.m.flatMap((m) => m.ac_ || []).filter((f) => f.alt)).toHaveLength(15);
+    // embestidas: el daño de la carga solo cuenta tras moverse en línea recta
+    expect(feat('boar').dmg).toEqual([['1d6+1', 'perforante']]);
+    expect(feat('boar').alt).toEqual([{ l: 'tras moverse 20 pies', dmg: [['1d6+1', 'perforante'], ['1d6', 'perforante']] }]);
+    expect(feat('giant-elk').dmg).toEqual([['2d6+4', 'contundente'], ['2d4', 'radiante']]);
+    expect(srd.m.flatMap((m) => m.ac_ || []).filter((f) => f.alt)).toHaveLength(27);
+  });
+  it('el bestiario no tiene restos en inglés ni plantillas sin resolver', () => {
+    const en = /\b(the|within|feet|that|with|which|creatures?|smaller|larger|Bloodied|Grappled|Charmed|Prone|DC|spending|Hit Points?|Reaction|Bonus)\b|un\(a\)|el\/la|del\/de la|un\/una/;
+    const bad = srd.m.flatMap((m) => (['tr', 'ac_', 'ba', 're', 'lg'] as const).flatMap((k) => (m[k] || []).filter((f) => en.test(f.d)).map((f) => m.id + ' · ' + f.n)));
+    expect(bad).toEqual([]);
+    expect(srd.m.find((m) => m.id === 'tarrasque')!.ba![0].d).toContain('agarrada por la tarasca');
   });
 });
 

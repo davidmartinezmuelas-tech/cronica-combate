@@ -301,7 +301,7 @@ def main(tr_dir, packs, out_path):
             if isinstance(t, dict):
                 t = t.get('content') or ''
             mk = to_markup(t, res)
-            if len(mk) < 30 or 'Foundry' in p.get('name', '') or re.search(r'token|Foundry', mk, re.I):
+            if len(mk) < 30 or 'Foundry' in p.get('name', '') or re.search(r'\btoken\b|Foundry', mk, re.I):
                 continue
             entries.append({'id': pid, 'n': p['name'], 'en': p.get('key', ''), 'cat': chap, 't': mk})
 

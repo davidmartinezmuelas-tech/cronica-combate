@@ -25,15 +25,22 @@ def _norm(s):
     return s.replace(' ', '').replace('−', '-')
 
 
-def _find(text, expr):
+def _find(text, expr, dtype=''):
     """Devuelve (es_alternativa, cláusula condicional) para la primera aparición de expr, o None."""
     for m in re.finditer(r'\((\d+d\d+(?: ?[+−-] ?\d+)?)\)', text):
-        if _norm(m.group(1)) == _norm(expr):
+        # mismos dados y, si se sabe, mismo tipo de daño («2d4 radiante» no es «2d4 contundente»)
+        after = text[m.end():m.end() + 30]
+        if _norm(m.group(1)) == _norm(expr) and (not dtype or 'de daño' not in after or dtype in after):
             clause = re.split(r'[.,—]', text[m.end():], 1)[0]
-            if not re.search(r'\bsi\b', clause):
-                return None
             before = text[max(0, m.start() - 12):m.start()]
-            return (re.search(r'\bo \d*\s*$', before) is not None, clause[clause.index('si'):].strip())
+            is_or = re.search(r'\bo \d*\s*$', before) is not None
+            if re.search(r'\bsi\b', clause):
+                return (is_or, clause[clause.index('si'):].strip())
+            # embestidas: «…se movió 20 pies o más… recibe 3 (1d6) de daño contundente adicional»
+            if re.search(r'\badicional\b', clause):
+                mv = re.search(r'se movió (\d+ pies)', text)
+                return (False, 'tras moverse ' + mv.group(1) if mv else 'daño adicional')
+            return None
     return None
 
 
@@ -56,7 +63,7 @@ def fix(d):
                     continue
                 keep, alts = [dm[0]], []
                 for p in dm[1:]:
-                    hit = _find(f['d'], p[0])
+                    hit = _find(f['d'], p[0], p[1])
                     if hit is None:
                         keep.append(p)
                     else:
