@@ -149,7 +149,7 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 /* la hoja solo se queda fija (con su propio scroll) cuando cabe al lado de la tarjeta; si baja debajo, scroll normal */
 .center-grid{container-type:inline-size}
 @container (min-width:656px){.sheet-col{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:#6b5238 transparent}}
-.ctrl-col .row3{grid-template-columns:repeat(auto-fit,minmax(110px,1fr))}
+.ctrl-col .row3{grid-template-columns:repeat(auto-fit,minmax(88px,1fr))}
 .abil-box{display:flex;flex-direction:column;align-items:center;gap:2px;padding:4px 2px;border-radius:6px;background:#ead8b2}
 .abil-k{font-family:'Alegreya Sans',sans-serif;font-weight:800;color:#7a1f14;font-size:14px;letter-spacing:.04em}
 .abil-btn{background:transparent;border:1px solid transparent;border-radius:5px;padding:2px 4px;color:#2a1d12;font-family:'Alegreya Sans',sans-serif;font-size:13px;font-weight:700;min-height:28px;width:100%}
@@ -426,3 +426,12 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .abil-edit{padding:6px;gap:3px}
 .stat{padding:8px 10px;gap:2px}
 .stat-v{font-size:28px}
+/* móvil: los controles de combate de la cabecera en una sola fila */
+@media (max-width:560px){
+  .hide-narrow{display:none}
+  .hdr-actions{width:100%;flex-wrap:nowrap !important;gap:8px !important;justify-content:space-between}
+  .hdr-turn{min-width:0;flex:1 1 auto;align-items:flex-start !important}
+  .hdr-turn>span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+/* tapete algo más bajo: deja ver la tirada libre y el historial sin tanto scroll */
+.felt{height:clamp(200px,30vh,260px)}

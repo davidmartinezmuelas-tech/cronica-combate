@@ -1,13 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
 
-/** Abre la app con datos limpios y espera a que cargue el bestiario. */
+/**
+ * Abre la app y espera a que cargue. Cada test tiene ya un navegador limpio (Playwright aísla el
+ * almacenamiento por test); borrar la base de datos aquí dejaba el borrado pendiente mientras la app
+ * la tenía abierta y podía ejecutarse más tarde, tras una recarga, llevándose lo guardado.
+ */
 async function open(page: Page) {
   await page.goto('/');
-  await page.evaluate(async () => {
-    indexedDB.deleteDatabase('cronica-combate');
-    localStorage.clear();
-  });
-  await page.reload();
   await expect(page.getByText('Prepara el encuentro')).toBeVisible();
 }
 

@@ -28,7 +28,7 @@ export default function Header() {
         ))}
       </nav>
       {toast && <div className="toast" role="status">{toast}</div>}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+      <div className="hdr-actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
         {readFailed ? (
           <span className="small" style={{ color: '#f0a090', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} role="alert">
             <span><span className="status-dot bad" /> No se pudieron leer los datos guardados. Si tenías grupo o combate, siguen ahí: recarga la página. Hasta entonces no se guarda nada, para no borrarlos.</span>
@@ -36,18 +36,18 @@ export default function Header() {
           </span>
         ) : !storageOk && <span className="small" style={{ color: '#f0a090', fontWeight: 700 }} role="alert"><span className="status-dot bad" /> No se puede guardar en este navegador: exporta una copia</span>}
         {undoTop && (
-          <button className="btn small ghost undo" onClick={undo} title={'Deshacer: ' + undoTop.label + ' (Ctrl+Z)'}>
-            <UndoIcon />Deshacer: {undoTop.label}
+          <button className="btn small ghost undo" onClick={undo} aria-label={'Deshacer: ' + undoTop.label} title={'Deshacer: ' + undoTop.label + ' (Ctrl+Z)'}>
+            <UndoIcon />Deshacer<span className="hide-narrow">: {undoTop.label}</span>
           </button>
         )}
         {started ? (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
+            <div className="hdr-turn" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
               <span className="eyebrow">Ronda {round}</span>
-              <span style={{ fontSize: 15, color: '#cdbd9f' }}>Turno de <strong style={{ color: '#e8c062' }}>{activeName}</strong></span>
+              <span style={{ fontSize: 15, color: '#cdbd9f' }}><span className="hide-narrow">Turno de </span><strong style={{ color: '#e8c062' }}>{activeName}</strong></span>
             </div>
             <button className="btn icon" onClick={() => step(-1)} aria-label="Volver al turno anterior" title="Volver al turno anterior (B)"><ChevronLeft /></button>
-            <button className="btn primary" onClick={() => step(1)} title="Siguiente turno (N)">Siguiente turno<ChevronRight /></button>
+            <button className="btn primary" onClick={() => step(1)} title="Siguiente turno (N)">Siguiente<span className="hide-narrow"> turno</span><ChevronRight /></button>
           </>
         ) : (
           <>
