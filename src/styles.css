@@ -350,8 +350,8 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .add-opts[open]>summary{margin-bottom:8px}
 .add-opts>:not(summary){margin-top:8px}
 /* formularios en columnas estrechas (tablet): los campos bajan de fila antes de cortarse */
-.fs .row2{grid-template-columns:repeat(auto-fit,minmax(min(100%,130px),1fr));align-items:end}
-.fs .row3{grid-template-columns:repeat(auto-fit,minmax(min(100%,96px),1fr));align-items:end}
+.fs .row2{grid-template-columns:repeat(auto-fit,minmax(min(100%,120px),1fr));align-items:end}
+.fs .row3{grid-template-columns:repeat(auto-fit,minmax(min(100%,90px),1fr));align-items:end}
 .fs .row3.abil-grid{grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
 .rules-filter{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:6px 10px}
 .rules-filter>span{grid-column:1/-1}
@@ -364,4 +364,25 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 @media (max-width:560px){
   .app-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;width:100%}
   .app-nav .tab{padding:8px 2px;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+/* Forja: columna del formulario más ancha para que los campos quepan de dos en dos */
+.col-left:has(.forge-panel){flex:1 1 440px;max-width:560px;min-width:min(100%,380px)}
+.app-main:has(.forge-panel) .col-right{min-width:min(100%,240px)}
+/* Reglas: el panel vacío empieza a la misma altura que el buscador */
+.center-grid:empty{display:none}
+/* Consulta rápida: rejilla de losetas iguales en vez de píldoras sueltas */
+.rule-quick{gap:18px}
+.rule-quick section{border-top:1px solid #3a2c20;padding-top:12px}
+.rule-quick section:first-child{border-top:0;padding-top:0}
+.rule-quick h3{margin:0 0 8px}
+.rule-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px}
+.rule-tile{display:flex;align-items:center;min-height:44px;padding:8px 12px 8px 14px;text-align:left;font-size:15px;font-weight:700;line-height:1.2;color:#efe3cb;background:#1a140f;border:1px solid #33271c;border-left:3px solid #8a6a3a;border-radius:6px}
+.rule-tile:hover{border-color:#6b5238;border-left-color:#d4a94f;background:#221a13}
+.rule-tile:focus-visible{outline:2px solid #d4a94f;outline-offset:2px}
+/* columna de dados estrecha: el selector de ventaja no se parte y el texto del tapete cabe */
+.col-right{container-type:inline-size}
+@container (max-width:300px){
+  .col-right .panel-head .segbox{flex-wrap:nowrap;width:100%}
+  .col-right .panel-head .segbox .seg{flex:1 1 0;padding:6px 4px;min-width:0}
+  .felt-hint{font-size:17px;text-align:center;padding:0 12px}
 }

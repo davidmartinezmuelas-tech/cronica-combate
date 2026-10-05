@@ -25,7 +25,7 @@ export function RuleQuick() {
       {groups.filter(([, list]) => list.length).map(([t, list]) => (
         <section key={t}>
           <h3 className="eyebrow">{t}</h3>
-          <div className="chips">{list.map((e) => <button key={e.id} className="chip" onClick={() => openRule(e.id)}>{e.n}</button>)}</div>
+          <div className="rule-tiles">{list.map((e) => <button key={e.id} className="rule-tile" onClick={() => openRule(e.id)}>{e.n}</button>)}</div>
         </section>
       ))}
     </div>

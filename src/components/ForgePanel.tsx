@@ -128,7 +128,7 @@ export default function ForgePanel() {
   const on = (k: keyof ForgeState) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForge({ [k]: e.target.value } as Partial<ForgeState>);
   const addFeat = (sec: SectionKey) => setForge({ feats: f.feats.concat([newFeat(sec)]) });
   return (
-    <div className="panel">
+    <div className="panel forge-panel">
       <div className="panel-head"><h2>Forja</h2><span className="muted small">{editingId ? 'Editando: ' + (f.name || 'sin nombre') : 'Criatura nueva'}</span></div>
 
       <fieldset className="fs">
