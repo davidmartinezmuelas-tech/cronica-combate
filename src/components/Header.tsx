@@ -36,7 +36,7 @@ export default function Header() {
           </span>
         ) : !storageOk && <span className="small" style={{ color: '#f0a090', fontWeight: 700 }} role="alert"><span className="status-dot bad" /> No se puede guardar en este navegador: exporta una copia</span>}
         {undoTop && (
-          <button className="btn small ghost undo" onClick={undo} aria-label={'Deshacer: ' + undoTop.label} title={'Deshacer: ' + undoTop.label + ' (Ctrl+Z)'}>
+          <button className="btn ghost undo" onClick={undo} aria-label={'Deshacer: ' + undoTop.label} title={'Deshacer: ' + undoTop.label + ' (Ctrl+Z)'}>
             <UndoIcon /><span>Deshacer<span className="hide-narrow">: {undoTop.label}</span></span>
           </button>
         )}

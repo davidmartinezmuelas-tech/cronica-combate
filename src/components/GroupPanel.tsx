@@ -50,13 +50,15 @@ export default function GroupPanel() {
       {!roster.length && <p className="muted" style={{ margin: 0 }}>Guarda aquí a tus jugadores una vez y añádelos a cada combate con un clic.</p>}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {roster.map((r) => (
-          <li key={r.id} className="beast">
+          <li key={r.id} className="beast roster-item">
+            <span className="roster-info">
             <span className="beast-name">{r.name}{inC.has(r.id) && <span className="tag">En combate</span>}</span>
             <span style={{ fontSize: 13, color: '#b9a88a' }}>
               {[r.player ? 'Jugador: ' + r.player : '', r.cls, 'Nivel ' + (r.level || 1), 'CA ' + (r.ac || '—'), 'PG ' + (r.hp || '—'), 'Ini ' + fmt(parseInt(r.initb, 10) || 0), 'Perc. pasiva ' + (r.pp || 10)].filter(Boolean).join(' · ')}
               {r.res.length > 0 && ' · resiste ' + r.res.join(', ')}
             </span>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            </span>
+            <div className="roster-actions">
               {!inC.has(r.id) && <button className="btn small primary" onClick={() => addPc(r)}>Al combate</button>}
               <button className="btn small ghost" onClick={() => set({ pcForm: { ...blankRoster(), ...r }, editingPcId: r.id, pcMsg: '' })}>Editar</button>
               <button className="btn small ghost" onClick={() => deletePc(r.id)}>{confirmKey === 'pc-' + r.id ? '¿Seguro? Quitar' : 'Quitar'}</button>

@@ -450,3 +450,13 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .diff-mini .diffbar{height:6px;border-radius:3px}
 /* la hoja de una regla mide lo que su texto (no se estira hasta abajo) */
 .center-grid>.sheet-col>.rule-view:last-child{flex-grow:0}
+/* grupo: datos a la izquierda y botones a la derecha, en una sola franja */
+.roster-item{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 10px}
+.roster-info{display:flex;flex-direction:column;gap:2px;min-width:0}
+.roster-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+/* tarjeta de combate: los valores de PG y CA a la misma altura que la casilla de iniciativa */
+.stat-v{line-height:36px}
+/* hoja: características en 6 columnas si cabe, si no en 3 (nunca 5 + 1) */
+.statblock{container-type:inline-size}
+.sb-abils{grid-template-columns:repeat(3,minmax(0,1fr))}
+@container (min-width:500px){.sb-abils{grid-template-columns:repeat(6,minmax(0,1fr))}}
