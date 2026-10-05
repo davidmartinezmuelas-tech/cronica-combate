@@ -359,3 +359,9 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .rule-quick{display:flex;flex-direction:column;gap:14px;width:100%;text-align:left;margin-top:8px}
 .rule-quick h3{margin:0 0 6px}
 a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
+.app-nav{display:flex;gap:6px;flex-wrap:wrap}
+/* móvil: las cinco secciones en una sola fila */
+@media (max-width:560px){
+  .app-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;width:100%}
+  .app-nav .tab{padding:8px 2px;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}

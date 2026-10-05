@@ -21,7 +21,7 @@ export default function Header() {
           <div style={{ fontSize: 12, color: '#b9a88a', letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700 }}>Mesa del máster · 5.ª edición (2024)</div>
         </div>
       </div>
-      <nav aria-label="Secciones" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <nav aria-label="Secciones" className="app-nav">
         {TABS.map(([k, label]) => (
           <button key={k} className={tab === k ? 'tab on' : 'tab'} aria-current={tab === k ? 'page' : undefined} onClick={() => set({ tab: k })}>{label}</button>
         ))}
