@@ -34,6 +34,7 @@ export interface CoreSlice {
   spells: Record<string, Spell>;
   types: string[];
   storageOk: boolean;
+  readFailed: boolean; // no se pudo leer lo guardado al abrir: no se guarda nada para no borrarlo
   persistent: boolean;
   log: LogEntry[];
   toast: string;

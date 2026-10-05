@@ -11,6 +11,7 @@ export default function Header() {
   const toast = useStore((s) => s.toast);
   const undoTop = useStore((s) => s.undoStack[s.undoStack.length - 1]);
   const storageOk = useStore((s) => s.storageOk);
+  const readFailed = useStore((s) => s.readFailed);
   const { set, step, startCombat, undo } = useStore.getState();
   return (
     <header className="app-header">
@@ -28,7 +29,12 @@ export default function Header() {
       </nav>
       {toast && <div className="toast" role="status">{toast}</div>}
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        {!storageOk && <span className="small" style={{ color: '#f0a090', fontWeight: 700 }} role="alert"><span className="status-dot bad" /> No se puede guardar en este navegador: exporta una copia</span>}
+        {readFailed ? (
+          <span className="small" style={{ color: '#f0a090', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }} role="alert">
+            <span><span className="status-dot bad" /> No se pudieron leer los datos guardados. Si tenías grupo o combate, siguen ahí: recarga la página. Hasta entonces no se guarda nada, para no borrarlos.</span>
+            <button className="btn small" onClick={() => window.location.reload()}>Recargar</button>
+          </span>
+        ) : !storageOk && <span className="small" style={{ color: '#f0a090', fontWeight: 700 }} role="alert"><span className="status-dot bad" /> No se puede guardar en este navegador: exporta una copia</span>}
         {undoTop && (
           <button className="btn small ghost undo" onClick={undo} title={'Deshacer: ' + undoTop.label + ' (Ctrl+Z)'}>
             <UndoIcon />Deshacer: {undoTop.label}
