@@ -213,9 +213,6 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 @media (prefers-reduced-motion: reduce){.plaque-in,.toast,.sparks i,.felt-fx,.plaque.crit .plaque-total{animation:none !important}.hpfill{transition:none}.die{transition:none}}
 .cond-dur{display:flex;align-items:center;gap:6px 8px;flex-wrap:wrap}
 .cond-dur select:disabled,.cond-dur select:disabled+span{opacity:.55}
-.sb-dc{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin:0 0 8px;font-family:'Alegreya Sans',sans-serif;color:#6b5238}
-.sb-dc label{font-weight:800;color:#7a1f14}
-.sb-dc .input{width:72px;min-height:34px;padding:4px 8px;background:#fbf4e4;color:#2a1d12;border-color:#c9b38a}
 
 /* ---------- Dados ---------- */
 .felt{--ds:64px}

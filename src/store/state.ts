@@ -65,7 +65,6 @@ export interface CombatSlice {
   condRounds: string;
   condAt: 'start' | 'end';
   condBy: string; // '' = la propia criatura
-  saveDc: string; // CD del conjuro de un jugador para las salvaciones de los monstruos
   initDraft: { id: string; text: string } | null;
   patchC: (id: string, patch: Partial<Combatant> | ((c: Combatant) => Partial<Combatant>), label?: string) => void;
   rollInit: () => void;

@@ -125,17 +125,8 @@ export function SpellCard() {
   );
 }
 
-/** Resultado contra la CD del conjuro, con aviso de resistencia legendaria si falla. */
-function saveVerdict(total: number, dc: number, c: Combatant | null): string {
-  if (total >= dc) return 'Supera la CD ' + dc + '.';
-  const lr = c ? c.lrMax - c.lrUsed : 0;
-  return 'Falla la CD ' + dc + '.' + (lr > 0 ? ' Puede usar resistencia legendaria (le quedan ' + lr + ').' : '');
-}
-
 export default function StatBlock({ m, c }: { m: Monster; c: Combatant | null }) {
-  const { roll, set } = useStore.getState();
-  const saveDc = useStore((s) => s.saveDc);
-  const dc = parseInt(saveDc, 10);
+  const { roll } = useStore.getState();
   const who = c ? c.name : m.n;
   const lines: [string, string][] = [];
   const add = (l: string, v?: string | null) => { if (v && String(v).trim()) lines.push([l, String(v)]); };
@@ -164,12 +155,6 @@ export default function StatBlock({ m, c }: { m: Monster; c: Combatant | null })
       <p><span className="sb-label">PG</span> {m.hp} ({prettyExpr(m.hd)})</p>
       <p><span className="sb-label">Velocidad</span> {m.spd || '—'}</p>
       <div className="sb-rule" />
-      <div className="sb-dc">
-        <label htmlFor="save-dc">CD del conjuro del jugador</label>
-        <input id="save-dc" className="input" type="number" min={1} value={saveDc} placeholder="—" onChange={(e) => set({ saveDc: e.target.value })} />
-        <span className="small">{isNaN(dc) ? 'Escríbela y pulsa «Salv» para saber si la supera.' : 'Las salvaciones dirán si supera la CD ' + dc + '.'}</span>
-        {!isNaN(dc) && <button className="rollbtn dmg" onClick={() => set({ saveDc: '' })}>Quitar</button>}
-      </div>
       <div className="sb-abils">
         {m.ab.map((sc, i) => {
           const md = modOf(sc);
@@ -180,10 +165,7 @@ export default function StatBlock({ m, c }: { m: Monster; c: Combatant | null })
               <button className="abil-btn" title={'Prueba de ' + ABIL_LONG[i]} aria-label={'Prueba de ' + ABIL_LONG[i] + ' ' + fmt(md)}
                 onClick={() => roll({ label: who + ' · prueba de ' + ABIL_LONG[i], kind: 'check', cid: c?.id, ability: i, parts: [{ expr: '1d20' + sgn(md) }] })}>Mod {fmt(md)}</button>
               <button className="abil-btn" title={'Salvación de ' + ABIL_LONG[i]} aria-label={'Salvación de ' + ABIL_LONG[i] + ' ' + fmt(sv)}
-                onClick={() => roll({
-                  label: who + ' · salvación de ' + ABIL_LONG[i] + (isNaN(dc) ? '' : ' (CD ' + dc + ')'), kind: 'save', cid: c?.id, ability: i, parts: [{ expr: '1d20' + sgn(sv) }],
-                  after: isNaN(dc) ? undefined : (total) => ({ resultNote: saveVerdict(total, dc, useStore.getState().combatants.find((x) => x.id === c?.id) || null) }),
-                })}>Salv {fmt(sv)}</button>
+                onClick={() => roll({ label: who + ' · salvación de ' + ABIL_LONG[i], kind: 'save', cid: c?.id, ability: i, parts: [{ expr: '1d20' + sgn(sv) }] })}>Salv {fmt(sv)}</button>
             </div>
           );
         })}

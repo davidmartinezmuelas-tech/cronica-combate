@@ -80,7 +80,7 @@ describe('flujo completo de un combate', () => {
     expect(data.started).toBe(true);
   });
 
-  it('herramientas del DM: CD del conjuro, daño alternativo y aviso de concentración', async () => {
+  it('herramientas del DM: daño alternativo y aviso de concentración', async () => {
     render(<App />);
     await flush();
     await act(async () => { await vi.waitFor(() => expect(useStore.getState().loaded).toBe(true)); });
@@ -90,13 +90,6 @@ describe('flujo completo de un combate', () => {
     const g = useStore.getState().combatants[0];
     act(() => useStore.getState().set({ selId: g.id, tab: 'combat' }));
 
-    // salvación contra la CD del conjuro
-    fireEvent.change(screen.getByLabelText('CD del conjuro del jugador'), { target: { value: '30' } });
-    fireEvent.click(screen.getByRole('button', { name: /Salvación de Destreza/ }));
-    expect(useStore.getState().result!.note).toMatch(/^Falla la CD 30\./);
-    fireEvent.change(screen.getByLabelText('CD del conjuro del jugador'), { target: { value: '1' } });
-    fireEvent.click(screen.getByRole('button', { name: /Salvación de Destreza/ }));
-    expect(useStore.getState().result!.note).toMatch(/^Supera la CD 1\./);
 
     // botón de daño con ventaja
     fireEvent.click(screen.getAllByRole('button', { name: /^Daño con ventaja: 1d6 \+ 2 cortante \+ 1d4 cortante/ })[0]);

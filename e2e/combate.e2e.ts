@@ -61,7 +61,7 @@ test('combate completo: iniciativa, turnos, quitar al activo y guardado tras rec
   await expect(page.locator('.init-row')).toHaveCount(2);
 });
 
-test('herramientas del DM: daño alternativo, CD del conjuro y encuentros guardados', async ({ page }) => {
+test('herramientas del DM: daño alternativo y encuentros guardados', async ({ page }) => {
   await open(page);
   await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 3);
   await page.getByRole('button', { name: 'Combate', exact: true }).click();
@@ -69,10 +69,6 @@ test('herramientas del DM: daño alternativo, CD del conjuro y encuentros guarda
 
   await page.getByRole('button', { name: /^Daño con ventaja: 1d6 \+ 2 cortante \+ 1d4 cortante/ }).first().click();
   await expect(page.locator('.plaque-label')).toHaveText('Guerrero goblin 1 · Cimitarra: daño con ventaja');
-
-  await page.getByLabel('CD del conjuro del jugador').fill('40');
-  await page.getByRole('button', { name: /Salvación de Sabiduría/ }).click();
-  await expect(page.locator('.plaque-note')).toContainText('Falla la CD 40.');
 
   await page.getByLabel('Guardar los monstruos actuales como').fill('Emboscada');
   await page.getByRole('button', { name: 'Guardar encuentro' }).click();
