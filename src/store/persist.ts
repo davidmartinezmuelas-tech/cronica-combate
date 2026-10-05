@@ -125,9 +125,22 @@ export function normalizeSaved(raw: unknown): SavedState {
 let idbStore: ReturnType<typeof createStore> | null = null;
 const store = () => (idbStore ??= createStore('cronica-combate', 'estado'));
 
+/**
+ * Si no se pudo leer lo guardado, no se escribe encima: un fallo pasajero al abrir la app no debe
+ * convertirse en perder el grupo y el combate al guardar un estado vacío.
+ */
+let readFailed = false;
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export async function loadSaved(): Promise<{ data: SavedState; ok: boolean }> {
   try {
-    const raw = await get(STORAGE_KEY, store());
+    // la base de datos puede estar ocupada justo al abrir (otra pestaña, una recarga): se reintenta
+    let raw: unknown;
+    for (let i = 0; ; i++) {
+      try { raw = await get(STORAGE_KEY, store()); break; } catch (e) { if (i >= 2) throw e; await wait(250 * (i + 1)); }
+    }
+    readFailed = false;
     if (raw) return { data: normalizeSaved(raw), ok: true };
     // migración desde la versión prototipo (localStorage)
     try {
@@ -136,11 +149,13 @@ export async function loadSaved(): Promise<{ data: SavedState; ok: boolean }> {
     } catch { /* sin localStorage */ }
     return { data: emptySaved(), ok: true };
   } catch {
+    readFailed = true;
     return { data: emptySaved(), ok: false };
   }
 }
 
 export async function saveState(data: SavedState): Promise<boolean> {
+  if (readFailed) return false;
   try {
     await set(STORAGE_KEY, { ...data, v: SCHEMA_VERSION, savedAt: Date.now() }, store());
     return true;

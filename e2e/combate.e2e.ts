@@ -33,6 +33,21 @@ async function addPlayer(page: Page, name: string, init: string) {
 
 const activeName = (page: Page) => page.locator('.init-row.active');
 
+/** Espera a que el guardado automático haya llegado a IndexedDB con el texto indicado (sin pausas fijas). */
+async function persisted(page: Page, text: string) {
+  await page.waitForFunction((t) => new Promise<boolean>((resolve) => {
+    const req = indexedDB.open('cronica-combate');
+    req.onerror = () => resolve(false);
+    req.onsuccess = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains('estado')) { db.close(); resolve(false); return; }
+      const all = db.transaction('estado').objectStore('estado').getAll();
+      all.onsuccess = () => { db.close(); resolve(JSON.stringify(all.result).includes(t)); };
+      all.onerror = () => { db.close(); resolve(false); };
+    };
+  }), text, { timeout: 15000 });
+}
+
 test('combate completo: iniciativa, turnos, quitar al activo y guardado tras recargar', async ({ page }) => {
   await open(page);
   await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 2);
@@ -242,7 +257,7 @@ test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en
   await expect(page.locator('.pdf-dialog')).toHaveCount(0);
 
   // sigue ahí tras recargar y va dentro de la copia
-  await page.waitForTimeout(600);
+  await persisted(page, '"name":"jimena.pdf"');
   await page.reload();
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
   await page.locator('.pc-sheet-head', { hasText: 'Jimena' }).click();
