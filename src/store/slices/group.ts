@@ -1,6 +1,7 @@
 import type { RosterEntry } from '../../data/types';
 import { uid } from '../../engine/util';
 import { blankRoster, buildExport, mergeImport } from '../persist';
+import { base64ToBlob, blobToBase64, getPdf, looksLikePdf, MAX_PDF_BYTES, putPdf } from '../pdfs';
 import { savedSlice } from '../saved';
 import type { GetState, GroupSlice, SetState } from '../state';
 
@@ -23,14 +24,44 @@ export function createGroupSlice(set: SetState, get: GetState): GroupSlice {
       get().confirm('pc-' + id, () => { get().snap('quitar ' + r.name); set({ roster: get().roster.filter((x) => x.id !== id) }); });
     },
 
-    exportData() {
-      return JSON.stringify(buildExport(savedSlice(get())), null, 1);
+    updatePc(id, patch, label) {
+      get().snap(label || 'editar jugador');
+      set({ roster: get().roster.map((r) => (r.id === id ? { ...r, ...patch } : r)) });
     },
-    importText(text) {
+
+    async attachPdf(id, file) {
+      if (file.size > MAX_PDF_BYTES) return 'El PDF pesa más de 30 MB.';
+      if (!(await looksLikePdf(file))) return 'Ese archivo no es un PDF.';
+      const pdfId = 'pdf-' + uid();
+      try { await putPdf(pdfId, file); } catch { return 'No se pudo guardar el PDF en este navegador.'; }
+      get().updatePc(id, { pdf: { id: pdfId, name: file.name || 'hoja.pdf', size: file.size } }, 'hoja de personaje');
+      return '';
+    },
+
+    removePdf(id) {
+      // el archivo se borra al abrir la app si nadie lo usa (así «Deshacer» puede recuperarlo)
+      get().updatePc(id, { pdf: null }, 'quitar hoja de personaje');
+    },
+
+    async exportData() {
+      const s = savedSlice(get());
+      const pdfs: Record<string, string> = {};
+      for (const r of s.roster) {
+        if (!r.pdf) continue;
+        const b = await getPdf(r.pdf.id);
+        if (b) pdfs[r.pdf.id] = await blobToBase64(b);
+      }
+      return JSON.stringify(buildExport(s, pdfs), null, 1);
+    },
+    async importText(text) {
       const r = mergeImport(text, savedSlice(get()));
       if (!r.ok) { set({ ioMsg: r.message }); return; }
+      let saved = 0;
+      for (const [pid, data] of Object.entries(r.pdfs || {})) {
+        try { await putPdf(pid, base64ToBlob(data)); saved++; } catch { /* sin espacio: el jugador queda sin hoja */ }
+      }
       get().snap('importar');
-      set({ roster: r.roster!, custom: r.custom!, encounters: r.encounters!, ...(r.combat || {}), ioMsg: r.message });
+      set({ roster: r.roster!, custom: r.custom!, encounters: r.encounters!, ...(r.combat || {}), ioMsg: r.message + (saved ? ' Con ' + saved + (saved === 1 ? ' hoja' : ' hojas') + ' de personaje.' : '') });
     },
   };
 }

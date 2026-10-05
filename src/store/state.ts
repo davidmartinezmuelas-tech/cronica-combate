@@ -146,8 +146,11 @@ export interface GroupSlice {
   ioMsg: string;
   savePc: () => void;
   deletePc: (id: string) => void;
-  exportData: () => string;
-  importText: (text: string) => void;
+  updatePc: (id: string, patch: Partial<RosterEntry>, label?: string) => void;
+  attachPdf: (id: string, file: File) => Promise<string>; // devuelve el error, o '' si ha ido bien
+  removePdf: (id: string) => void;
+  exportData: () => Promise<string>;
+  importText: (text: string) => Promise<void>;
 }
 
 /** Encuentros preparados. */

@@ -20,8 +20,9 @@ export default function GroupPanel() {
   const inC = new Set(combatants.map((c) => c.rosterId).filter(Boolean));
   const setF = (k: keyof RosterEntry, v: string | string[]) => set({ pcForm: { ...useStore.getState().pcForm, [k]: v }, pcMsg: '' });
 
-  const doExport = () => {
-    const blob = new Blob([exportData()], { type: 'application/json' });
+  const doExport = async () => {
+    set({ ioMsg: 'Preparando la copia…' });
+    const blob = new Blob([await exportData()], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'cronica-combate-' + new Date().toISOString().slice(0, 10) + '.json';
@@ -33,8 +34,9 @@ export default function GroupPanel() {
   };
   const doImport = async (f: File | undefined) => {
     if (!f) return;
-    if (f.size > 5 * 1024 * 1024) { set({ ioMsg: 'El archivo es demasiado grande para ser una copia de la app.' }); return; }
-    importText(await f.text());
+    if (f.size > 300 * 1024 * 1024) { set({ ioMsg: 'El archivo es demasiado grande para ser una copia de la app.' }); return; }
+    set({ ioMsg: 'Cargando la copia…' });
+    await importText(await f.text());
     if (fileRef.current) fileRef.current.value = '';
   };
 
@@ -101,11 +103,11 @@ export default function GroupPanel() {
             : 'Este navegador no permite guardar datos (¿modo privado?). Descarga una copia antes de cerrar.'}
         </p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn small" onClick={doExport}>Descargar copia</button>
+          <button className="btn small" onClick={() => void doExport()}>Descargar copia</button>
           <button className="btn small" onClick={() => fileRef.current?.click()}>Cargar copia…</button>
           <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Archivo de copia" onChange={(e) => void doImport(e.target.files?.[0])} />
         </div>
-        <p className="muted small" style={{ margin: 0 }}>La copia incluye grupo, criaturas propias y el combate abierto. Al cargarla se fusiona con lo que ya tienes.</p>
+        <p className="muted small" style={{ margin: 0 }}>La copia incluye grupo (con sus hojas en PDF), criaturas propias, encuentros y el combate abierto. Al cargarla se fusiona con lo que ya tienes.</p>
         {ioMsg && <p className="small" role="status" style={{ margin: 0, color: '#e8c062' }}>{ioMsg}</p>}
       </fieldset>
     </div>

@@ -12,7 +12,7 @@ Funciona en el navegador, se puede **instalar como app** (PWA) y sigue funcionan
 - **Turnos**: tarjeta de inicio de turno con recordatorios (recargas tiradas solas, regeneración, legendarias, estados que caducan, salvaciones de muerte).
 - **Daño y curación**: resistencias, inmunidades y vulnerabilidades por tipo, PG temporales, concentración, daño a varios objetivos con mitad por salvación, muerte instantánea.
 - **Estados**: con duración en rondas; las tiradas de los monstruos aplican solas la desventaja, los fallos automáticos y el agotamiento.
-- **Grupo**: guarda a tus jugadores una vez y añádelos a cada combate.
+- **Grupo**: guarda a tus jugadores una vez y añádelos a cada combate. Cada jugador tiene una ficha plegable con sus datos, notas y su hoja de personaje en PDF (visor integrado con PDF.js; las hojas van incluidas en las copias).
 - **Dificultad**: presupuesto de PX de 2024 según el nivel del grupo.
 - **Deshacer** casi cualquier acción y **atajos de teclado** (pulsa `?`).
 - **Copias de seguridad** en archivo `.json` que se fusionan al cargarlas.
@@ -62,7 +62,7 @@ El glosario de reglas (155 entradas) es traducción propia del SRD 5.2.1, porque
 
 La traducción al español se basa en [translate-dnd5e-sdr2-es](https://github.com/foundryvtt-sinregistrar/translate-dnd5e-sdr2-es) de foundryvtt-sinregistrar (CC-BY-4.0), con cambios: plantillas resueltas, textos que faltaban traducidos y metadatos de conjuros corregidos a partir de [5e-database](https://github.com/5e-bits/5e-database). Los datos estructurados de monstruos combinan 5e-database y el sistema dnd5e de Foundry VTT.
 
-Los dados 3D usan [three.js](https://threejs.org) y [cannon-es](https://github.com/pmndrs/cannon-es), ambos con licencia MIT.
+Los dados 3D usan [three.js](https://threejs.org) y [cannon-es](https://github.com/pmndrs/cannon-es), ambos con licencia MIT. El visor de PDF usa [PDF.js](https://mozilla.github.io/pdf.js/) de Mozilla (Apache-2.0).
 
 Las fuentes Alegreya, Alegreya Sans e IM Fell English SC se distribuyen con la app bajo la SIL Open Font License 1.1 (ver `src/fonts/OFL-*.txt`); se sirven desde la propia app, sin peticiones a Google Fonts.
 

@@ -91,6 +91,9 @@ export function normRoster(r: unknown): RosterEntry | null {
   o.id = String(x.id || 'r-' + uid());
   o.res = strArr(x.res);
   (['player', 'cls', 'level', 'ac', 'hp', 'initb', 'pp'] as const).forEach((k) => { o[k] = String(o[k] ?? ''); });
+  o.notes = typeof x.notes === 'string' ? x.notes : '';
+  const pdf = x.pdf as Record<string, unknown> | null | undefined;
+  o.pdf = pdf && typeof pdf.id === 'string' && pdf.id ? { id: pdf.id, name: String(pdf.name || 'hoja.pdf'), size: num(pdf.size, 0) } : null;
   return o;
 }
 
@@ -163,11 +166,12 @@ export interface ExportFile {
   custom: Monster[];
   encounters: Encounter[];
   combat: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
+  pdfs?: Record<string, string>; // hojas de personaje: id -> PDF en base64
 }
 
-export function buildExport(s: SavedState): ExportFile {
+export function buildExport(s: SavedState, pdfs?: Record<string, string>): ExportFile {
   return {
-    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters,
+    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters, ...(pdfs && Object.keys(pdfs).length ? { pdfs } : {}),
     combat: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents },
   };
 }
@@ -179,6 +183,7 @@ export interface ImportResult {
   custom?: Monster[];
   encounters?: Encounter[];
   combat?: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
+  pdfs?: Record<string, string>; // hojas que trae la copia para los jugadores importados
 }
 
 /** Fusiona una copia con los datos actuales; descarta registros dañados. */
@@ -212,8 +217,14 @@ export function mergeImport(text: string, current: SavedState): ImportResult {
       extra = ' y el combate guardado (' + n.combatants.length + ' combatientes)';
     } else extra = '. El combate de la copia no se ha cargado porque ya tienes uno abierto: vacíalo y vuelve a importar si lo quieres';
   }
+  // solo las hojas de los jugadores importados, y solo si parecen PDF en base64
+  const rawPdfs = (x.pdfs && typeof x.pdfs === 'object' ? x.pdfs : {}) as Record<string, unknown>;
+  const pdfIds = new Set(goodR.map((r) => r.pdf?.id).filter(Boolean));
+  const pdfs: Record<string, string> = {};
+  for (const [k, v] of Object.entries(rawPdfs)) if (pdfIds.has(k) && typeof v === 'string' && v.startsWith('JVBERi')) pdfs[k] = v;
+  goodR.forEach((r) => { if (r.pdf && !pdfs[r.pdf.id] && !current.roster.some((c) => c.pdf?.id === r.pdf!.id)) r.pdf = null; });
   return {
-    ok: true, roster, custom, encounters, combat,
+    ok: true, roster, custom, encounters, combat, pdfs,
     message: 'Importado: ' + goodR.length + ' jugadores, ' + goodM.length + ' criaturas y ' + goodE.length + ' encuentros, fusionados con los tuyos' + extra + '.' + (bad ? ' Se han descartado ' + bad + ' registros dañados.' : ''),
   };
 }

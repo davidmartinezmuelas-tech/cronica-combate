@@ -127,3 +127,23 @@ describe('esquema v4: encuentros y duración de estados', () => {
     expect(r.message).toContain('1 encuentros');
   });
 });
+
+describe('fichas de jugador: notas y hoja en PDF', () => {
+  const pc = { id: 'r1', name: 'Jimena', notes: 'Odia a los goblins', pdf: { id: 'pdf-1', name: 'jimena.pdf', size: 1234 } };
+  it('conserva notas y referencia al PDF, y repara datos dañados', () => {
+    const s = normalizeSaved({ roster: [pc, { id: 'r2', name: 'Nube', pdf: { name: 'x' } }] });
+    expect(s.roster[0].notes).toBe('Odia a los goblins');
+    expect(s.roster[0].pdf).toEqual({ id: 'pdf-1', name: 'jimena.pdf', size: 1234 });
+    expect(s.roster[1].pdf).toBeNull();
+    expect(s.roster[1].notes).toBe('');
+  });
+  it('las copias llevan los PDF y al importar solo se aceptan los de sus jugadores', () => {
+    const file = buildExport({ ...emptySaved(), roster: normalizeSaved({ roster: [pc] }).roster }, { 'pdf-1': 'JVBERi0xLjQK', 'otro': 'JVBERi0xLjQK' });
+    expect(Object.keys(file.pdfs!)).toEqual(['pdf-1', 'otro']);
+    const r = mergeImport(JSON.stringify({ ...file, pdfs: { 'pdf-1': 'JVBERi0xLjQK', 'otro': 'JVBERi0xLjQK', 'malo': 'xxx' } }), emptySaved());
+    expect(Object.keys(r.pdfs!)).toEqual(['pdf-1']);
+    // si la copia no trae el PDF de un jugador, el jugador se importa sin hoja
+    const r2 = mergeImport(JSON.stringify({ ...file, pdfs: {} }), emptySaved());
+    expect(r2.roster![0].pdf).toBeNull();
+  });
+});

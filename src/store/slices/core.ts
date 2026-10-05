@@ -1,6 +1,7 @@
 import type { SrdData } from '../../data/types';
 import type { Kit } from '../kit';
 import { loadSaved, requestPersistence } from '../persist';
+import { prunePdfs } from '../pdfs';
 import type { CoreSlice, GetState, SetState } from '../state';
 
 export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }: Kit): CoreSlice {
@@ -13,6 +14,8 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
     async init() {
       const [{ data, ok }, persistent] = await Promise.all([loadSaved(), requestPersistence()]);
       set({ ...data, selId: data.started ? data.activeId : null, storageOk: ok, persistent });
+      // hojas de personaje que ya no usa ningún jugador (quitadas o sustituidas en sesiones anteriores)
+      if (ok) void prunePdfs(new Set(data.roster.map((r) => r.pdf?.id).filter((x): x is string => !!x)));
       try {
         const res = await fetch(import.meta.env.BASE_URL + 'data/srd52_es.json');
         if (!res.ok) throw new Error('HTTP ' + res.status);

@@ -172,3 +172,40 @@ test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado des
   await page.getByTitle('Ver la regla completa de Apresado').click();
   await expect(page.locator('.rule-view .sb-name')).toHaveText('Restringido');
 });
+
+const MINI_PDF = '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R/Resources<<>>>>endobj\n4 0 obj<</Length 30>>stream\n0.6 0.1 0.1 rg 40 40 120 120 re f\nendstream\nendobj\ntrailer<</Root 1 0 R>>\n%%EOF\n';
+
+test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en la copia)', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await page.getByLabel('Personaje').fill('Jimena');
+  await page.getByRole('button', { name: 'Guardar jugador' }).click();
+  const head = page.locator('.pc-sheet-head', { hasText: 'Jimena' });
+  await head.click();
+  await expect(head).toHaveAttribute('aria-expanded', 'true');
+  await page.getByLabel('Notas').fill('Busca a su hermana desaparecida');
+
+  // un archivo que no es PDF se rechaza
+  await page.getByLabel('Hoja de personaje de Jimena').setInputFiles({ name: 'falso.pdf', mimeType: 'application/pdf', buffer: Buffer.from('hola') });
+  await expect(page.getByRole('alert')).toContainText('no es un PDF');
+  await page.getByLabel('Hoja de personaje de Jimena').setInputFiles({ name: 'jimena.pdf', mimeType: 'application/pdf', buffer: Buffer.from(MINI_PDF) });
+  await expect(page.locator('.pdf-page')).toHaveCount(1, { timeout: 15000 });
+  await expect(page.locator('.pc-sheet-name .tag.pdf')).toBeVisible();
+  await page.getByRole('button', { name: 'Pantalla completa' }).click();
+  await expect(page.locator('.pdf-dialog .pdf-page')).toHaveCount(1, { timeout: 15000 });
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.pdf-dialog')).toHaveCount(0);
+
+  // sigue ahí tras recargar y va dentro de la copia
+  await page.waitForTimeout(600);
+  await page.reload();
+  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await page.locator('.pc-sheet-head', { hasText: 'Jimena' }).click();
+  await expect(page.getByLabel('Notas')).toHaveValue('Busca a su hermana desaparecida');
+  await expect(page.locator('.pdf-page')).toHaveCount(1, { timeout: 15000 });
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Descargar copia' }).click();
+  const copy = JSON.parse(await (await (await download).createReadStream()).toArray().then((b) => Buffer.concat(b).toString('utf8')));
+  expect(Object.values(copy.pdfs as Record<string, string>)[0].startsWith('JVBERi')).toBe(true);
+  expect(copy.roster[0].notes).toBe('Busca a su hermana desaparecida');
+});

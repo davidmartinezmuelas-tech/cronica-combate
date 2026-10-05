@@ -138,6 +138,8 @@ export interface RosterEntry {
   initb: string;
   pp: string;
   res: string[];
+  notes?: string; // notas libres del DM sobre el personaje
+  pdf?: { id: string; name: string; size: number } | null; // hoja de personaje (el archivo va en IndexedDB aparte)
 }
 
 export interface TurnEvent {

@@ -18,7 +18,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,woff2}', 'data/*.json'],
+        globPatterns: ['**/*.{js,mjs,css,html,svg,png,woff2}', 'data/*.json'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
       manifest: {

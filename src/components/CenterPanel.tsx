@@ -8,6 +8,7 @@ import { useStore } from '../store/useStore';
 import CombatantCard from './CombatantCard';
 import StatBlock, { SpellCard } from './StatBlock';
 import { RuleView } from './RulesPanel';
+import PartySheets from './PartySheets';
 
 function Onboarding() {
   const combatants = useStore((s) => s.combatants);
@@ -165,6 +166,7 @@ export default function CenterPanel() {
           <div className="ctrl-col" style={sheet ? undefined : { maxWidth: 'none' }}>
             {isCombat && !started && <Onboarding />}
             {((isCombat && !started) || tab === 'group') && <DifficultyCard />}
+            {tab === 'group' && <PartySheets />}
             {isCombat && (
               <>
                 <ConcPrompts />
