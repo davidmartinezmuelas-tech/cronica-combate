@@ -1,7 +1,33 @@
 import { useMemo, useState } from 'react';
 import type { Combatant } from '../data/types';
-import { sortCombatants } from '../engine/combat';
+import { encounterDifficulty, sortCombatants } from '../engine/combat';
+import { nfmt } from '../engine/util';
 import { useStore } from '../store/useStore';
+
+/** Dificultad del encuentro (reglas 2024), en pequeño bajo la iniciativa. */
+function Difficulty() {
+  const combatants = useStore((s) => s.combatants);
+  const monById = useStore((s) => s.monById);
+  const srd = useStore((s) => s.srd);
+  const d = useMemo(() => encounterDifficulty(combatants, monById), [combatants, monById, srd]);
+  if (!combatants.some((c) => c.kind === 'monster')) return null;
+  if (!d.has || !d.budget) return <p className="diff-mini muted small">{d.text}</p>;
+  const max = Math.max(d.budget[2] * 1.6, d.xp) || 1;
+  const pct = (v: number) => Math.min(100, Math.round((v / max) * 100));
+  return (
+    <div className="diff-mini" title={'Reglas 2024 · Baja ' + nfmt(d.budget[0]) + ' · Moderada ' + nfmt(d.budget[1]) + ' · Alta ' + nfmt(d.budget[2]) + ' PX'}>
+      <div className="diff-mini-top">
+        <span className="eyebrow">Dificultad</span>
+        <strong className={'diff-mini-label d' + d.level}>{d.label}</strong>
+        <span className="muted small">{nfmt(d.xp)} PX · {d.party}</span>
+      </div>
+      <div className="diffbar" role="img" aria-label={'Dificultad ' + d.label + ': ' + nfmt(d.xp) + ' PX; baja ' + nfmt(d.budget[0]) + ', moderada ' + nfmt(d.budget[1]) + ', alta ' + nfmt(d.budget[2])}>
+        <span className={'difffill d' + d.level} style={{ width: pct(d.xp) + '%' }} />
+        {d.budget.map((b, i) => <span key={i} className="diffmark" style={{ left: pct(b) + '%' }} />)}
+      </div>
+    </div>
+  );
+}
 
 function statusOf(c: Combatant, started: boolean): string {
   const bits: string[] = [];
@@ -126,6 +152,7 @@ export default function InitiativePanel() {
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {order.map((c) => <Row key={c.id} c={c} />)}
       </ol>
+      <Difficulty />
       {!combatants.length && <p className="muted" style={{ margin: 0 }}>El encuentro está vacío. Empieza añadiendo monstruos desde el Bestiario.</p>}
       {pendingPc && <p className="muted small" style={{ margin: 0 }}>Escribe en la casilla la iniciativa que saque cada jugador y pulsa Intro.</p>}
       {rosterOut.length > 0 && (

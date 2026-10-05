@@ -1,9 +1,8 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { encounterDifficulty, reminders } from '../engine/combat';
+import { reminders } from '../engine/combat';
 import { forgeToMonster } from '../engine/forge';
 import { fmt } from '../engine/dice';
-import { nfmt } from '../engine/util';
 import { useStore } from '../store/useStore';
 import CombatantCard from './CombatantCard';
 import StatBlock, { SpellCard } from './StatBlock';
@@ -36,30 +35,6 @@ function Onboarding() {
           </li>
         ))}
       </ol>
-    </div>
-  );
-}
-
-function DifficultyCard() {
-  const combatants = useStore((s) => s.combatants);
-  const monById = useStore((s) => s.monById);
-  const srd = useStore((s) => s.srd);
-  const d = useMemo(() => encounterDifficulty(combatants, monById), [combatants, monById, srd]);
-  const max = d.budget ? Math.max(d.budget[2] * 1.6, d.xp) || 1 : 1;
-  const pct = (v: number) => Math.min(100, Math.round((v / max) * 100));
-  return (
-    <div className="panel">
-      <div className="panel-head"><h3>Dificultad del encuentro</h3><span className="muted small">Reglas 2024 · presupuesto de PX</span></div>
-      {d.has && d.budget ? (
-        <>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, flexWrap: 'wrap' }}><span className="diff-label">{d.label}</span><span className="muted">{nfmt(d.xp)} PX de monstruos · {d.party}</span></div>
-          <div className="diffbar" role="img" aria-label={'Dificultad ' + d.label}>
-            <span className={'difffill d' + d.level} style={{ width: pct(d.xp) + '%' }} />
-            {d.budget.map((b, i) => <span key={i} className="diffmark" style={{ left: pct(b) + '%' }} />)}
-          </div>
-          <span className="muted small">Baja {nfmt(d.budget[0])} · Moderada {nfmt(d.budget[1])} · Alta {nfmt(d.budget[2])} PX</span>
-        </>
-      ) : <p className="muted" style={{ margin: 0 }}>{d.text}</p>}
     </div>
   );
 }
@@ -174,7 +149,6 @@ export default function CenterPanel() {
         {hasCtrl && (
           <div className="ctrl-col" style={sheet ? undefined : { maxWidth: 'none' }}>
             {isCombat && !started && <Onboarding />}
-            {((isCombat && !started) || tab === 'group') && <DifficultyCard />}
             {tab === 'group' && <PartySheets />}
             {isCombat && (
               <>

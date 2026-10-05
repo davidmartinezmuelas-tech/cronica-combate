@@ -133,7 +133,6 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .difffill{position:absolute;left:0;top:0;bottom:0;background:#d4a94f}
 .difffill.d0{background:#6b5238}.difffill.d1{background:#6aa152}.difffill.d2{background:#c9962f}.difffill.d3{background:#c0513c}.difffill.d4{background:#8e1f3c}
 .diffmark{position:absolute;top:-2px;bottom:-2px;width:2px;background:#f3e6c8}
-.diff-label{font-family:'IM Fell English SC',Georgia,serif;font-size:28px;color:#f3e6c8}
 
 .statblock{background:#f3e6c8;color:#2a1d12;border-radius:3px;padding:22px 26px 18px;font-family:'Alegreya',Georgia,serif;font-size:16px;line-height:1.45;box-shadow:0 0 0 1px #c9b38a,0 18px 40px rgba(0,0,0,.45);border-top:6px solid #7a1f14;border-bottom:6px solid #7a1f14;max-width:780px;width:100%}
 .sb-name{font-family:'IM Fell English SC',Georgia,serif;color:#7a1f14;font-size:34px;margin:0;font-weight:400;line-height:1.05}
@@ -443,3 +442,11 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .col-left:has(.bestiary-panel){flex:1 1 340px;max-width:440px;min-width:min(100%,320px)}
 .beast .qty{min-width:20px}
 .beast .btn.small{padding:6px 9px}
+/* dificultad en pequeño bajo la iniciativa */
+.diff-mini{display:flex;flex-direction:column;gap:5px;margin:0}
+.diff-mini-top{display:flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap}
+.diff-mini-label{font-size:14px;color:#f3e6c8}
+.diff-mini-label.d1{color:#8cc373}.diff-mini-label.d2{color:#e2b450}.diff-mini-label.d3{color:#e07a62}.diff-mini-label.d4{color:#e36a8a}
+.diff-mini .diffbar{height:6px;border-radius:3px}
+/* la hoja de una regla mide lo que su texto (no se estira hasta abajo) */
+.center-grid>.sheet-col>.rule-view:last-child{flex-grow:0}
