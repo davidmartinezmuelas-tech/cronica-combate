@@ -106,6 +106,22 @@ FEM = {'Alfombra', 'Araña', 'Armadura', 'Avispa', 'Bruja', 'Cabra', 'Cocatriz',
        'Serpiente', 'Sombra', 'Tarasca', 'Tortuga'}
 
 
+# Nombres de los estados como los usa la app (Apresado, Ensordecido) y siempre con mayúscula tras «condición».
+# Solo se cambian las formas con mayúscula: en minúscula son adjetivos normales («un rugido sordo»).
+CONDITION_WORDS = ['agarrad', 'apresad', 'asustad', 'aturdid', 'cegad', 'derribad', 'ensordecid', 'envenenad', 'hechizad',
+                   'incapacitad', 'inconsciente', 'invisible', 'paralizad', 'petrificad', 'agotamiento']
+
+
+def unify_terms(t):
+    t = re.sub(r'\bRestringid(o|a|os|as)\b', r'Apresad\1', t)
+    t = re.sub(r'\bSord(o|a|os|as)\b', r'Ensordecid\1', t)
+
+    def cap_list(m):
+        words = re.sub(r'\b([a-záéíóúñ]+)\b', lambda w: w.group(1)[0].upper() + w.group(1)[1:] if any(w.group(1).startswith(c) for c in CONDITION_WORDS) else w.group(1), m.group(2))
+        return m.group(1) + words
+    return re.sub(r'(\b[Cc]ondici[oó]n(?:es)? (?:de )?)((?:[a-záéíóúñ]+)(?:(?:, | y | e | o )[a-záéíóúñ]+)*)', cap_list, t)
+
+
 def _articles(t, name):
     """«el/del/al/un NOMBRE» -> «la/de la/a la/una NOMBRE» (sin distinguir mayúsculas en el nombre)."""
     n = re.escape(name)
@@ -146,7 +162,12 @@ def fix(d):
                     t2 = _articles(t, m['n'])
                     report['articles'] += t2 != t
                     t = t2
-                f['d'] = t
+                t2 = unify_terms(t)
+                report['terms'] = report.get('terms', 0) + (t2 != t)
+                f['d'] = t2
+    for sp in d.get('sp', {}).values():
+        if sp.get('d'):
+            sp['d'] = unify_terms(sp['d'])
     missing = set(MANUAL) - done
     assert not missing, 'correcciones sin aplicar: %s' % missing
     return report

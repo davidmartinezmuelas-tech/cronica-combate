@@ -13,6 +13,7 @@ import glob, html, json, os, re, sys
 import yaml
 
 from embeds_es import EMBEDS_ES
+from fixtext import unify_terms
 from glossary_es import GLOSSARY_ES
 
 # Capítulos que interesan en mesa (se excluyen clases, especies, trasfondos, creación de personaje…)
@@ -34,7 +35,7 @@ GLOSSARY_ENTRY = 'phbAppendixCRule'
 
 # Otros nombres con los que se busca un término (nombres de la app, de 2014 o abreviaturas)
 ALIASES = {
-    'Restrained': ['Apresado'], 'Deafened': ['Ensordecido'], 'Disengage': ['Destrabarse'], 'Hide': ['Esconderse'],
+    'Restrained': ['Restringido'], 'Deafened': ['Sordo'], 'Disengage': ['Destrabarse'], 'Hide': ['Esconderse'],
     'Hit Points': ['PG'], 'Armor Class': ['CA'], 'Difficulty Class': ['CD'], 'Challenge Rating': ['VD', 'Valor de desafío'],
     'Nonplayer Character (NPC)': ['PNJ', 'NPC'], 'Experience Points': ['PX', 'XP'], 'Opportunity Attacks': ['Ataque de oportunidad'],
     'Bonus Action': ['Acción bonus'], 'Critical Hit': ['Crítico'], 'Temporary Hit Points': ['PG temporales'], 'Death Saving Throw': ['Salvación de muerte'],
@@ -323,6 +324,10 @@ def main(tr_dir, packs, out_path):
             meta['cmp'] += ' (' + mat + ')'
         entries.append({'id': 'sp-' + sid, 'n': s['name'], 'en': en['name'], 'cat': 'Conjuros', 't': to_markup(s.get('description', ''), res), **meta})
 
+    # nombres de los estados como en la app (Apresado, Ensordecido) y con mayúscula tras «condición»
+    for e in entries:
+        e['n'] = unify_terms(e['n'])
+        e['t'] = unify_terms(e['t'])
     # enlaces a páginas que no se incluyen: se quedan como texto
     ids = {e['id'] for e in entries}
     for e in entries:

@@ -164,13 +164,13 @@ test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado des
   await page.locator('.rule-item').first().click();
   await expect(page.locator('.rule-view')).toContainText('Conjuro de nivel 3 de evocación');
 
-  // desde el combate: el estado «Apresado» de la app abre «Restringido»
+  // desde el combate: el estado «Apresado» abre su regla (el SRD traducido lo llamaba «Restringido»)
   await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 1);
   await page.getByRole('button', { name: 'Combate', exact: true }).click();
   await page.locator('.init-row', { hasText: 'Guerrero goblin' }).click();
   await page.getByRole('button', { name: 'Apresado', exact: true }).click();
   await page.getByTitle('Ver la regla completa de Apresado').click();
-  await expect(page.locator('.rule-view .sb-name')).toHaveText('Restringido');
+  await expect(page.locator('.rule-view .sb-name')).toHaveText('Apresado');
 });
 
 const MINI_PDF = '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R/Resources<<>>>>endobj\n4 0 obj<</Length 30>>stream\n0.6 0.1 0.1 rg 40 40 120 120 re f\nendstream\nendobj\ntrailer<</Root 1 0 R>>\n%%EOF\n';
