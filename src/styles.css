@@ -460,3 +460,13 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .statblock{container-type:inline-size}
 .sb-abils{grid-template-columns:repeat(3,minmax(0,1fr))}
 @container (min-width:500px){.sb-abils{grid-template-columns:repeat(6,minmax(0,1fr))}}
+/* generador de encuentro (en «Prepara el encuentro») */
+.gen{display:flex;flex-direction:column;gap:8px;border-top:1px solid #33271c;padding-top:12px}
+.gen-controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.gen-controls .segbox{display:grid;grid-template-columns:repeat(3,1fr);flex:0 0 auto}
+.gen-controls select{flex:1 1 140px;width:auto}
+.gen-controls .btn{flex:0 0 auto}
+.gen-link{background:none;border:0;padding:0;font:inherit;font-weight:700;color:#e8c062;cursor:pointer;text-align:left}
+.gen-link:hover{color:#f3e6c8;text-decoration:underline}
+.gen-result{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:8px;background:#1a140f;border:1px solid #4a3a2a;border-left:3px solid #d4a94f}
+.gen-result ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}

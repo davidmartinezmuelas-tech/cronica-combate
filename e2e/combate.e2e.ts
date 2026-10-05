@@ -336,3 +336,23 @@ test('forja: avisa del daño mal escrito, pide confirmar al quitar y la criatura
   await page.locator('.init-row', { hasText: 'Ogro de prueba' }).click();
   await expect(page.locator('.sheet-col').getByRole('button', { name: /^Daño 2d6 \+ 4/ })).toBeVisible();
 });
+
+test('generador de encuentro: propone monstruos de la dificultad elegida y los añade', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  for (const n of ['Aria', 'Bram', 'Cora']) {
+    await page.getByLabel('Personaje').fill(n);
+    await page.getByLabel('Nivel total').fill('3');
+    await page.getByRole('button', { name: 'Guardar jugador' }).click();
+  }
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  const gen = page.getByRole('region', { name: 'Generador de encuentro' });
+  await expect(gen).toContainText('3 PJ (niv. 3, 3, 3)');
+  await gen.getByRole('button', { name: 'Alta' }).click();
+  await expect(gen).toContainText('entre 1200 y 1500 PX');
+  await gen.getByRole('button', { name: 'Proponer' }).click();
+  await gen.getByRole('button', { name: 'Añadir al encuentro' }).click();
+  await expect(page.locator('.init-row').first()).toBeVisible();
+  await page.getByRole('button', { name: 'Añadir todo el grupo' }).click();
+  await expect(page.locator('.diff-mini-label')).toHaveText('Alta');
+});

@@ -5,6 +5,7 @@ import { forgeToMonster } from '../engine/forge';
 import { fmt } from '../engine/dice';
 import { useStore } from '../store/useStore';
 import CombatantCard from './CombatantCard';
+import EncounterGenerator from './EncounterGenerator';
 import StatBlock, { SpellCard } from './StatBlock';
 import { RuleQuick, RuleView } from './RulesPanel';
 import PartySheets from './PartySheets';
@@ -35,6 +36,7 @@ function Onboarding() {
           </li>
         ))}
       </ol>
+      <EncounterGenerator />
     </div>
   );
 }
