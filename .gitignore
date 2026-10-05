@@ -8,3 +8,4 @@ coverage
 .claude/
 test-results
 playwright-report
+.token-optimizer/
