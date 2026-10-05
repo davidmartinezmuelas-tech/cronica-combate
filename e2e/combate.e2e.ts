@@ -271,3 +271,17 @@ test('en el móvil, al tocar a alguien de la iniciativa se baja hasta su ficha',
   await page.getByRole('button', { name: 'Ir a sus acciones' }).click();
   await expect(page.getByRole('button', { name: /Ataque \+6/ }).first()).toBeInViewport();
 });
+
+test('daño manual: sin tipo por defecto y aviso si sus defensas cambian la cantidad', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'esqueleto', 'Esqueleto', 1);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.locator('.init-row', { hasText: 'Esqueleto' }).first().click();
+  await expect(page.getByLabel('Tipo de daño')).toHaveValue('');
+  await page.getByLabel('Cantidad').fill('6');
+  await expect(page.getByRole('status').filter({ hasText: 'recibirá' })).toHaveCount(0);
+  await page.getByLabel('Tipo de daño').selectOption('contundente');
+  await expect(page.getByText('Por sus defensas recibirá 12 en vez de 6.')).toBeVisible();
+  await page.getByLabel('Tipo de daño').selectOption('veneno');
+  await expect(page.getByText('Es inmune: no recibirá daño.')).toBeVisible();
+});
