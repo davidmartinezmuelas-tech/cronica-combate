@@ -481,3 +481,51 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
   await expect(sheet.locator('summary', { hasText: 'Vigía nocturno' })).toContainText('Dote de origen');
   await expect(sheet.locator('summary', { hasText: 'Rayo de faro' })).toBeVisible();
 });
+
+test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia tras descansar y conjuros siempre preparados', async ({ page }) => {
+  // subclase inventada con un apartado de opciones, como lo deja el importador del libro
+  const lib = {
+    app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'Pruebas', feats: [], backgrounds: [], spells: [],
+    subclasses: [{
+      id: 'lib-subclase-fighter-maestro-del-combate', n: 'Maestro del combate', cls: 'fighter', d: '', f: [{ lv: 3, n: 'Supremacía', d: 'Aprendes maniobras.' }],
+      x: [{ n: 'Opciones de maniobras', d: 'En orden alfabético.\n\nAlfa. Golpe alfa.\n\nBeta. Golpe beta.\n\nDelta. Golpe delta.\n\nGamma. Golpe gamma.' }],
+    }],
+  };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'biblioteca.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Tarsa');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Maestro del combate' });
+  const picker = page.locator('details.picker', { hasText: 'Maniobras' });
+  await picker.locator(':scope > summary').click();
+  for (const m of ['Alfa', 'Beta', 'Delta']) await picker.getByRole('button', { name: m, exact: true }).click();
+  await expect(picker.locator(':scope > summary')).toContainText('(3 de 3)');
+  await expect(picker.getByRole('button', { name: 'Gamma', exact: true })).toBeDisabled();
+  await page.getByLabel('Estudioso de la guerra: habilidad').selectOption({ label: 'Historia' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sheet = page.locator('.pc');
+  await expect(sheet.locator('summary', { hasText: 'Beta' })).toContainText('Maniobras');
+  await expect(sheet.locator('.pc-skill', { hasText: 'Historia' }).locator('.dot')).toHaveClass(/on/);
+
+  // brujo del SRD: sus conjuros de patrón salen solos; explorador cazador: la presa se cambia desde la hoja
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Brujo' });
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Patrón infernal' });
+  await expect(page.getByText('Por tu subclase siempre tienes preparados', { exact: false })).toContainText('Manos ardientes');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(sheet.locator('summary', { hasText: 'Manos ardientes' })).toContainText('Subclase · siempre preparado');
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Cazador' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const prey = sheet.getByLabel('Presa del cazador');
+  await expect(prey.locator('option')).toHaveCount(3);
+  await prey.selectOption({ index: 1 });
+  await expect(sheet.locator('.pc-features summary').filter({ hasText: 'Presa del cazador' }).first()).toBeVisible();
+});

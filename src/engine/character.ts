@@ -1,4 +1,5 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
+import { choiceSkills } from './subclassChoices';
 import { uid } from './util';
 
 /** Arma (o ataque) del personaje: de la lista del SRD o propia. */
@@ -70,6 +71,7 @@ export interface Character {
   inspiration: boolean;
   feats: string[]; // dotes del SRD (por nombre)
   customFeats: CustomFeat[];
+  choices?: Record<string, string[]>; // elecciones de subclase (maniobras, habilidades…) por id de elección
   langs: string;
   tools: string;
   notes: string;
@@ -84,7 +86,7 @@ export function blankCharacter(): Character {
     id: 'pj-' + uid(), v: 1, updatedAt: Date.now(), name: '', player: '', speciesId: '', speciesName: '', classId: '', className: '', level: 1,
     subclass: '', backgroundId: '', backgroundName: '', abil: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, skills: [], expertise: [],
     saveExtra: [], armorId: '', armorCustom: { name: 'Armadura', ac: 12, dex: null }, armorBonus: 0, shield: false, shieldBonus: 0, weapons: [], spells: [], hp: 0, temp: 0, hdSpent: 0, slotsUsed: [0, 0, 0, 0, 0, 0, 0, 0, 0], pactUsed: 0,
-    uses: {}, conds: [], exh: 0, death: { s: 0, f: 0 }, inspiration: false, feats: [], customFeats: [], langs: '', tools: '', notes: '', ov: {},
+    uses: {}, conds: [], exh: 0, death: { s: 0, f: 0 }, inspiration: false, feats: [], customFeats: [], choices: {}, langs: '', tools: '', notes: '', ov: {},
   };
 }
 
@@ -150,8 +152,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const mods = Object.fromEntries(ABILS.map((a) => [a, mod(c.abil[a])])) as Record<Abil, number>;
   const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra]);
   const saves = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + (saveProf.has(a) ? pb : 0), prof: saveProf.has(a) }])) as Derived['saves'];
+  const subSkills = new Set(choiceSkills(c));
   const skills = Object.fromEntries(Object.entries(SKILL_ABIL).map(([k, ab]) => {
-    const prof = c.skills.includes(k);
+    const prof = c.skills.includes(k) || subSkills.has(k);
     const exp = prof && c.expertise.includes(k);
     return [k, { bonus: mods[ab] + (prof ? pb * (exp ? 2 : 1) : 0), prof, exp, abil: ab }];
   })) as Derived['skills'];

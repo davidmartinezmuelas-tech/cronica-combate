@@ -10,7 +10,9 @@ import { useLibrary, type LibraryData } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
+import { subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { plainText, useSpells } from './spells';
+import SubclassChoices, { choiceRows, resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -32,6 +34,7 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
   // subclase de la biblioteca propia (si es la elegida)
   const libSub = lib.subclasses.find((s) => s.cls === c.classId && norm(s.n) === norm(c.subclass));
   libSub?.f.filter((f) => f.lv <= c.level).forEach((f) => rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: null, per: '' }));
+  choiceRows(resolveChoices(c, data, lib)).forEach((r) => rows.push({ ...r, max: null, per: '' }));
   sp?.t.forEach((f) => add(f, sp.n));
   const CAT: Record<string, string> = { origin: 'Dote de origen', general: 'Dote', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
   c.feats.forEach((name) => {
@@ -101,7 +104,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
   };
 
   const skillsSorted = Object.entries(d.skills).sort((a, b) => (data?.skills[a[0]] || a[0]).localeCompare(data?.skills[b[0]] || b[0], 'es'));
-  const spellList = c.spells.map((k) => ({ k, s: spellIdx.get(k) })).filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
+  // los de la subclase (siempre preparados) se suman solos a los que ha elegido
+  const subSpells = subclassSpells(c, d.cls, subclassText(c, d.cls, lib.subclasses), spellIdx.list).filter((x) => !c.spells.includes(x.id));
+  const spellList = [...c.spells.map((k) => ({ k, s: spellIdx.get(k), sub: false })), ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: true }))].filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
 
   return (
@@ -212,10 +217,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
           {d.pact && <div className="pc-slots"><span className="res">Magia de pacto (nivel {d.pact.lv})<Pips max={d.pact.n} used={Math.min(d.pact.n, c.pactUsed)} label="Espacios de pacto" onSet={(v) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) })} /></span></div>}
           {!spellList.length ? <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p> : (
             <ul className="pc-features">
-              {spellList.map(({ k, s }) => (
+              {spellList.map(({ k, s, sub }) => (
                 <li key={k}>
                   <details>
-                    <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span></summary>
+                    <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">Subclase · siempre preparado</span>}</summary>
                     <p className="muted small" style={{ margin: '4px 0' }}>{[s!.ct, s!.r, s!.cmp, s!.du].filter(Boolean).join(' · ')}</p>
                     <p className="pc-text">{plainText(s!.t)}</p>
                   </details>
@@ -228,6 +233,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
 
       <section className="panel" aria-label="Rasgos y dotes">
         <h3 className="eyebrow">Rasgos y dotes</h3>
+        <SubclassChoices c={c} data={data} lib={lib} set={set} restOnly />
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
         <ul className="pc-features">
           {features.map((f) => (

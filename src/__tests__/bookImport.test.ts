@@ -136,4 +136,21 @@ describe('subclases', () => {
     ));
     expect(s.map((x) => x.n)).toEqual(['Senda del viento', 'Senda de la roca']);
   });
+
+  it('apartado de opciones tras los rasgos, nombres partidos en dos líneas y fin en la tabla de la clase siguiente', async () => {
+    const { parseSubclasses } = await import('../engine/bookImport');
+    const s = parseSubclasses(L(
+      'SUBCLASES DE BÁRBARO', 'SENDA DEL VIENTO', 'NIVEL 3: CONJUROS DEL', 'DE LA BRISA', 'Siempre preparados.', 'NIVEL 6: RÁFAGA', 'MEJORADA', 'Más.',
+      'OPCIONES DE SOPLIDOS', 'Van en orden alfabético.', 'Alfa. Uno.', 'Beta. Dos.',
+      'ATRIBUTOS BÁSICOS DE BARDO', 'Esto ya es del bardo.',
+    ));
+    expect(s[0].f.map((f) => f.n)).toEqual(['Conjuros del de la brisa', 'Ráfaga mejorada']);
+    expect(s[0].x).toEqual([{ n: 'Opciones de soplidos', d: 'Van en orden alfabético.\n\nAlfa. Uno.\n\nBeta. Dos.' }]);
+    expect(s[0].f[1].d).toBe('Más.');
+  });
+
+  it('las páginas sin nada reconocible entre dos de clases también son de clases', async () => {
+    const { fillClassGaps } = await import('../engine/bookImport');
+    expect(fillClassGaps([[], ['classes'], [], ['classes'], [], ['spells']])).toEqual([[], ['classes'], ['classes'], ['classes'], [], ['spells']]);
+  });
 });

@@ -517,6 +517,9 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .pc-features details{border:1px solid #33271c;border-radius:6px;background:#1a140f;padding:6px 10px}
 .pc-features summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}
+.ce-choices{display:flex;flex-direction:column;gap:8px}
+.ce-choice-rest{display:flex;flex-wrap:wrap;gap:8px 12px;margin-bottom:8px}
+.ce-choice-rest .ce-choice-one{flex:1 1 200px;margin:0}
 .pc-rest{display:flex;gap:8px;flex-wrap:wrap}
 .ce-skills{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:2px 10px}
 .ce-skill{display:flex;align-items:center;gap:6px}

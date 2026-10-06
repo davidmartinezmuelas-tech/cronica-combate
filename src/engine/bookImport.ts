@@ -15,7 +15,8 @@ export interface Line { t: string; col: number; y: number }
 export interface LibFeat { id: string; n: string; cat: 'origin' | 'general' | 'fighting-style' | 'epic-boon'; req: string; d: string }
 export interface LibBackground { id: string; n: string; abil: Abil[]; skills: string[]; tool: string; feat: string; equip: string; d: string }
 export interface LibSpell { id: string; n: string; l: number; esc: string; classes: string[]; ct: string; r: string; cmp: string; du: string; c: number; rit: number; t: string }
-export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string }[] }
+/** `x`: apartados de opciones que van tras los rasgos («Opciones de maniobras»). */
+export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string }[]; x?: { n: string; d: string }[] }
 
 /** Líneas de una página en orden de lectura: primero la columna izquierda de arriba abajo, luego la derecha. */
 export function pageLines(items: TextItem[], width: number): Line[] {
@@ -253,6 +254,17 @@ export function classifyPage(text: string): ('feats' | 'backgrounds' | 'spells' 
   return out;
 }
 
+/**
+ * Una página sin nada reconocible entre dos páginas de clases (la continuación de una lista de opciones, una
+ * subclase que sigue sin título de rasgo) también es del capítulo de clases.
+ */
+export function fillClassGaps(kinds: ReturnType<typeof classifyPage>[]): ReturnType<typeof classifyPage>[] {
+  const idx = kinds.map((k, i) => (k.includes('classes') ? i : -1)).filter((i) => i >= 0);
+  if (!idx.length) return kinds;
+  const first = idx[0], last = idx[idx.length - 1];
+  return kinds.map((k, i) => (!k.length && i > first && i < last ? ['classes'] : k));
+}
+
 /** «NIVEL 3: FRENESÍ» (el OCR a veces escribe «NIvEL», «NiveEL»…). */
 const FEATURE_HEAD = /N\s*[rRiI1]{0,3}\s*[vV]\s*[eE]+\s*[lL]\s*(\d{1,2})\s*:\s*/;
 const FEATURE_LINE = new RegExp('^' + FEATURE_HEAD.source + '(.+)$');
@@ -304,7 +316,7 @@ const CLASS_IDS: Record<string, string> = {
  * una introducción y sus rasgos («NIVEL 3: …»). Se saltan los pies de ilustración («SUBCLASE DE LA SENDA…») y
  * solo se guardan las que tienen algún rasgo. Los rasgos de clase (antes de «SUBCLASES DE») no se tocan.
  */
-interface SubDraft { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[] } | null }
+interface SubDraft { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[] } | null; sec: { n: string; body: string[] } | null }
 
 export function parseSubclasses(lines: Line[]): LibSubclass[] {
   // en 2024 todas las subclases empiezan en el nivel 3
@@ -315,6 +327,7 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
   const closeFeat = () => {
     const c = st.cur;
     if (c?.feat) { c.s.f.push({ lv: c.feat.lv, n: c.feat.n, d: paragraphs(c.feat.body) }); c.feat = null; }
+    if (c?.sec) { (c.s.x ||= []).push({ n: c.sec.n, d: paragraphs(c.sec.body) }); c.sec = null; }
   };
   const flush = () => {
     const c = st.cur;
@@ -324,7 +337,7 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
   const open = (name: string, intro: string[]) => {
     flush();
     if (name) used.add(norm(name));
-    st.cur = { s: { id: '', n: name, cls: st.cls, d: '', f: [] }, intro, feat: null };
+    st.cur = { s: { id: '', n: name, cls: st.cls, d: '', f: [] }, intro, feat: null, sec: null };
   };
   // nivel más alto alcanzado por la subclase abierta
   const top = () => (st.cur ? Math.max(0, ...st.cur.s.f.map((f) => f.lv), st.cur.feat?.lv || 0) : 0);
@@ -338,6 +351,8 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
     // los rasgos de la clase base (siguiente capítulo de clase) cierran la sección de subclases
     const core = /^RASGOS DE (\p{L}+)/u.exec(t);
     if (core) { flush(); st.pending = null; st.cls = ''; coreCls = CLASS_IDS[norm(core[1])] || ''; continue; }
+    // la tabla de atributos de la clase siguiente también cierra la sección
+    if (/^ATRIBUTOS B[ÁA]SICOS DE/i.test(t)) { flush(); st.pending = null; st.cls = ''; coreCls = ''; continue; }
     if (!st.cls) { if (coreCls) coreText[coreCls] = (coreText[coreCls] || '') + ' ' + t; continue; }
     if (/^SUBCLASE DE/i.test(t)) continue; // pie de ilustración («SUBCLASE DE LA SENDA…»)
 
@@ -367,10 +382,15 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
       if (!st.pending || norm(name).startsWith(norm(st.pending.name)) || !norm(st.pending.name).startsWith(norm(name))) st.pending = { name, intro: st.pending?.intro || [] };
       continue;
     }
-    if (isCaps(t)) { if (st.cur?.feat) st.cur.feat.body.push(t); continue; } // tablas y recuadros: van con el rasgo
+    // «OPCIONES DE MANIOBRAS»: apartado con las opciones entre las que se elige
+    if (st.cur && /^OPCIONES DE \p{L}/u.test(t)) { closeFeat(); st.cur.sec = { n: titleCase(t), body: [] }; continue; }
+    // «NIVEL 10: SUPREMACÍA EN COMBATE» + «MEJORADA» en la línea siguiente: es parte del nombre
+    // (o «NIVEL 3: CONJUROS DEL CÍRCULO» + «DE LA LUNA»)
+    if (st.cur?.feat && !st.cur.feat.body.length && /^(MEJORAD[AO]|DEFINITIV[AO]|SUPERIOR|AVANZAD[AO]|DEL? (LA |LAS |LOS )?[A-ZÁÉÍÓÚÑ]+)$/.test(t)) { st.cur.feat.n += ' ' + t.toLowerCase(); continue; }
+    if (isCaps(t)) { const tgt = st.cur?.sec || st.cur?.feat; if (tgt) tgt.body.push(t); continue; } // tablas y recuadros: van con el rasgo
     if (st.pending) { st.pending.intro.push(t); continue; }
     if (!st.cur) continue;
-    if (st.cur.feat) st.cur.feat.body.push(t); else st.cur.intro.push(t);
+    if (st.cur.sec) st.cur.sec.body.push(t); else if (st.cur.feat) st.cur.feat.body.push(t); else st.cur.intro.push(t);
   }
   flush();
   // a las que quedaron sin título se les pone un nombre provisional (se corrige en la revisión)

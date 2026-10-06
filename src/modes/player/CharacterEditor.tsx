@@ -2,11 +2,13 @@ import { useMemo, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
 import { derive, mod, weaponFromData, type Character, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { fmt } from '../../engine/dice';
+import { choiceSkills, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useSpells } from './spells';
+import SubclassChoices from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const STANDARD = [15, 14, 13, 12, 10, 8];
@@ -72,6 +74,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const fromBg = new Set(bg?.skills || []);
   const classPicked = c.skills.filter((s) => !fromBg.has(s) && pool.includes(s)).length;
   const toggleSkill = (k: string) => set({ skills: c.skills.includes(k) ? c.skills.filter((x) => x !== k) : [...c.skills, k], expertise: c.expertise.filter((x) => x !== k || !c.skills.includes(k)) });
+  const subSkills = new Set(choiceSkills(c));
   const toggleExp = (k: string) => set({ expertise: c.expertise.includes(k) ? c.expertise.filter((x) => x !== k) : [...c.expertise, k] });
 
   const addWeapon = () => {
@@ -91,6 +94,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
     .sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es'))
     .slice(0, useClassList && !spellQ ? 60 : 16);
 
+  const subSpellNames = subclassSpells(c, cls, subclassText(c, cls, lib.subclasses), spellIdx.list).map((x) => spellIdx.get(x.id)?.n || '').filter(Boolean);
   const featGroups = FEAT_CATS.filter(([cat]) => cat !== 'other' && (cat !== 'fighting-style' || STYLE_CLASSES.includes(c.classId) || c.feats.some((f) => allFeats.find((x) => x.n === f)?.cat === cat)) && (cat !== 'epic-boon' || c.level >= 19));
   const toggleFeat = (f: { n: string }) => set({ feats: c.feats.includes(f.n) ? c.feats.filter((x) => x !== f.n) : [...c.feats, f.n] });
   const saveCustomFeat = () => {
@@ -147,6 +151,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
               </select></div>
             {subValue === 'other' && <div className="field"><label htmlFor="ce-sub">Nombre de la subclase</label><input id="ce-sub" className="input" value={c.subclass} onChange={(e) => set({ subclass: e.target.value })} /></div>}
           </div>
+          <SubclassChoices c={c} data={data} lib={lib} set={set} />
           {cls?.sub && !libSubs.length && <span className="muted small">El SRD solo incluye una subclase por clase ({cls.sub.n}). Las demás de tu libro puedes añadirlas en «Biblioteca»; si eliges otra, sus rasgos los añades abajo como rasgos propios.</span>}
           <div className="row2">
             <div className="field"><label htmlFor="ce-bg">Trasfondo</label>
@@ -185,8 +190,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
           <div className="ce-skills">
             {Object.keys(data.skills).sort((a, b) => data.skills[a].localeCompare(data.skills[b], 'es')).map((k) => (
               <span key={k} className={pool.includes(k) || fromBg.has(k) ? 'ce-skill suggest' : 'ce-skill'}>
-                <label className="check"><input type="checkbox" checked={c.skills.includes(k)} onChange={() => toggleSkill(k)} />{data.skills[k]}</label>
-                {c.skills.includes(k) && <button className={c.expertise.includes(k) ? 'ts on' : 'ts'} aria-pressed={c.expertise.includes(k)} aria-label={'Pericia en ' + data.skills[k]} onClick={() => toggleExp(k)}>P</button>}
+                <label className="check" title={subSkills.has(k) && !c.skills.includes(k) ? 'Por tu subclase' : undefined}><input type="checkbox" checked={c.skills.includes(k) || subSkills.has(k)} disabled={subSkills.has(k) && !c.skills.includes(k)} onChange={() => toggleSkill(k)} />{data.skills[k]}</label>
+                {(c.skills.includes(k) || subSkills.has(k)) && <button className={c.expertise.includes(k) ? 'ts on' : 'ts'} aria-pressed={c.expertise.includes(k)} aria-label={'Pericia en ' + data.skills[k]} onClick={() => toggleExp(k)}>P</button>}
               </span>
             ))}
           </div>
@@ -262,6 +267,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <fieldset className="fs">
           <legend>Conjuros</legend>
+          {subSpellNames.length > 0 && <p className="muted small" style={{ margin: 0 }}>Por tu subclase siempre tienes preparados (se añaden solos a la hoja): {subSpellNames.join(', ')}.</p>}
           <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + cls!.n : ''}</label>
             <input id="ce-spq" className="input" value={spellQ} onChange={(e) => setSpellQ(e.target.value)} placeholder="Castigo divino, Bola de fuego, Curar heridas…" /></div>
           <div className="rollrow">
