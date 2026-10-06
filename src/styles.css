@@ -528,3 +528,4 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 /* botones de tirada sobre fondo oscuro (en la hoja de criatura van sobre pergamino) */
 .pc .rollbtn.dmg{background:transparent;color:#f0a090;border-color:#c0513c}
 .pc .rollbtn.dmg:hover{background:rgba(192,81,60,.15)}
+.warn-border{border-color:#c0513c;box-shadow:inset 3px 0 0 #c0513c}

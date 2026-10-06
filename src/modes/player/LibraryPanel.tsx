@@ -17,6 +17,8 @@ function withoutSrd(r: BookResult, srd: { feats: string[]; backgrounds: string[]
   return { ...r, feats: r.feats.filter((f) => !has(srd.feats, f.n)), backgrounds: r.backgrounds.filter((b) => !has(srd.backgrounds, b.n)), spells: r.spells.filter((s) => !has(srd.spells, s.n)) };
 }
 const incomplete = (b: LibBackground) => b.abil.length !== 3 || b.skills.length !== 2 || !b.feat;
+/** Qué le falta a un trasfondo (para decirlo en la revisión). */
+const missing = (b: LibBackground) => [b.abil.length !== 3 ? 'marca 3 características (' + b.abil.length + ')' : '', b.skills.length !== 2 ? 'elige 2 habilidades' : '', !b.feat ? 'elige la dote de origen' : ''].filter(Boolean).join(' · ');
 
 /** Biblioteca propia: dotes, trasfondos y conjuros del libro del usuario, guardados solo en su dispositivo. */
 export default function LibraryPanel() {
@@ -49,7 +51,11 @@ export default function LibraryPanel() {
       const r = await readBook(f, (p, t) => setProgress([p, t]), cancel.current);
       const nothing = !r.feats.length && !r.backgrounds.length && !r.spells.length;
       if (nothing) setMsg('No se ha encontrado ninguna dote, trasfondo ni conjuro. El importador está hecho para el Manual del Jugador 2024 en español con texto (no un PDF de imágenes).');
-      else setFound(withoutSrd(r, srd));
+      else {
+        const f = withoutSrd(r, srd);
+        // los trasfondos por completar, arriba (una sola vez: no saltan de sitio al completarlos)
+        setFound({ ...f, backgrounds: [...f.backgrounds.filter(incomplete), ...f.backgrounds.filter((b) => !incomplete(b))] });
+      }
     } catch (e) {
       if ((e as Error).message !== 'cancelado') setMsg('No se pudo leer el PDF (' + (e as Error).message + ').');
     }
@@ -113,10 +119,10 @@ export default function LibraryPanel() {
             <span className="rollrow"><button className="btn small primary" onClick={saveFound}>Guardar en mi biblioteca</button><button className="btn small ghost" onClick={() => setFound(null)}>Descartar</button></span>
           </div>
           <p className="muted small" style={{ margin: 0 }}>El texto viene del reconocimiento de caracteres del PDF, así que puede tener alguna errata. No se incluye lo que ya trae el SRD. Los trasfondos marcados tienen algún dato que no se pudo leer: complétalos aquí.</p>
-          <Picker title={'Trasfondos (' + found.backgrounds.length + ')'} summary={found.backgrounds.map((b) => b.n + (incomplete(b) ? ' ⚠' : '')).join(', ')}>
+          <Picker open={found.backgrounds.some(incomplete)} title={'Trasfondos (' + found.backgrounds.length + ')'} summary={found.backgrounds.some(incomplete) ? found.backgrounds.filter(incomplete).length + ' por completar: ' + found.backgrounds.filter(incomplete).map((b) => b.n).join(', ') : found.backgrounds.map((b) => b.n).join(', ')}>
             {found.backgrounds.map((b, i) => (
               <div key={b.id} className={incomplete(b) ? 'sub lib-bg warn-border' : 'sub lib-bg'}>
-                <b>{b.n}{incomplete(b) ? ' · revisar' : ''}</b>
+                <b>{b.n}{incomplete(b) && <span className="warn small"> · falta: {missing(b)}</span>}</b>
                 <div className="chips" role="group" aria-label={'Características de ' + b.n}>
                   {ABILS.map((a) => <button key={a} className={b.abil.includes(a) ? 'chip on' : 'chip'} aria-pressed={b.abil.includes(a)} onClick={() => setBg(i, { abil: b.abil.includes(a) ? b.abil.filter((x) => x !== a) : [...b.abil, a] })}>{ABIL_N[a]}</button>)}
                 </div>
