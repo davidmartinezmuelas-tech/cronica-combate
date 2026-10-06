@@ -12,6 +12,7 @@ import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
 import { subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { plainText, useSpells } from './spells';
+import SubclassActions, { choiceResources } from './SubclassActions';
 import SubclassChoices, { choiceRows, resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
@@ -196,6 +197,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
         ))}
       </section>
 
+      <SubclassActions c={c} d={d} data={data} lib={lib} set={set} />
+
       {(d.spell || spellList.length > 0) && (
         <section className="panel" aria-label="Conjuros">
           <div className="panel-head">
@@ -273,7 +276,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="small">Gasta dados de golpe para curarte (d{d.hdDie} {fmt(d.mods.con)} cada uno). Te quedan {c.level - c.hdSpent}.</span>
             <div className="rollrow">
               <button className="rollbtn" disabled={c.hdSpent >= c.level || c.hp >= d.hpMax} onClick={spendHd}>Gastar un dado de golpe</button>
-              <button className="btn small primary" onClick={() => { replace(shortRest(c, features.filter((f) => f.per === 'sr').map((f) => f.key))); setResting(false); }}>Terminar descanso corto</button>
+              <button className="btn small primary" onClick={() => { replace(shortRest(c, [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...choiceResources(c, data, lib).filter((r) => r.per === 'sr').map((r) => r.key)])); setResting(false); }}>Terminar descanso corto</button>
             </div>
           </div>
         )}

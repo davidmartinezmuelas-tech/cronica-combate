@@ -488,7 +488,7 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
     app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'Pruebas', feats: [], backgrounds: [], spells: [],
     subclasses: [{
       id: 'lib-subclase-fighter-maestro-del-combate', n: 'Maestro del combate', cls: 'fighter', d: '', f: [{ lv: 3, n: 'Supremacía', d: 'Aprendes maniobras.' }],
-      x: [{ n: 'Opciones de maniobras', d: 'En orden alfabético.\n\nAlfa. Golpe alfa.\n\nBeta. Golpe beta.\n\nDelta. Golpe delta.\n\nGamma. Golpe gamma.' }],
+      x: [{ n: 'Opciones de maniobras', d: 'En orden alfabético.\n\nAlfa. Suma el dado de supremacía a la tirada de daño del ataque. El objetivo deberá superar una tirada de salvación de Fuerza.\n\nBeta. Cuando hagas una prueba de Destreza (Sigilo), súmalo a la tirada.\n\nDelta. Reduce el daño en el dado más tu modificador por Fuerza o Destreza.\n\nGamma. Golpe gamma.' }],
     }],
   };
   await page.goto('/#/jugador');
@@ -508,10 +508,25 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   await expect(picker.locator(':scope > summary')).toContainText('(3 de 3)');
   await expect(picker.getByRole('button', { name: 'Gamma', exact: true })).toBeDisabled();
   await page.getByLabel('Estudioso de la guerra: habilidad').selectOption({ label: 'Historia' });
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sheet = page.locator('.pc');
-  await expect(sheet.locator('summary', { hasText: 'Beta' })).toContainText('Maniobras');
+  await expect(sheet.locator('.pc-features summary', { hasText: 'Beta' }).first()).toBeVisible();
   await expect(sheet.locator('.pc-skill', { hasText: 'Historia' }).locator('.dot')).toHaveClass(/on/);
+
+  // las maniobras se usan desde la hoja: cada tirada gasta un dado de supremacía
+  const man = sheet.locator('section[aria-label="Maniobras"]');
+  await expect(man).toContainText('Dados de supremacía: 4 de 4 (d8)');
+  await expect(man.locator('summary', { hasText: 'Alfa' })).toContainText('CD 10 Fuerza');
+  await man.getByRole('button', { name: 'Daño con Espada larga + d8' }).click();
+  await expect(page.locator('.result-label, .dice-result, [aria-live]').filter({ hasText: 'Alfa' }).first()).toBeVisible();
+  await man.getByRole('button', { name: /^Sigilo .* \+ d8$/ }).click();
+  await expect(man).toContainText('Dados de supremacía: 2 de 4');
+  await expect(man.getByRole('button', { name: /^Tirar d8/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Descanso corto' }).click();
+  await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
+  await expect(man).toContainText('Dados de supremacía: 4 de 4');
 
   // brujo del SRD: sus conjuros de patrón salen solos; explorador cazador: la presa se cambia desde la hoja
   await page.getByRole('button', { name: 'Editar hoja' }).click();

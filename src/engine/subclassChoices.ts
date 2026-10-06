@@ -1,6 +1,7 @@
 import { DMG_TYPES } from '../data/constants';
 import type { ClassData, PlayerData } from '../data/player';
 import type { LibSubclass } from './bookImport';
+import type { DiceResource } from './subclassActions';
 import type { Character } from './character';
 import { norm } from './util';
 
@@ -26,12 +27,14 @@ export interface ChoiceDef {
   at: Record<number, number>; // nivel -> cuántas en total
   rest?: 'sr' | 'lr'; // se puede cambiar tras un descanso: también se elige desde la hoja
   from: ChoiceFrom;
+  res?: DiceResource; // las opciones gastan dados de este recurso y se tiran desde la hoja
 }
 
 const DAMAGE = DMG_TYPES;
 
 export const CHOICES: ChoiceDef[] = [
-  { id: 'battle-master.maneuvers', cls: 'fighter', subs: ['Maestro del combate', 'Battle Master'], label: 'Maniobras', at: { 3: 3, 7: 5, 10: 7, 15: 9 }, from: { section: 'maniobras' } },
+  { id: 'battle-master.maneuvers', cls: 'fighter', subs: ['Maestro del combate', 'Battle Master'], label: 'Maniobras', at: { 3: 3, 7: 5, 10: 7, 15: 9 }, from: { section: 'maniobras' },
+    res: { key: 'Dados de supremacía', n: 'Dados de supremacía', per: 'sr', count: { 3: 4, 7: 5, 15: 6 }, die: { 3: 8, 10: 10, 18: 12 }, dc: ['str', 'dex'] } },
   { id: 'battle-master.skill', cls: 'fighter', subs: ['Maestro del combate', 'Battle Master'], label: 'Estudioso de la guerra: habilidad', at: { 3: 1 }, from: { skills: 'class' } },
   { id: 'battle-master.tool', cls: 'fighter', subs: ['Maestro del combate', 'Battle Master'], label: 'Estudioso de la guerra: herramientas de artesano', at: { 3: 1 }, from: { text: true } },
   { id: 'lore.skills', cls: 'bard', subs: ['Colegio del conocimiento', 'Colegio del Saber', 'College of Lore'], label: 'Competencias adicionales', at: { 3: 3 }, from: { skills: 'any' } },

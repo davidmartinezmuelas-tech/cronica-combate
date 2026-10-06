@@ -66,3 +66,18 @@ describe('elecciones de subclase', () => {
     expect(subclassSpells({ classId: 'druid', subclass: 'x', level: 5 }, druid, land, spells)).toEqual([]);
   });
 });
+
+describe('opciones que se tiran en la mesa', () => {
+  it('lo que hace cada opción sale de su texto (textos inventados)', async () => {
+    const { optionAction, atLevel } = await import('../engine/subclassActions');
+    const sk = data.skills;
+    const a = optionAction('Cuando aciertes, gastas un dado. Suma el dado de supremacía a la tirada de daño del ataque. El objetivo deberá superar una tirada de salvación de Fuerza.', sk);
+    expect([a.damage, a.save, a.checks]).toEqual([true, 'str', []]);
+    // el daño lo suma otra criatura: solo se tira el dado
+    expect(optionAction('Elige a un aliado. Esa criatura podrá atacar y sumar el dado a la tirada de daño del ataque.', sk).damage).toBe(false);
+    const b = optionAction('Cuando hagas una prueba de Inteligencia (Historia o Investigación) o de Sabiduría (Perspicacia) o una tirada de iniciativa, súmalo.', sk);
+    expect([b.checks, b.init]).toEqual([['his', 'inv', 'ins'], true]);
+    expect(optionAction('Reduce el daño en el resultado más tu modificador por Fuerza o Destreza.', sk).plus).toBe('str-dex');
+    expect([2, 3, 7, 10, 15, 18].map((l) => atLevel({ 3: 8, 10: 10, 18: 12 }, l))).toEqual([0, 8, 8, 10, 10, 12]);
+  });
+});
