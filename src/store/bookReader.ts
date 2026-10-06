@@ -26,7 +26,7 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
       const tc = await page.getTextContent();
       const items = (tc.items as { str?: string; transform?: number[] }[])
         .filter((it) => typeof it.str === 'string' && it.transform)
-        .map((it) => ({ str: it.str as string, x: it.transform![4], y: it.transform![5] }));
+        .map((it) => ({ str: it.str as string, x: it.transform![4], y: it.transform![5], w: (it as { width?: number }).width }));
       const kinds = classifyPage(items.map((x) => x.str).join(' '));
       if (kinds.length) {
         const lines = pageLines(items, page.getViewport({ scale: 1 }).width);

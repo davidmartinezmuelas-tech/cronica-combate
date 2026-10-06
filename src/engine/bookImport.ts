@@ -9,7 +9,7 @@ import { norm } from './util';
  * «Evocación de nivel 3 (hechicero, mago)», «Puntuaciones de característica: …»).
  */
 
-export interface TextItem { str: string; x: number; y: number }
+export interface TextItem { str: string; x: number; y: number; w?: number }
 export interface Line { t: string; col: number; y: number }
 
 export interface LibFeat { id: string; n: string; cat: 'origin' | 'general' | 'fighting-style' | 'epic-boon'; req: string; d: string }
@@ -29,8 +29,11 @@ export function pageLines(items: TextItem[], width: number): Line[] {
   const rightStart = best ? best[0] - 8 : width * 0.47;
   for (const it of items) {
     const s = it.str.replace(/\s+/g, ' ');
-    if (!s.trim()) continue;
-    const col = it.x < rightStart ? 0 : 1;
+    // restos del escaneo en el margen («|», «•»): no son texto
+    if (!s.trim() || /^[|•·¦]+$/.test(s.trim())) continue;
+    // una palabra que pasa del corte pero va pegada a texto de la izquierda en la misma línea es de la izquierda
+    const glued = it.x >= rightStart && items.some((o) => o !== it && o.x < rightStart && Math.abs(o.y - it.y) <= 5 && o.w != null && o.str.trim() !== '' && o.x + o.w >= it.x - 10);
+    const col = it.x < rightStart || glued ? 0 : 1;
     let row = rows.find((r) => r.col === col && Math.abs(r.y - it.y) <= 5);
     if (!row) { row = { col, y: it.y, parts: [] }; rows.push(row); }
     row.parts.push({ x: it.x, s });
@@ -273,6 +276,24 @@ const isSubclassName = (cls: string, t: string) => {
   // con prefijo, y no cortado al final de línea («Dominio de», «Senda del»)
   return pre.some((p) => n.startsWith(p + ' ')) && !/ (de|del|de la|de las|de los)$/.test(n);
 };
+/** Nombres de subclase que enumera el texto de los rasgos de la clase («… Hechicería aberrante, … y …»), en orden. */
+export function introNames(cls: string, text: string): string[] {
+  const out: string[] = [];
+  for (const sentence of text.replace(/-\s+/g, '').split(/[.:;]/)) {
+    const found: string[] = [];
+    for (const frag of sentence.split(/,|\(|\)| y | e | o | se /)) {
+      const words = frag.trim().split(/\s+/);
+      for (let i = 0; i < words.length; i++) {
+        const cand = words.slice(i).join(' ');
+        // un nombre es corto y solo letras (las tablas dan «Hechicería trucos 1 +2 …»)
+        if (words.length - i <= 5 && /^[\p{L} ]+$/u.test(cand) && isSubclassName(cls, cand)) { found.push(titleCase(cand)); break; }
+      }
+    }
+    // solo la frase que enumera varias (así no se toma un rasgo suelto como «Hechicería innata»)
+    if (found.length >= 2) for (const f of found) if (!out.some((o) => norm(o) === norm(f))) out.push(f);
+  }
+  return out;
+}
 const CLASS_IDS: Record<string, string> = {
   barbaro: 'barbarian', bardo: 'bard', brujo: 'warlock', clerigo: 'cleric', druida: 'druid', explorador: 'ranger',
   guerrero: 'fighter', hechicero: 'sorcerer', mago: 'wizard', monje: 'monk', paladin: 'paladin', picaro: 'rogue',
@@ -307,13 +328,17 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
   };
   // nivel más alto alcanzado por la subclase abierta
   const top = () => (st.cur ? Math.max(0, ...st.cur.s.f.map((f) => f.lv), st.cur.feat?.lv || 0) : 0);
+  // texto de los rasgos de cada clase: su rasgo «Subclase de …» enumera los nombres de las subclases
+  const coreText: Record<string, string> = {};
+  let coreCls = '';
 
   for (const { t } of lines) {
     const section = /^SUBCLASES DE (\p{L}+)/u.exec(t);
     if (section) { flush(); st.pending = null; st.cls = CLASS_IDS[norm(section[1])] || ''; continue; }
     // los rasgos de la clase base (siguiente capítulo de clase) cierran la sección de subclases
-    if (/^RASGOS DE \p{L}+/u.test(t)) { flush(); st.pending = null; st.cls = ''; continue; }
-    if (!st.cls) continue;
+    const core = /^RASGOS DE (\p{L}+)/u.exec(t);
+    if (core) { flush(); st.pending = null; st.cls = ''; coreCls = CLASS_IDS[norm(core[1])] || ''; continue; }
+    if (!st.cls) { if (coreCls) coreText[coreCls] = (coreText[coreCls] || '') + ' ' + t; continue; }
     if (/^SUBCLASE DE/i.test(t)) continue; // pie de ilustración («SUBCLASE DE LA SENDA…»)
 
     const fm = FEATURE_LINE.exec(t);
@@ -350,9 +375,12 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
   flush();
   // a las que quedaron sin título se les pone un nombre provisional (se corrige en la revisión)
   const CLASS_ES = Object.fromEntries(Object.entries(CLASS_IDS).map(([es, k]) => [k, es]));
+  const taken = new Set(out.map((s) => norm(s.n)));
   let n = 0;
   return dedupe(out.map((s) => {
-    const name = s.n || 'Subclase de ' + (CLASS_ES[s.cls] || s.cls) + ' sin título ' + ++n;
+    const listed = s.n ? '' : introNames(s.cls, coreText[s.cls] || '').find((c) => !taken.has(norm(c))) || '';
+    if (listed) taken.add(norm(listed));
+    const name = s.n || listed || 'Subclase de ' + (CLASS_ES[s.cls] || s.cls) + ' sin título ' + ++n;
     return { ...s, n: name, id: id('lib-subclase-' + s.cls, name) };
   }));
 }

@@ -19,6 +19,17 @@ describe('importar el libro del usuario (OCR)', () => {
     ]);
   });
 
+  it('una palabra pegada a la izquierda que cruza la mitad sigue en la izquierda; las barras del margen se descartan', () => {
+    const items = [
+      { str: '|', x: 70, y: 900 }, { str: 'Campo: Fuerza, Destreza y', x: 80, y: 900, w: 470 }, { str: 'Sabiduría', x: 552, y: 900, w: 60 },
+      { str: 'izquierda', x: 80, y: 880, w: 60 }, { str: ' ', x: 140, y: 880, w: 430 }, { str: 'DERECHA', x: 576, y: 880, w: 80 },
+      { str: 'derecha uno', x: 576, y: 860 }, { str: 'derecha dos', x: 576, y: 840 },
+    ];
+    expect(pageLines(items, 1073).map((l) => [l.col, l.t])).toEqual([
+      [0, 'Campo: Fuerza, Destreza y Sabiduría'], [0, 'izquierda'], [1, 'DERECHA'], [1, 'derecha uno'], [1, 'derecha dos'],
+    ]);
+  });
+
   it('títulos en mayúsculas, también con las mayúsculas estropeadas por el OCR', () => {
     expect(isCaps('BOLA DE ÁCIDO')).toBe(true);
     expect(isCaps('Una frase normal.')).toBe(false);
@@ -112,5 +123,17 @@ describe('subclases', () => {
       ['barbarian', 'Subclase de barbaro sin título 1', ['3 Garras', '6 Zarpazo']],
     ]);
     expect(s[0].d).toBe('Corre como el viento.');
+  });
+
+  it('la que quedó sin título toma el nombre que enumeran los rasgos de la clase', async () => {
+    const { parseSubclasses, introNames } = await import('../engine/bookImport');
+    const core = 'Elige una subclase. Las opciones (Senda del viento, Senda de la roca y Senda del trueno) se detallan tras la tabla. Senda única aparte.';
+    expect(introNames('barbarian', core)).toEqual(['Senda del viento', 'Senda de la roca', 'Senda del trueno']);
+    const s = parseSubclasses(L(
+      'RASGOS DE BÁRBARO', 'NIVEL 1: FURIA 2 +2 SENDA DE TABLA', 'Elige una subclase. Las opciones (Senda del viento,', 'Senda de la roca y Senda del trueno) se detallan después.',
+      'SUBCLASES DE BÁRBARO', 'SENDA DEL VIENTO', 'NIVEL 3: PASO', 'Rápido.', 'NIVEL 6: RÁFAGA', 'Más.',
+      'NIVEL 3: PIEDRA', 'Duro.', 'NIVEL 6: MURO', 'Más duro.',
+    ));
+    expect(s.map((x) => x.n)).toEqual(['Senda del viento', 'Senda de la roca']);
   });
 });

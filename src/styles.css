@@ -54,14 +54,13 @@ textarea.input{resize:vertical;line-height:1.4;font-family:'Alegreya',Georgia,se
 .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
-.chip{border:1px solid #4a3a2a;background:#1a140f;color:#cdbd9f;border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600;min-height:40px;display:inline-flex;align-items:center;gap:6px}
-.chip:hover{border-color:#7a5f42;color:#f3e6c8}
-.chip.on{background:#d4a94f;color:#1d140c;border-color:#d4a94f}
-.chip.half{background:#2c4a64;color:#eef5fa;border-color:#5a86a8}
-.chip.resist{background:#2c4a64;color:#eef5fa;border-color:#5a86a8}
-.chip.immune{background:#d4a94f;color:#1d140c;border-color:#d4a94f}
-.chip.vuln{background:#9b2c22;color:#fbf1dc;border-color:#c0513c}
-.chip-tag{font-size:11px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:999px;background:rgba(0,0,0,.25)}
+.chip{border:1px solid #33271c;border-left:3px solid #8a6a3a;background:#1a140f;color:#efe3cb;border-radius:6px;padding:6px 12px 6px 10px;font-size:14px;font-weight:700;line-height:1.2;min-height:40px;display:inline-flex;align-items:center;gap:6px;text-align:left}
+.chip:hover{border-color:#6b5238;border-left-color:#d4a94f;background:#221a13;color:#f3e6c8}
+.chip:focus-visible{outline:2px solid #d4a94f;outline-offset:2px}
+.chip.on,.chip.immune{background:#3b2d18;color:#ffefcc;border-color:#a07c3c;border-left-color:#f0c870}
+.chip.half,.chip.resist{background:#1c2b3a;color:#e6f0f8;border-color:#3f6585;border-left-color:#8fc0e6}
+.chip.vuln{background:#3a1814;color:#fbe6dc;border-color:#8a3a2c;border-left-color:#e06a52}
+.chip-tag{font-size:11px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:4px;background:rgba(0,0,0,.35)}
 .fs{border:1px solid #3d2f22;border-radius:8px;padding:12px 14px 14px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fs legend{padding:0 6px;font-family:'IM Fell English SC',Georgia,serif;font-size:18px;line-height:1.15;color:#d4a94f}
 .sub{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:#1a140f;border:1px solid #33271c}
@@ -113,7 +112,7 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .abil-edit{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border-radius:8px;background:#1a140f;border:1px solid #33271c}
 .abil-edit label{font-weight:800;color:#d4a94f;letter-spacing:.06em}
 .abil-edit .input{text-align:center;font-size:18px;font-weight:700;padding:4px}
-.ts{border:1px solid #4a3a2a;background:transparent;color:#b9a88a;border-radius:999px;font-size:12px;font-weight:700;padding:4px 10px;min-height:30px}
+.ts{border:1px solid #4a3a2a;background:transparent;color:#b9a88a;border-radius:6px;font-size:12px;font-weight:700;padding:4px 10px;min-height:30px}
 .ts.on{background:#d4a94f;border-color:#d4a94f;color:#1d140c}
 .warn{margin:0;color:#f0a090;font-weight:600}
 .toast{background:#2c4a64;color:#eef5fa;border:1px solid #5a86a8;border-radius:8px;padding:8px 14px;font-weight:600;font-size:14px;animation:rise .3s ease-out both}
@@ -400,7 +399,7 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .field{gap:3px}
 .fs{padding:10px 12px 12px;gap:8px}
 .sub{padding:10px;gap:8px}
-.chip{min-height:34px;padding:4px 10px;font-size:13px}
+.chip{min-height:34px;padding:4px 10px 4px 8px;font-size:13px}
 .chips{gap:5px}
 .btn{min-height:40px}
 .row4f{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,72px),1fr));gap:8px;align-items:end}
