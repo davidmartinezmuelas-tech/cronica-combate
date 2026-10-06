@@ -74,6 +74,8 @@ export interface RollPart {
   expr: string;
   type?: string;
   min?: number; // en daño, cada dado vale como mínimo esto (Combate con armas a dos manos: 1 y 2 cuentan como 3)
+  reroll1?: boolean; // en daño, un 1 se repite una vez (Matón de taberna)
+  best2?: boolean; // en daño, los dados se tiran dos veces y cuenta la mejor (Atacante salvaje)
 }
 
 export interface PhysicalDie {
@@ -123,15 +125,28 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
         nat = keep;
         segs.push((adv === 'adv' ? 'ventaja ' : 'desventaja ') + '[' + a + ', ' + b + ']');
       } else {
-        const vals: number[] = [];
-        for (let i = 0; i < n; i++) {
-          const v = opts.kind === 'damage' && part.min ? Math.max(part.min, rollDie(g.sides, rng)) : rollDie(g.sides, rng);
-          vals.push(v);
-          dice.push(part.type && opts.kind === 'damage' ? { sides: g.sides, final: v, type: part.type } : { sides: g.sides, final: v });
+        const dmg = opts.kind === 'damage';
+        // en daño: mínimo por dado (armas a dos manos) y repetir los 1 una vez (Matón de taberna)
+        const one = () => {
+          let v = rollDie(g.sides, rng);
+          if (dmg && part.reroll1 && v === 1) v = rollDie(g.sides, rng);
+          return dmg && part.min ? Math.max(part.min, v) : v;
+        };
+        const roll = () => Array.from({ length: n }, one);
+        let vals = roll();
+        let other: number[] | null = null;
+        // Atacante salvaje: los dados se tiran dos veces y se queda la mejor
+        if (dmg && part.best2) {
+          const b = roll();
+          const s = (a: number[]) => a.reduce((x, y) => x + y, 0);
+          if (s(b) > s(vals)) [vals, other] = [b, vals]; else other = b;
         }
+        const die = (v: number, dim?: boolean): PhysicalDie => ({ sides: g.sides, final: v, ...(part.type && dmg ? { type: part.type } : {}), ...(dim ? { dim: true } : {}) });
+        vals.forEach((v) => dice.push(die(v)));
+        other?.forEach((v) => dice.push(die(v, true)));
         sub += g.sign * vals.reduce((x, y) => x + y, 0);
         if (g.sides === 20 && n === 1) nat = vals[0];
-        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']');
+        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']' + (other ? ' (la otra: [' + other.join(', ') + '])' : ''));
       }
     }
     if (p.mod) segs.push(fmt(p.mod));

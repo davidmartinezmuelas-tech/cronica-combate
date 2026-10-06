@@ -594,3 +594,44 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
   await expect(psi).toContainText('5 de 6');
 });
+
+test('dotes con botones: atacante salvaje, ataque extra con arma ligera, sin armas, suerte y recuperación', async ({ page }) => {
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', backgrounds: [], spells: [], subclasses: [],
+    feats: [
+      { id: 'lib-dote-afortunado', n: 'Afortunado', cat: 'origin', req: '', d: 'Tienes suerte.' },
+      { id: 'lib-dote-resistente', n: 'Resistente', cat: 'general', req: '', d: 'Aguantas.' },
+      { id: 'lib-dote-maton-de-taberna', n: 'Matón de taberna', cat: 'origin', req: '', d: 'Pegas.' },
+    ] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Dag');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  for (const w of ['Espada corta (1d6 perforante)', 'Daga (1d4 perforante)']) {
+    await page.getByLabel('Arma para añadir').selectOption({ label: w });
+    await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  }
+  await page.locator('details').evaluateAll((ds) => ds.forEach((d) => ((d as HTMLDetailsElement).open = true)));
+  for (const f of ['Atacante salvaje', 'Combate con dos armas', 'Afortunado', 'Resistente', 'Matón de taberna']) await page.locator('.chip', { hasText: f }).first().click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+
+  const atk = page.locator('section[aria-label="Ataques"]');
+  const short = atk.locator('.pc-attack', { hasText: 'Espada corta' });
+  await expect(short.getByRole('button', { name: /^Acción adicional 1d6\+\d perforante$/ })).toBeVisible();
+  await atk.getByRole('button', { name: 'Atacante salvaje' }).click();
+  await short.getByRole('button', { name: /^Daño / }).click();
+  await expect(page.locator('.plaque-label')).toContainText('(atacante salvaje)');
+  await expect(atk.getByRole('button', { name: 'Atacante salvaje' })).toHaveAttribute('aria-pressed', 'false');
+  await expect(atk.locator('.pc-attack', { hasText: 'Ataque sin armas' })).toContainText('repite los 1');
+
+  const feats = page.locator('section[aria-label="Dotes"]');
+  await expect(feats.getByRole('button', { name: 'Usos de Puntos de suerte' }).or(feats.locator('summary', { hasText: 'Afortunado' }))).toBeVisible();
+  await feats.getByRole('button', { name: /^Recuperación rápida 1d10$/ }).click();
+  await expect(page.locator('.plaque-label')).toContainText('recuperación rápida');
+  await expect(feats).toContainText('dados de golpe: 4/5');
+});

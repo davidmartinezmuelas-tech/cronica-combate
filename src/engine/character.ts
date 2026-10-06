@@ -1,5 +1,5 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
-import { featEffects } from './featEffects';
+import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { choiceSkills } from './subclassChoices';
 import { norm, uid } from './util';
 
@@ -130,9 +130,13 @@ export interface Derived {
   spell: { abil: Abil; dc: number; atk: number } | null;
   slots: number[];
   pact: { n: number; lv: number } | null;
-  attacks: { w: CharWeapon; atk: number; dmg: string; ver: string; abil: Abil; parts: { expr: string; type: string; min?: number }[]; verParts: { expr: string; type: string; min?: number }[]; throwParts: { expr: string; type: string }[]; notes: string[] }[];
+  attacks: { w: CharWeapon; atk: number; dmg: string; ver: string; abil: Abil; parts: { expr: string; type: string; min?: number }[]; verParts: { expr: string; type: string; min?: number }[]; throwParts: { expr: string; type: string }[]; offParts: Part[]; poleParts: Part[]; notes: string[] }[];
+  unarmed: { atk: number; parts: Part[]; free: Part[]; grapple: string; notes: string[] } | null; // ataque sin armas mejorado por dotes
   feats: string[]; // dotes que se están aplicando a los números de la hoja
+  fx: FeatEffect; // efectos de las dotes juntos (para los botones de la hoja)
 }
+
+type Part = { expr: string; type: string; min?: number; reroll1?: boolean };
 
 /** Texto de un daño con varias partes: «1d8+3 cortante + 1d6 fuego». */
 export const partsLabel = (parts: { expr: string; type: string }[]) => parts.map((p) => p.expr + (p.type ? ' ' + p.type : '')).join(' + ');
@@ -156,6 +160,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const fx = featEffects([...c.feats, ...c.customFeats.map((f) => f.n)]);
   const sum = (k: 'atkRanged' | 'dmgOneHand' | 'dmgThrown' | 'acArmor' | 'hpPerLevel' | 'hpFlat' | 'speed') => fx.reduce((t, f) => t + (f.e[k] || 0), 0);
   const featOf = (k: keyof (typeof fx)[number]['e']) => fx.filter((f) => f.e[k]).map((f) => f.n);
+  const all = mergeEffects(fx);
+  // ataque extra de la propiedad «ligera»: hace falta otra arma ligera para el primer ataque
+  const lightCount = c.weapons.filter((w) => (w.props || []).some((x) => norm(x) === 'ligera')).length;
   const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra]);
   const saves = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + (saveProf.has(a) ? pb : 0), prof: saveProf.has(a) }])) as Derived['saves'];
   const subSkills = new Set(choiceSkills(c));
@@ -214,8 +221,17 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     if (min2h && w.kind === 'melee' && (twoHanded || w.ver)) notes.push(featOf('minDie2h').join(', ') + ': los 1 y 2 cuentan como 3 a dos manos');
     const extra = (w.extra || []).filter((e) => e.dmg.trim()).map((e) => ({ expr: e.dmg.trim(), type: e.type }));
     const main = (expr: string, two: boolean) => ({ expr, type: w.type, ...(min2h && two && w.kind === 'melee' ? { min: min2h } : {}) });
+    // ataque extra (acción adicional): sin el modificador al daño salvo que sea negativo o lo dé una dote
+    const light = has('ligera');
+    const crossbow = /ballesta/.test(norm(w.name));
+    const offOk = (light || (all.offAny && w.kind === 'melee' && !twoHanded)) && lightCount - (light ? 1 : 0) >= 1;
+    const offMod = all.offMod || (all.offModCrossbow && crossbow && light) ? mods[ab] : Math.min(0, mods[ab]);
+    // Maestro en armas de asta: bastón, lanza o arma con «gran alcance» y «pesada»
+    const poleOk = all.pole && w.kind === 'melee' && (/^(baston|lanza)( |$)/.test(norm(w.name)) || ((has('gran alcance') || has('alcance')) && has('pesada')));
     return {
       w, abil: ab, atk: mods[ab] + (w.prof ? pb : 0) + (w.bonus || 0) + atkFeat, dmg, ver, notes,
+      offParts: offOk ? [{ expr: withBonus(w.dmg, offMod + (w.bonus || 0)), type: w.type }, ...extra] : [],
+      poleParts: poleOk ? [{ expr: withBonus('1d4', mods[ab] + (w.bonus || 0)), type: 'contundente' }] : [],
       parts: [main(dmg, twoHanded), ...extra], verParts: ver ? [main(ver, true), ...extra] : [],
       throwParts: thrownMelee ? [{ expr: withBonus(w.dmg, base + thrownMelee), type: w.type }, ...extra] : [],
     };
@@ -233,7 +249,15 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     slots: spellSlots(cls?.caster, c.level),
     pact: cls?.caster === 'pact' ? pactSlots(c.level) : null,
     attacks,
+    unarmed: all.unarmed ? {
+      atk: mods.str + pb,
+      parts: [{ expr: withBonus('1d' + all.unarmed.die, mods.str), type: 'contundente', reroll1: all.unarmed.reroll1 }],
+      free: all.unarmed.free ? [{ expr: withBonus('1d' + all.unarmed.free, mods.str), type: 'contundente', reroll1: all.unarmed.reroll1 }] : [],
+      grapple: all.unarmed.grapple || '',
+      notes: featOf('unarmed'),
+    } : null,
     feats: fx.map((f) => f.n),
+    fx: all,
   };
 }
 

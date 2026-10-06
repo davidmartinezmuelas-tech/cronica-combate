@@ -104,3 +104,33 @@ describe('dotes que se aplican solas', () => {
     expect(ones!.total).toBe(6);
   });
 });
+
+describe('dotes con botones propios', () => {
+  const fighter = data.classes.find((c) => c.id === 'fighter')!;
+  const W = (en: string) => weaponFromData(data.weapons.find((w) => w.en === en)!, fighter);
+  const base = { classId: 'fighter', level: 5, abil: { str: 16, dex: 14, con: 14, int: 10, wis: 10, cha: 10 } };
+
+  it('ataque extra con arma ligera: sin modificador salvo Combate con dos armas; Combatiente con dos armas admite otras', () => {
+    const two = [W('Shortsword'), W('Dagger')];
+    expect(derive(pj({ ...base, weapons: two }), data).attacks.map((a) => a.offParts[0]?.expr)).toEqual(['1d6', '1d4']);
+    expect(derive(pj({ ...base, weapons: two, feats: ['Combate con dos armas'] }), data).attacks[0].offParts[0].expr).toBe('1d6+3');
+    expect(derive(pj({ ...base, weapons: [W('Shortsword')] }), data).attacks[0].offParts).toEqual([]); // hace falta otra
+    const ls = [W('Dagger'), W('Longsword')];
+    expect(derive(pj({ ...base, weapons: ls }), data).attacks[1].offParts).toEqual([]);
+    expect(derive(pj({ ...base, weapons: ls, feats: ['Combatiente con dos armas'] }), data).attacks[1].offParts[0].expr).toBe('1d8');
+  });
+
+  it('otro extremo del arma de asta, ataque sin armas mejorado y tiradas especiales del dado', async () => {
+    const d = derive(pj({ ...base, weapons: [W('Quarterstaff'), W('Halberd'), W('Longsword')], feats: ['Maestro en armas de asta', 'Matón de taberna', 'Combate sin armas'] }), data);
+    expect(d.attacks.map((a) => a.poleParts[0]?.expr)).toEqual(['1d4+3', '1d4+3', undefined]);
+    expect(d.unarmed!.parts[0]).toMatchObject({ expr: '1d6+3', reroll1: true });
+    expect(d.unarmed!.free[0].expr).toBe('1d8+3');
+    expect(derive(pj(base), data).unarmed).toBeNull();
+    const { rollParts } = await import('../engine/dice');
+    const seq = (xs: number[]) => { let i = 0; return () => xs[i++ % xs.length]; };
+    // d6: 0 -> 1, 0.99 -> 6. Repite el 1 una vez
+    expect(rollParts([{ expr: '1d6', reroll1: true }], { kind: 'damage', rng: seq([0, 0.99]) })!.total).toBe(6);
+    // dos veces y la mejor: [1,1] frente a [6,6]
+    expect(rollParts([{ expr: '2d6+1', best2: true }], { kind: 'damage', rng: seq([0, 0, 0.99, 0.99]) })!.total).toBe(13);
+  });
+});

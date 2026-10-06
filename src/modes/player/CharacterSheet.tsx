@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { CONDITIONS } from '../../data/constants';
 import { ABILS, type Abil, type ClassFeature, type PlayerData } from '../../data/player';
 import { derive, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
-import { fmt, sgn } from '../../engine/dice';
+import { fmt, sgn, type RollPart } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import Pips from '../../shared/Pips';
@@ -12,6 +12,7 @@ import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
 import { subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { plainText, useSpells } from './spells';
+import FeatPanel from './FeatPanel';
 import SubclassActions, { choiceResources } from './SubclassActions';
 import SubclassChoices, { choiceRows, resolveChoices } from './SubclassChoices';
 
@@ -59,6 +60,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
   const [confirmLong, setConfirmLong] = useState(false);
+  // Atacante salvaje y carga: se aplican al próximo daño y se apagan
+  const [savage, setSavage] = useState(false);
+  const [charge, setCharge] = useState(false);
 
   const sp = data?.species.find((x) => x.id === c.speciesId);
   const bg = data?.backgrounds.find((x) => x.id === c.backgroundId) || lib.backgrounds.find((x) => x.id === c.backgroundId);
@@ -68,6 +72,14 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const d20 = (b: number) => '1d20' + sgn(b);
   const set = (patch: Partial<Character>) => update(c.id, patch);
 
+  const dmgRoll = (label: string, parts: RollPart[], melee: boolean) => {
+    const ps: RollPart[] = parts.map((p, i) => (i === 0 && savage ? { ...p, best2: true } : p));
+    if (charge && melee && d.fx.charge) ps.push({ expr: d.fx.charge, type: parts[0]?.type });
+    const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : ''].filter(Boolean);
+    roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps });
+    if (savage) setSavage(false);
+    if (charge && melee) setCharge(false);
+  };
   const amt = parseInt(amount, 10);
   const damage = () => {
     if (!(amt > 0)) return;
@@ -183,22 +195,44 @@ export default function CharacterSheet({ c }: { c: Character }) {
       </div>
 
       <section className="panel" aria-label="Ataques">
-        <h3 className="eyebrow">Ataques</h3>
-        {!d.attacks.length && <p className="muted small" style={{ margin: 0 }}>Añade tus armas en «Editar hoja».</p>}
-        {d.attacks.map(({ w, atk, parts, verParts, throwParts, notes }) => (
+        <div className="panel-head">
+          <h3 className="eyebrow">Ataques</h3>
+          {(d.fx.savage || d.fx.charge) && (
+            <span className="rollrow">
+              {d.fx.savage && <button className={savage ? 'chip on' : 'chip'} aria-pressed={savage} title="Una vez por turno: el próximo daño con arma tira sus dados dos veces y usa el mejor" onClick={() => setSavage(!savage)}>Atacante salvaje</button>}
+              {d.fx.charge && <button className={charge ? 'chip on' : 'chip'} aria-pressed={charge} title={'Tras moverte 3 m en línea recta: el próximo daño cuerpo a cuerpo suma ' + d.fx.charge} onClick={() => setCharge(!charge)}>Carga +{d.fx.charge}</button>}
+            </span>
+          )}
+        </div>
+        {!d.attacks.length && !d.unarmed && <p className="muted small" style={{ margin: 0 }}>Añade tus armas en «Editar hoja».</p>}
+        {d.attacks.map(({ w, atk, parts, verParts, throwParts, offParts, poleParts, notes }) => (
           <div key={w.id} className="pc-attack">
             <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small">{notes.join(' · ')}</span>}</span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk))}>Ataque {fmt(atk)}</button>
-              <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño', kind: 'damage', who, by: null, parts })}>Daño {partsLabel(parts)}</button>
-              {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño a dos manos', kind: 'damage', who, by: null, parts: verParts })}>A dos manos {partsLabel(verParts)}</button>}
-              {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño lanzada', kind: 'damage', who, by: null, parts: throwParts })}>Lanzada {partsLabel(throwParts)}</button>}
+              <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, w.kind === 'melee')}>Daño {partsLabel(parts)}</button>
+              {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, true)}>A dos manos {partsLabel(verParts)}</button>}
+              {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño lanzada', throwParts, false)}>Lanzada {partsLabel(throwParts)}</button>}
+              {offParts.length > 0 && <button className="rollbtn dmg" title="Ataque extra de la propiedad «ligera» (acción adicional); el ataque se tira con «Ataque»" onClick={() => dmgRoll(w.name + ': ataque extra', offParts, w.kind === 'melee')}>Acción adicional {partsLabel(offParts)}</button>}
+              {poleParts.length > 0 && <button className="rollbtn dmg" title="Maestro en armas de asta: ataque con el otro extremo (acción adicional)" onClick={() => dmgRoll(w.name + ': otro extremo', poleParts, true)}>Otro extremo {partsLabel(poleParts)}</button>}
             </span>
           </div>
         ))}
+        {d.unarmed && (
+          <div className="pc-attack">
+            <span className="pc-attack-n">Ataque sin armas<span className="muted small">cuerpo a cuerpo</span><span className="pc-attack-feat small">{d.unarmed.notes.join(', ')}{d.unarmed.parts[0].reroll1 ? ' · repite los 1' : ''}</span></span>
+            <span className="rollrow">
+              <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20(d.unarmed!.atk))}>Ataque {fmt(d.unarmed.atk)}</button>
+              <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, true)}>Daño {partsLabel(d.unarmed.parts)}</button>
+              {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, true)}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
+              {d.unarmed.grapple && <button className="rollbtn dmg" title="Al principio de tu turno, a una criatura que tengas agarrada" onClick={() => roll({ label: who + ' · daño a la criatura agarrada', kind: 'damage', who, by: null, parts: [{ expr: d.unarmed!.grapple, type: 'contundente' }] })}>Agarrada {d.unarmed.grapple} contundente</button>}
+            </span>
+          </div>
+        )}
       </section>
 
       <SubclassActions c={c} d={d} data={data} lib={lib} set={set} />
+      <FeatPanel c={c} d={d} set={set} />
 
       {(d.spell || spellList.length > 0) && (
         <section className="panel" aria-label="Conjuros">
