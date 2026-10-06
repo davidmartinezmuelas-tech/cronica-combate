@@ -4,20 +4,11 @@ import { fmt, modOf, parseExpr, prettyExpr, sgn } from '../../engine/dice';
 import { nfmt, pbOf } from '../../engine/util';
 import { useStore } from '../../store/useStore';
 import { D20Icon } from '../../shared/Icons';
+import Pips from '../../shared/Pips';
 
 const dmgLabel = (parts: [string, string][]) => parts.map(([d, t]) => prettyExpr(d) + (t ? ' ' + t : '')).join(' + ');
 
-interface PipProps { max: number; used: number; onSet: (v: number) => void; label: string }
-export function Pips({ max, used, onSet, label }: PipProps) {
-  return (
-    <span className="pips" role="group" aria-label={label + ': ' + (max - used) + ' de ' + max + ' disponibles'}>
-      {Array.from({ length: max }, (_, j) => {
-        const avail = j < max - used;
-        return <button key={j} className={avail ? 'pip' : 'pip off'} aria-label={avail ? 'Gastar uno' : 'Recuperar uno'} title={avail ? 'Disponible' : 'Gastado'} onClick={() => onSet(avail ? used + 1 : used - 1)} />;
-      })}
-    </span>
-  );
-}
+export { Pips };
 
 function SpellList({ f, c }: { f: Feature; c: Combatant | null }) {
   const spells = useStore((s) => s.spells);

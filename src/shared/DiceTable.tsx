@@ -63,7 +63,8 @@ function Targets() {
   );
 }
 
-export default function DiceTable() {
+/** Mesa de dados. `targets`: ofrecer aplicar el daño a los combatientes (solo en la mesa del máster). */
+export default function DiceTable({ targets = true }: { targets?: boolean }) {
   const dice = useStore((s) => s.dice);
   const rolling = useStore((s) => s.rolling);
   const result = useStore((s) => s.result);
@@ -140,7 +141,7 @@ export default function DiceTable() {
                 {result.note && <span className="plaque-note">{result.note}</span>}
               </div>
             </div>
-            <Targets />
+            {targets && <Targets />}
           </div>
         )}
         {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#6b5238' }}>…</div><span className="plaque-label" style={{ color: '#b9a88a' }}>Los dados ruedan…</span></div></div>}

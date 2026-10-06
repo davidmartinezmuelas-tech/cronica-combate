@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Attribution from '../../shared/Attribution';
 import Brand from '../../shared/Brand';
 import DiceTable from '../../shared/DiceTable';
+import CharacterArea from './CharacterArea';
 import RulesPanel, { RuleQuick, RuleView } from '../../shared/RulesPanel';
 import { useStore } from '../../store/useStore';
 
@@ -9,7 +10,7 @@ type PlayerTab = 'sheet' | 'rules';
 const TABS: [PlayerTab, string][] = [['sheet', 'Mi personaje'], ['rules', 'Reglas']];
 
 /**
- * Modo jugador. De momento: dados y reglas; la hoja de personaje llega en la siguiente fase (F1).
+ * Modo jugador: sus personajes (hoja con tiradas), los dados y las reglas.
  */
 export default function PlayerApp() {
   const [tab, setTab] = useState<PlayerTab>('sheet');
@@ -29,16 +30,12 @@ export default function PlayerApp() {
           <>
             <section className="col-center" aria-label="Mi personaje">
               <div className="center-main">
-                <div className="panel">
-                  <h2>Mi personaje</h2>
-                  <p className="muted" style={{ margin: 0 }}>Aquí irá tu hoja de personaje: crearla paso a paso (o importarla desde el PDF), con botones para tirar tus ataques, salvaciones, habilidades y conjuros, y llevar tus PG, espacios de conjuro y estados.</p>
-                  <p className="muted" style={{ margin: 0 }}>Mientras tanto ya puedes usar los dados de la derecha y consultar las reglas.</p>
-                </div>
+                <CharacterArea />
               </div>
               <Attribution />
             </section>
             <section className="col-right" aria-label="Mesa de dados">
-              <DiceTable />
+              <DiceTable targets={false} />
             </section>
           </>
         ) : (

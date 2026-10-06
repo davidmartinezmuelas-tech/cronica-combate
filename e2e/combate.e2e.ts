@@ -362,7 +362,7 @@ test('al entrar se elige modo; se recuerda y se puede cambiar desde el título',
   await expect(page.getByRole('button', { name: /Soy el máster/ })).toBeVisible();
   await page.getByRole('button', { name: /Soy jugador/ }).click();
   await expect(page).toHaveURL(/#\/jugador$/);
-  await expect(page.getByRole('heading', { name: 'Mi personaje' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mis personajes' })).toBeVisible();
   await page.getByRole('button', { name: 'Tirar d20' }).click();
   await expect(page.locator('.plaque-label')).toContainText('d20', { timeout: 15000 });
   await page.getByRole('button', { name: 'Reglas', exact: true }).click();
@@ -376,4 +376,43 @@ test('al entrar se elige modo; se recuerda y se puede cambiar desde el título',
   await page.getByTitle('Cambiar de modo (máster o jugador)').click();
   await page.getByRole('button', { name: /Soy el máster/ }).click();
   await expect(page.getByText('Prepara el encuentro')).toBeVisible();
+});
+
+test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Brakka');
+  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Enano' });
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Soldado' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Armadura').selectOption({ label: 'Cota de malla (CA 16)' });
+  await page.getByLabel('Escudo (+2 CA)').check();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+
+  // FUE 15 (+2), competencia +2: espada larga +4 y 1d8+2; CA 16 + escudo; PG 10+1+2×(6+1) + 3 (enano) = 28
+  const sheet = page.locator('.pc');
+  await expect(sheet.getByRole('heading', { name: 'Brakka' })).toBeVisible();
+  await expect(sheet).toContainText('Enano · Guerrero 3 (Campeón) · Soldado');
+  await expect(sheet.locator('.stat', { hasText: 'CA' }).first()).toContainText('18');
+  await expect(sheet.locator('.stat', { hasText: 'PG' }).first()).toContainText('28 / 28');
+  await sheet.getByRole('button', { name: 'Ataque +4' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('Brakka · Espada larga: ataque', { timeout: 15000 });
+  await expect(sheet.getByRole('button', { name: /Daño 1d8\+2 cortante/ })).toBeVisible();
+  await expect(sheet.locator('summary', { hasText: 'Segundo aliento' })).toBeVisible();
+  await expect(sheet.locator('summary', { hasText: 'Crítico mejorado' })).toBeVisible();
+
+  // PG: daño y curación
+  await sheet.getByLabel('Cantidad de PG').fill('7');
+  await sheet.getByRole('button', { name: 'Daño', exact: true }).click();
+  await expect(sheet.locator('.stat', { hasText: 'PG' }).first()).toContainText('21 / 28');
+
+  // se guarda en el dispositivo
+  await page.waitForTimeout(400);
+  await page.reload();
+  await expect(page.locator('.pc').getByRole('heading', { name: 'Brakka' })).toBeVisible();
+  await expect(page.locator('.pc .stat', { hasText: 'PG' }).first()).toContainText('21 / 28');
 });

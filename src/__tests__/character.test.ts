@@ -31,7 +31,7 @@ describe('hoja de personaje: cálculos', () => {
     expect(d.skills.ath.bonus).toBe(5);
     expect(d.pp).toBe(12);
     expect(d.ac).toBe(18); // 16 cota de malla (sin Destreza) + 2 escudo
-    expect(d.hpMax).toBe(10 + 2 + 2 * (6 + 2)); // 28
+    expect(d.hpMax).toBe(10 + 2 + 2 * (6 + 2) + 3); // 31 (con la Robustez enana)
     expect(d.speed).toBe(30);
     expect(d.attacks[0].atk).toBe(5);
     expect(d.attacks[0].dmg).toBe('1d8+3');

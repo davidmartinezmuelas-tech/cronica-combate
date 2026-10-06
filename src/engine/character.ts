@@ -152,7 +152,8 @@ export function derive(c: Character, data: PlayerData | null): Derived {
 
   const hdDie = cls?.hd || 8;
   const lvl = Math.max(1, c.level || 1);
-  const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con));
+  // Robustez enana: +1 PG por nivel
+  const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con) + (c.speciesId === 'dwarf' ? lvl : 0));
 
   const spellAb = cls?.spellAb || '';
   const spell = spellAb ? { abil: spellAb, dc: 8 + pb + mods[spellAb], atk: pb + mods[spellAb] } : null;

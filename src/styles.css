@@ -488,3 +488,43 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .mode-select .app-footer{margin:0 auto;padding:12px 16px 22px}
 .offline{position:fixed;left:0;right:0;bottom:0;z-index:60}
 @media (min-width:1024px){.mode-select{height:100dvh;min-height:0;overflow-y:auto;justify-content:safe center}}
+/* ---------- Hoja del jugador ---------- */
+.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:inline-size}
+.pc-bar .chips{margin:0}
+.pc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.pc-stats .stat{min-height:92px}
+.stat-btn{text-align:left;color:inherit;font:inherit;cursor:pointer}
+.stat-btn:hover{border-color:#d4a94f}
+.pc-hp-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.pc-hp-row .input{width:90px}
+.pc-grid{display:grid;grid-template-columns:1fr;gap:14px}
+@container (min-width:720px){.pc-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.pc-abils{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.pc-abil{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:8px;background:#1a140f;border:1px solid #33271c}
+.pc-abil-k{grid-column:1/-1;font-weight:800;color:#d4a94f;letter-spacing:.06em}
+.pc-abil-k b{color:#f3e6c8;font-size:18px;margin-left:4px}
+.pc-skills{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px}
+.pc-skill{display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;border-radius:6px;border:1px solid #33271c;background:#1a140f;color:#efe3cb;font:inherit;text-align:left;min-height:36px;cursor:pointer}
+.pc-skill:hover{border-color:#d4a94f}
+.pc-skill-n{flex:1;min-width:0}
+.dot{width:10px;height:10px;border-radius:50%;border:2px solid #6b5238;flex:none}
+.dot.on{background:#d4a94f;border-color:#d4a94f}
+.dot.exp{background:#d4a94f;border-color:#f3e6c8;box-shadow:0 0 0 2px #d4a94f}
+.pc-attack{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;padding:8px 0;border-top:1px solid #33271c}
+.pc-attack:first-of-type{border-top:0}
+.pc-attack-n{display:flex;flex-direction:column;gap:2px;font-weight:800;color:#f3e6c8;min-width:0}
+.pc-slots{display:flex;flex-wrap:wrap;gap:8px 18px}
+.pc-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pc-features details{border:1px solid #33271c;border-radius:6px;background:#1a140f;padding:6px 10px}
+.pc-features summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}
+.pc-rest{display:flex;gap:8px;flex-wrap:wrap}
+.ce-skills{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:2px 10px}
+.ce-skill{display:flex;align-items:center;gap:6px}
+.ce-skill.suggest .check{color:#f3e6c8;font-weight:700}
+.ce-skill:not(.suggest) .check{color:#b9a88a}
+.ce-weapon{gap:6px}
+.pc h3.eyebrow{font-family:inherit;font-size:12px;margin:0;letter-spacing:.14em}
+/* botones de tirada sobre fondo oscuro (en la hoja de criatura van sobre pergamino) */
+.pc .rollbtn.dmg{background:transparent;color:#f0a090;border-color:#c0513c}
+.pc .rollbtn.dmg:hover{background:rgba(192,81,60,.15)}
