@@ -72,3 +72,35 @@ describe('hoja de personaje: cálculos', () => {
     expect([r.hp, r.hdSpent, r.uses, r.exh]).toEqual([derive(c, data).hpMax, 0, {}, 1]);
   });
 });
+
+describe('dotes que se aplican solas', () => {
+  const fighter = data.classes.find((c) => c.id === 'fighter')!;
+  const W = (en: string) => weaponFromData(data.weapons.find((w) => w.en === en)!, fighter);
+  const base = { classId: 'fighter', level: 5, abil: { str: 16, dex: 14, con: 14, int: 10, wis: 10, cha: 10 } };
+
+  it('Duelo +2 al daño a una mano (no a dos manos); Tiro con arco +2 al ataque a distancia; Arrojadizas al lanzar', () => {
+    const d = derive(pj({ ...base, feats: ['Duelo', 'Tiro con arco', 'Combate con armas arrojadizas'], weapons: [W('Longsword'), W('Longbow'), W('Javelin')] }), data);
+    const [sword, bow, jav] = d.attacks;
+    expect([sword.dmg, sword.ver]).toEqual(['1d8+5', '1d10+3']);
+    expect(sword.notes.join()).toContain('Duelo +2');
+    expect([bow.atk, bow.dmg]).toEqual([2 + 3 + 2, '1d8+2']);
+    expect(jav.throwParts[0].expr).toBe('1d6+5');
+  });
+
+  it('Combate con armas a dos manos (dados mínimo 3), Maestro en armas pesadas (+competencia), Defensa, Alerta, Duro y Veloz', async () => {
+    const chain = data.armor.find((a) => a.en === 'Chain Mail')!;
+    const plain = derive(pj({ ...base, armorId: chain.id, weapons: [W('Greatsword')] }), data);
+    const d = derive(pj({ ...base, armorId: chain.id, weapons: [W('Greatsword'), W('Longsword')], feats: ['Combate con arma a dos manos', 'Maestro en armas pesadas', 'Defensa', 'Alerta', 'Duro', 'Veloz'] }), data);
+    expect(d.attacks[0].dmg).toBe('2d6+6'); // +3 Fuerza +3 competencia
+    expect(d.attacks[0].parts[0].min).toBe(3);
+    expect(d.attacks[1].parts[0].min).toBeUndefined(); // a una mano no
+    expect(d.attacks[1].verParts[0].min).toBe(3);
+    expect(d.ac).toBe(plain.ac + 1);
+    expect(d.init).toBe(plain.init + 3);
+    expect(d.hpMax).toBe(plain.hpMax + 10);
+    expect(d.speed).toBe(plain.speed + 10);
+    const { rollParts } = await import('../engine/dice');
+    const ones = rollParts([{ expr: '2d6', min: 3 }], { kind: 'damage', rng: () => 0 });
+    expect(ones!.total).toBe(6);
+  });
+});

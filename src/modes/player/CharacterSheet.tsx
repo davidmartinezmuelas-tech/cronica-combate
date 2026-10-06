@@ -185,13 +185,14 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <section className="panel" aria-label="Ataques">
         <h3 className="eyebrow">Ataques</h3>
         {!d.attacks.length && <p className="muted small" style={{ margin: 0 }}>Añade tus armas en «Editar hoja».</p>}
-        {d.attacks.map(({ w, atk, parts, verParts }) => (
+        {d.attacks.map(({ w, atk, parts, verParts, throwParts, notes }) => (
           <div key={w.id} className="pc-attack">
-            <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span></span>
+            <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small">{notes.join(' · ')}</span>}</span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk))}>Ataque {fmt(atk)}</button>
               <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño', kind: 'damage', who, by: null, parts })}>Daño {partsLabel(parts)}</button>
               {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño a dos manos', kind: 'damage', who, by: null, parts: verParts })}>A dos manos {partsLabel(verParts)}</button>}
+              {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño lanzada', kind: 'damage', who, by: null, parts: throwParts })}>Lanzada {partsLabel(throwParts)}</button>}
             </span>
           </div>
         ))}

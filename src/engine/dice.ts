@@ -73,6 +73,7 @@ export type RollKind = 'attack' | 'check' | 'save' | 'damage' | 'free' | 'death'
 export interface RollPart {
   expr: string;
   type?: string;
+  min?: number; // en daño, cada dado vale como mínimo esto (Combate con armas a dos manos: 1 y 2 cuentan como 3)
 }
 
 export interface PhysicalDie {
@@ -124,7 +125,7 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
       } else {
         const vals: number[] = [];
         for (let i = 0; i < n; i++) {
-          const v = rollDie(g.sides, rng);
+          const v = opts.kind === 'damage' && part.min ? Math.max(part.min, rollDie(g.sides, rng)) : rollDie(g.sides, rng);
           vals.push(v);
           dice.push(part.type && opts.kind === 'damage' ? { sides: g.sides, final: v, type: part.type } : { sides: g.sides, final: v });
         }

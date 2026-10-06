@@ -1,6 +1,7 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
+import { featEffects } from './featEffects';
 import { choiceSkills } from './subclassChoices';
-import { uid } from './util';
+import { norm, uid } from './util';
 
 /** Arma (o ataque) del personaje: de la lista del SRD o propia. */
 export interface CharWeapon {
@@ -129,7 +130,8 @@ export interface Derived {
   spell: { abil: Abil; dc: number; atk: number } | null;
   slots: number[];
   pact: { n: number; lv: number } | null;
-  attacks: { w: CharWeapon; atk: number; dmg: string; ver: string; abil: Abil; parts: { expr: string; type: string }[]; verParts: { expr: string; type: string }[] }[];
+  attacks: { w: CharWeapon; atk: number; dmg: string; ver: string; abil: Abil; parts: { expr: string; type: string; min?: number }[]; verParts: { expr: string; type: string; min?: number }[]; throwParts: { expr: string; type: string }[]; notes: string[] }[];
+  feats: string[]; // dotes que se están aplicando a los números de la hoja
 }
 
 /** Texto de un daño con varias partes: «1d8+3 cortante + 1d6 fuego». */
@@ -150,6 +152,10 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const armor: ArmorData | undefined = data?.armor.find((x) => x.id === c.armorId);
   const pb = profBonus(c.level);
   const mods = Object.fromEntries(ABILS.map((a) => [a, mod(c.abil[a])])) as Record<Abil, number>;
+  // dotes con efecto en los números (Tiro con arco, Duelo, Defensa, Alerta, Duro…)
+  const fx = featEffects([...c.feats, ...c.customFeats.map((f) => f.n)]);
+  const sum = (k: 'atkRanged' | 'dmgOneHand' | 'dmgThrown' | 'acArmor' | 'hpPerLevel' | 'hpFlat' | 'speed') => fx.reduce((t, f) => t + (f.e[k] || 0), 0);
+  const featOf = (k: keyof (typeof fx)[number]['e']) => fx.filter((f) => f.e[k]).map((f) => f.n);
   const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra]);
   const saves = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + (saveProf.has(a) ? pb : 0), prof: saveProf.has(a) }])) as Derived['saves'];
   const subSkills = new Set(choiceSkills(c));
@@ -166,6 +172,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   if (worn) {
     ac = worn.ac + (worn.dex == null ? mods.dex : Math.min(worn.dex, mods.dex)) + (c.armorBonus || 0);
     acNote = worn.n + (c.armorBonus ? ' ' + (c.armorBonus > 0 ? '+' : '') + c.armorBonus : '');
+    if (sum('acArmor')) { ac += sum('acArmor'); acNote += ' + ' + featOf('acArmor').join(', '); }
   } else if (c.classId === 'barbarian') {
     ac = 10 + mods.dex + mods.con;
     acNote = 'Defensa sin armadura';
@@ -178,7 +185,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const hdDie = cls?.hd || 8;
   const lvl = Math.max(1, c.level || 1);
   // Robustez enana: +1 PG por nivel
-  const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con) + (c.speciesId === 'dwarf' ? lvl : 0));
+  const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con) + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat'));
 
   const spellAb = cls?.spellAb || '';
   const spell = spellAb ? { abil: spellAb, dc: 8 + pb + mods[spellAb], atk: pb + mods[spellAb] } : null;
@@ -187,20 +194,38 @@ export function derive(c: Character, data: PlayerData | null): Derived {
 
   const attacks = c.weapons.map((w) => {
     const ab = weaponAbil(w, mods);
-    const dmg = withBonus(w.dmg, mods[ab] + (w.bonus || 0));
-    const ver = w.ver ? withBonus(w.ver, mods[ab] + (w.bonus || 0)) : '';
+    const props = w.props || [];
+    const has = (p: string) => props.some((x) => norm(x) === p);
+    const twoHanded = has('a dos manos');
+    const notes: string[] = [];
+    const add = (k: Parameters<typeof featOf>[0], v: number, what: string) => { if (v) notes.push(featOf(k).join(', ') + ' ' + (v > 0 ? '+' : '') + v + ' ' + what); return v; };
+    const atkFeat = w.kind === 'ranged' ? add('atkRanged', sum('atkRanged'), 'al ataque') : 0;
+    // a una mano (Duelo): cuerpo a cuerpo sin la propiedad «a dos manos»; el daño a dos manos de las versátiles no lo lleva
+    const oneHand = w.kind === 'melee' && !twoHanded ? add('dmgOneHand', sum('dmgOneHand'), 'al daño a una mano') : 0;
+    const thrown = w.kind === 'ranged' && has('arrojadiza') ? add('dmgThrown', sum('dmgThrown'), 'al daño') : 0;
+    // arma cuerpo a cuerpo arrojadiza (daga, jabalina): el bonificador solo cuando se lanza
+    const thrownMelee = w.kind === 'melee' && has('arrojadiza') ? add('dmgThrown', sum('dmgThrown'), 'al daño si la lanzas') : 0;
+    const heavy = has('pesada') && featOf('dmgHeavyProf').length ? add('dmgHeavyProf', pb, 'al daño') : 0;
+    const base = mods[ab] + (w.bonus || 0) + thrown + heavy;
+    const dmg = withBonus(w.dmg, base + oneHand);
+    const ver = w.ver ? withBonus(w.ver, base) : '';
+    // Combate con armas a dos manos: los 1 y 2 de los dados del arma cuentan como 3 al empuñarla con las dos manos
+    const min2h = fx.reduce((t, f) => Math.max(t, f.e.minDie2h || 0), 0);
+    if (min2h && w.kind === 'melee' && (twoHanded || w.ver)) notes.push(featOf('minDie2h').join(', ') + ': los 1 y 2 cuentan como 3 a dos manos');
     const extra = (w.extra || []).filter((e) => e.dmg.trim()).map((e) => ({ expr: e.dmg.trim(), type: e.type }));
+    const main = (expr: string, two: boolean) => ({ expr, type: w.type, ...(min2h && two && w.kind === 'melee' ? { min: min2h } : {}) });
     return {
-      w, abil: ab, atk: mods[ab] + (w.prof ? pb : 0) + (w.bonus || 0), dmg, ver,
-      parts: [{ expr: dmg, type: w.type }, ...extra], verParts: ver ? [{ expr: ver, type: w.type }, ...extra] : [],
+      w, abil: ab, atk: mods[ab] + (w.prof ? pb : 0) + (w.bonus || 0) + atkFeat, dmg, ver, notes,
+      parts: [main(dmg, twoHanded), ...extra], verParts: ver ? [main(ver, true), ...extra] : [],
+      throwParts: thrownMelee ? [{ expr: withBonus(w.dmg, base + thrownMelee), type: w.type }, ...extra] : [],
     };
   });
 
   return {
     cls, pb, mods, saves, skills,
     ac: c.ov.ac ?? ac, acNote: c.ov.ac != null ? 'Ajustada a mano' : acNote,
-    init: c.ov.init ?? mods.dex,
-    speed: c.ov.speed ?? species?.speed ?? 30,
+    init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : 0),
+    speed: c.ov.speed ?? (species?.speed ?? 30) + sum('speed'),
     pp: c.ov.pp ?? 10 + skills.prc.bonus,
     hpMax: c.ov.hpMax ?? hpMax,
     hdDie,
@@ -208,6 +233,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     slots: spellSlots(cls?.caster, c.level),
     pact: cls?.caster === 'pact' ? pactSlots(c.level) : null,
     attacks,
+    feats: fx.map((f) => f.n),
   };
 }
 
