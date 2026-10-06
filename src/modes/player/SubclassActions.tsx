@@ -53,10 +53,17 @@ export default function SubclassActions({ c, d, data, lib, set }: { c: Character
                 const label = (what: string) => who + ' · ' + name + (what ? ': ' + what : '');
                 const buttons: { k: string; text: string; go: () => void }[] = [];
                 if (act.damage) {
-                  d.attacks.forEach(({ w, parts }) => buttons.push({
-                    k: 'w' + w.id, text: 'Daño con ' + w.name + ' + ' + die,
-                    go: () => roll({ label: label('daño con ' + w.name), kind: 'damage', who, by: null, parts: [...parts, { expr: '1' + die, type: w.type }] }),
-                  }));
+                  d.attacks.forEach(({ w, parts, verParts }) => {
+                    buttons.push({
+                      k: 'w' + w.id, text: 'Daño con ' + w.name + ' + ' + die,
+                      go: () => roll({ label: label('daño con ' + w.name), kind: 'damage', who, by: null, parts: [...parts, { expr: '1' + die, type: w.type }] }),
+                    });
+                    // arma versátil: también empuñada a dos manos
+                    if (verParts.length) buttons.push({
+                      k: 'wv' + w.id, text: 'Daño con ' + w.name + ' a dos manos + ' + die,
+                      go: () => roll({ label: label('daño con ' + w.name + ' a dos manos'), kind: 'damage', who, by: null, parts: [...verParts, { expr: '1' + die, type: w.type }] }),
+                    });
+                  });
                 }
                 act.checks.forEach((k) => {
                   const b = d.skills[k]?.bonus ?? 0;

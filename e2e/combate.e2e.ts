@@ -519,6 +519,7 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   const man = sheet.locator('section[aria-label="Maniobras"]');
   await expect(man).toContainText('Dados de supremacía: 4 de 4 (d8)');
   await expect(man.locator('summary', { hasText: 'Alfa' })).toContainText('CD 10 Fuerza');
+  await expect(man.getByRole('button', { name: 'Daño con Espada larga a dos manos + d8' })).toBeVisible();
   await man.getByRole('button', { name: 'Daño con Espada larga + d8' }).click();
   await expect(page.locator('.result-label, .dice-result, [aria-live]').filter({ hasText: 'Alfa' }).first()).toBeVisible();
   await man.getByRole('button', { name: /^Sigilo .* \+ d8$/ }).click();
