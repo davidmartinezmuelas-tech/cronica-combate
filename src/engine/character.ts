@@ -13,9 +13,23 @@ export interface CharWeapon {
   finesse: boolean;
   prof: boolean;
   bonus: number; // bonificador mágico a ataque y daño
+  extra?: { dmg: string; type: string }[]; // daños adicionales (p. ej. +1d6 de fuego de un arma flamígera)
   range?: string;
   props?: string[];
   mastery?: string;
+}
+
+/** Categorías de dote (2024) y rasgos propios que el SRD no trae. */
+export type FeatCat = 'origin' | 'general' | 'fighting-style' | 'epic-boon' | 'other';
+
+/** Dote o rasgo escrito por el jugador (de un libro que no es el SRD o de la campaña). */
+export interface CustomFeat {
+  id: string;
+  n: string;
+  d: string;
+  cat: FeatCat;
+  max: number | null; // usos (null = sin límite)
+  per: '' | 'sr' | 'lr';
 }
 
 /** Hoja de personaje (versión 1). Todo lo calculable se calcula; `ov` permite corregir cualquier número a mano. */
@@ -37,8 +51,11 @@ export interface Character {
   skills: string[]; // con competencia
   expertise: string[];
   saveExtra: Abil[]; // salvaciones con competencia además de las de la clase
-  armorId: string; // '' = sin armadura
+  armorId: string; // '' = sin armadura; 'custom' = armadura propia o mágica (armorCustom)
+  armorCustom: { name: string; ac: number; dex: number | null };
+  armorBonus: number; // bonificador mágico de la armadura
   shield: boolean;
+  shieldBonus: number; // bonificador mágico del escudo (además del +2)
   weapons: CharWeapon[];
   spells: string[]; // claves de conjuros del SRD
   hp: number;
@@ -51,7 +68,8 @@ export interface Character {
   exh: number;
   death: { s: number; f: number };
   inspiration: boolean;
-  feats: string[];
+  feats: string[]; // dotes del SRD (por nombre)
+  customFeats: CustomFeat[];
   langs: string;
   tools: string;
   notes: string;
@@ -65,8 +83,8 @@ export function blankCharacter(): Character {
   return {
     id: 'pj-' + uid(), v: 1, updatedAt: Date.now(), name: '', player: '', speciesId: '', speciesName: '', classId: '', className: '', level: 1,
     subclass: '', backgroundId: '', backgroundName: '', abil: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, skills: [], expertise: [],
-    saveExtra: [], armorId: '', shield: false, weapons: [], spells: [], hp: 0, temp: 0, hdSpent: 0, slotsUsed: [0, 0, 0, 0, 0, 0, 0, 0, 0], pactUsed: 0,
-    uses: {}, conds: [], exh: 0, death: { s: 0, f: 0 }, inspiration: false, feats: [], langs: '', tools: '', notes: '', ov: {},
+    saveExtra: [], armorId: '', armorCustom: { name: 'Armadura', ac: 12, dex: null }, armorBonus: 0, shield: false, shieldBonus: 0, weapons: [], spells: [], hp: 0, temp: 0, hdSpent: 0, slotsUsed: [0, 0, 0, 0, 0, 0, 0, 0, 0], pactUsed: 0,
+    uses: {}, conds: [], exh: 0, death: { s: 0, f: 0 }, inspiration: false, feats: [], customFeats: [], langs: '', tools: '', notes: '', ov: {},
   };
 }
 
@@ -109,8 +127,11 @@ export interface Derived {
   spell: { abil: Abil; dc: number; atk: number } | null;
   slots: number[];
   pact: { n: number; lv: number } | null;
-  attacks: { w: CharWeapon; atk: number; dmg: string; ver: string; abil: Abil }[];
+  attacks: { w: CharWeapon; atk: number; dmg: string; ver: string; abil: Abil; parts: { expr: string; type: string }[]; verParts: { expr: string; type: string }[] }[];
 }
+
+/** Texto de un daño con varias partes: «1d8+3 cortante + 1d6 fuego». */
+export const partsLabel = (parts: { expr: string; type: string }[]) => parts.map((p) => p.expr + (p.type ? ' ' + p.type : '')).join(' + ');
 
 /** Bonificador de una fórmula de daño: «1d8» + 3 -> «1d8+3». */
 const withBonus = (dice: string, b: number) => (b ? dice + (b > 0 ? '+' + b : String(b)) : dice);
@@ -138,9 +159,10 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   // CA: armadura (con el límite de Destreza), defensa sin armadura del bárbaro o del monje, o 10 + Destreza
   let ac = 10 + mods.dex;
   let acNote = 'Sin armadura';
-  if (armor && armor.type !== 'shl') {
-    ac = armor.ac + (armor.dex == null ? mods.dex : Math.min(armor.dex, mods.dex));
-    acNote = armor.n;
+  const worn = c.armorId === 'custom' ? { n: c.armorCustom.name || 'Armadura', ac: c.armorCustom.ac, dex: c.armorCustom.dex } : armor && armor.type !== 'shl' ? armor : null;
+  if (worn) {
+    ac = worn.ac + (worn.dex == null ? mods.dex : Math.min(worn.dex, mods.dex)) + (c.armorBonus || 0);
+    acNote = worn.n + (c.armorBonus ? ' ' + (c.armorBonus > 0 ? '+' : '') + c.armorBonus : '');
   } else if (c.classId === 'barbarian') {
     ac = 10 + mods.dex + mods.con;
     acNote = 'Defensa sin armadura';
@@ -148,7 +170,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     ac = 10 + mods.dex + mods.wis;
     acNote = 'Defensa sin armadura';
   }
-  if (c.shield) { ac += 2; acNote += ' y escudo'; }
+  if (c.shield) { ac += 2 + (c.shieldBonus || 0); acNote += ' y escudo' + (c.shieldBonus ? ' +' + c.shieldBonus : ''); }
 
   const hdDie = cls?.hd || 8;
   const lvl = Math.max(1, c.level || 1);
@@ -162,7 +184,13 @@ export function derive(c: Character, data: PlayerData | null): Derived {
 
   const attacks = c.weapons.map((w) => {
     const ab = weaponAbil(w, mods);
-    return { w, abil: ab, atk: mods[ab] + (w.prof ? pb : 0) + (w.bonus || 0), dmg: withBonus(w.dmg, mods[ab] + (w.bonus || 0)), ver: w.ver ? withBonus(w.ver, mods[ab] + (w.bonus || 0)) : '' };
+    const dmg = withBonus(w.dmg, mods[ab] + (w.bonus || 0));
+    const ver = w.ver ? withBonus(w.ver, mods[ab] + (w.bonus || 0)) : '';
+    const extra = (w.extra || []).filter((e) => e.dmg.trim()).map((e) => ({ expr: e.dmg.trim(), type: e.type }));
+    return {
+      w, abil: ab, atk: mods[ab] + (w.prof ? pb : 0) + (w.bonus || 0), dmg, ver,
+      parts: [{ expr: dmg, type: w.type }, ...extra], verParts: ver ? [{ expr: ver, type: w.type }, ...extra] : [],
+    };
   });
 
   return {

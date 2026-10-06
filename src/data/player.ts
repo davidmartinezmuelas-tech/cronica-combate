@@ -30,8 +30,9 @@ export interface ClassData {
   asi: number[];
   f: ClassFeature[];
   sc: Record<string, Record<string, number | string>>; // tablas por nivel («fighter.second-wind»: {1: 2, 4: 3…})
-  sub: { id: string; n: string; d: string; lv: number; f: ClassFeature[] } | null;
+  sub: { id: string; n: string; en: string; d: string; lv: number; f: ClassFeature[] } | null;
   d: string;
+  spells: string[]; // ids de conjuro (reglas_es.json) de su lista de clase
 }
 
 export interface SpeciesData {

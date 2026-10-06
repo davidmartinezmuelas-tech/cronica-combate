@@ -387,7 +387,7 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   await page.getByLabel('Nivel', { exact: true }).fill('3');
   await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Soldado' });
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
-  await page.getByLabel('Armadura').selectOption({ label: 'Cota de malla (CA 16)' });
+  await page.getByLabel('Armadura', { exact: true }).selectOption({ label: 'Cota de malla (CA 16)' });
   await page.getByLabel('Escudo (+2 CA)').check();
   await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
@@ -415,4 +415,36 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   await page.reload();
   await expect(page.locator('.pc').getByRole('heading', { name: 'Brakka' })).toBeVisible();
   await expect(page.locator('.pc .stat', { hasText: 'PG' }).first()).toContainText('21 / 28');
+});
+
+test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase y dote propia', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Korvak');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await expect(page.getByLabel('Subclase (desde el nivel 3)')).toHaveValue('srd');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Otra (escríbela)' });
+  await page.getByLabel('Nombre de la subclase').fill('Juramento de la Estirpe');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByLabel('Nombre', { exact: true }).fill('Espada flamígera');
+  await page.getByRole('button', { name: '+ Daño extra' }).click();
+  await page.getByLabel('Conjuro', { exact: false }).first().fill('castigo');
+  await page.locator('.ce-spell-results .chip', { hasText: 'Castigo Divino' }).click();
+  await page.getByRole('button', { name: '+ Dote o rasgo propio' }).click();
+  await page.locator('#cf-n').fill('Protección');
+  await page.locator('#cf-c').selectOption({ label: 'Estilo de combate' });
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+
+  const sheet = page.locator('.pc');
+  await expect(sheet).toContainText('Paladín 3 (Juramento de la Estirpe)');
+  // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
+  await expect(sheet.getByRole('button', { name: 'Daño 1d8+2 cortante + 1d6 fuego' })).toBeVisible();
+  await expect(sheet.locator('summary', { hasText: 'Castigo Divino' })).toBeVisible();
+  await expect(sheet.locator('summary', { hasText: 'Protección' })).toContainText('Estilo de combate');
+  // con otra subclase no salen los rasgos de la del SRD
+  await expect(sheet.locator('summary', { hasText: 'Juramento de devoción' })).toHaveCount(0);
 });

@@ -20,7 +20,42 @@ export interface SheetData {
   pp: string;
   res: string[]; // tipos de daño en español
   extras: { label: string; value: string }[]; // especie, subclase, trasfondo… (para las notas)
+  abil: Partial<Record<AbilKey, number>>; // puntuaciones de característica
+  saveBonus: Partial<Record<AbilKey, number>>; // bonificadores de salvación escritos en la hoja
+  skillBonus: Record<string, number>; // bonificadores de habilidad (claves acr, ath…)
 }
+
+type AbilKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
+const ABIL_KEYS: AbilKey[] = ['str', 'dex', 'con', 'int', 'wis', 'cha'];
+
+/** Hoja oficial de 2024: puntuaciones, salvaciones y habilidades (comprobado por la posición de cada campo). */
+const OFICIAL_ABIL: Record<AbilKey, string> = { str: 'Text64', dex: 'Text66', con: 'Text67', int: 'Text63', wis: 'Text65', cha: 'Text68' };
+const OFICIAL_SAVE: Record<AbilKey, string> = { str: 'Text91', dex: 'Text87', con: 'Text86', int: 'Text69', wis: 'Text75', cha: 'Text81' };
+const OFICIAL_SKILL: Record<string, string> = {
+  ath: 'Text92', acr: 'Text88', slt: 'Text89', ste: 'Text90', arc: 'Text70', his: 'Text71', inv: 'Text72', nat: 'Text73', rel: 'Text74',
+  ani: 'Text76', ins: 'Text77', med: 'Text78', prc: 'Text79', sur: 'Text80', dec: 'Text82', itm: 'Text83', prf: 'Text84', per: 'Text85',
+};
+/** Otras hojas: nombres de campo en inglés o en español (normalizados, sin espacios). */
+const ABIL_SYN: Record<AbilKey, string[]> = {
+  str: ['strscore', 'strsore', 'strength', 'strengthscore', 'str', 'fuerza', 'fue'],
+  dex: ['dexscore', 'dexterity', 'dexterityscore', 'dex', 'destreza', 'des'],
+  con: ['conscore', 'constitution', 'constitutionscore', 'con', 'constitucion'],
+  int: ['intscore', 'intelligence', 'intelligencescore', 'int', 'inteligencia'],
+  wis: ['wisscore', 'wisdom', 'wisdomscore', 'wis', 'sabiduria', 'sab'],
+  cha: ['chascore', 'charisma', 'charismascore', 'cha', 'carisma', 'car'],
+};
+const SAVE_SYN: Record<AbilKey, string[]> = {
+  str: ['strsave', 'stsstrength', 'strsavingthrow', 'salvacionfuerza'], dex: ['dexsave', 'stdexterity', 'dexsavingthrow', 'salvaciondestreza'],
+  con: ['consave', 'stconstitution', 'consavingthrow', 'salvacionconstitucion'], int: ['intsave', 'stintelligence', 'intsavingthrow', 'salvacioninteligencia'],
+  wis: ['wissave', 'wissave1', 'stwisdom', 'wissavingthrow', 'salvacionsabiduria'], cha: ['chasave', 'stcharisma', 'chasavingthrow', 'salvacioncarisma'],
+};
+const SKILL_SYN: Record<string, string[]> = {
+  acr: ['acrobatics', 'acrobacias'], ani: ['animalhandling', 'tratoconanimales'], arc: ['arcana', 'conocimientoarcano'], ath: ['athletics', 'atletismo'],
+  dec: ['deception', 'engano'], his: ['history', 'historia'], ins: ['insight', 'perspicacia'], itm: ['intimidation', 'intimidacion'],
+  inv: ['investigation', 'investigacion'], med: ['medicine', 'medicina'], nat: ['nature', 'naturaleza'], prc: ['perception', 'percepcion'],
+  prf: ['performance', 'interpretacion'], per: ['persuasion'], rel: ['religion'], slt: ['sleightofhand', 'juegodemanos'],
+  ste: ['stealth', 'sigilo'], sur: ['survival', 'supervivencia'],
+};
 
 /**
  * Hoja oficial rellenable de 2024 (D&D Beyond, código 670D3898000001): sus campos se llaman Text1, Text13…
@@ -129,9 +164,27 @@ export function readSheet(fields: SheetField[]): SheetData | null {
     ['Velocidad', /^\d+$/.test(speed) ? speed + ' pies' : speed], ['Tamaño', get('size')], ['Visión en la oscuridad', get('darkvision')], ['Sentidos', get('senses')], ['Idiomas', get('languages')],
   ].filter(([, v]) => v).map(([label, value]) => ({ label, value }));
 
+  const pick = (official_: string | undefined, syn: string[]) => {
+    const v = official && official_ ? byName.get(official_) : syn.map((k) => byKey.get(k)).find((x) => x != null);
+    return v == null ? '' : v;
+  };
+  const abil: SheetData['abil'] = {};
+  const saveBonus: SheetData['saveBonus'] = {};
+  for (const a of ABIL_KEYS) {
+    const sc = parseInt(number(pick(OFICIAL_ABIL[a], ABIL_SYN[a])), 10);
+    if (sc >= 1 && sc <= 30) abil[a] = sc;
+    const sv = bonus(pick(OFICIAL_SAVE[a], SAVE_SYN[a]));
+    if (sv !== '') saveBonus[a] = parseInt(sv, 10);
+  }
+  const skillBonus: Record<string, number> = {};
+  for (const [k, syn] of Object.entries(SKILL_SYN)) {
+    const v = bonus(pick(OFICIAL_SKILL[k], syn));
+    if (v !== '') skillBonus[k] = parseInt(v, 10);
+  }
+
   const data: SheetData = {
     template, name: get('name'), cls: cls && level ? cls + ' ' + level : cls, level, ac: number(get('ac')), hp: number(get('hp')),
-    initb: init, pp, res: findResistances(traitText), extras,
+    initb: init, pp, res: findResistances(traitText), extras, abil, saveBonus, skillBonus,
   };
   const useful = [data.name, data.cls, data.ac, data.hp, data.initb, data.pp].filter(Boolean).length + data.extras.length;
   return useful ? data : null;

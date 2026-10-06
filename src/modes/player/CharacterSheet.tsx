@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CONDITIONS } from '../../data/constants';
 import { ABILS, type Abil, type ClassFeature, type PlayerData } from '../../data/player';
-import { derive, longRest, shortRest, usesMax, type Character } from '../../engine/character';
+import { derive, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
@@ -9,6 +9,7 @@ import Pips from '../../shared/Pips';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
+import { plainText, useSpells } from './spells';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -28,17 +29,19 @@ function featureRows(c: Character, data: PlayerData | null): FeatureRow[] {
   // los rasgos de la subclase del SRD solo si es la elegida
   if (cls?.sub && c.level >= cls.sub.lv && norm(c.subclass) === norm(cls.sub.n)) cls.sub.f.filter((f) => f.lv <= c.level).forEach((f) => add(f, cls.sub!.n + ' ' + f.lv));
   sp?.t.forEach((f) => add(f, sp.n));
+  const CAT: Record<string, string> = { origin: 'Dote de origen', general: 'Dote', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
   c.feats.forEach((name) => {
     const ft = data?.feats.find((x) => x.n === name);
-    if (ft) add({ lv: 0, n: ft.n, d: ft.d, u: ft.u }, 'Dote');
+    if (ft) add({ lv: 0, n: ft.n, d: ft.d, u: ft.u }, CAT[ft.cat] || 'Dote');
   });
+  c.customFeats.forEach((f) => rows.push({ key: f.id, n: f.n, d: f.d, src: CAT[f.cat] || 'Rasgo propio', max: f.max && f.max > 0 ? f.max : null, per: f.per }));
   return rows;
 }
 
 export default function CharacterSheet({ c }: { c: Character }) {
   const data = usePlayer((s) => s.data);
   const { update, replace, setEditing } = usePlayer.getState();
-  const spellsDb = useStore((s) => s.spells);
+  const spellIdx = useSpells();
   const { roll } = useStore.getState();
   const d = useMemo(() => derive(c, data), [c, data]);
   const features = useMemo(() => featureRows(c, data), [c, data]);
@@ -91,7 +94,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   };
 
   const skillsSorted = Object.entries(d.skills).sort((a, b) => (data?.skills[a[0]] || a[0]).localeCompare(data?.skills[b[0]] || b[0], 'es'));
-  const spellList = c.spells.map((k) => ({ k, s: spellsDb[k] })).filter((x) => x.s).sort((a, b) => a.s!.l - b.s!.l || a.s!.n.localeCompare(b.s!.n, 'es'));
+  const spellList = c.spells.map((k) => ({ k, s: spellIdx.get(k) })).filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
 
   return (
@@ -169,13 +172,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <section className="panel" aria-label="Ataques">
         <h3 className="eyebrow">Ataques</h3>
         {!d.attacks.length && <p className="muted small" style={{ margin: 0 }}>Añade tus armas en «Editar hoja».</p>}
-        {d.attacks.map(({ w, atk, dmg, ver }) => (
+        {d.attacks.map(({ w, atk, parts, verParts }) => (
           <div key={w.id} className="pc-attack">
             <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span></span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk))}>Ataque {fmt(atk)}</button>
-              <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño', kind: 'damage', who, by: null, parts: [{ expr: dmg, type: w.type }] })}>Daño {dmg} {w.type}</button>
-              {ver && <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño a dos manos', kind: 'damage', who, by: null, parts: [{ expr: ver, type: w.type }] })}>A dos manos {ver}</button>}
+              <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño', kind: 'damage', who, by: null, parts })}>Daño {partsLabel(parts)}</button>
+              {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + w.name + ': daño a dos manos', kind: 'damage', who, by: null, parts: verParts })}>A dos manos {partsLabel(verParts)}</button>}
             </span>
           </div>
         ))}
@@ -207,7 +210,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
                   <details>
                     <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span></summary>
                     <p className="muted small" style={{ margin: '4px 0' }}>{[s!.ct, s!.r, s!.cmp, s!.du].filter(Boolean).join(' · ')}</p>
-                    <p className="pc-text">{s!.d}</p>
+                    <p className="pc-text">{plainText(s!.t)}</p>
                   </details>
                 </li>
               ))}
@@ -273,6 +276,3 @@ export default function CharacterSheet({ c }: { c: Character }) {
     </div>
   );
 }
-
-/** Para buscar conjuros por nombre sin acentos (lo usa el editor). */
-export const spellMatches = (q: string, n: string, en: string) => { const nq = norm(q); return !nq || norm(n).includes(nq) || norm(en).includes(nq); };

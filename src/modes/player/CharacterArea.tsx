@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { blankCharacter, type Character } from '../../engine/character';
-import { readSheet } from '../../engine/sheetImport';
-import { norm } from '../../engine/util';
+import { sheetToCharacter } from '../../engine/characterImport';
+import { readSheet, type SheetField } from '../../engine/sheetImport';
 import { readPdfFields } from '../../store/pdfFields';
+import { useStore } from '../../store/useStore';
 import { activeCharacter, usePlayer } from '../../store/player';
 import CharacterEditor from './CharacterEditor';
 import CharacterSheet from './CharacterSheet';
@@ -24,26 +24,17 @@ export default function CharacterArea() {
   const importPdf = async (f: File | undefined) => {
     if (!f) return;
     setMsg('');
-    let sheet = null;
-    try { sheet = readSheet(await readPdfFields(f)); } catch { /* sin formulario */ }
+    let fields: SheetField[] = [];
+    try { fields = await readPdfFields(f); } catch { /* sin formulario */ }
+    const sheet = readSheet(fields);
     if (file.current) file.current.value = '';
     if (!sheet) { setMsg('Ese PDF no tiene campos rellenables que la app sepa leer. Crea el personaje a mano.'); return; }
-    await loadData();
+    await Promise.all([loadData(), useStore.getState().loadRules()]);
     const d = usePlayer.getState().data;
-    const clsName = sheet.cls.replace(/\s*\d+\s*$/, '');
-    const cls = d?.classes.find((k) => norm(k.n) === norm(clsName) || norm(k.en) === norm(clsName));
-    const extra = (label: string) => sheet!.extras.find((e) => e.label === label)?.value || '';
-    const sp = d?.species.find((s) => norm(s.n) === norm(extra('Especie')) || norm(s.en) === norm(extra('Especie')));
+    if (!d) { setMsg('No se pudieron cargar las clases y especies.'); return; }
+    const spells = (useStore.getState().rules || []).filter((e) => e.cat === 'Conjuros').map((e) => ({ id: e.id, n: e.n, en: e.en }));
     const base = create();
-    const c: Character = {
-      ...blankCharacter(), id: base.id, name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName,
-      level: parseInt(sheet.level, 10) || 1, subclass: extra('Subclase'), speciesId: sp?.id || '', speciesName: sp ? '' : extra('Especie'),
-      backgroundName: extra('Trasfondo'), langs: extra('Idiomas'),
-      ov: { ...(sheet.ac ? { ac: parseInt(sheet.ac, 10) } : {}), ...(sheet.hp ? { hpMax: parseInt(sheet.hp, 10) } : {}) },
-      hp: parseInt(sheet.hp, 10) || 0,
-      notes: 'Importado de ' + f.name + '. Revisa las características, las habilidades y el equipo: el PDF no siempre los trae.',
-    };
-    replace(c);
+    replace({ ...sheetToCharacter(fields, sheet, d, spells, f.name), id: base.id });
     setEditing(true);
   };
 

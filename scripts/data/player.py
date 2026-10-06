@@ -152,7 +152,7 @@ def build_classes(packs, tr, items):
         for sp in glob.glob(os.path.join(os.path.dirname(p), '*.yml')):
             sd = load(sp)
             if isinstance(sd, dict) and sd.get('type') == 'subclass':
-                sub = {'id': sd['system']['identifier'], 'n': es(tr, sd), 'd': es(tr, sd, 'd'), 'f': features(advs(sd['system']), items, tr),
+                sub = {'id': sd['system']['identifier'], 'n': es(tr, sd), 'en': sd['name'], 'd': es(tr, sd, 'd'), 'f': features(advs(sd['system']), items, tr),
                        'lv': next((a['level'] for a in adv if a.get('type') == 'Subclass'), 3)}
         sc = s.get('spellcasting') or {}
         out.append({
@@ -164,6 +164,17 @@ def build_classes(packs, tr, items):
             'asi': sorted({a['level'] for a in adv if a.get('type') == 'AbilityScoreImprovement'}),
             'f': features(adv, items, tr), 'sc': scales(adv, cid), 'sub': sub, 'd': es(tr, d, 'd'),
         })
+    return out
+
+
+def spell_lists(packs):
+    """Listas de conjuros de cada clase (capítulo 7 del SRD): id de clase -> ids de conjuro de reglas_es.json (sp-<id>)."""
+    out = {}
+    d = load(os.path.join(packs, 'content24', 'chapter-7', 'spells.yml'))
+    for p in d.get('pages') or []:
+        s = p.get('system') or {}
+        if p.get('type') == 'spells' and s.get('type') == 'class':
+            out[s['identifier']] = ['sp-' + u.split('.')[-1] for u in s.get('spells') or []]
     return out
 
 
@@ -270,11 +281,12 @@ def main(tr_dir, packs, out_path):
     tr_eq = tr_entries(tr_dir, 'equipment24')
     items = {**index_items(os.path.join(packs, 'classes24')), **index_items(os.path.join(packs, 'origins24'))}
     feats = build_feats(packs, tr_ft)
+    lists = spell_lists(packs)
     data = {
         'v': 1,
         'src': 'SRD 5.2.1 (CC-BY-4.0); traducción basada en translate-dnd5e-sdr2-es (CC-BY-4.0)',
         'abil': ABIL, 'skills': SKILL,
-        'classes': build_classes(packs, tr_cls, items),
+        'classes': [dict(c, spells=lists.get(c['id'], [])) for c in build_classes(packs, tr_cls, items)],
         'species': build_species(packs, tr_org, items),
         'backgrounds': build_backgrounds(packs, tr_org, {f['id']: f for f in feats}),
         'feats': feats,
