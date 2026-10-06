@@ -3,11 +3,12 @@ import Attribution from '../../shared/Attribution';
 import Brand from '../../shared/Brand';
 import DiceTable from '../../shared/DiceTable';
 import CharacterArea from './CharacterArea';
+import LibraryPanel from './LibraryPanel';
 import RulesPanel, { RuleQuick, RuleView } from '../../shared/RulesPanel';
 import { useStore } from '../../store/useStore';
 
-type PlayerTab = 'sheet' | 'rules';
-const TABS: [PlayerTab, string][] = [['sheet', 'Mi personaje'], ['rules', 'Reglas']];
+type PlayerTab = 'sheet' | 'library' | 'rules';
+const TABS: [PlayerTab, string][] = [['sheet', 'Mi personaje'], ['library', 'Biblioteca'], ['rules', 'Reglas']];
 
 /**
  * Modo jugador: sus personajes (hoja con tiradas), los dados y las reglas.
@@ -26,11 +27,11 @@ export default function PlayerApp() {
         </nav>
       </header>
       <main className="app-main">
-        {tab === 'sheet' ? (
+        {tab === 'sheet' || tab === 'library' ? (
           <>
-            <section className="col-center" aria-label="Mi personaje">
+            <section className="col-center" aria-label={tab === 'sheet' ? 'Mi personaje' : 'Biblioteca'}>
               <div className="center-main">
-                <CharacterArea />
+                {tab === 'sheet' ? <CharacterArea /> : <LibraryPanel />}
               </div>
               <Attribution />
             </section>

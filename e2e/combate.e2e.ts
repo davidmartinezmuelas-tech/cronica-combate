@@ -448,3 +448,31 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   // con otra subclase no salen los rasgos de la del SRD
   await expect(sheet.locator('summary', { hasText: 'Juramento de devoción' })).toHaveCount(0);
 });
+
+test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjuros al crear el personaje', async ({ page }) => {
+  // biblioteca inventada (misma forma que la que genera el importador del libro)
+  const lib = {
+    app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'Pruebas',
+    feats: [{ id: 'lib-dote-vigia', n: 'Vigía nocturno', cat: 'origin', req: '', d: 'Nunca duermes del todo.' }],
+    backgrounds: [{ id: 'lib-trasfondo-farero', n: 'Farero', abil: ['con', 'wis', 'cha'], skills: ['prc', 'sur'], tool: '', feat: 'Vigía nocturno', equip: '', d: 'Cuidabas el faro.' }],
+    spells: [{ id: 'lib-conjuro-rayo-de-faro', n: 'Rayo de faro', l: 1, esc: 'Evocación', classes: ['paladin'], ct: 'Acción', r: '18 m', cmp: 'V, S', du: 'Instantánea', c: 0, rit: 0, t: 'Un haz de luz.' }],
+  };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'biblioteca.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await expect(page.locator('.stat', { hasText: 'Conjuros' })).toContainText('1');
+
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Elia');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Farero' });
+  await expect(page.getByText('competencia en Percepción y Supervivencia', { exact: false })).toBeVisible();
+  await page.locator('.ce-spell-results .chip', { hasText: 'Rayo de faro' }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sheet = page.locator('.pc');
+  await expect(sheet).toContainText('Farero');
+  await expect(sheet.locator('summary', { hasText: 'Vigía nocturno' })).toContainText('Dote de origen');
+  await expect(sheet.locator('summary', { hasText: 'Rayo de faro' })).toBeVisible();
+});

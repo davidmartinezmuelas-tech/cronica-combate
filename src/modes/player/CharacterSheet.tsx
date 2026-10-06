@@ -6,6 +6,7 @@ import { fmt, sgn } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import Pips from '../../shared/Pips';
+import { useLibrary, type LibraryData } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
@@ -17,7 +18,7 @@ const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 
 interface FeatureRow { key: string; n: string; d: string; src: string; max: number | null; per: string }
 
 /** Rasgos que tiene a su nivel: de clase, de subclase, de especie y dotes, con sus usos. */
-function featureRows(c: Character, data: PlayerData | null): FeatureRow[] {
+function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): FeatureRow[] {
   const cls = data?.classes.find((x) => x.id === c.classId);
   const sp = data?.species.find((x) => x.id === c.speciesId);
   const rows: FeatureRow[] = [];
@@ -32,7 +33,9 @@ function featureRows(c: Character, data: PlayerData | null): FeatureRow[] {
   const CAT: Record<string, string> = { origin: 'Dote de origen', general: 'Dote', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
   c.feats.forEach((name) => {
     const ft = data?.feats.find((x) => x.n === name);
-    if (ft) add({ lv: 0, n: ft.n, d: ft.d, u: ft.u }, CAT[ft.cat] || 'Dote');
+    if (ft) { add({ lv: 0, n: ft.n, d: ft.d, u: ft.u }, CAT[ft.cat] || 'Dote'); return; }
+    const lf = lib.feats.find((x) => x.n === name);
+    if (lf) rows.push({ key: lf.id, n: lf.n, d: (lf.req ? 'Requisitos: ' + lf.req + '\n\n' : '') + lf.d, src: CAT[lf.cat] || 'Dote', max: null, per: '' });
   });
   c.customFeats.forEach((f) => rows.push({ key: f.id, n: f.n, d: f.d, src: CAT[f.cat] || 'Rasgo propio', max: f.max && f.max > 0 ? f.max : null, per: f.per }));
   return rows;
@@ -44,13 +47,14 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const spellIdx = useSpells();
   const { roll } = useStore.getState();
   const d = useMemo(() => derive(c, data), [c, data]);
-  const features = useMemo(() => featureRows(c, data), [c, data]);
+  const lib = useLibrary();
+  const features = useMemo(() => featureRows(c, data, lib), [c, data, lib]);
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
   const [confirmLong, setConfirmLong] = useState(false);
 
   const sp = data?.species.find((x) => x.id === c.speciesId);
-  const bg = data?.backgrounds.find((x) => x.id === c.backgroundId);
+  const bg = data?.backgrounds.find((x) => x.id === c.backgroundId) || lib.backgrounds.find((x) => x.id === c.backgroundId);
   const who = c.name || 'Personaje';
   const r = (label: string, kind: RollSpec['kind'], expr: string, extra: Partial<RollSpec> = {}) =>
     roll({ label: who + ' · ' + label, kind, who, parts: [{ expr }], ...extra });

@@ -6,6 +6,7 @@ import { useStore } from '../../store/useStore';
 /** Propone monstruos del bestiario para la dificultad elegida, según el nivel de los jugadores. */
 export default function EncounterGenerator() {
   const srd = useStore((s) => s.srd);
+  const loaded = useStore((s) => s.loaded);
   const custom = useStore((s) => s.custom);
   const types = useStore((s) => s.types);
   const roster = useStore((s) => s.roster);
@@ -62,7 +63,7 @@ export default function EncounterGenerator() {
               <option value="">Cualquier tipo</option>
               {types.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
-            <button className="btn small gold" onClick={propose}>{prop ? 'Otra propuesta' : 'Proponer'}</button>
+            <button className="btn small gold" disabled={!loaded || !srd.length} onClick={propose}>{!loaded ? 'Cargando bestiario…' : prop ? 'Otra propuesta' : 'Proponer'}</button>
           </div>
           <span className="muted small">{DIFF_NAMES[diff]}: entre {nfmt(range[0])} y {nfmt(range[1])} PX de monstruos.</span>
           {msg && <p className="warn small" role="status" style={{ margin: 0 }}>{msg}</p>}

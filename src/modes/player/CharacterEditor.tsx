@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { ABILS, type Abil, type FeatData } from '../../data/player';
+import { ABILS, type Abil } from '../../data/player';
 import { derive, mod, weaponFromData, type Character, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { fmt } from '../../engine/dice';
 import { norm, uid } from '../../engine/util';
 import Picker from '../../shared/Picker';
+import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useSpells } from './spells';
 
@@ -22,6 +23,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const data = usePlayer((s) => s.data);
   const { update, remove, setEditing } = usePlayer.getState();
   const spellIdx = useSpells();
+  const lib = useLibrary();
   const [confirmDel, setConfirmDel] = useState(false);
   const [weaponPick, setWeaponPick] = useState('');
   const [spellQ, setSpellQ] = useState('');
@@ -30,7 +32,12 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const set = (patch: Partial<Character>) => update(c.id, patch);
   const d = useMemo(() => derive(c, data), [c, data]);
   const cls = d.cls;
-  const bg = data?.backgrounds.find((x) => x.id === c.backgroundId);
+  // trasfondos: los del SRD y los de la biblioteca propia, con la misma forma
+  const libBgs = lib.backgrounds.filter((b) => !data?.backgrounds.some((x) => norm(x.n) === norm(b.n)));
+  const allBgs = [...(data?.backgrounds || []).map((b) => ({ id: b.id, n: b.n, abil: b.abil, skills: b.skills, feat: b.feat })), ...libBgs.map((b) => ({ id: b.id, n: b.n, abil: b.abil, skills: b.skills, feat: b.feat }))];
+  const bg = allBgs.find((x) => x.id === c.backgroundId);
+  // dotes: las del SRD y las de la biblioteca (sin duplicar)
+  const allFeats: { id: string; n: string; cat: string }[] = [...(data?.feats || []), ...lib.feats.filter((f) => !data?.feats.some((x) => norm(x.n) === norm(f.n)))];
 
   if (!data) return <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando clases, especies y equipo…</p></div>;
 
@@ -52,8 +59,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
     set({ classId: id, className: '', subclass: k?.sub && c.level >= k.sub.lv ? k.sub.n : '', skills: keep });
   };
   const chooseBackground = (id: string) => {
-    const b = data.backgrounds.find((x) => x.id === id);
-    const old = data.backgrounds.find((x) => x.id === c.backgroundId);
+    const b = allBgs.find((x) => x.id === id);
+    const old = allBgs.find((x) => x.id === c.backgroundId);
     const skills = c.skills.filter((s) => !old?.skills.includes(s)).concat(b?.skills || []).filter((s, i, a) => a.indexOf(s) === i);
     const feats = c.feats.filter((f) => f !== old?.feat).concat(b?.feat && !c.feats.includes(b.feat) ? [b.feat] : []);
     set({ backgroundId: id, backgroundName: '', skills, feats });
@@ -73,7 +80,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const setWeapon = (id: string, patch: Partial<CharWeapon>) => set({ weapons: c.weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)) });
 
   // conjuros: los de su lista de clase (o todos si se pide o la clase no es del SRD)
-  const classList = new Set(cls?.spells || []);
+  const classList = new Set([...(cls?.spells || []), ...spellIdx.list.filter((s) => cls && s.classes?.includes(cls.id)).map((s) => s.id)]);
   const useClassList = !allSpells && classList.size > 0;
   const spellResults = spellIdx.list
     .filter((s) => !c.spells.includes(s.id) && (!useClassList || classList.has(s.id)))
@@ -81,8 +88,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
     .sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es'))
     .slice(0, useClassList && !spellQ ? 60 : 16);
 
-  const featGroups = FEAT_CATS.filter(([cat]) => cat !== 'other' && (cat !== 'fighting-style' || STYLE_CLASSES.includes(c.classId) || c.feats.some((f) => data.feats.find((x) => x.n === f)?.cat === cat)) && (cat !== 'epic-boon' || c.level >= 19));
-  const toggleFeat = (f: FeatData) => set({ feats: c.feats.includes(f.n) ? c.feats.filter((x) => x !== f.n) : [...c.feats, f.n] });
+  const featGroups = FEAT_CATS.filter(([cat]) => cat !== 'other' && (cat !== 'fighting-style' || STYLE_CLASSES.includes(c.classId) || c.feats.some((f) => allFeats.find((x) => x.n === f)?.cat === cat)) && (cat !== 'epic-boon' || c.level >= 19));
+  const toggleFeat = (f: { n: string }) => set({ feats: c.feats.includes(f.n) ? c.feats.filter((x) => x !== f.n) : [...c.feats, f.n] });
   const saveCustomFeat = () => {
     if (!newFeat || !newFeat.n.trim()) return;
     const exists = c.customFeats.some((f) => f.id === newFeat.id);
@@ -141,12 +148,13 @@ export default function CharacterEditor({ c }: { c: Character }) {
             <div className="field"><label htmlFor="ce-bg">Trasfondo</label>
               <select id="ce-bg" className="input" value={c.backgroundId} onChange={(e) => chooseBackground(e.target.value)}>
                 <option value="">Otro (escríbelo)</option>
-                {data.backgrounds.map((b) => <option key={b.id} value={b.id}>{b.n}</option>)}
+                <optgroup label="SRD">{data.backgrounds.map((b) => <option key={b.id} value={b.id}>{b.n}</option>)}</optgroup>
+                {libBgs.length > 0 && <optgroup label="Tu biblioteca">{libBgs.map((b) => <option key={b.id} value={b.id}>{b.n}</option>)}</optgroup>}
               </select></div>
             {!c.backgroundId && <div className="field"><label htmlFor="ce-bgn">Nombre del trasfondo</label><input id="ce-bgn" className="input" value={c.backgroundName} onChange={(e) => set({ backgroundName: e.target.value })} /></div>}
           </div>
           {bg ? <p className="muted small" style={{ margin: 0 }}>{bg.n}: +2 a una y +1 a otra (o +1 a las tres) entre {bg.abil.map((a) => ABIL_N[a]).join(', ')}; competencia en {bg.skills.map((s) => data.skills[s]).join(' y ')}; dote de origen {bg.feat}.</p>
-            : <p className="muted small" style={{ margin: 0 }}>Cualquier clase puede llevar cualquier trasfondo. El SRD solo trae cuatro (Acólito, Criminal, Sabio y Soldado); con otro, marca tú sus habilidades y elige o escribe su dote de origen abajo.</p>}
+            : <p className="muted small" style={{ margin: 0 }}>Cualquier clase puede llevar cualquier trasfondo. El SRD solo trae cuatro (Acólito, Criminal, Sabio y Soldado); los de tu libro puedes añadirlos en «Biblioteca». Con otro, marca tú sus habilidades y elige o escribe su dote de origen abajo.</p>}
         </fieldset>
 
         <fieldset className="fs">
@@ -266,9 +274,9 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <fieldset className="fs">
           <legend>Dotes, estilos de combate y rasgos propios</legend>
-          <span className="muted small">El SRD trae 4 dotes de origen, 2 generales, 4 estilos de combate y 7 dones épicos. Las de otros libros añádelas como dote propia con su texto.</span>
+          <span className="muted small">{lib.feats.length ? 'Dotes del SRD y de tu biblioteca.' : 'El SRD trae 4 dotes de origen, 2 generales, 4 estilos de combate y 7 dones épicos. Las de tu libro puedes añadirlas en «Biblioteca» o aquí como dote propia.'}</span>
           {featGroups.map(([cat, title]) => {
-            const list = data.feats.filter((f) => f.cat === cat);
+            const list = allFeats.filter((f) => f.cat === cat).sort((a, b) => a.n.localeCompare(b.n, 'es'));
             const mine = c.feats.filter((n) => list.some((f) => f.n === n)).concat(c.customFeats.filter((f) => f.cat === cat).map((f) => f.n));
             return (
               <Picker key={cat} title={title} summary={mine.join(', ')}>
