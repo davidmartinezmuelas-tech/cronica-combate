@@ -456,6 +456,7 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
     feats: [{ id: 'lib-dote-vigia', n: 'Vigía nocturno', cat: 'origin', req: '', d: 'Nunca duermes del todo.' }],
     backgrounds: [{ id: 'lib-trasfondo-farero', n: 'Farero', abil: ['con', 'wis', 'cha'], skills: ['prc', 'sur'], tool: '', feat: 'Vigía nocturno', equip: '', d: 'Cuidabas el faro.' }],
     spells: [{ id: 'lib-conjuro-rayo-de-faro', n: 'Rayo de faro', l: 1, esc: 'Evocación', classes: ['paladin'], ct: 'Acción', r: '18 m', cmp: 'V, S', du: 'Instantánea', c: 0, rit: 0, t: 'Un haz de luz.' }],
+    subclasses: [{ id: 'lib-subclase-paladin-juramento-del-faro', n: 'Juramento del faro', cls: 'paladin', d: 'Guardas la luz.', f: [{ lv: 3, n: 'Luz guía', d: 'Iluminas el camino.' }, { lv: 7, n: 'Aura del faro', d: 'Brillas.' }] }],
   };
   await page.goto('/#/jugador');
   await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
@@ -467,12 +468,16 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
   await page.getByLabel('Nombre del personaje').fill('Elia');
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Juramento del faro' });
   await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Farero' });
   await expect(page.getByText('competencia en Percepción y Supervivencia', { exact: false })).toBeVisible();
   await page.locator('.ce-spell-results .chip', { hasText: 'Rayo de faro' }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sheet = page.locator('.pc');
-  await expect(sheet).toContainText('Farero');
+  await expect(sheet).toContainText('Paladín 3 (Juramento del faro) · Farero');
+  await expect(sheet.locator('summary', { hasText: 'Luz guía' })).toContainText('Juramento del faro 3');
+  await expect(sheet.locator('summary', { hasText: 'Aura del faro' })).toHaveCount(0); // es de nivel 7
   await expect(sheet.locator('summary', { hasText: 'Vigía nocturno' })).toContainText('Dote de origen');
   await expect(sheet.locator('summary', { hasText: 'Rayo de faro' })).toBeVisible();
 });

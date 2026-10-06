@@ -1,6 +1,6 @@
 import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { create } from 'zustand';
-import type { LibBackground, LibFeat, LibSpell } from '../engine/bookImport';
+import type { LibBackground, LibFeat, LibSpell, LibSubclass } from '../engine/bookImport';
 
 /**
  * Biblioteca propia: dotes, trasfondos y conjuros que el usuario añade desde su propio libro (importando su PDF o
@@ -16,6 +16,7 @@ export interface LibraryData {
   feats: LibFeat[];
   backgrounds: LibBackground[];
   spells: LibSpell[];
+  subclasses: LibSubclass[];
 }
 
 export interface LibraryState extends LibraryData {
@@ -30,7 +31,7 @@ export interface LibraryState extends LibraryData {
 // lectura inicial única: guardar o importar la esperan, para no pisar lo que ya había en el dispositivo
 let loading: Promise<void> | null = null;
 
-const empty = (): LibraryData => ({ v: 1, source: '', feats: [], backgrounds: [], spells: [] });
+const empty = (): LibraryData => ({ v: 1, source: '', feats: [], backgrounds: [], spells: [], subclasses: [] });
 
 function persist(d: LibraryData) {
   void idbSet(KEY, d, store()).catch(() => { /* sin IndexedDB: dura esta visita */ });
@@ -73,9 +74,10 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     // se fusiona por id: lo que llega sustituye a lo que había con el mismo id
     const merge = <T extends { id: string }>(a: T[], b: T[]) => [...a.filter((x) => !b.some((y) => y.id === x.id)), ...b];
     const cur = pick(get());
-    await get().save({ source: d.source || cur.source, feats: merge(cur.feats, d.feats), backgrounds: merge(cur.backgrounds, d.backgrounds), spells: merge(cur.spells, d.spells) });
-    return 'Biblioteca cargada: ' + d.feats.length + ' dotes, ' + d.backgrounds.length + ' trasfondos y ' + d.spells.length + ' conjuros.';
+    const subs = Array.isArray(d.subclasses) ? d.subclasses : [];
+    await get().save({ source: d.source || cur.source, feats: merge(cur.feats, d.feats), backgrounds: merge(cur.backgrounds, d.backgrounds), spells: merge(cur.spells, d.spells), subclasses: merge(cur.subclasses, subs) });
+    return 'Biblioteca cargada: ' + subs.length + ' subclases, ' + d.feats.length + ' dotes, ' + d.backgrounds.length + ' trasfondos y ' + d.spells.length + ' conjuros.';
   },
 }));
 
-const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats, backgrounds: s.backgrounds, spells: s.spells });
+const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats, backgrounds: s.backgrounds, spells: s.spells, subclasses: s.subclasses || [] });

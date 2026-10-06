@@ -1,10 +1,11 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { classifyPage, pageLines, parseBackgrounds, parseFeats, parseSpells, type Line, type LibBackground, type LibFeat, type LibSpell } from '../engine/bookImport';
+import { classifyPage, pageLines, parseBackgrounds, parseFeats, parseSpells, parseSubclasses, type Line, type LibBackground, type LibFeat, type LibSpell, type LibSubclass } from '../engine/bookImport';
 
 export interface BookResult {
   feats: LibFeat[];
   backgrounds: LibBackground[];
   spells: LibSpell[];
+  subclasses: LibSubclass[];
   pages: number;
 }
 
@@ -17,7 +18,7 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
   try {
-    const L: Record<'feats' | 'backgrounds' | 'spells', Line[]> = { feats: [], backgrounds: [], spells: [] };
+    const L: Record<'feats' | 'backgrounds' | 'spells' | 'classes', Line[]> = { feats: [], backgrounds: [], spells: [], classes: [] };
     for (let i = 1; i <= doc.numPages; i++) {
       if (signal?.cancelled) throw new Error('cancelado');
       onProgress(i, doc.numPages);
@@ -33,7 +34,7 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
       }
       page.cleanup();
     }
-    return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells), pages: doc.numPages };
+    return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells), subclasses: parseSubclasses(L.classes), pages: doc.numPages };
   } finally {
     void doc.loadingTask.destroy();
   }

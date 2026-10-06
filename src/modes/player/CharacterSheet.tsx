@@ -29,6 +29,9 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
   cls?.f.filter((f) => f.lv <= c.level).forEach((f) => add(f, cls.n + ' ' + f.lv));
   // los rasgos de la subclase del SRD solo si es la elegida
   if (cls?.sub && c.level >= cls.sub.lv && norm(c.subclass) === norm(cls.sub.n)) cls.sub.f.filter((f) => f.lv <= c.level).forEach((f) => add(f, cls.sub!.n + ' ' + f.lv));
+  // subclase de la biblioteca propia (si es la elegida)
+  const libSub = lib.subclasses.find((s) => s.cls === c.classId && norm(s.n) === norm(c.subclass));
+  libSub?.f.filter((f) => f.lv <= c.level).forEach((f) => rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: null, per: '' }));
   sp?.t.forEach((f) => add(f, sp.n));
   const CAT: Record<string, string> = { origin: 'Dote de origen', general: 'Dote', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
   c.feats.forEach((name) => {

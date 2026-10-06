@@ -90,3 +90,27 @@ describe('nombres', () => {
     expect(titleCase('CALDERO BURBUJEANTE DE TASHA')).toBe('Caldero burbujeante de Tasha');
   });
 });
+
+describe('subclases', () => {
+  it('por clase, con sus rasgos; los pies de ilustración y los títulos cortados no abren otra; sin título si el OCR no lo leyó', async () => {
+    const { parseSubclasses } = await import('../engine/bookImport');
+    const lines = L(
+      'NIVEL 3: RASGO DE LA CLASE BASE', 'Esto es de la clase, no de una subclase.',
+      'SUBCLASES DE BÁRBARO',
+      'SENDA DEL VIENTO', 'Corre como el viento.',
+      'NIVEL 3: PASO LIGERO', 'Te mueves más.', 'SUBCLASE DE LA', 'SENDA DEL TRUENO', 'NIVEL 3: SALTO', 'Saltas más.',
+      'NIvEL 6: RÁFAGA', 'Empujas.', 'NIVEL 10: TORNADO', 'Giras.',
+      'SENDA DEL', // título cortado: no cuenta
+      'SENDA DEL TRUENO', 'Retumba.', 'NIVEL 3: ESTRUENDO', 'Ruido.', 'Nrivel 14: TEMPESTAD', 'Mucho ruido.',
+      'NIVEL 3: GARRAS', 'Sin título legible.', 'NIVEL 6: ZARPAZO', 'Más garras.',
+      'RASGOS DE BARDO', 'NIVEL 3: OTRA COSA', 'De la clase bardo.',
+    );
+    const s = parseSubclasses(lines);
+    expect(s.map((x) => [x.cls, x.n, x.f.map((f) => f.lv + ' ' + f.n)])).toEqual([
+      ['barbarian', 'Senda del viento', ['3 Paso ligero', '3 Salto', '6 Ráfaga', '10 Tornado']],
+      ['barbarian', 'Senda del trueno', ['3 Estruendo', '14 Tempestad']],
+      ['barbarian', 'Subclase de barbaro sin título 1', ['3 Garras', '6 Zarpazo']],
+    ]);
+    expect(s[0].d).toBe('Corre como el viento.');
+  });
+});

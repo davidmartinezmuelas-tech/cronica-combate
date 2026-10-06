@@ -32,6 +32,9 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const set = (patch: Partial<Character>) => update(c.id, patch);
   const d = useMemo(() => derive(c, data), [c, data]);
   const cls = d.cls;
+  // subclases: la del SRD, las de la biblioteca propia para esta clase u «Otra»
+  const libSubs = lib.subclasses.filter((s) => s.cls === c.classId);
+  const subValue = !c.subclass ? '' : cls?.sub && norm(c.subclass) === norm(cls.sub.n) ? 'srd' : libSubs.some((s) => norm(s.n) === norm(c.subclass)) ? 'lib:' + libSubs.find((s) => norm(s.n) === norm(c.subclass))!.n : 'other';
   // trasfondos: los del SRD y los de la biblioteca propia, con la misma forma
   const libBgs = lib.backgrounds.filter((b) => !data?.backgrounds.some((x) => norm(x.n) === norm(b.n)));
   const allBgs = [...(data?.backgrounds || []).map((b) => ({ id: b.id, n: b.n, abil: b.abil, skills: b.skills, feat: b.feat })), ...libBgs.map((b) => ({ id: b.id, n: b.n, abil: b.abil, skills: b.skills, feat: b.feat }))];
@@ -136,14 +139,15 @@ export default function CharacterEditor({ c }: { c: Character }) {
           {!c.classId && <div className="field"><label htmlFor="ce-clsn">Nombre de la clase</label><input id="ce-clsn" className="input" value={c.className} onChange={(e) => set({ className: e.target.value })} /></div>}
           <div className="row2">
             <div className="field"><label htmlFor="ce-subsel">Subclase{cls?.sub ? ' (desde el nivel ' + cls.sub.lv + ')' : ''}</label>
-              <select id="ce-subsel" className="input" value={cls?.sub && norm(c.subclass) === norm(cls.sub.n) ? 'srd' : c.subclass ? 'other' : ''} onChange={(e) => set({ subclass: e.target.value === 'srd' ? cls?.sub?.n || '' : e.target.value === 'other' ? (c.subclass && cls?.sub && norm(c.subclass) !== norm(cls.sub.n) ? c.subclass : 'Otra subclase') : '' })}>
+              <select id="ce-subsel" className="input" value={subValue} onChange={(e) => { const v = e.target.value; set({ subclass: v === 'srd' ? cls?.sub?.n || '' : v === 'other' ? (subValue === 'other' ? c.subclass : 'Otra subclase') : v.startsWith('lib:') ? v.slice(4) : '' }); }}>
                 <option value="">Sin subclase</option>
                 {cls?.sub && <option value="srd">{cls.sub.n}</option>}
+                {libSubs.map((s) => <option key={s.id} value={'lib:' + s.n}>{s.n}</option>)}
                 <option value="other">Otra (escríbela)</option>
               </select></div>
-            {c.subclass && !(cls?.sub && norm(c.subclass) === norm(cls.sub.n)) && <div className="field"><label htmlFor="ce-sub">Nombre de la subclase</label><input id="ce-sub" className="input" value={c.subclass} onChange={(e) => set({ subclass: e.target.value })} /></div>}
+            {subValue === 'other' && <div className="field"><label htmlFor="ce-sub">Nombre de la subclase</label><input id="ce-sub" className="input" value={c.subclass} onChange={(e) => set({ subclass: e.target.value })} /></div>}
           </div>
-          {cls?.sub && <span className="muted small">El SRD solo incluye una subclase por clase ({cls.sub.n}). Si eliges otra, sus rasgos los añades abajo como rasgos propios.</span>}
+          {cls?.sub && !libSubs.length && <span className="muted small">El SRD solo incluye una subclase por clase ({cls.sub.n}). Las demás de tu libro puedes añadirlas en «Biblioteca»; si eliges otra, sus rasgos los añades abajo como rasgos propios.</span>}
           <div className="row2">
             <div className="field"><label htmlFor="ce-bg">Trasfondo</label>
               <select id="ce-bg" className="input" value={c.backgroundId} onChange={(e) => chooseBackground(e.target.value)}>
