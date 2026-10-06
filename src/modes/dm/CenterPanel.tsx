@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { reminders } from '../engine/combat';
-import { forgeToMonster } from '../engine/forge';
-import { fmt } from '../engine/dice';
-import { useStore } from '../store/useStore';
+import { reminders } from '../../engine/combat';
+import { forgeToMonster } from '../../engine/forge';
+import { fmt } from '../../engine/dice';
+import { useStore } from '../../store/useStore';
 import CombatantCard from './CombatantCard';
 import EncounterGenerator from './EncounterGenerator';
 import StatBlock, { SpellCard } from './StatBlock';
-import { RuleQuick, RuleView } from './RulesPanel';
+import { RuleQuick, RuleView } from '../../shared/RulesPanel';
 import PartySheets from './PartySheets';
 
 function Onboarding() {

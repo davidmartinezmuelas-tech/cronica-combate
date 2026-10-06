@@ -6,7 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
  * la tenía abierta y podía ejecutarse más tarde, tras una recarga, llevándose lo guardado.
  */
 async function open(page: Page) {
-  await page.goto('/');
+  await page.goto('/#/dm');
   await expect(page.getByText('Prepara el encuentro')).toBeVisible();
 }
 
@@ -355,4 +355,25 @@ test('generador de encuentro: propone monstruos de la dificultad elegida y los a
   await expect(page.locator('.init-row').first()).toBeVisible();
   await page.getByRole('button', { name: 'Añadir todo el grupo' }).click();
   await expect(page.locator('.diff-mini-label')).toHaveText('Alta');
+});
+
+test('al entrar se elige modo; se recuerda y se puede cambiar desde el título', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /Soy el máster/ })).toBeVisible();
+  await page.getByRole('button', { name: /Soy jugador/ }).click();
+  await expect(page).toHaveURL(/#\/jugador$/);
+  await expect(page.getByRole('heading', { name: 'Mi personaje' })).toBeVisible();
+  await page.getByRole('button', { name: 'Tirar d20' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('d20', { timeout: 15000 });
+  await page.getByRole('button', { name: 'Reglas', exact: true }).click();
+  await page.locator('.rule-tile', { hasText: 'Derribado' }).click();
+  await expect(page.locator('.rule-view .sb-name')).toHaveText('Derribado');
+
+  // se recuerda al volver a entrar sin dirección
+  await page.goto('/');
+  await expect(page).toHaveURL(/#\/jugador$/);
+  // el título lleva a elegir otra vez
+  await page.getByTitle('Cambiar de modo (máster o jugador)').click();
+  await page.getByRole('button', { name: /Soy el máster/ }).click();
+  await expect(page.getByText('Prepara el encuentro')).toBeVisible();
 });

@@ -1,14 +1,14 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
-import type { RosterEntry } from '../data/types';
-import { fmt } from '../engine/dice';
-import { extrasLine, readSheet, type SheetData } from '../engine/sheetImport';
-import { blankRoster } from '../store/persist';
-import { readPdfFields } from '../store/pdfFields';
-import { getPdf } from '../store/pdfs';
-import { useStore } from '../store/useStore';
+import type { RosterEntry } from '../../data/types';
+import { fmt } from '../../engine/dice';
+import { extrasLine, readSheet, type SheetData } from '../../engine/sheetImport';
+import { blankRoster } from '../../store/persist';
+import { readPdfFields } from '../../store/pdfFields';
+import { getPdf } from '../../store/pdfs';
+import { useStore } from '../../store/useStore';
 
 // PDF.js solo se descarga al abrir una hoja
-const PdfViewer = lazy(() => import('./PdfViewer'));
+const PdfViewer = lazy(() => import('../../shared/PdfViewer'));
 
 /** Hojas en blanco cuyos campos sabe leer la app (se enlazan, no se alojan: su licencia no permite redistribuirlas). */
 const SHEETS = [

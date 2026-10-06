@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
-import { ABIL, ABIL_LONG, CONDITION_IMMUNITIES, CR_LIST, DMG_TYPES, SIZES, XP_BY_CR } from '../data/constants';
-import type { SectionKey } from '../data/types';
-import { fmt, modOf, parseExpr } from '../engine/dice';
-import { forgeToMonster, newFeat, type ForgeFeat, type ForgeState } from '../engine/forge';
-import { nfmt, pbOf } from '../engine/util';
-import { useStore } from '../store/useStore';
-import { ChevronUp } from './Icons';
-import Picker from './Picker';
+import { ABIL, ABIL_LONG, CONDITION_IMMUNITIES, CR_LIST, DMG_TYPES, SIZES, XP_BY_CR } from '../../data/constants';
+import type { SectionKey } from '../../data/types';
+import { fmt, modOf, parseExpr } from '../../engine/dice';
+import { forgeToMonster, newFeat, type ForgeFeat, type ForgeState } from '../../engine/forge';
+import { nfmt, pbOf } from '../../engine/util';
+import { useStore } from '../../store/useStore';
+import { ChevronUp } from '../../shared/Icons';
+import Picker from '../../shared/Picker';
 
 const NEXT = { none: 'resist', resist: 'immune', immune: 'vuln', vuln: 'none' } as const;
 const TAG = { none: '', resist: 'R', immune: 'I', vuln: 'V' };

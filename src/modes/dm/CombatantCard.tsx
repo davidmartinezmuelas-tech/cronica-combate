@@ -1,8 +1,8 @@
-import { CONDITIONS, DMG_TYPES } from '../data/constants';
-import type { Combatant } from '../data/types';
-import { applyDamage, durationText } from '../engine/combat';
-import { useStore } from '../store/useStore';
-import Picker from './Picker';
+import { CONDITIONS, DMG_TYPES } from '../../data/constants';
+import type { Combatant } from '../../data/types';
+import { applyDamage, durationText } from '../../engine/combat';
+import { useStore } from '../../store/useStore';
+import Picker from '../../shared/Picker';
 import { Pips } from './StatBlock';
 
 /** Baja hasta las acciones de la hoja (en la tablet quedan debajo de la tarjeta). */

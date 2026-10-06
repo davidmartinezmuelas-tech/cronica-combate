@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import { saveNow, useStore } from '../store/useStore';
 import { loadSaved } from '../store/persist';
@@ -14,6 +14,8 @@ beforeAll(() => {
 });
 vi.mock('virtual:pwa-register', () => ({ registerSW: () => () => {} }));
 afterEach(cleanup);
+// estas pruebas son del modo máster
+beforeEach(() => { window.location.hash = '#/dm'; });
 
 const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 20)); });
 

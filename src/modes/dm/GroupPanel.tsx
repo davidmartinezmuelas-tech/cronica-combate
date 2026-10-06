@@ -1,10 +1,10 @@
 import { useRef } from 'react';
-import { DMG_TYPES } from '../data/constants';
-import type { RosterEntry } from '../data/types';
-import { fmt } from '../engine/dice';
-import { blankRoster } from '../store/persist';
-import { useStore } from '../store/useStore';
-import Picker from './Picker';
+import { DMG_TYPES } from '../../data/constants';
+import type { RosterEntry } from '../../data/types';
+import { fmt } from '../../engine/dice';
+import { blankRoster } from '../../store/persist';
+import { useStore } from '../../store/useStore';
+import Picker from '../../shared/Picker';
 
 export default function GroupPanel() {
   const roster = useStore((s) => s.roster);

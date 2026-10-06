@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import type { Combatant } from '../data/types';
-import { encounterDifficulty, sortCombatants } from '../engine/combat';
-import { nfmt } from '../engine/util';
-import { useStore } from '../store/useStore';
+import type { Combatant } from '../../data/types';
+import { encounterDifficulty, sortCombatants } from '../../engine/combat';
+import { nfmt } from '../../engine/util';
+import { useStore } from '../../store/useStore';
 
 /** Dificultad del encuentro (reglas 2024), en pequeño bajo la iniciativa. */
 function Difficulty() {

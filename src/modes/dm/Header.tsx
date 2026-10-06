@@ -1,5 +1,6 @@
-import { useStore, type Tab } from '../store/useStore';
-import { ChevronLeft, ChevronRight, Logo, UndoIcon } from './Icons';
+import { useStore, type Tab } from '../../store/useStore';
+import Brand from '../../shared/Brand';
+import { ChevronLeft, ChevronRight, UndoIcon } from '../../shared/Icons';
 
 const TABS: [Tab, string][] = [['combat', 'Combate'], ['bestiary', 'Bestiario'], ['group', 'Grupo'], ['forge', 'Forja'], ['rules', 'Reglas']];
 
@@ -15,13 +16,7 @@ export default function Header() {
   const { set, step, startCombat, undo } = useStore.getState();
   return (
     <header className="app-header">
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <Logo />
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <h1 className="display" style={{ fontSize: 28, lineHeight: 1, color: '#f3e6c8', margin: 0 }}>Crónica de Combate</h1>
-          <div style={{ fontSize: 12, color: '#b9a88a', letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 700 }}>Mesa del máster · 5.ª edición (2024)</div>
-        </div>
-      </div>
+      <Brand subtitle="Mesa del máster · 5.ª edición (2024)" />
       <nav aria-label="Secciones" className="app-nav">
         {TABS.map(([k, label]) => (
           <button key={k} className={tab === k ? 'tab on' : 'tab'} aria-current={tab === k ? 'page' : undefined} onClick={() => set({ tab: k })}>{label}</button>

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { DIFF_NAMES, partyBudget, proposeEncounter, targetRange, type DiffLevel, type Proposal } from '../engine/encounter';
-import { nfmt } from '../engine/util';
-import { useStore } from '../store/useStore';
+import { DIFF_NAMES, partyBudget, proposeEncounter, targetRange, type DiffLevel, type Proposal } from '../../engine/encounter';
+import { nfmt } from '../../engine/util';
+import { useStore } from '../../store/useStore';
 
 /** Propone monstruos del bestiario para la dificultad elegida, según el nivel de los jugadores. */
 export default function EncounterGenerator() {

@@ -470,3 +470,21 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .gen-link:hover{color:#f3e6c8;text-decoration:underline}
 .gen-result{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-radius:8px;background:#1a140f;border:1px solid #4a3a2a;border-left:3px solid #d4a94f}
 .gen-result ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+/* ---------- Marca y elección de modo ---------- */
+.brand{display:flex;align-items:center;gap:12px;color:inherit;text-decoration:none;border-radius:8px}
+.brand:hover .brand-title{color:#fff}
+.brand-title{font-size:28px;line-height:1;color:#f3e6c8}
+.brand-sub{font-size:12px;color:#b9a88a;letter-spacing:.14em;text-transform:uppercase;font-weight:700}
+.mode-select{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;background:radial-gradient(ellipse at 50% 30%,#2a1f16 0%,#15100c 70%)}
+.mode-main{width:100%;max-width:820px;margin:0 auto;padding:32px 16px;display:flex;flex-direction:column;gap:22px}
+.mode-brand{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center}
+.mode-brand svg{width:64px;height:64px}
+.mode-brand h1{margin:0;font-size:clamp(32px,6vw,48px);color:#f3e6c8}
+.mode-brand p{margin:0}
+.mode-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px}
+.mode-card{display:flex;flex-direction:column;gap:8px;text-align:left;padding:22px;border-radius:12px;border:1px solid #4a3a2a;border-top:4px solid #d4a94f;background:#211913;color:#efe3cb;cursor:pointer;min-height:150px;box-shadow:0 14px 30px rgba(0,0,0,.35)}
+.mode-card:hover{border-color:#d4a94f;background:#2a2018}
+.mode-card-title{font-family:'IM Fell English SC',Georgia,serif;font-size:28px;color:#f3e6c8}
+.mode-select .app-footer{margin:0 auto;padding:12px 16px 22px}
+.offline{position:fixed;left:0;right:0;bottom:0;z-index:60}
+@media (min-width:1024px){.mode-select{height:100dvh;min-height:0;overflow-y:auto;justify-content:safe center}}

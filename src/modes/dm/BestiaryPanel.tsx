@@ -1,10 +1,10 @@
 import { useEffect, useMemo } from 'react';
-import type { Monster } from '../data/types';
-import { fmt } from '../engine/dice';
-import { rankBy } from '../engine/search';
-import { crNum, nfmt } from '../engine/util';
+import type { Monster } from '../../data/types';
+import { fmt } from '../../engine/dice';
+import { rankBy } from '../../engine/search';
+import { crNum, nfmt } from '../../engine/util';
 import { useShallow } from 'zustand/react/shallow';
-import { useStore } from '../store/useStore';
+import { useStore } from '../../store/useStore';
 
 const CR_RANGES: Record<string, [number, number]> = { a: [0, 1], b: [2, 4], c: [5, 10], d: [11, 16], e: [17, 99] };
 

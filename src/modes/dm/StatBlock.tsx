@@ -1,9 +1,9 @@
-import { ABIL, ABIL_LONG, DMG_TYPES, SECTIONS } from '../data/constants';
-import type { Combatant, Feature, Monster, SectionKey } from '../data/types';
-import { fmt, modOf, parseExpr, prettyExpr, sgn } from '../engine/dice';
-import { nfmt, pbOf } from '../engine/util';
-import { useStore } from '../store/useStore';
-import { D20Icon } from './Icons';
+import { ABIL, ABIL_LONG, DMG_TYPES, SECTIONS } from '../../data/constants';
+import type { Combatant, Feature, Monster, SectionKey } from '../../data/types';
+import { fmt, modOf, parseExpr, prettyExpr, sgn } from '../../engine/dice';
+import { nfmt, pbOf } from '../../engine/util';
+import { useStore } from '../../store/useStore';
+import { D20Icon } from '../../shared/Icons';
 
 const dmgLabel = (parts: [string, string][]) => parts.map(([d, t]) => prettyExpr(d) + (t ? ' ' + t : '')).join(' + ');
 
