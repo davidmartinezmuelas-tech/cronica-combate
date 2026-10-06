@@ -276,7 +276,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="small">Gasta dados de golpe para curarte (d{d.hdDie} {fmt(d.mods.con)} cada uno). Te quedan {c.level - c.hdSpent}.</span>
             <div className="rollrow">
               <button className="rollbtn" disabled={c.hdSpent >= c.level || c.hp >= d.hpMax} onClick={spendHd}>Gastar un dado de golpe</button>
-              <button className="btn small primary" onClick={() => { replace(shortRest(c, [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...choiceResources(c, data, lib).filter((r) => r.per === 'sr').map((r) => r.key)])); setResting(false); }}>Terminar descanso corto</button>
+              <button className="btn small primary" onClick={() => {
+                const res = choiceResources(c, data, lib);
+                const rested = shortRest(c, [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.per === 'sr').map((r) => r.key)]);
+                // los que recuperan uno en descanso corto (dados de energía psiónica)
+                res.filter((r) => r.per === 'sr1' && rested.uses[r.key]).forEach((r) => { rested.uses[r.key] -= 1; });
+                replace(rested); setResting(false);
+              }}>Terminar descanso corto</button>
             </div>
           </div>
         )}

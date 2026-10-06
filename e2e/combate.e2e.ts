@@ -545,3 +545,52 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   await prey.selectOption({ index: 1 });
   await expect(sheet.locator('.pc-features summary').filter({ hasText: 'Presa del cazador' }).first()).toBeVisible();
 });
+
+test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero psiónico (biblioteca)', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Mirel');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('14');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Patrón infernal' });
+  await page.locator('#ce-ab-cha').fill('16');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const fiend = page.locator('section[aria-label="Patrón infernal"]');
+  await fiend.getByRole('button', { name: 'Ganar 17 PG temporales' }).click();
+  await expect(page.locator('.stat-tmp')).toContainText('+17');
+  await expect(fiend.locator('summary', { hasText: 'Arrojar a través del Infierno' })).toContainText(/CD \d+ Carisma/);
+  const luck = fiend.locator('summary', { hasText: 'Suerte propia del Oscuro' });
+  for (let i = 0; i < 3; i++) await luck.getByRole('button', { name: 'Tirar 1d10' }).click();
+  await expect(luck.getByRole('button', { name: 'Tirar 1d10' })).toBeDisabled();
+
+  // explorador cazador: Matacolosos suma 1d8 al daño de cada arma
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Cazador' });
+  await page.getByLabel(/Presa del cazador/).selectOption({ label: 'Matacolosos' });
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.locator('section[aria-label="Cazador"]').getByRole('button', { name: 'Daño con Espada larga a dos manos + 1d8' })).toBeVisible();
+
+  // guerrero psiónico con su texto en la biblioteca: los dados se gastan y el descanso corto recupera uno
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [{ id: 'lib-subclase-fighter-guerrero-psionico', n: 'Guerrero psiónico', cls: 'fighter', d: '', f: [{ lv: 3, n: 'Poder psiónico', d: 'Tienes dados.\n\nCampo protector. Reduces daño.\n\nGolpe psiónico. Daño de fuerza extra.' }] }] };
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Guerrero psiónico' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const psi = page.locator('section[aria-label="Poder psiónico"]');
+  await expect(psi).toContainText('Dados de energía psiónica: 6 de 6 (d8)');
+  await psi.locator('summary', { hasText: 'Golpe psiónico' }).getByRole('button', { name: /^Daño d8/ }).click();
+  await psi.locator('summary', { hasText: 'Campo protector' }).getByRole('button', { name: /^Tirar d8/ }).click();
+  await expect(psi).toContainText('4 de 6');
+  await page.getByRole('button', { name: 'Descanso corto' }).click();
+  await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
+  await expect(psi).toContainText('5 de 6');
+});

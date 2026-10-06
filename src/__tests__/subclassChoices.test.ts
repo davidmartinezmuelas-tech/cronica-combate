@@ -81,3 +81,17 @@ describe('opciones que se tiran en la mesa', () => {
     expect([2, 3, 7, 10, 15, 18].map((l) => atLevel({ 3: 8, 10: 10, 18: 12 }, l))).toEqual([0, 8, 8, 10, 10, 12]);
   });
 });
+
+describe('rasgos de subclase que se usan en la mesa', () => {
+  it('se activan por subclase y nivel; lo que depende de una opción, solo con ella elegida', async () => {
+    const { activeKit, resourceMax, KITS } = await import('../engine/subclassActions');
+    const psi = activeKit({ classId: 'fighter', subclass: 'Guerrero psiónico', level: 7 })!;
+    expect(psi.actions.map((a) => a.n[0])).toContain('Empujón telequinético');
+    expect(psi.actions.map((a) => a.n[0])).not.toContain('Mente robusta');
+    expect([3, 5, 9, 13, 17].map((l) => resourceMax(psi.kit.res!, l))).toEqual([4, 6, 8, 10, 12]);
+    expect(resourceMax(KITS.find((k) => k.id === 'celestial')!.res!, 5)).toBe(6);
+    expect(activeKit({ classId: 'ranger', subclass: 'Cazador', level: 3 })).toBeNull();
+    expect(activeKit({ classId: 'ranger', subclass: 'Hunter', level: 3, choices: { 'hunter.prey': ['Matacolosos'] } })!.actions).toHaveLength(1);
+    expect(activeKit({ classId: 'warlock', subclass: 'Patrón infernal', level: 5 })!.actions.map((a) => a.n[0])).toEqual(['Bendición del oscuro']);
+  });
+});

@@ -1,17 +1,19 @@
 import type { Abil, PlayerData } from '../../data/player';
 import type { Character, Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
-import { atLevel, optionAction, type DiceResource } from '../../engine/subclassActions';
+import { activeKit, atLevel, optionAction, resourceMax, type DiceResource } from '../../engine/subclassActions';
 import Pips from '../../shared/Pips';
 import type { LibraryData } from '../../store/library';
 import { useStore } from '../../store/useStore';
+import KitPanel from './KitPanel';
 import { resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 
-/** Recursos de dados de las elecciones del personaje (para recuperarlos al descansar). */
+/** Recursos de dados de las elecciones y rasgos de su subclase (para recuperarlos al descansar). */
 export function choiceResources(c: Character, data: PlayerData | null, lib: LibraryData): DiceResource[] {
-  return resolveChoices(c, data, lib).flatMap((r) => (r.def.res ? [r.def.res] : []));
+  const kit = activeKit(c)?.kit.res;
+  return [...resolveChoices(c, data, lib).flatMap((r) => (r.def.res ? [r.def.res] : [])), ...(kit ? [kit] : [])];
 }
 
 /**
@@ -22,13 +24,15 @@ export default function SubclassActions({ c, d, data, lib, set }: { c: Character
   const { roll } = useStore.getState();
   const who = c.name || 'Personaje';
   const groups = resolveChoices(c, data, lib).filter((r) => r.def.res && r.picked.length);
-  if (!groups.length) return null;
+  const kit = activeKit(c);
+  if (!groups.length && !kit) return null;
 
   return (
     <>
+      {kit && <KitPanel c={c} d={d} lib={lib} set={set} kit={kit.kit} actions={kit.actions} />}
       {groups.map(({ def, options, picked }) => {
         const res = def.res!;
-        const max = atLevel(res.count, c.level);
+        const max = resourceMax(res, c.level);
         const die = 'd' + atLevel(res.die, c.level);
         const used = Math.min(max, c.uses[res.key] || 0);
         const left = max - used;
