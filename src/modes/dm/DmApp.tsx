@@ -8,6 +8,7 @@ import ForgePanel from './ForgePanel';
 import RulesPanel from '../../shared/RulesPanel';
 import CenterPanel from './CenterPanel';
 import DiceTable from '../../shared/DiceTable';
+import RoomPanel from '../../shared/RoomPanel';
 import Attribution from '../../shared/Attribution';
 
 /** Modo máster: todo lo de la mesa del DM (combate, bestiario, grupo, forja y reglas). */
@@ -35,6 +36,7 @@ export default function DmApp() {
         {/* en Reglas no hace falta la mesa de dados: el texto aprovecha el espacio */}
         {tab !== 'rules' && (
           <section className="col-right" aria-label="Mesa de dados">
+            <RoomPanel mode="dm" />
             <DiceTable />
           </section>
         )}

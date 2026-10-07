@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankCharacter, type Character } from '../engine/character';
 import { diffCharacters, mergeCharacters } from '../engine/sync';
 import { setCloudAdapter, useAccount } from '../store/account';
-import type { CloudAdapter, CloudUser } from '../store/cloudAdapter';
 import { usePlayer } from '../store/player';
+import { fakeCloud } from './fakeCloud';
 
 const pj = (id: string, name: string, updatedAt: number): Character => ({ ...blankCharacter(), id, name, updatedAt });
 
@@ -20,21 +20,6 @@ describe('juntar personajes del dispositivo y de la nube', () => {
     expect(diffCharacters([a, b], [b]).removed).toEqual(['a']);
   });
 });
-
-/** Nube falsa en memoria con la misma forma que Firebase. */
-function fakeCloud(user: CloudUser | null) {
-  const remote = new Map<string, Character>();
-  let watcher: ((changed: Character[], removed: string[], first: boolean) => void) | null = null;
-  const calls = { put: [] as string[], del: [] as string[] };
-  const adapter: CloudAdapter = {
-    onAuth: (cb) => { setTimeout(() => cb(user), 0); return () => {}; },
-    google: async () => {}, emailIn: async () => {}, emailUp: async () => {}, reset: async () => {}, out: async () => {},
-    watchCharacters: (_uid, cb) => { watcher = cb; setTimeout(() => cb([...remote.values()], [], true), 0); return () => { watcher = null; }; },
-    putCharacter: async (_uid, c) => { calls.put.push(c.id); remote.set(c.id, c); },
-    deleteCharacter: async (_uid, id) => { calls.del.push(id); remote.delete(id); },
-  };
-  return { adapter, remote, calls, emit: (changed: Character[], removed: string[]) => watcher?.(changed, removed, false) };
-}
 
 describe('sincronizar con la cuenta', () => {
   beforeEach(async () => {

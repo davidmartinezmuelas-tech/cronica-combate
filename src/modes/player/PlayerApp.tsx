@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Attribution from '../../shared/Attribution';
 import Brand from '../../shared/Brand';
 import DiceTable from '../../shared/DiceTable';
+import RoomPanel from '../../shared/RoomPanel';
 import CharacterArea from './CharacterArea';
 import LibraryPanel from './LibraryPanel';
 import RulesPanel, { RuleQuick, RuleView } from '../../shared/RulesPanel';
@@ -36,6 +37,7 @@ export default function PlayerApp() {
               <Attribution />
             </section>
             <section className="col-right" aria-label="Mesa de dados">
+              <RoomPanel mode="player" />
               <DiceTable targets={false} />
             </section>
           </>

@@ -1,6 +1,15 @@
 import type { Character } from '../engine/character';
 import { toCloud } from '../engine/sync';
 
+/** Resumen de la hoja que un jugador comparte en la sala (lo que el máster necesita ver). */
+export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; conds: string[] }
+/** Participante de una sala. */
+export interface RoomMember { uid: string; name: string; role: 'dm' | 'player'; sheet: SheetSummary | null; at: number }
+/** Tirada publicada en la sala. */
+export interface SharedRoll { id: string; uid: string; who: string; label: string; total: string; detail: string; cls: '' | 'crit' | 'fumble'; at: number }
+/** Sala: el id es su código. */
+export interface RoomInfo { code: string; name: string; dmUid: string; dmName: string; createdAt: number }
+
 /** Usuario de la cuenta (anónimo: invitado en una sala, sin personajes en la nube). */
 export interface CloudUser { uid: string; email: string | null; name: string | null; anon: boolean }
 
@@ -19,6 +28,15 @@ export interface CloudAdapter {
   watchCharacters: (uid: string, cb: (changed: Character[], removed: string[], first: boolean) => void, onError: (e: Error) => void) => () => void;
   putCharacter: (uid: string, c: Character) => Promise<void>;
   deleteCharacter: (uid: string, id: string) => Promise<void>;
+  anon: () => Promise<void>;
+  getRoom: (code: string) => Promise<RoomInfo | null>;
+  createRoom: (room: RoomInfo) => Promise<void>;
+  closeRoom: (code: string) => Promise<void>; // borra tiradas, participantes y la sala
+  setMember: (code: string, m: RoomMember) => Promise<void>;
+  removeMember: (code: string, uid: string) => Promise<void>;
+  watchMembers: (code: string, cb: (members: RoomMember[]) => void, onError: (e: Error) => void) => () => void;
+  addRoll: (code: string, r: Omit<SharedRoll, 'id'>) => Promise<void>;
+  watchRolls: (code: string, cb: (rolls: SharedRoll[]) => void, onError: (e: Error) => void) => () => void;
 }
 
 /** Adaptador con el SDK de Firebase (cargado bajo demanda: quien no inicia sesión no lo descarga). */
@@ -53,6 +71,33 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
     },
     putCharacter: (uid, c) => F.setDoc(F.doc(col(uid), c.id), toCloud(c)),
     deleteCharacter: (uid, id) => F.deleteDoc(F.doc(col(uid), id)),
+    anon: async () => { await A.signInAnonymously(auth); },
+    getRoom: async (code) => {
+      const d = await F.getDoc(F.doc(db, 'rooms', code));
+      return d.exists() ? (d.data() as RoomInfo) : null;
+    },
+    createRoom: (room) => F.setDoc(F.doc(db, 'rooms', room.code), room),
+    closeRoom: async (code) => {
+      // sin borrado en cascada: primero lo de dentro (en lotes de 400) y luego la sala
+      for (const sub of ['rolls', 'members']) {
+        const snap = await F.getDocs(F.collection(db, 'rooms', code, sub));
+        for (let i = 0; i < snap.docs.length; i += 400) {
+          const batch = F.writeBatch(db);
+          snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+      await F.deleteDoc(F.doc(db, 'rooms', code));
+    },
+    setMember: (code, m) => F.setDoc(F.doc(db, 'rooms', code, 'members', m.uid), JSON.parse(JSON.stringify(m))),
+    removeMember: (code, uid) => F.deleteDoc(F.doc(db, 'rooms', code, 'members', uid)),
+    watchMembers: (code, cb, onError) => F.onSnapshot(F.collection(db, 'rooms', code, 'members'), (snap) => cb(snap.docs.map((d) => d.data() as RoomMember)), onError),
+    addRoll: async (code, r) => { await F.addDoc(F.collection(db, 'rooms', code, 'rolls'), r); },
+    watchRolls: (code, cb, onError) => F.onSnapshot(
+      F.query(F.collection(db, 'rooms', code, 'rolls'), F.orderBy('at', 'desc'), F.limit(40)),
+      (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<SharedRoll, 'id'>), id: d.id }))),
+      onError,
+    ),
   };
 }
 
@@ -75,6 +120,7 @@ export function cloudError(e: unknown): string {
     'auth/unauthorized-domain': 'Este dominio no está autorizado en Firebase (Authentication > Dominios autorizados).',
     'auth/operation-not-allowed': 'Ese método de inicio de sesión no está activado en Firebase.',
     'permission-denied': 'Sin permiso en la base de datos: revisa que las reglas de Firestore estén publicadas.',
+    'auth/admin-restricted-operation': 'Entrar como invitado no está activado en Firebase (Authentication > Anónimo).',
     unavailable: 'Sin conexión con la base de datos. Se sincronizará al volver la conexión.',
   };
   return M[code] || 'No se pudo completar (' + (code || (e as Error)?.message || 'error') + ').';

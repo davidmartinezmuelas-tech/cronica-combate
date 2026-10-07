@@ -519,6 +519,19 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}
 .ce-choices{display:flex;flex-direction:column;gap:8px}
 .pc-attack-feat{display:block;color:#d4a94f;font-weight:700}
+.room{gap:8px}
+.room-form{display:flex;flex-direction:column;gap:8px}
+.room-code{font-family:'Alegreya Sans',sans-serif;font-size:18px;letter-spacing:.18em;color:#f3e6c8;margin-left:6px}
+.room-code-in{text-transform:uppercase;letter-spacing:.2em;font-weight:800}
+.room-members,.room-rolls{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.room-members li{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;padding:6px 8px;border:1px solid #33271c;border-left:3px solid #8a6a3a;border-radius:6px;background:#1a140f}
+.room-rolls{max-height:260px;overflow:auto}
+.room-rolls li{display:grid;grid-template-columns:1fr auto;gap:0 8px;padding:5px 8px;border-radius:6px;background:#1a140f;border:1px solid #33271c}
+.room-rolls li.crit{border-color:#d4a94f}
+.room-rolls li.fumble{border-color:#9b2c22}
+.room-roll-label{font-weight:700;color:#efe3cb;font-size:13px}
+.room-roll-total{font-family:'Alegreya Sans',sans-serif;font-size:18px;color:#f3e6c8;grid-row:span 2;align-self:center}
+.room-roll-detail{font-size:12px}
 .pc-login{display:flex;flex-direction:column;gap:8px;align-items:flex-start;border-top:1px solid #33271c;padding-top:8px}
 .pc-login .row2{width:100%}
 .pc-account .warn{font-size:13px}

@@ -23,6 +23,20 @@ export interface AccountState {
   emailUp: (email: string, pass: string) => Promise<void>;
   reset: (email: string) => Promise<string>;
   out: () => Promise<void>;
+  /** Usuario para entrar en una sala: el de la cuenta o, si no hay sesión, uno de invitado (anónimo). */
+  ensureUser: () => Promise<CloudUser | null>;
+}
+
+/** El adaptador ya cargado (para la sala). */
+export const cloud = () => adapter;
+
+/** Espera a que el estado cumpla algo (como mucho `ms`). */
+function until(check: () => boolean, ms = 15000): Promise<boolean> {
+  if (check()) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const t = setTimeout(() => { un(); resolve(false); }, ms);
+    const un = useAccount.subscribe(() => { if (check()) { clearTimeout(t); un(); resolve(true); } });
+  });
 }
 
 let adapter: CloudAdapter | null = null;
@@ -114,6 +128,16 @@ export const useAccount = create<AccountState>()((set, get) => {
       await get().start();
       try { await adapter!.reset(email.trim()); return 'Te hemos enviado un correo para cambiar la contraseña.'; } catch (e) { fail(e); return ''; }
     },
+    async ensureUser() {
+      await get().start();
+      if (!adapter) return null;
+      await until(() => get().status !== 'loading');
+      if (get().user) return get().user;
+      try { await adapter.anon(); } catch (e) { fail(e); return null; }
+      await until(() => !!get().user);
+      return get().user;
+    },
+
     async out() {
       stopSync?.();
       try { await adapter?.out(); } catch (e) { fail(e); }
