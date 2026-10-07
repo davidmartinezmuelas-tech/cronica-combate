@@ -17,7 +17,8 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const manual: AdvMode = spec.noAdv ? 'normal' : s.adv;
       const adv = combineAdv(manual, mods.adv, mods.dis);
       const crit = spec.kind === 'damage' && !!spec.who && s.critFor?.who === spec.who;
-      const out = rollParts(spec.parts, { kind: spec.kind, adv, doubleDice: crit, flat: mods.flat || undefined });
+      const parts = crit && spec.critBonus?.length ? [...spec.parts, ...spec.critBonus] : spec.parts;
+      const out = rollParts(parts, { kind: spec.kind, adv, doubleDice: crit, flat: mods.flat || undefined });
       if (!out) { set({ exprError: true }); return; }
       let cls: RollResult['cls'] = '';
       let note = '';

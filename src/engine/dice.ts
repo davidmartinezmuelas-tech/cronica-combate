@@ -76,6 +76,8 @@ export interface RollPart {
   min?: number; // en daño, cada dado vale como mínimo esto (Combate con armas a dos manos: 1 y 2 cuentan como 3)
   reroll1?: boolean; // en daño, un 1 se repite una vez (Matón de taberna)
   best2?: boolean; // en daño, los dados se tiran dos veces y cuenta la mejor (Atacante salvaje)
+  rerollLow?: boolean; // en daño, se repite el dado más bajo si no llega a la mitad (Perforador)
+  noDouble?: boolean; // en un crítico no se duplican sus dados (daño extra que ya es «del crítico»)
 }
 
 export interface PhysicalDie {
@@ -108,12 +110,14 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
   const detail: string[] = [];
   const byType = new Map<string, number>();
   for (const part of parts) {
-    const p = parseExpr(part.expr);
+    // una parte puede ser solo un número (daño fijo, p. ej. el de Don del ataque imparable)
+    const flatOnly = /^\s*[+-]?\d+\s*$/.test(part.expr) ? { groups: [], mod: parseInt(part.expr, 10) } : null;
+    const p = parseExpr(part.expr) || flatOnly;
     if (!p) return null;
     let sub = p.mod;
     const segs: string[] = [];
     for (const g of p.groups) {
-      const n = opts.doubleDice ? g.n * 2 : g.n;
+      const n = opts.doubleDice && !part.noDouble ? g.n * 2 : g.n;
       if (g.sides === 20 && n === 1 && opts.kind !== 'damage' && opts.kind !== 'death' && adv !== 'normal') {
         const a = rollDie(20, rng);
         const b = rollDie(20, rng);
@@ -141,12 +145,18 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
           const s = (a: number[]) => a.reduce((x, y) => x + y, 0);
           if (s(b) > s(vals)) [vals, other] = [b, vals]; else other = b;
         }
+        // Perforador: se repite el dado más bajo si salió por debajo de la mitad (y hay que quedarse el nuevo)
+        let rerolled = '';
+        if (dmg && part.rerollLow && vals.length) {
+          const i = vals.indexOf(Math.min(...vals));
+          if (vals[i] <= g.sides / 2) { const old = vals[i]; vals = vals.slice(); vals[i] = one(); rerolled = ' (repetido un ' + old + ')'; }
+        }
         const die = (v: number, dim?: boolean): PhysicalDie => ({ sides: g.sides, final: v, ...(part.type && dmg ? { type: part.type } : {}), ...(dim ? { dim: true } : {}) });
         vals.forEach((v) => dice.push(die(v)));
         other?.forEach((v) => dice.push(die(v, true)));
         sub += g.sign * vals.reduce((x, y) => x + y, 0);
         if (g.sides === 20 && n === 1) nat = vals[0];
-        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']' + (other ? ' (la otra: [' + other.join(', ') + '])' : ''));
+        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']' + rerolled + (other ? ' (la otra: [' + other.join(', ') + '])' : ''));
       }
     }
     if (p.mod) segs.push(fmt(p.mod));

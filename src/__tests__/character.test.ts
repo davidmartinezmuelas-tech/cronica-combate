@@ -134,3 +134,26 @@ describe('dotes con botones propios', () => {
     expect(rollParts([{ expr: '2d6+1', best2: true }], { kind: 'damage', rng: seq([0, 0, 0.99, 0.99]) })!.total).toBe(13);
   });
 });
+
+describe('Perforador, críticos y Duelo a una mano', () => {
+  it('repite el dado más bajo si no llega a la mitad; el daño extra del crítico no se duplica', async () => {
+    const { rollParts } = await import('../engine/dice');
+    const seq = (xs: number[]) => { let i = 0; return () => xs[i++ % xs.length]; };
+    // 1d8: 0 -> 1, luego 0.99 -> 8
+    expect(rollParts([{ expr: '1d8+2', rerollLow: true }], { kind: 'damage', rng: seq([0, 0.99]) })!.total).toBe(10);
+    // un 8 no se repite
+    expect(rollParts([{ expr: '1d8', rerollLow: true }], { kind: 'damage', rng: seq([0.99, 0]) })!.total).toBe(8);
+    // crítico: 1d8 se duplica (2 dados), el 1d8 extra no (1 dado) -> 3 dados en total
+    expect(rollParts([{ expr: '1d8', type: 'perforante' }, { expr: '1d8', type: 'perforante', noDouble: true }], { kind: 'damage', doubleDice: true, rng: () => 0 })!.dice).toHaveLength(3);
+    // una parte solo numérica (Don del ataque imparable) se suma tal cual
+    expect(rollParts([{ expr: '1d8' }, { expr: '15', noDouble: true }], { kind: 'damage', doubleDice: true, rng: () => 0.999 })!.total).toBe(31);
+  });
+
+  it('Duelo se puede quitar en un arma (no la usa a una mano sola)', () => {
+    const fighter = data.classes.find((c) => c.id === 'fighter')!;
+    const sword = weaponFromData(data.weapons.find((w) => w.en === 'Longsword')!, fighter);
+    const base = { classId: 'fighter', level: 3, abil: { str: 16, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, feats: ['Duelo'] };
+    expect(derive(pj({ ...base, weapons: [sword] }), data).attacks[0].dmg).toBe('1d8+5');
+    expect(derive(pj({ ...base, weapons: [{ ...sword, duel: false }] }), data).attacks[0].dmg).toBe('1d8+3');
+  });
+});

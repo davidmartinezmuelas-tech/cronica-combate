@@ -63,6 +63,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // Atacante salvaje y carga: se aplican al próximo daño y se apagan
   const [savage, setSavage] = useState(false);
   const [charge, setCharge] = useState(false);
+  const [pierce, setPierce] = useState(false);
 
   const sp = data?.species.find((x) => x.id === c.speciesId);
   const bg = data?.backgrounds.find((x) => x.id === c.backgroundId) || lib.backgrounds.find((x) => x.id === c.backgroundId);
@@ -72,13 +73,22 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const d20 = (b: number) => '1d20' + sgn(b);
   const set = (patch: Partial<Character>) => update(c.id, patch);
 
+  // característica que subió Don del ataque imparable (Fuerza o Destreza)
+  const boonAbil: 'str' | 'dex' = c.choices?.['feat.irresistible']?.[0] === 'dex' ? 'dex' : c.choices?.['feat.irresistible']?.[0] === 'str' ? 'str' : c.abil.dex > c.abil.str ? 'dex' : 'str';
   const dmgRoll = (label: string, parts: RollPart[], melee: boolean) => {
-    const ps: RollPart[] = parts.map((p, i) => (i === 0 && savage ? { ...p, best2: true } : p));
+    const piercing = parts[0]?.type === 'perforante';
+    const ps: RollPart[] = parts.map((p, i) => (i === 0 ? { ...p, ...(savage ? { best2: true } : {}), ...(pierce && piercing ? { rerollLow: true } : {}) } : p));
     if (charge && melee && d.fx.charge) ps.push({ expr: d.fx.charge, type: parts[0]?.type });
-    const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : ''].filter(Boolean);
-    roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps });
+    // solo si el daño es de un crítico: un dado más del arma (Perforador) y la puntuación aumentada (Don del ataque imparable)
+    const critBonus: RollPart[] = [];
+    const die = /\d*d(\d+)/.exec(parts[0]?.expr || '');
+    if (d.fx.piercer && piercing && die) critBonus.push({ expr: '1d' + die[1], type: 'perforante', noDouble: true });
+    if (d.fx.critScore && parts[0]) critBonus.push({ expr: String(c.abil[boonAbil]), type: parts[0].type, noDouble: true });
+    const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : '', pierce && piercing ? 'perforador' : ''].filter(Boolean);
+    roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps, critBonus });
     if (savage) setSavage(false);
     if (charge && melee) setCharge(false);
+    if (pierce && piercing) setPierce(false);
   };
   const amt = parseInt(amount, 10);
   const damage = () => {
@@ -197,9 +207,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
-          {(d.fx.savage || d.fx.charge) && (
+          {(d.fx.savage || d.fx.charge || d.fx.piercer) && (
             <span className="rollrow">
               {d.fx.savage && <button className={savage ? 'chip on' : 'chip'} aria-pressed={savage} title="Una vez por turno: el próximo daño con arma tira sus dados dos veces y usa el mejor" onClick={() => setSavage(!savage)}>Atacante salvaje</button>}
+              {d.fx.piercer && <button className={pierce ? 'chip on' : 'chip'} aria-pressed={pierce} title="Una vez por turno: el próximo daño perforante repite su dado más bajo si no llega a la mitad" onClick={() => setPierce(!pierce)}>Perforador</button>}
               {d.fx.charge && <button className={charge ? 'chip on' : 'chip'} aria-pressed={charge} title={'Tras moverte 3 m en línea recta: el próximo daño cuerpo a cuerpo suma ' + d.fx.charge} onClick={() => setCharge(!charge)}>Carga +{d.fx.charge}</button>}
             </span>
           )}
@@ -207,7 +218,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
         {!d.attacks.length && !d.unarmed && <p className="muted small" style={{ margin: 0 }}>Añade tus armas en «Editar hoja».</p>}
         {d.attacks.map(({ w, atk, parts, verParts, throwParts, offParts, poleParts, notes }) => (
           <div key={w.id} className="pc-attack">
-            <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small">{notes.join(' · ')}</span>}</span>
+            <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small">{notes.join(' · ')}</span>}
+              {d.fx.dmgOneHand != null && w.kind === 'melee' && !(w.props || []).some((p) => norm(p) === 'a dos manos') && (
+                <label className="check small pc-duel"><input type="checkbox" checked={w.duel !== false} onChange={(e) => set({ weapons: c.weapons.map((x) => (x.id === w.id ? { ...x, duel: e.target.checked } : x)) })} />A una mano, sin nada en la otra (Duelo)</label>
+              )}
+            </span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk))}>Ataque {fmt(atk)}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, w.kind === 'melee')}>Daño {partsLabel(parts)}</button>

@@ -635,3 +635,41 @@ test('dotes con botones: atacante salvaje, ataque extra con arma ligera, sin arm
   await expect(page.locator('.plaque-label')).toContainText('recuperación rápida');
   await expect(feats).toContainText('dados de golpe: 4/5');
 });
+
+test('crítico con Perforador y Don del ataque imparable; Duelo se quita por arma', async ({ page }) => {
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', backgrounds: [], spells: [], subclasses: [],
+    feats: [
+      { id: 'lib-dote-perforador', n: 'Perforador', cat: 'general', req: '', d: 'x' },
+      { id: 'lib-dote-don-del-ataque-imparable', n: 'Don del ataque imparable', cat: 'epic-boon', req: '', d: 'x' },
+      { id: 'lib-dote-duelo', n: 'Duelo', cat: 'fighting-style', req: '', d: 'x' },
+    ] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Vesna');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('19');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click(); // FUE 15, DES 14
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Estoque (1d8 perforante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.locator('details').evaluateAll((ds) => ds.forEach((d) => ((d as HTMLDetailsElement).open = true)));
+  for (const f of ['Perforador', 'Don del ataque imparable', 'Duelo']) await page.locator('.chip', { hasText: f }).first().click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+
+  const rapier = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Estoque' });
+  await expect(rapier.getByRole('button', { name: /^Daño 1d8\+4 perforante$/ })).toBeVisible(); // +2 FUE +2 Duelo
+  await rapier.getByRole('checkbox', { name: /Duelo/ }).uncheck();
+  await expect(rapier.getByRole('button', { name: /^Daño 1d8\+2 perforante$/ })).toBeVisible();
+
+  // todos los dados al máximo: 20 natural en el ataque y crítico en el daño
+  await page.evaluate(() => { Math.random = () => 0.999; });
+  await rapier.getByRole('button', { name: /^Ataque/ }).click();
+  await expect(page.locator('.plaque')).toContainText('¡Crítico!', { timeout: 10000 }); // 20 natural
+  await rapier.getByRole('button', { name: /^Daño/ }).click();
+  await expect(page.locator('.plaque-label')).toContainText('daño');
+  // 2d8 (16) + 2 + un d8 más de Perforador (8) + Fuerza 15 de Don del ataque imparable = 41
+  await expect(page.locator('.plaque-total')).toHaveText('41', { timeout: 10000 });
+});

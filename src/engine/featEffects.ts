@@ -28,6 +28,7 @@ export interface FeatEffect {
   parryProf?: boolean; // reacción: +competencia a la CA
   armorReduce?: boolean; // reduce el daño contundente, cortante y perforante en competencia
   critScore?: boolean; // con un 20 natural, + la puntuación de característica al daño
+  piercer?: boolean; // repetir un dado de daño perforante; un dado más en críticos perforantes
 }
 
 export const FEAT_EFFECTS: { n: string[]; e: FeatEffect }[] = [
@@ -55,6 +56,7 @@ export const FEAT_EFFECTS: { n: string[]; e: FeatEffect }[] = [
   { n: ['Resistente', 'Durable'], e: { hdHeal: true } },
   { n: ['Duelista defensivo', 'Defensive Duelist'], e: { parryProf: true } },
   { n: ['Maestro en armaduras pesadas', 'Heavy Armor Master'], e: { armorReduce: true } },
+  { n: ['Perforador', 'Piercer'], e: { piercer: true } },
   { n: ['Don del ataque imparable', 'Boon of Irresistible Offense', 'Don de ofensiva irresistible'], e: { critScore: true } },
 ];
 

@@ -12,7 +12,7 @@ export default function FeatPanel({ c, d, set }: { c: Character; d: Derived; set
   const { roll } = useStore.getState();
   const fx = d.fx;
   const who = c.name || 'Personaje';
-  if (!fx.luck && !fx.recovery && !fx.hdHeal && !fx.parryProf && !fx.armorReduce && !fx.critScore) return null;
+  if (!fx.luck && !fx.recovery && !fx.hdHeal && !fx.parryProf && !fx.armorReduce && !fx.critScore && !fx.piercer) return null;
   // curación que se aplica sola a la hoja al acabar la tirada
   const healAfter = (total: number) => {
     const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
@@ -60,7 +60,22 @@ export default function FeatPanel({ c, d, set }: { c: Character; d: Derived; set
         )}
         {fx.parryProf && <li><details><summary><b>Duelista defensivo</b><span className="chip-tag">+{d.pb} CA</span><span className="muted small">reacción, con un arma sutil, contra un ataque cuerpo a cuerpo</span></summary><p className="pc-text">Te dura hasta el principio de tu siguiente turno contra los ataques cuerpo a cuerpo.</p></details></li>}
         {fx.armorReduce && <li><details><summary><b>Maestro en armaduras pesadas</b><span className="chip-tag">−{d.pb} daño</span><span className="muted small">contundente, cortante y perforante, con armadura pesada</span></summary><p className="pc-text">Resta {d.pb} a ese daño cada vez que te acierte un ataque.</p></details></li>}
-        {fx.critScore && <li><details><summary><b>Don del ataque imparable</b><span className="muted small">con un 20 natural: + la puntuación aumentada con la dote al daño</span></summary><p className="pc-text">Tu daño contundente, cortante y perforante ignora la resistencia.</p></details></li>}
+        {fx.critScore && (() => {
+          const pick = c.choices?.['feat.irresistible']?.[0];
+          const ab = pick === 'dex' || pick === 'str' ? pick : c.abil.dex > c.abil.str ? 'dex' : 'str';
+          return (
+            <li><details><summary>
+              <b>Don del ataque imparable</b><span className="chip-tag">+{c.abil[ab]} al daño con un 20</span>
+              <span onClick={(e) => e.preventDefault()}>
+                <select className="input" aria-label="Característica que aumentó Don del ataque imparable" value={ab} onChange={(e) => set({ choices: { ...(c.choices || {}), 'feat.irresistible': [e.target.value] } })}>
+                  <option value="str">Fuerza ({c.abil.str})</option>
+                  <option value="dex">Destreza ({c.abil.dex})</option>
+                </select>
+              </span>
+            </summary><p className="pc-text">Se suma solo al daño de un crítico (tras sacar un 20 en el ataque). Además, tu daño contundente, cortante y perforante ignora la resistencia.</p></details></li>
+          );
+        })()}
+        {fx.piercer && <li><details><summary><b>Perforador</b><span className="muted small">activa «Perforador» en Ataques antes del daño; en un crítico perforante se suma un dado más solo</span></summary><p className="pc-text">Una vez por turno puedes repetir un dado de daño perforante: la hoja repite el más bajo si no llega a la mitad.</p></details></li>}
       </ul>
     </section>
   );

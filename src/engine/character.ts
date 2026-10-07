@@ -19,6 +19,7 @@ export interface CharWeapon {
   range?: string;
   props?: string[];
   mastery?: string;
+  duel?: boolean; // false: no la empuña a una mano sola (no aplica Duelo)
 }
 
 /** Categorías de dote (2024) y rasgos propios que el SRD no trae. */
@@ -208,7 +209,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     const add = (k: Parameters<typeof featOf>[0], v: number, what: string) => { if (v) notes.push(featOf(k).join(', ') + ' ' + (v > 0 ? '+' : '') + v + ' ' + what); return v; };
     const atkFeat = w.kind === 'ranged' ? add('atkRanged', sum('atkRanged'), 'al ataque') : 0;
     // a una mano (Duelo): cuerpo a cuerpo sin la propiedad «a dos manos»; el daño a dos manos de las versátiles no lo lleva
-    const oneHand = w.kind === 'melee' && !twoHanded ? add('dmgOneHand', sum('dmgOneHand'), 'al daño a una mano') : 0;
+    const oneHand = w.kind === 'melee' && !twoHanded && w.duel !== false ? add('dmgOneHand', sum('dmgOneHand'), 'al daño a una mano') : 0;
     const thrown = w.kind === 'ranged' && has('arrojadiza') ? add('dmgThrown', sum('dmgThrown'), 'al daño') : 0;
     // arma cuerpo a cuerpo arrojadiza (daga, jabalina): el bonificador solo cuando se lanza
     const thrownMelee = w.kind === 'melee' && has('arrojadiza') ? add('dmgThrown', sum('dmgThrown'), 'al daño si la lanzas') : 0;
