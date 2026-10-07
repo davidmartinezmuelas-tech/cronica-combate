@@ -892,7 +892,13 @@ test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario d
   await expect(page.getByRole('button', { name: 'Entrar con Google' })).toBeEnabled({ timeout: 15000 }); // Firebase cargado y sin sesión
   await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeDisabled();
   await page.getByLabel('Correo').fill('jugador@ejemplo.test');
+  await expect(page.getByRole('button', { name: 'Crear cuenta' })).toHaveCount(0); // registrarse va aparte
+  await page.getByRole('button', { name: 'Crear una con tu correo' }).click();
   await expect(page.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled(); // falta la contraseña
+  await page.getByLabel('Contraseña').fill('12345');
+  await expect(page.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled(); // menos de 6 caracteres
+  await page.getByRole('button', { name: 'Entrar', exact: true }).click(); // vuelve al formulario de entrar
+  await expect(page.getByRole('button', { name: 'He olvidado la contraseña' })).toBeVisible();
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
 });

@@ -78,7 +78,7 @@ export default function ClassPanel({ c, d, data, set }: { c: Character; d: Deriv
   return (
     <section className="panel" aria-label="Rasgos de clase">
       <h3 className="eyebrow">Rasgos de clase</h3>
-      <ul className="pc-features">{rows}</ul>
+      <ul className="pc-features grid acts">{rows}</ul>
     </section>
   );
 }

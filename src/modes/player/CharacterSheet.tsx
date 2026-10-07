@@ -318,7 +318,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           )}
           {d.pact && <div className="pc-slots"><span className="res">Magia de pacto (nivel {d.pact.lv})<Pips max={d.pact.n} used={Math.min(d.pact.n, c.pactUsed)} label="Espacios de pacto" onSet={(v) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) })} /></span></div>}
           {!spellList.length ? <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p> : (
-            <ul className="pc-features">
+            <ul className="pc-features grid acts">
               {spellList.map(({ k, s, sub }) => (
                 <li key={k}>
                   <details>

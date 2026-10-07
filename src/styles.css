@@ -92,8 +92,10 @@ input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:#d4a94f}
 .res-row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
 .res{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#c6bba6}
 .pips{display:inline-flex;gap:5px;align-items:center}
-.pip{width:24px;height:24px;border-radius:50%;border:2px solid #d4a94f;background:#d4a94f;padding:0;display:inline-block}
-button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
+.pip{width:16px;height:16px;border-radius:50%;border:2px solid #d4a94f;background:#d4a94f;padding:0;display:inline-block;position:relative}
+/* el círculo es pequeño, pero la zona de toque sigue siendo de unos 28 px */
+button.pip{margin:2px}
+button.pip::after{content:'';position:absolute;inset:-6px;border-radius:50%}
 .pip.off{background:transparent}
 .pip.ok{background:#6aa152;border-color:#6aa152}
 .pip.bad{background:#c0513c;border-color:#c0513c}
@@ -519,8 +521,12 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-features details{border:1px solid #2c2723;border-radius:6px;background:#171412;padding:6px 10px}
 .pc-features summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
 /* rasgos en columnas para no dejar filas vacías; el que se abre ocupa todo el ancho para leer su texto */
-.pc-features.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));grid-auto-flow:row dense;align-items:start;gap:6px}
-.pc-features.grid li:has(details[open]){grid-column:1/-1}
+.pc-features.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));align-items:start;gap:6px;--card-h:62px}
+.pc-features.grid.acts{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));--card-h:104px}
+/* todas las tarjetas con la misma altura de partida; al abrir una, solo esa crece hacia abajo con su texto */
+.pc-features.grid>li>details{min-height:var(--card-h);box-sizing:border-box}
+.pc-features.grid summary>b:first-child{flex-basis:100%}
+.pc-features.grid details:not([open]) summary>b:first-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}
 .ce-choices{display:flex;flex-direction:column;gap:8px}
 .pc-attack-feat{display:block;color:#d4a94f;font-weight:700}
@@ -544,6 +550,8 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .room-casts{display:flex;flex-direction:column;gap:6px}
 .room-notice{margin:0;padding:6px 8px;border-radius:6px;border:1px solid #9b2c22;background:#2a1714;color:#f3d6cc;font-size:13px;font-weight:700}
 .pc-login{display:flex;flex-direction:column;gap:8px;align-items:flex-start;border-top:1px solid #2c2723;padding-top:8px}
+.linkbtn{background:none;border:0;padding:0;color:#e8c062;text-decoration:underline;cursor:pointer;font:inherit}
+.linkbtn:hover{color:#f3d48a}
 .pc-login .row2{width:100%}
 .pc-account .warn{font-size:13px}
 .pc-slot-pick{width:auto;min-height:32px;padding:2px 8px;font-size:13px}

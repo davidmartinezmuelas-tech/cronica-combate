@@ -49,7 +49,7 @@ export default function SubclassActions({ c, d, data, lib, set }: { c: Character
                 <Pips max={max} used={used} label={res.n} onSet={(v) => set({ uses: { ...c.uses, [res.key]: Math.max(0, Math.min(max, v)) } })} />
               </span>
             </div>
-            <ul className="pc-features">
+            <ul className="pc-features grid acts">
               {picked.map((name) => {
                 const text = options.find((o) => o.n === name)?.d || '';
                 const act = optionAction(text, data?.skills || {});

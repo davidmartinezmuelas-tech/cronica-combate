@@ -28,7 +28,7 @@ export default function FeatPanel({ c, d, set }: { c: Character; d: Derived; set
   return (
     <section className="panel" aria-label="Dotes">
       <h3 className="eyebrow">Dotes</h3>
-      <ul className="pc-features">
+      <ul className="pc-features grid">
         {fx.luck && (
           <li><details><summary>
             <b>Afortunado</b><span className="muted small">puntos de suerte · vuelven en descanso largo</span>{pips(LUCK, d.pb)}

@@ -57,7 +57,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
           </span>
         )}
       </div>
-      <ul className="pc-features">
+      <ul className="pc-features grid acts">
         {actions.map((a) => {
           const text = kitText(src, a.n);
           const name = text?.n || a.n[0];
