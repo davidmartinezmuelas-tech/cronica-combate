@@ -26,6 +26,7 @@ export interface PlayerState {
   replace: (c: Character) => void;
   remove: (id: string) => void;
   setEditing: (v: boolean) => void;
+  applyRemote: (changed: Character[], removed: string[]) => void; // cambios que llegan de la nube (sin tocar su fecha)
   exportText: (ids?: string[]) => string; // copia de seguridad (todos o los indicados)
   importText: (text: string) => Promise<string>; // mensaje para el usuario
 }
@@ -113,6 +114,27 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   setEditing(v) {
     set({ editing: v });
+  },
+
+  applyRemote(changed, removed) {
+    let chars = get().characters.slice();
+    for (const raw of changed) {
+      const c: Character = { ...blankCharacter(), ...raw, id: raw.id };
+      const cur = chars.find((x) => x.id === c.id);
+      if (cur && cur.updatedAt >= c.updatedAt) continue;
+      save(c);
+      chars = cur ? chars.map((x) => (x.id === c.id ? c : x)) : [c, ...chars];
+    }
+    for (const id of removed) {
+      if (!chars.some((c) => c.id === id)) continue;
+      void del(id, store()).catch(() => { /* nada */ });
+      chars = chars.filter((c) => c.id !== id);
+    }
+    chars.sort((a, b) => b.updatedAt - a.updatedAt);
+    const keep = chars.some((c) => c.id === get().activeId);
+    const active = keep ? get().activeId : chars[0]?.id ?? null;
+    if (!keep) rememberActive(active);
+    set({ characters: chars, activeId: active, editing: keep ? get().editing : false });
   },
 
   exportText(ids) {

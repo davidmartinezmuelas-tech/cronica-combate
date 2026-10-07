@@ -4,6 +4,7 @@ import { readSheet, type SheetField } from '../../engine/sheetImport';
 import { readPdfFields } from '../../store/pdfFields';
 import { useStore } from '../../store/useStore';
 import { activeCharacter, lastBackup, usePlayer } from '../../store/player';
+import AccountBox from './AccountBox';
 import CharacterEditor from './CharacterEditor';
 import CharacterSheet from './CharacterSheet';
 
@@ -85,6 +86,7 @@ export default function CharacterArea() {
           <button className="btn small ghost" onClick={() => backupRef.current?.click()}>Cargar copia</button>
           <span className="muted small">{characters.length ? (last ? 'Última copia: ' + new Date(last).toLocaleDateString('es-ES') + '.' : 'Tus personajes solo están en este dispositivo: guarda una copia de vez en cuando.') : ''} La copia no incluye tu biblioteca.</span>
         </div>
+        <AccountBox />
         <input ref={backupRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Copia de personajes" onChange={(e) => void loadBackup(e.target.files?.[0])} />
         {note && <p className="muted small" role="status" style={{ margin: 0 }}>{note}</p>}
         {characters.length > 1 && (

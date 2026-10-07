@@ -884,3 +884,15 @@ test('copia de seguridad de personajes: guardar, borrar y volver a cargar', asyn
   await page.getByLabel('Copia de personajes').setInputFiles(path!);
   await expect(page.getByRole('status').filter({ hasText: '1 sin cambios' })).toBeVisible();
 });
+
+test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario de inicio carga al pedirlo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await expect(page.getByText('Sin cuenta: tus personajes están solo en este dispositivo.')).toBeVisible();
+  await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+  await expect(page.getByRole('button', { name: 'Entrar con Google' })).toBeEnabled({ timeout: 15000 }); // Firebase cargado y sin sesión
+  await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeDisabled();
+  await page.getByLabel('Correo').fill('jugador@ejemplo.test');
+  await expect(page.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled(); // falta la contraseña
+  await page.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+});

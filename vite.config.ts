@@ -11,7 +11,11 @@ export default defineConfig({
   // el worker de la física de los dados se empaqueta como módulo
   worker: { format: 'es' },
   // la escena 3D (three.js) es un trozo aparte que solo se descarga al usar los dados
-  build: { chunkSizeWarningLimit: 600 },
+  build: {
+    chunkSizeWarningLimit: 700,
+    // Firebase (cuentas y salas) va en su propio trozo: solo se descarga al iniciar sesión
+    rollupOptions: { output: { manualChunks: (id) => (/node_modules[\\/](@firebase|firebase)[\\/]/.test(id) ? 'firebase' : undefined) } },
+  },
   plugins: [
     react(),
     VitePWA({
@@ -19,6 +23,8 @@ export default defineConfig({
       includeAssets: ['favicon.svg'],
       workbox: {
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,woff2}', 'data/*.json'],
+        // sin conexión no sirve de nada: no se precarga para todos
+        globIgnores: ['**/firebase-*.js'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
       manifest: {

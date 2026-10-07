@@ -1,0 +1,54 @@
+rules_version = '2';
+
+// Reglas de Firestore de Crónica de Combate. Se pegan en la consola de Firebase:
+// Firestore Database > Reglas > (pegar) > Publicar. Todo lo que no aparece aquí está cerrado.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function anonymous() {
+      return request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+    function room(code) {
+      return get(/databases/$(database)/documents/rooms/$(code)).data;
+    }
+    function isMember(code) {
+      return exists(/databases/$(database)/documents/rooms/$(code)/members/$(request.auth.uid));
+    }
+    function isDm(code) {
+      return room(code).dmUid == request.auth.uid;
+    }
+
+    // Personajes de una cuenta: solo los lee y escribe su dueño (los invitados anónimos no guardan personajes).
+    match /users/{uid}/characters/{id} {
+      allow read, delete: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && !anonymous()
+        && request.resource.data.id == id;
+    }
+
+    // Salas: el id es el código de 6 caracteres que el máster comparte. Quien sabe el código puede consultarla para entrar.
+    match /rooms/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && code.matches('^[A-Z2-9]{6}$')
+        && request.resource.data.dmUid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.dmUid == request.auth.uid;
+
+      // Participantes: cada uno escribe solo su ficha; el papel de máster solo lo puede tener el máster de la sala.
+      match /members/{uid} {
+        allow read: if signedIn() && (isMember(code) || isDm(code));
+        allow create, update: if signedIn() && request.auth.uid == uid
+          && (request.resource.data.role == 'player' || isDm(code));
+        allow delete: if signedIn() && (request.auth.uid == uid || isDm(code));
+      }
+
+      // Tiradas: las ven todos los de la sala; cada uno publica solo las suyas; el máster puede limpiarlas.
+      match /rolls/{id} {
+        allow read: if signedIn() && isMember(code);
+        allow create: if signedIn() && isMember(code) && request.resource.data.uid == request.auth.uid;
+        allow delete: if signedIn() && isDm(code);
+      }
+    }
+  }
+}
