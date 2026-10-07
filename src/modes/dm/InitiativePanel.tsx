@@ -56,11 +56,12 @@ function Row({ c }: { c: Combatant }) {
   const cls = ['init-row', c.kind, isActive ? 'active' : '', isSel ? 'sel' : '', down ? 'down' : ''].join(' ');
   const commit = (v: string) => { const n = parseInt(v.replace('−', '-'), 10); if (!isNaN(n)) patchC(c.id, { init: n }, 'iniciativa'); };
   return (
-    <li style={{ display: 'flex', gap: 6, alignItems: 'stretch' }}>
+    <li style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
       <button className={cls} onClick={() => { set({ selId: c.id, spellOpen: null }); showCard(); }} aria-pressed={isSel}>
-        <span className="init-badge" aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            {/* la iniciativa, pequeña a la izquierda del nombre */}
+            <span className="init-badge" aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
             <span style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{c.name}</span>
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
             {isActive && <span className="turn-flag">En turno</span>}

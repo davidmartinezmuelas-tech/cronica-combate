@@ -2,7 +2,7 @@ import type { Character } from '../engine/character';
 import { toCloud } from '../engine/sync';
 
 /** Resumen de la hoja que un jugador comparte en la sala (lo que el máster necesita ver). */
-export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; conds: string[] }
+export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; init?: number; conds: string[] }
 /** Participante de una sala. */
 export interface RoomMember { uid: string; name: string; role: 'dm' | 'player'; sheet: SheetSummary | null; at: number }
 /** Tirada publicada en la sala. */

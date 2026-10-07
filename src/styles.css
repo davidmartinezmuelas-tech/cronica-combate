@@ -70,11 +70,11 @@ textarea.input{resize:vertical;line-height:1.4;font-family:'Alegreya',Georgia,se
 .init-row.active{background:#3a2a1a;box-shadow:0 0 0 1px #d4a94f inset,0 0 22px rgba(212,169,79,.16)}
 .init-row.down{opacity:.5}
 .init-row.lair{background:#1f2a22;border-color:#35503d}
-.init-badge{width:44px;height:44px;flex:none;display:grid;place-items:center;border-radius:50%;background:#15100c;border:2px solid #6b5238;font-weight:800;font-size:18px;color:#f3e6c8}
+.init-badge{min-width:26px;height:26px;padding:0 4px;flex:none;display:grid;place-items:center;border-radius:13px;background:#15100c;border:2px solid #6b5238;font-weight:800;font-size:13px;line-height:1;color:#f3e6c8}
 .init-row.pc .init-badge{border-color:#5a86a8}
 .init-row.lair .init-badge{border-color:#4d8a44}
 .init-row.active .init-badge{border-color:#d4a94f;color:#e8c062}
-.init-in{width:70px;flex:none;text-align:center;font-weight:800;font-size:17px;border-color:#d4a94f}
+.init-in{width:52px;flex:none;align-self:center;min-height:36px;padding:4px 6px;text-align:center;font-weight:800;font-size:15px;border-color:#d4a94f}
 .turn-flag{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#1d140c;background:#d4a94f;border-radius:4px;padding:2px 6px}
 .pc-flag{font-size:11px;font-weight:800;letter-spacing:.08em;color:#cfe2f0;border:1px solid #5a86a8;border-radius:4px;padding:1px 5px}
 .hpbar{display:block;height:6px;background:#15100c;border-radius:3px;overflow:hidden}
@@ -488,7 +488,7 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .offline{position:fixed;left:0;right:0;bottom:0;z-index:60}
 @media (min-width:1024px){.mode-select{height:100dvh;min-height:0;overflow-y:auto;justify-content:safe center}}
 /* ---------- Hoja del jugador ---------- */
-.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:inline-size}
+div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:inline-size}
 .pc-bar .chips{margin:0}
 .pc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .pc-stats .stat{min-height:92px}

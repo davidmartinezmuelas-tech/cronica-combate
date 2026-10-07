@@ -140,6 +140,7 @@ export interface RosterEntry {
   res: string[];
   notes?: string; // notas libres del DM sobre el personaje
   pdf?: { id: string; name: string; size: number } | null; // hoja de personaje (el archivo va en IndexedDB aparte)
+  roomUid?: string; // jugador de la sala que lleva este personaje (sus PG y CA llegan en directo)
 }
 
 export interface TurnEvent {

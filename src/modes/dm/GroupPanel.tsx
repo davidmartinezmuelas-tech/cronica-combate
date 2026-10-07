@@ -3,6 +3,7 @@ import { DMG_TYPES } from '../../data/constants';
 import type { RosterEntry } from '../../data/types';
 import { fmt } from '../../engine/dice';
 import { blankRoster } from '../../store/persist';
+import { useRoom } from '../../store/room';
 import { useStore } from '../../store/useStore';
 import Picker from '../../shared/Picker';
 
@@ -19,6 +20,8 @@ export default function GroupPanel() {
   const { set, addPc, addAllPcs, savePc, deletePc, exportData, importText } = useStore.getState();
   const fileRef = useRef<HTMLInputElement>(null);
   const inC = new Set(combatants.map((c) => c.rosterId).filter(Boolean));
+  // jugadores conectados ahora a la sala
+  const online = new Set(useRoom((r) => r.members).map((m) => m.uid));
   const setF = (k: keyof RosterEntry, v: string | string[]) => set({ pcForm: { ...useStore.getState().pcForm, [k]: v }, pcMsg: '' });
 
   const doExport = async () => {
@@ -52,7 +55,7 @@ export default function GroupPanel() {
         {roster.map((r) => (
           <li key={r.id} className="beast roster-item">
             <span className="roster-info">
-            <span className="beast-name">{r.name}{inC.has(r.id) && <span className="tag">En combate</span>}</span>
+            <span className="beast-name">{r.name}{inC.has(r.id) && <span className="tag">En combate</span>}{r.roomUid && online.has(r.roomUid) && <span className="tag pdf">En la sala</span>}</span>
             <span style={{ fontSize: 13, color: '#b9a88a' }}>
               {[r.player ? 'Jugador: ' + r.player : '', r.cls, 'Nivel ' + (r.level || 1), 'CA ' + (r.ac || '—'), 'PG ' + (r.hp || '—'), 'Ini ' + fmt(parseInt(r.initb, 10) || 0), 'Perc. pasiva ' + (r.pp || 10)].filter(Boolean).join(' · ')}
               {r.res.length > 0 && ' · resiste ' + r.res.join(', ')}
