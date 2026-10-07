@@ -887,7 +887,7 @@ test('copia de seguridad de personajes: guardar, borrar y volver a cargar', asyn
 
 test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario de inicio carga al pedirlo', async ({ page }) => {
   await page.goto('/#/jugador');
-  await expect(page.getByText('Sin cuenta: tus personajes están solo en este dispositivo.')).toBeVisible();
+  await expect(page.getByText('Sin cuenta: todo está solo en este dispositivo.')).toBeVisible();
   await page.getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page.getByRole('button', { name: 'Entrar con Google' })).toBeEnabled({ timeout: 15000 }); // Firebase cargado y sin sesión
   await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeDisabled();
@@ -895,6 +895,17 @@ test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario d
   await expect(page.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled(); // falta la contraseña
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+});
+
+test('cuenta en la pantalla de inicio y en el grupo del máster', async ({ page }) => {
+  await page.goto('/#/inicio');
+  const box = page.getByRole('region', { name: 'Cuenta' });
+  await expect(box.getByRole('button', { name: 'Entrar con Google' })).toBeVisible();
+  await expect(box).toContainText('tus criaturas, encuentros y grupo');
+  await expect(box.getByRole('button', { name: 'Cancelar' })).toHaveCount(0);
+  await page.getByRole('button', { name: /Soy el máster/ }).click();
+  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await expect(page.getByText('Sin cuenta: todo está solo en este dispositivo.')).toBeVisible();
 });
 
 test('efectos con salvación: objetivos, salvaciones de los monstruos, daño y estados', async ({ page }) => {

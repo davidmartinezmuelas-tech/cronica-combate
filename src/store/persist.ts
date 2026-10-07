@@ -50,7 +50,7 @@ export function normEncounter(e: unknown): Encounter | null {
     .filter((i): i is Record<string, unknown> => !!i && typeof i === 'object' && typeof (i as Record<string, unknown>).monsterId === 'string')
     .map((i) => ({ monsterId: String(i.monsterId), qty: Math.max(1, Math.min(20, num(i.qty, 1))), inLair: !!i.inLair }));
   if (!items.length) return null;
-  return { id: String(x.id || 'e-' + uid()), name: x.name.trim(), items, lair: !!x.lair };
+  return { id: String(x.id || 'e-' + uid()), name: x.name.trim(), items, lair: !!x.lair, ...(typeof x.at === 'number' ? { at: x.at } : {}) };
 }
 
 export function normMonster(m: unknown): Monster | null {

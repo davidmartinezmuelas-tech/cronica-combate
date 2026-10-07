@@ -1,7 +1,9 @@
 import { create } from 'zustand';
-import { diffCharacters, mergeCharacters } from '../engine/sync';
-import { cloudError, firebaseAdapter, type CloudAdapter, type CloudUser } from './cloudAdapter';
+import type { Encounter, Monster, RosterEntry } from '../data/types';
+import { applyItems, diffCharacters, diffItems, mergeCharacters, mergeItems, type Synced } from '../engine/sync';
+import { cloudError, firebaseAdapter, type CloudAdapter, type CloudUser, type DmKind } from './cloudAdapter';
 import { usePlayer } from './player';
+import { useStore } from './useStore';
 
 /**
  * Cuenta opcional (Google o correo) y sincronización de los personajes con la nube. Sin cuenta todo sigue en el
@@ -44,6 +46,72 @@ let makeAdapter: () => Promise<CloudAdapter> = firebaseAdapter;
 let loading: Promise<CloudAdapter> | null = null;
 let stopAuth: (() => void) | null = null;
 let stopSync: (() => void) | null = null;
+
+/** Dónde vive en el almacén del máster cada cosa que se guarda en la cuenta. */
+const DM_KEYS: Record<DmKind, 'custom' | 'encounters' | 'roster'> = { monsters: 'custom', encounters: 'encounters', roster: 'roster' };
+type DmItem = Monster | Encounter | RosterEntry;
+/** La hoja en PDF de un jugador del grupo se queda en el dispositivo donde se subió: no va a la nube. */
+const toCloudItem = (kind: DmKind, x: DmItem) => (kind === 'roster' ? { ...(x as RosterEntry), pdf: null } : x);
+
+/** Espera a que el almacén del máster haya cargado lo guardado en el dispositivo. */
+function dmLoaded(): Promise<void> {
+  if (useStore.getState().loaded) return Promise.resolve();
+  return new Promise((resolve) => { const un = useStore.subscribe((s) => { if (s.loaded) { un(); resolve(); } }); });
+}
+
+/**
+ * Sincroniza con la cuenta las criaturas propias, los encuentros y el grupo del máster. Cada cambio local se fecha
+ * (`at`) y se sube; de la nube solo se aplica lo más reciente, así el eco de lo propio no pisa lo que se está editando.
+ */
+async function startDmSync(a: CloudAdapter, uid: string, onError: (e: unknown) => void, onOk: () => void): Promise<() => void> {
+  await dmLoaded();
+  const stops: (() => void)[] = [];
+  for (const kind of Object.keys(DM_KEYS) as DmKind[]) {
+    const key = DM_KEYS[kind];
+    const list = () => useStore.getState()[key] as DmItem[];
+    let applying = false;
+    let ready = false;
+    const pending = new Map<string, ReturnType<typeof setTimeout>>();
+    const setList = (next: DmItem[]) => { applying = true; useStore.setState({ [key]: next } as never); applying = false; };
+    // al llegar de la nube, el grupo conserva la hoja en PDF que hubiera en este dispositivo
+    const keepPdf = (next: DmItem[]) => (kind !== 'roster' ? next : next.map((x) => {
+      const r = x as RosterEntry;
+      const pdf = (list() as RosterEntry[]).find((l) => l.id === r.id)?.pdf;
+      return pdf && !r.pdf ? { ...r, pdf } : r;
+    }));
+    const push = (x: DmItem) => {
+      clearTimeout(pending.get(x.id));
+      pending.set(x.id, setTimeout(() => { pending.delete(x.id); a.putItem(uid, kind, toCloudItem(kind, x)).then(onOk, onError); }, 1200));
+    };
+    stops.push(a.watchItems<DmItem>(uid, kind, (changed, removed, first) => {
+      if (first) {
+        const { toLocal, toRemote } = mergeItems<Synced>(list(), changed);
+        if (toLocal.length) setList(keepPdf(applyItems<Synced>(list(), toLocal.map((x) => ({ ...x, at: x.at || 1 })), []) as DmItem[]));
+        toRemote.forEach((x) => a.putItem(uid, kind, toCloudItem(kind, x as DmItem)).catch(onError));
+        ready = true;
+      } else {
+        const next = applyItems<Synced>(list(), changed, removed) as DmItem[];
+        if (next.some((x, i) => x !== list()[i]) || next.length !== list().length) setList(keepPdf(next));
+      }
+      onOk();
+    }, onError));
+    stops.push(useStore.subscribe((s, prev) => {
+      if (applying || !ready || s[key] === prev[key]) return;
+      const { changed, removed } = diffItems<Synced>(prev[key] as DmItem[], s[key] as DmItem[]);
+      if (changed.length) {
+        // se fecha lo que ha cambiado aquí (sin volver a avisar a este mismo observador)
+        const now = Date.now();
+        const ids = new Set(changed.map((x) => x.id));
+        const stamped = (s[key] as DmItem[]).map((x) => (ids.has(x.id) ? { ...x, at: now } : x));
+        setList(stamped);
+        stamped.filter((x) => ids.has(x.id)).forEach(push);
+      }
+      removed.forEach((id) => { clearTimeout(pending.get(id)); a.deleteItem(uid, kind, id).catch(onError); });
+    }));
+    stops.push(() => pending.forEach((t) => clearTimeout(t)));
+  }
+  return () => stops.forEach((f) => f());
+}
 
 /** Para las pruebas: otro adaptador en lugar de Firebase. */
 export function setCloudAdapter(make: () => Promise<CloudAdapter>) {
@@ -95,7 +163,11 @@ export const useAccount = create<AccountState>()((set, get) => {
       changed.forEach(push);
       removed.forEach((id) => { clearTimeout(pending.get(id)); a.deleteCharacter(uid, id).catch((e) => set({ sync: 'error', syncError: cloudError(e) })); });
     });
-    stopSync = () => { unwatch(); unsub(); pending.forEach((t) => clearTimeout(t)); stopSync = null; };
+    let stopDm: (() => void) | null = null;
+    let stopped = false;
+    void startDmSync(a, uid, (e) => set({ sync: 'error', syncError: cloudError(e) }), () => { if (get().sync !== 'error') set({ sync: 'ok' }); })
+      .then((f) => { if (stopped) f(); else stopDm = f; });
+    stopSync = () => { stopped = true; unwatch(); unsub(); stopDm?.(); pending.forEach((t) => clearTimeout(t)); stopSync = null; };
   }
 
   return {

@@ -29,6 +29,7 @@ export interface Monster {
   n: string;
   en?: string;
   custom?: 1;
+  at?: number; // último cambio de una criatura propia (para sincronizar con la cuenta)
   sz: string;
   t: string;
   al: string;
@@ -142,6 +143,7 @@ export interface RosterEntry {
   notes?: string; // notas libres del DM sobre el personaje
   pdf?: { id: string; name: string; size: number } | null; // hoja de personaje (el archivo va en IndexedDB aparte)
   roomUid?: string; // jugador de la sala que lleva este personaje (sus PG y CA llegan en directo)
+  at?: number; // último cambio (para sincronizar con la cuenta)
 }
 
 export interface TurnEvent {
@@ -210,6 +212,7 @@ export interface Encounter {
   name: string;
   items: { monsterId: string; qty: number; inLair: boolean }[];
   lair: boolean; // añade la tarjeta de acciones de guarida
+  at?: number; // último cambio (para sincronizar con la cuenta)
 }
 
 /** Datos persistentes de la app. */

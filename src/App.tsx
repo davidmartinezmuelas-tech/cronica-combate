@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import ModeSelect from './app/ModeSelect';
 import { useMode } from './app/mode';
 import DmApp from './modes/dm/DmApp';
+import { hadSession, useAccount } from './store/account';
 import { startAutosave, useStore } from './store/useStore';
 
 // el modo jugador se descarga solo si se elige
@@ -13,6 +14,8 @@ export default function App() {
   const [online, setOnline] = useState(typeof navigator === 'undefined' ? true : navigator.onLine);
   useEffect(() => {
     void useStore.getState().init();
+    // si ya había sesión, se recupera al abrir la app (en cualquier modo: los datos del máster también se sincronizan)
+    if (hadSession()) void useAccount.getState().start();
     const stop = startAutosave();
     const on = () => setOnline(true);
     const off = () => setOnline(false);

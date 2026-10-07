@@ -1,3 +1,4 @@
+import AccountBox from '../shared/AccountBox';
 import Attribution from '../shared/Attribution';
 import { Logo } from '../shared/Icons';
 import { chooseMode } from './mode';
@@ -22,7 +23,11 @@ export default function ModeSelect() {
             <span className="muted">Tu hoja de personaje con tiradas de ataques, salvaciones y habilidades, los dados y las reglas.</span>
           </button>
         </div>
-        <p className="muted small" style={{ margin: 0, textAlign: 'center' }}>Puedes cambiar de modo cuando quieras pulsando el título de la app. Todo se guarda en este dispositivo.</p>
+        <section className="panel mode-account" aria-label="Cuenta">
+          <h2>Cuenta</h2>
+          <AccountBox start />
+        </section>
+        <p className="muted small" style={{ margin: 0, textAlign: 'center' }}>Puedes cambiar de modo cuando quieras pulsando el título de la app. La cuenta es opcional: sin ella todo se guarda en este dispositivo.</p>
       </main>
       <Attribution />
     </div>

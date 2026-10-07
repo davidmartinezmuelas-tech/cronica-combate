@@ -28,6 +28,13 @@ service cloud.firestore {
         && request.resource.data.id == id;
     }
 
+    // Datos del máster en su cuenta (criaturas propias, encuentros y grupo): igual que los personajes.
+    match /users/{uid}/{kind}/{id} {
+      allow read, delete: if signedIn() && request.auth.uid == uid && kind in ['monsters', 'encounters', 'roster'];
+      allow create, update: if signedIn() && request.auth.uid == uid && !anonymous()
+        && kind in ['monsters', 'encounters', 'roster'] && request.resource.data.id == id;
+    }
+
     // Salas: el id es el código de 6 caracteres que el máster comparte. Quien sabe el código puede consultarla para entrar.
     match /rooms/{code} {
       allow get: if signedIn();

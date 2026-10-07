@@ -4,7 +4,7 @@ import { readSheet, type SheetField } from '../../engine/sheetImport';
 import { readPdfFields } from '../../store/pdfFields';
 import { useStore } from '../../store/useStore';
 import { activeCharacter, lastBackup, usePlayer } from '../../store/player';
-import AccountBox from './AccountBox';
+import AccountBox from '../../shared/AccountBox';
 import CharacterEditor from './CharacterEditor';
 import CharacterSheet from './CharacterSheet';
 

@@ -1,11 +1,13 @@
 import type { Character } from '../engine/character';
-import type { CloudAdapter, CloudUser, RoomCast, RoomEvent, RoomInfo, RoomMember, SaveReply, SharedRoll, TableEntry } from '../store/cloudAdapter';
+import type { CloudAdapter, CloudUser, DmKind, RoomCast, RoomEvent, RoomInfo, RoomMember, SaveReply, SharedRoll, TableEntry } from '../store/cloudAdapter';
 
 /** Nube falsa en memoria con la misma forma que Firebase (personajes, salas, participantes y tiradas). */
 export function fakeCloud(initialUser: CloudUser | null) {
   let user = initialUser;
   const auth = new Set<(u: CloudUser | null) => void>();
   const remote = new Map<string, Character>();
+  const items: Record<DmKind, Map<string, { id: string }>> = { monsters: new Map(), encounters: new Map(), roster: new Map() };
+  const itemWatch = new Map<DmKind, (changed: { id: string }[], removed: string[], first: boolean) => void>();
   const rooms = new Map<string, { info: RoomInfo; members: Map<string, RoomMember>; rolls: SharedRoll[]; events: RoomEvent[]; table: TableEntry[]; casts: RoomCast[]; replies: SaveReply[] }>();
   const watch = { table: new Map<string, Set<(l: TableEntry[]) => void>>(), casts: new Map<string, Set<(l: RoomCast[]) => void>>(), replies: new Map<string, Set<(l: SaveReply[]) => void>>() };
   const sub = <T,>(m: Map<string, Set<T>>, code: string, cb: T) => { const set = m.get(code) || new Set<T>(); set.add(cb); m.set(code, set); setTimeout(() => notify(code), 0); return () => { set.delete(cb); }; };
@@ -31,6 +33,13 @@ export function fakeCloud(initialUser: CloudUser | null) {
     out: async () => setUser(null),
     anon: async () => { calls.anon++; setTimeout(() => setUser({ uid: 'anon-' + calls.anon, email: null, name: null, anon: true }), 0); },
     watchCharacters: (_uid, cb) => { charWatcher = cb; setTimeout(() => cb([...remote.values()], [], true), 0); return () => { charWatcher = null; }; },
+    watchItems: <T extends { id: string }>(_uid: string, kind: DmKind, cb: (changed: T[], removed: string[], first: boolean) => void) => {
+      itemWatch.set(kind, cb as (changed: { id: string }[], removed: string[], first: boolean) => void);
+      setTimeout(() => cb([...items[kind].values()] as T[], [], true), 0);
+      return () => { itemWatch.delete(kind); };
+    },
+    putItem: async (_uid, kind, x) => { const c = JSON.parse(JSON.stringify(x)); items[kind].set(x.id, c); itemWatch.get(kind)?.([c], [], false); },
+    deleteItem: async (_uid, kind, id) => { items[kind].delete(id); itemWatch.get(kind)?.([], [id], false); },
     putCharacter: async (_uid, c) => { calls.put.push(c.id); remote.set(c.id, c); },
     deleteCharacter: async (_uid, id) => { calls.del.push(id); remote.delete(id); },
     getRoom: async (code) => rooms.get(code)?.info || null,
@@ -65,5 +74,5 @@ export function fakeCloud(initialUser: CloudUser | null) {
       return () => set.delete(cb);
     },
   };
-  return { adapter, remote, rooms, calls, setUser, emit: (changed: Character[], removed: string[]) => charWatcher?.(changed, removed, false) };
+  return { adapter, remote, items, rooms, calls, setUser, emitItems: (kind: DmKind, changed: { id: string }[], removed: string[]) => itemWatch.get(kind)?.(changed, removed, false), emit: (changed: Character[], removed: string[]) => charWatcher?.(changed, removed, false) };
 }

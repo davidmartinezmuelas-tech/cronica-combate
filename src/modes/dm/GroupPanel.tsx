@@ -1,3 +1,4 @@
+import AccountBox from '../../shared/AccountBox';
 import { useRef } from 'react';
 import { DMG_TYPES } from '../../data/constants';
 import type { RosterEntry } from '../../data/types';
@@ -115,6 +116,7 @@ export default function GroupPanel() {
         </div>
         <p className="muted small" style={{ margin: 0 }}>La copia incluye grupo (con sus hojas en PDF), criaturas propias, encuentros y el combate abierto. Al cargarla se fusiona con lo que ya tienes.</p>
         {ioMsg && <p className="small" role="status" style={{ margin: 0, color: '#e8c062' }}>{ioMsg}</p>}
+        <AccountBox />
       </fieldset>
     </div>
   );

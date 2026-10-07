@@ -26,6 +26,9 @@ export interface SharedRoll { id: string; uid: string; who: string; label: strin
 /** Sala: el id es su código. */
 export interface RoomInfo { code: string; name: string; dmUid: string; dmName: string; createdAt: number }
 
+/** Datos del máster que se guardan en la cuenta: criaturas propias, encuentros y grupo. */
+export type DmKind = 'monsters' | 'encounters' | 'roster';
+
 /** Usuario de la cuenta (anónimo: invitado en una sala, sin personajes en la nube). */
 export interface CloudUser { uid: string; email: string | null; name: string | null; anon: boolean }
 
@@ -44,6 +47,10 @@ export interface CloudAdapter {
   watchCharacters: (uid: string, cb: (changed: Character[], removed: string[], first: boolean) => void, onError: (e: Error) => void) => () => void;
   putCharacter: (uid: string, c: Character) => Promise<void>;
   deleteCharacter: (uid: string, id: string) => Promise<void>;
+  /** Datos del máster en la cuenta, igual que los personajes. */
+  watchItems: <T extends { id: string }>(uid: string, kind: DmKind, cb: (changed: T[], removed: string[], first: boolean) => void, onError: (e: Error) => void) => () => void;
+  putItem: (uid: string, kind: DmKind, item: { id: string }) => Promise<void>;
+  deleteItem: (uid: string, kind: DmKind, id: string) => Promise<void>;
   anon: () => Promise<void>;
   getRoom: (code: string) => Promise<RoomInfo | null>;
   createRoom: (room: RoomInfo) => Promise<void>;
@@ -96,6 +103,21 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
         first = false;
       }, onError);
     },
+    watchItems: <T extends { id: string }>(uid: string, kind: DmKind, cb: (changed: T[], removed: string[], first: boolean) => void, onError: (e: Error) => void) => {
+      let first = true;
+      return F.onSnapshot(F.collection(db, 'users', uid, kind), (snap) => {
+        const changed: T[] = [];
+        const removed: string[] = [];
+        snap.docChanges().forEach((ch) => {
+          if (ch.type === 'removed') removed.push(ch.doc.id);
+          else changed.push(ch.doc.data() as T);
+        });
+        cb(changed, removed, first);
+        first = false;
+      }, onError);
+    },
+    putItem: (uid, kind, item) => F.setDoc(F.doc(db, 'users', uid, kind, item.id), JSON.parse(JSON.stringify(item))),
+    deleteItem: (uid, kind, id) => F.deleteDoc(F.doc(db, 'users', uid, kind, id)),
     putCharacter: (uid, c) => F.setDoc(F.doc(col(uid), c.id), toCloud(c)),
     deleteCharacter: (uid, id) => F.deleteDoc(F.doc(col(uid), id)),
     anon: async () => { await A.signInAnonymously(auth); },
