@@ -524,7 +524,11 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-features.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));align-items:start;gap:6px;--card-h:62px}
 .pc-features.grid.acts{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));--card-h:104px}
 /* todas las tarjetas con la misma altura de partida; al abrir una, solo esa crece hacia abajo con su texto */
-.pc-features.grid>li>details{min-height:var(--card-h);box-sizing:border-box}
+.pc-features.grid>li>details,.pc-features.grid>li>.card{min-height:var(--card-h);box-sizing:border-box}
+/* tarjeta que abre su texto en una ventana (conjuros) */
+.pc-features .card{border:1px solid #2c2723;border-radius:6px;background:#171412;padding:6px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.card-title{flex-basis:100%;text-align:left;background:none;border:0;padding:0;color:inherit;font:inherit;font-size:16px;cursor:pointer}
+.card-title:hover b,.card-title:focus-visible b{color:#f3d48a;text-decoration:underline;text-underline-offset:3px}
 .pc-features.grid summary>b:first-child{flex-basis:100%}
 .pc-features.grid details:not([open]) summary>b:first-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}

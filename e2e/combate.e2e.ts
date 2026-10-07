@@ -444,7 +444,7 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   await expect(sheet).toContainText('Paladín 3 (Juramento de la Estirpe)');
   // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
   await expect(sheet.getByRole('button', { name: 'Daño 1d8+2 cortante + 1d6 fuego' })).toBeVisible();
-  await expect(sheet.locator('summary', { hasText: 'Castigo Divino' })).toBeVisible();
+  await expect(sheet.locator('.card', { hasText: 'Castigo Divino' })).toBeVisible();
   await expect(sheet.locator('summary', { hasText: 'Protección' })).toContainText('Estilo de combate');
   // con otra subclase no salen los rasgos de la del SRD
   await expect(sheet.locator('summary', { hasText: 'Juramento de devoción' })).toHaveCount(0);
@@ -480,7 +480,7 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
   await expect(sheet.locator('summary', { hasText: 'Luz guía' })).toContainText('Juramento del faro 3');
   await expect(sheet.locator('summary', { hasText: 'Aura del faro' })).toHaveCount(0); // es de nivel 7
   await expect(sheet.locator('summary', { hasText: 'Vigía nocturno' })).toContainText('Dote de origen');
-  await expect(sheet.locator('summary', { hasText: 'Rayo de faro' })).toBeVisible();
+  await expect(sheet.locator('.card', { hasText: 'Rayo de faro' })).toBeVisible();
 });
 
 test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia tras descansar y conjuros siempre preparados', async ({ page }) => {
@@ -536,7 +536,7 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Patrón infernal' });
   await expect(page.getByText('Por tu subclase siempre tienes preparados', { exact: false })).toContainText('Manos ardientes');
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(sheet.locator('summary', { hasText: 'Manos ardientes' })).toContainText('Subclase · siempre preparado');
+  await expect(sheet.locator('.card', { hasText: 'Manos ardientes' })).toContainText('Subclase · siempre preparado');
   await page.getByRole('button', { name: 'Editar hoja' }).click();
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
   await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Cazador' });
@@ -750,7 +750,7 @@ test('Preservar vida te cura a ti; conjuros de la escuela del mago; Caballero ar
   await pick.getByRole('button', { name: /Proyectil mágico/ }).click();
   await expect(pick.locator(':scope > summary')).toContainText('(1 de 2)');
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(page.locator('section[aria-label="Conjuros"] summary', { hasText: 'Proyectil mágico' })).toContainText('Subclase · en tu libro de conjuros');
+  await expect(page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Proyectil mágico' })).toContainText('Subclase · en tu libro de conjuros');
 
   // Caballero arcano 7 (subclase escrita a mano): lista de mago, Inteligencia y espacios de nivel 1 y 2
   await make('Bren', 'Guerrero', '7', 'Otra (escríbela)', ['int', '14'], 'Caballero arcano');
@@ -827,7 +827,7 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   }
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sp = page.locator('section[aria-label="Conjuros"]');
-  const fireball = sp.locator('summary', { hasText: 'Bola de fuego' });
+  const fireball = sp.locator('.card', { hasText: 'Bola de fuego' });
   await expect(fireball).toContainText('CD 13 Destreza · mitad si supera');
   await expect(fireball.getByRole('button', { name: 'Daño 8d6 fuego' })).toBeVisible();
   await fireball.getByLabel('Nivel de espacio para Bola de fuego').selectOption('4');
@@ -835,9 +835,16 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await expect(page.locator('.plaque-label')).toContainText('Bola de fuego (nivel 4): daño');
   await fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' }).click();
   await expect(fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' })).toBeDisabled(); // solo tenía uno
-  const bolt = sp.locator('summary', { hasText: 'Descarga de fuego' });
+  const bolt = sp.locator('.card', { hasText: 'Descarga de fuego' });
   await expect(bolt.getByRole('button', { name: 'Ataque +5' })).toBeVisible();
   await expect(bolt.getByRole('button', { name: 'Daño 2d10 fuego' })).toBeVisible(); // nivel 5+: 2d10
+  // el texto completo, en una ventana al pulsar el nombre
+  await fireball.getByRole('button', { name: 'Bola de fuego' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Bola de fuego' });
+  await expect(dlg).toContainText('Nivel 3');
+  await expect(dlg.getByRole('button', { name: /Daño \d+d6 fuego/ })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dlg).toHaveCount(0);
 
   // clérigo 1: Curar heridas cura solo con «Curarme»
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
@@ -849,7 +856,7 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await page.getByLabel('Cantidad de PG').fill('5');
   await page.getByRole('button', { name: 'Daño', exact: true }).click();
-  const cure = page.locator('section[aria-label="Conjuros"] summary', { hasText: 'Curar heridas' });
+  const cure = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Curar heridas' });
   await expect(cure.getByRole('button', { name: 'Curar 2d8+2' })).toBeVisible();
   await cure.getByRole('button', { name: 'Curarme' }).click();
   await expect(page.locator('.plaque')).toContainText('Recuperas', { timeout: 10000 });

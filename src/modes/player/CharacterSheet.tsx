@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { CONDITIONS } from '../../data/constants';
 import { ABILS, type Abil, type ClassFeature, type PlayerData } from '../../data/player';
 import { derive, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
@@ -61,6 +61,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const features = useMemo(() => featureRows(c, data, lib), [c, data, lib]);
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
+  const [spellView, setSpellView] = useState<string | null>(null); // conjuro abierto en la ventana
   const [confirmLong, setConfirmLong] = useState(false);
   // Atacante salvaje y carga: se aplican al próximo daño y se apagan
   const [savage, setSavage] = useState(false);
@@ -321,17 +322,28 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <ul className="pc-features grid acts">
               {spellList.map(({ k, s, sub }) => (
                 <li key={k}>
-                  <details>
-                    <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}<SpellRolls c={c} d={d} s={s!} set={set} /></summary>
-                    <p className="muted small" style={{ margin: '4px 0' }}>{[s!.ct, s!.r, s!.cmp, s!.du].filter(Boolean).join(' · ')}</p>
-                    <p className="pc-text">{plainText(s!.t)}</p>
-                  </details>
+                  {/* el texto completo se abre en una ventana: en la tarjeta solo el nombre, sus datos y las tiradas */}
+                  <div className="card">
+                    <button className="card-title" aria-haspopup="dialog" title="Ver el conjuro" onClick={() => setSpellView(k)}><b>{s!.n}</b></button>
+                    <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}
+                    <SpellRolls c={c} d={d} s={s!} set={set} />
+                  </div>
                 </li>
               ))}
             </ul>
           )}
         </section>
       )}
+
+      {(() => {
+        const v = spellList.find((x) => x.k === spellView);
+        return v && <SpellDialog onClose={() => setSpellView(null)} title={v.s!.n}>
+          <p className="muted small" style={{ margin: 0 }}>{v.s!.l ? 'Nivel ' + v.s!.l : 'Truco'}{v.s!.c ? ' · concentración' : ''}{v.s!.rit ? ' · ritual' : ''}{v.sub ? ' · ' + v.sub : ''}</p>
+          <p className="muted small" style={{ margin: '4px 0' }}>{[v.s!.ct, v.s!.r, v.s!.cmp, v.s!.du].filter(Boolean).join(' · ')}</p>
+          <p className="pc-text">{plainText(v.s!.t)}</p>
+          <SpellRolls c={c} d={d} s={v.s!} set={set} />
+        </SpellDialog>;
+      })()}
 
       <section className="panel" aria-label="Rasgos y dotes">
         <h3 className="eyebrow">Rasgos y dotes</h3>
@@ -397,6 +409,26 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </div>
         <div className="field"><label htmlFor="pc-notes">Notas</label><textarea id="pc-notes" className="input" rows={4} value={c.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Equipo, objetivos, vínculos, lo que pasó la última sesión…" /></div>
       </section>
+    </div>
+  );
+}
+
+/** Ventana con el texto completo de un conjuro: se cierra con Esc, con «Cerrar» o pulsando fuera. */
+function SpellDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  return (
+    <div className="overlay" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
+      <div className="panel dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="panel-head">
+          <h2>{title}</h2>
+          <button className="btn small ghost" autoFocus onClick={onClose}>Cerrar</button>
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
