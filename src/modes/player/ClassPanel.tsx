@@ -11,6 +11,13 @@ const LAY = 'Imposición de manos';
 const WIND = 'Segundo aliento';
 const FOCUS = 'Concentración del monje';
 
+/** Usos que este panel ya cuenta con sus círculos (para no repetirlos en «Rasgos y dotes»). */
+export function classPanelKeys(c: Character, data: PlayerData | null): string[] {
+  const cls = data?.classes.find((x) => x.id === c.classId);
+  const has = (n: string) => !!cls?.f.some((f) => f.n === n && f.lv <= c.level);
+  return [...(c.classId === 'fighter' && has(WIND) ? [WIND] : []), ...(c.classId === 'monk' && has(FOCUS) ? [FOCUS] : [])];
+}
+
 /** Rasgos de clase que se usan en la mesa con su tirada: Segundo aliento, Imposición de manos, Concentración del monje. */
 export default function ClassPanel({ c, d, data, set }: { c: Character; d: Derived; data: PlayerData | null; set: (patch: Partial<Character>) => void }) {
   const { roll } = useStore.getState();

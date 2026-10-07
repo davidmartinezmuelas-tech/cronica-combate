@@ -13,9 +13,9 @@ import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
 import { subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { plainText, useSpells } from './spells';
-import ClassPanel from './ClassPanel';
+import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
-import SubclassActions, { choiceResources } from './SubclassActions';
+import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import SpellRolls from './SpellRolls';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
 
@@ -60,6 +60,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const d = useMemo(() => derive(c, data), [c, data]);
   const lib = useLibrary();
   const features = useMemo(() => featureRows(c, data, lib), [c, data, lib]);
+  // los usos que ya tienen sus círculos en un panel de acciones no se repiten en «Rasgos y dotes»
+  const panelKeys = useMemo(() => new Set([...classPanelKeys(c, data), ...actionPanelKeys(c, data, lib)]), [c, data, lib]);
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
   const [confirmLong, setConfirmLong] = useState(false);
@@ -352,7 +354,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <li key={f.src + f.key}>
               <Card name={f.n} head={<>
                 <span className="muted small">{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</span>
-                {f.max != null && <Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />}
+                {f.max != null && !panelKeys.has(f.key) && <Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />}
               </>}>
                 {f.d && <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((s, i) => (i % 2 ? <b key={i}>{s}</b> : plainText(s)))}</p>}
               </Card>

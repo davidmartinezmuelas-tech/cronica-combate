@@ -4,6 +4,7 @@ import { derive, mod, weaponFromData, type Character, type CharWeapon, type Cust
 import { fmt } from '../../engine/dice';
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
+import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
@@ -30,6 +31,9 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const [weaponPick, setWeaponPick] = useState('');
   const [spellQ, setSpellQ] = useState('');
   const [allSpells, setAllSpells] = useState(false);
+  // conjuro para una clase que no lanza: se pide confirmación una vez (luego ya no se pregunta en esta edición)
+  const [askSpell, setAskSpell] = useState<{ id: string; n: string } | null>(null);
+  const [nonCasterOk, setNonCasterOk] = useState(false);
   const [newFeat, setNewFeat] = useState<CustomFeat | null>(null);
   const set = (patch: Partial<Character>) => update(c.id, patch);
   const d = useMemo(() => derive(c, data), [c, data]);
@@ -281,7 +285,19 @@ export default function CharacterEditor({ c }: { c: Character }) {
             {!spellIdx.loaded && <span className="muted small">Cargando conjuros…</span>}
           </div>
           {spellResults.length > 0 && (
-            <div className="chips ce-spell-results">{spellResults.map((s) => <button key={s.id} className="chip" onClick={() => { set({ spells: [...c.spells, s.id] }); setSpellQ(''); }}>+ {s.n} <span className="chip-tag">{s.l ? s.l : 'T'}</span></button>)}</div>
+            <div className="chips ce-spell-results">{spellResults.map((s) => <button key={s.id} className="chip" onClick={() => {
+              if (cls && !d.spell && !nonCasterOk) { setAskSpell({ id: s.id, n: s.n }); return; }
+              set({ spells: [...c.spells, s.id] }); setSpellQ('');
+            }}>+ {s.n} <span className="chip-tag">{s.l ? s.l : 'T'}</span></button>)}</div>
+          )}
+          {askSpell && (
+            <InfoDialog title="¿Añadir un conjuro?" onClose={() => setAskSpell(null)}>
+              <p style={{ marginTop: 0 }}>{cls!.n}{c.subclass ? ' (' + c.subclass + ')' : ''} no lanza conjuros a nivel {c.level}. Solo tiene sentido si lo consigues de otra forma, como con una dote (Iniciado en la magia) o un rasgo de tu especie.</p>
+              <p className="muted small">¿Seguro que quieres añadir <b>{askSpell.n}</b>? No se volverá a preguntar mientras editas esta hoja.</p>
+              <div className="rollrow">
+                <button className="btn small primary" onClick={() => { set({ spells: [...c.spells, askSpell.id] }); setSpellQ(''); setNonCasterOk(true); setAskSpell(null); }}>Sí, añadirlo</button>
+              </div>
+            </InfoDialog>
           )}
           {c.spells.length > 0 && (
             <div className="chips">{c.spells.map((k) => <button key={k} className="chip on" title="Quitar" onClick={() => set({ spells: c.spells.filter((x) => x !== k) })}>{spellIdx.get(k)?.n || k} ✕</button>)}</div>

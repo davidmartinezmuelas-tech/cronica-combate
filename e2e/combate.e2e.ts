@@ -952,3 +952,26 @@ test('efectos con salvación: objetivos, salvaciones de los monstruos, daño y e
   await fx.getByRole('button', { name: 'Aplicar' }).click();
   await expect(page.locator('.init-row', { hasText: 'Ogro' })).toContainText('Hechizado');
 });
+
+test('conjuro en una clase que no lanza: pide confirmación una vez', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Brakka');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel(/^Buscar conjuro/).fill('luz');
+  await page.locator('.ce-spell-results .chip').first().click();
+  const dlg = page.getByRole('dialog', { name: '¿Añadir un conjuro?' });
+  await expect(dlg).toContainText('no lanza conjuros');
+  await dlg.getByRole('button', { name: 'Cerrar' }).click();
+  await expect(dlg).toHaveCount(0);
+  await expect(page.locator('.chips .chip.on')).toHaveCount(0); // no se añadió
+  await page.getByLabel(/^Buscar conjuro/).fill('luz');
+  await page.locator('.ce-spell-results .chip').first().click();
+  await dlg.getByRole('button', { name: 'Sí, añadirlo' }).click();
+  await expect(page.locator('.chips .chip.on')).toHaveCount(1);
+  // la segunda ya no pregunta
+  await page.getByLabel(/^Buscar conjuro/).fill('mano');
+  await page.locator('.ce-spell-results .chip').first().click();
+  await expect(dlg).toHaveCount(0);
+  await expect(page.locator('.chips .chip.on')).toHaveCount(2);
+});

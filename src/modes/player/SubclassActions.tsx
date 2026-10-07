@@ -17,6 +17,14 @@ export function choiceResources(c: Character, data: PlayerData | null, lib: Libr
   return [...resolveChoices(c, data, lib).flatMap((r) => (r.def.res ? [r.def.res] : [])), ...kits].map((r) => ({ ...r, now: resourcePer(r, c.level) }));
 }
 
+/** Usos que los paneles de acciones ya cuentan con sus círculos (canalización, inspiración, maniobras elegidas…). */
+export function actionPanelKeys(c: Character, data: PlayerData | null, lib: LibraryData): string[] {
+  return [
+    ...activeKits(c).flatMap((k) => (k.kit.res ? [k.kit.res.key] : [])),
+    ...resolveChoices(c, data, lib).filter((r) => r.def.res && r.picked.length).map((r) => r.def.res!.key),
+  ];
+}
+
 /**
  * Opciones elegidas que se usan en la mesa (maniobras): cada una con sus tiradas, que gastan un dado del recurso.
  * Si suma el dado al daño, hay un botón por arma con el daño del arma más el dado.
