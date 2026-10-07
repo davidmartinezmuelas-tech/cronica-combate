@@ -519,6 +519,7 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}
 .ce-choices{display:flex;flex-direction:column;gap:8px}
 .pc-attack-feat{display:block;color:#d4a94f;font-weight:700}
+.pc-slot-pick{width:auto;min-height:32px;padding:2px 8px;font-size:13px}
 .ce-choice-rest{display:flex;flex-wrap:wrap;gap:8px 12px;margin-bottom:8px}
 .ce-choice-rest .ce-choice-one{flex:1 1 200px;margin:0}
 .pc-rest{display:flex;gap:8px;flex-wrap:wrap}

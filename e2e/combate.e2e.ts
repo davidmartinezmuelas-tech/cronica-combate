@@ -813,3 +813,44 @@ test('rasgos de clase en la hoja: Ataque furtivo, Furia, Segundo aliento, Imposi
   await lay.getByRole('button', { name: 'Curarme 4' }).click();
   await expect(lay).toContainText('6 de 10 PG');
 });
+
+test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gastar el espacio', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Oren');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Mago' });
+  await page.getByLabel('Nivel', { exact: true }).fill('7');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click(); // INT 15: +2, ataque +5, CD 13
+  for (const q of ['bola de fuego', 'descarga de fuego']) {
+    await page.getByLabel(/^Buscar conjuro/).fill(q);
+    await page.locator('.ce-spell-results .chip').first().click();
+  }
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  const fireball = sp.locator('summary', { hasText: 'Bola de fuego' });
+  await expect(fireball).toContainText('CD 13 Destreza · mitad si supera');
+  await expect(fireball.getByRole('button', { name: 'Daño 8d6 fuego' })).toBeVisible();
+  await fireball.getByLabel('Nivel de espacio para Bola de fuego').selectOption('4');
+  await fireball.getByRole('button', { name: 'Daño 9d6 fuego' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('Bola de fuego (nivel 4): daño');
+  await fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' }).click();
+  await expect(fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' })).toBeDisabled(); // solo tenía uno
+  const bolt = sp.locator('summary', { hasText: 'Descarga de fuego' });
+  await expect(bolt.getByRole('button', { name: 'Ataque +5' })).toBeVisible();
+  await expect(bolt.getByRole('button', { name: 'Daño 2d10 fuego' })).toBeVisible(); // nivel 5+: 2d10
+
+  // clérigo 1: Curar heridas cura solo con «Curarme»
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ilsa');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel(/^Buscar conjuro/).fill('curar heridas');
+  await page.locator('.ce-spell-results .chip', { hasText: /^\+ Curar heridas 1$/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.getByLabel('Cantidad de PG').fill('5');
+  await page.getByRole('button', { name: 'Daño', exact: true }).click();
+  const cure = page.locator('section[aria-label="Conjuros"] summary', { hasText: 'Curar heridas' });
+  await expect(cure.getByRole('button', { name: 'Curar 2d8+2' })).toBeVisible();
+  await cure.getByRole('button', { name: 'Curarme' }).click();
+  await expect(page.locator('.plaque')).toContainText('Recuperas', { timeout: 10000 });
+});

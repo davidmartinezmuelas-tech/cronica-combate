@@ -15,6 +15,7 @@ import { plainText, useSpells } from './spells';
 import ClassPanel from './ClassPanel';
 import FeatPanel from './FeatPanel';
 import SubclassActions, { choiceResources } from './SubclassActions';
+import SpellRolls from './SpellRolls';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
@@ -321,7 +322,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               {spellList.map(({ k, s, sub }) => (
                 <li key={k}>
                   <details>
-                    <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}</summary>
+                    <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}<SpellRolls c={c} d={d} s={s!} set={set} /></summary>
                     <p className="muted small" style={{ margin: '4px 0' }}>{[s!.ct, s!.r, s!.cmp, s!.du].filter(Boolean).join(' · ')}</p>
                     <p className="pc-text">{plainText(s!.t)}</p>
                   </details>
