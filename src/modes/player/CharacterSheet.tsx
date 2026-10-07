@@ -337,7 +337,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         <h3 className="eyebrow">Rasgos y dotes</h3>
         <SubclassChoices c={c} data={data} lib={lib} set={set} restOnly />
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
-        <ul className="pc-features">
+        <ul className="pc-features grid">
           {features.map((f) => (
             <li key={f.src + f.key}>
               <details>
@@ -345,7 +345,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
                   <b>{f.n}</b> <span className="muted small">{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</span>
                   {f.max != null && <span onClick={(e) => e.preventDefault()}><Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} /></span>}
                 </summary>
-                <p className="pc-text">{f.d}</p>
+                <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((s, i) => (i % 2 ? <b key={i}>{s}</b> : plainText(s)))}</p>
               </details>
             </li>
           ))}

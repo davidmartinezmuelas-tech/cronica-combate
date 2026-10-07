@@ -518,6 +518,9 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .pc-features details{border:1px solid #2c2723;border-radius:6px;background:#171412;padding:6px 10px}
 .pc-features summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+/* rasgos en columnas para no dejar filas vacías; el que se abre ocupa todo el ancho para leer su texto */
+.pc-features.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));grid-auto-flow:row dense;align-items:start;gap:6px}
+.pc-features.grid li:has(details[open]){grid-column:1/-1}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}
 .ce-choices{display:flex;flex-direction:column;gap:8px}
 .pc-attack-feat{display:block;color:#d4a94f;font-weight:700}
