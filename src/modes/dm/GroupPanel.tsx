@@ -56,7 +56,7 @@ export default function GroupPanel() {
           <li key={r.id} className="beast roster-item">
             <span className="roster-info">
             <span className="beast-name">{r.name}{inC.has(r.id) && <span className="tag">En combate</span>}{r.roomUid && online.has(r.roomUid) && <span className="tag pdf">En la sala</span>}</span>
-            <span style={{ fontSize: 13, color: '#b9a88a' }}>
+            <span style={{ fontSize: 13, color: '#b2a691' }}>
               {[r.player ? 'Jugador: ' + r.player : '', r.cls, 'Nivel ' + (r.level || 1), 'CA ' + (r.ac || '—'), 'PG ' + (r.hp || '—'), 'Ini ' + fmt(parseInt(r.initb, 10) || 0), 'Perc. pasiva ' + (r.pp || 10)].filter(Boolean).join(' · ')}
               {r.res.length > 0 && ' · resiste ' + r.res.join(', ')}
             </span>

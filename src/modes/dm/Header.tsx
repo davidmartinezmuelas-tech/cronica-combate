@@ -39,7 +39,7 @@ export default function Header() {
           <>
             <div className="hdr-turn" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}>
               <span className="eyebrow">Ronda {round}</span>
-              <span style={{ fontSize: 15, color: '#cdbd9f' }}><span className="hide-narrow">Turno de </span><strong style={{ color: '#e8c062' }}>{activeName}</strong></span>
+              <span style={{ fontSize: 15, color: '#c6bba6' }}><span className="hide-narrow">Turno de </span><strong style={{ color: '#e8c062' }}>{activeName}</strong></span>
             </div>
             <button className="btn icon" onClick={() => step(-1)} aria-label="Volver al turno anterior" title="Volver al turno anterior (B)"><ChevronLeft /></button>
             <button className="btn primary" onClick={() => step(1)} title="Siguiente turno (N)"><span>Siguiente<span className="hide-narrow"> turno</span></span><ChevronRight /></button>

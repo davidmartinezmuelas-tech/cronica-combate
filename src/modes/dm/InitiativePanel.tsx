@@ -67,7 +67,7 @@ function Row({ c }: { c: Combatant }) {
             {isActive && <span className="turn-flag">En turno</span>}
           </span>
           {c.kind !== 'lair' && <span className="hpbar"><span className={'hpfill ' + (pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '')} style={{ width: pct + '%' }} /></span>}
-          <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2px 8px', fontSize: 13, color: '#cdbd9f' }}>
+          <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2px 8px', fontSize: 13, color: '#c6bba6' }}>
             <span style={{ minWidth: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{statusOf(c, started)}</span>
             {c.kind !== 'lair' && (
               <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto' }}>CA {c.ac} · {c.hp} / {c.maxHp} PG{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
@@ -91,7 +91,7 @@ function Encounters() {
   const [name, setName] = useState('');
   const save = () => { if (saveEncounter(name)) setName(''); };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #33271c', paddingTop: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #2c2723', paddingTop: 12 }}>
       <span className="eyebrow">Encuentros preparados</span>
       {encounters.length > 0 && (
         <ul className="rem">
@@ -157,14 +157,14 @@ export default function InitiativePanel() {
       {!combatants.length && <p className="muted" style={{ margin: 0 }}>El encuentro está vacío. Empieza añadiendo monstruos desde el Bestiario.</p>}
       {pendingPc && <p className="muted small" style={{ margin: 0 }}>Escribe en la casilla la iniciativa que saque cada jugador y pulsa Intro.</p>}
       {rosterOut.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #33271c', paddingTop: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #2c2723', paddingTop: 12 }}>
           <div className="panel-head"><span className="eyebrow">Tu grupo</span><button className="btn small" onClick={addAllPcs}>Añadir a todos</button></div>
           <div className="chips">{rosterOut.map((r) => <button key={r.id} className="chip" onClick={() => addPc(r)}>+ {r.name}</button>)}</div>
         </div>
       )}
       {!roster.length && <button className="btn small ghost" onClick={() => set({ tab: 'group' })} style={{ alignSelf: 'flex-start' }}>Guardar a tus jugadores en Grupo</button>}
       <Encounters />
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, borderTop: '1px solid #33271c', paddingTop: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, borderTop: '1px solid #2c2723', paddingTop: 12 }}>
         {!combatants.some((c) => c.kind === 'lair') && <button className="btn small ghost" onClick={addLairCombatant}>Añadir acciones de guarida (ini 20)</button>}
         {started && <button className="btn small ghost" onClick={() => confirm('end', endCombat)}>{confirmKey === 'end' ? '¿Seguro? Pulsa otra vez' : 'Terminar combate'}</button>}
         {combatants.length > 0 && <button className="btn small ghost" onClick={() => confirm('clear', clearAll)}>{confirmKey === 'clear' ? '¿Seguro? Pulsa otra vez' : 'Vaciar encuentro'}</button>}

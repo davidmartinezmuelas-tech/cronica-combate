@@ -147,8 +147,8 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
             {!targets && <SendToTable key={'s|' + result.label + '|' + result.total + '|' + (log[0]?.id || '')} />}
           </div>
         )}
-        {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#6b5238' }}>…</div><span className="plaque-label" style={{ color: '#b9a88a' }}>Los dados ruedan…</span></div></div>}
-        {!result && !rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#4a3a2a' }}>d20</div><span className="muted" style={{ fontSize: 14 }}>Pulsa un dado, una característica o un ataque de la hoja.</span></div></div>}
+        {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#605243' }}>…</div><span className="plaque-label" style={{ color: '#b2a691' }}>Los dados ruedan…</span></div></div>}
+        {!result && !rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#413a33' }}>d20</div><span className="muted" style={{ fontSize: 14 }}>Pulsa un dado, una característica o un ataque de la hoja.</span></div></div>}
       </div>
 
       {critFor && (
@@ -169,7 +169,7 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor="expr">Tirada libre</label>
           <input id="expr" className="input" value={expr} onChange={(e) => set({ expr: e.target.value, exprError: false })} onKeyDown={(e) => { if (e.key === 'Enter') rollFree(); }} placeholder="2d6+3, 4d6, 1d20-1…" /></div>
-        <button className="btn primary" onClick={rollFree}>Tirar</button>
+        <button className="btn gold" onClick={rollFree}>Tirar</button>
       </div>
       {exprError && <p className="warn" role="alert" style={{ fontSize: 14 }}>Fórmula no válida. Usa algo como 3d8+2.</p>}
 

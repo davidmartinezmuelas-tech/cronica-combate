@@ -21,6 +21,8 @@ export default function App() {
     return () => { stop(); window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
+  useEffect(() => { useStore.setState({ result: null, dmgTargets: {}, effectSel: null }); }, [mode]);
+
   return (
     <>
       {!online && <div className="offline" role="status">Sin conexión: la app sigue funcionando con los datos guardados en este dispositivo.</div>}

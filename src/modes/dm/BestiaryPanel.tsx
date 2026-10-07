@@ -23,8 +23,8 @@ function Beast({ m }: { m: Monster }) {
           {m.lg && <span className="tag leg">Legendario</span>}
           {m.lair && <span className="tag lair">Guarida</span>}
         </span>
-        <span style={{ fontSize: 13, color: '#b9a88a', fontStyle: 'italic' }}>{m.sz} {m.t} · VD {m.cr} · {nfmt(m.xp)} PX{m.en ? ' · ' + m.en : ''}</span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: '#cdbd9f' }}>CA {m.ac} · PG {m.hp} · Ini {fmt(m.ini || 0)}</span>
+        <span style={{ fontSize: 13, color: '#b2a691', fontStyle: 'italic' }}>{m.sz} {m.t} · VD {m.cr} · {nfmt(m.xp)} PX{m.en ? ' · ' + m.en : ''}</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#c6bba6' }}>CA {m.ac} · PG {m.hp} · Ini {fmt(m.ini || 0)}</span>
       </button>
       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
         <button className="step" onClick={() => setQty(qty - 1)} aria-label={'Uno menos de ' + m.n}>−</button>
@@ -106,7 +106,7 @@ export default function BestiaryPanel() {
       </ul>
       {pool.length > s.bLimit && <button className="btn" onClick={() => set({ bLimit: s.bLimit + 50 })}>Mostrar más ({pool.length - s.bLimit} restantes)</button>}
       {s.loaded && !pool.length && <p className="muted" style={{ margin: 0 }}>Ninguna criatura coincide con los filtros.</p>}
-      <button className="btn gold" onClick={newForge}>Forjar un monstruo nuevo</button>
+      <button className="btn" onClick={newForge}>Forjar un monstruo nuevo</button>
     </div>
   );
 }

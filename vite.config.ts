@@ -32,8 +32,8 @@ export default defineConfig({
         short_name: 'Crónica',
         description: 'Gestor de combate para la 5.ª edición (2024).',
         lang: 'es',
-        theme_color: '#15100c',
-        background_color: '#15100c',
+        theme_color: '#12100f',
+        background_color: '#12100f',
         display: 'standalone',
         start_url: '.',
         icons: [

@@ -225,7 +225,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               <div key={a} className="pc-abil">
                 <span className="pc-abil-k">{ABIL_S[a]} <b>{c.abil[a]}</b></span>
                 <button className="btn small" title={'Prueba de ' + ABIL_N[a]} onClick={() => r('prueba de ' + ABIL_N[a], 'check', d20(d.mods[a]))}>Prueba {fmt(d.mods[a])}</button>
-                <button className={d.saves[a].prof ? 'btn small gold' : 'btn small ghost'} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20(d.saves[a].bonus))}>Salv {fmt(d.saves[a].bonus)}</button>
+                <button className={d.saves[a].prof ? 'btn small prof' : 'btn small ghost'} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20(d.saves[a].bonus))}>Salv {fmt(d.saves[a].bonus)}</button>
               </div>
             ))}
           </div>

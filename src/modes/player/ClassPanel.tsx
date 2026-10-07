@@ -51,9 +51,9 @@ export default function ClassPanel({ c, d, data, set }: { c: Character; d: Deriv
       </summary>
         <div className="rollrow">
           <input className="input" style={{ width: 90 }} type="number" min={0} max={left} inputMode="numeric" aria-label="PG de Imposición de manos" placeholder="PG" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <button className="rollbtn" disabled={!self} onClick={() => { set({ hp: c.hp + self, death: { s: 0, f: 0 }, uses: { ...c.uses, [LAY]: used(LAY) + self } }); setAmount(''); }}>Curarme {self || ''}</button>
-          <button className="rollbtn" disabled={!n} onClick={() => { spend(LAY, n); setAmount(''); }}>Curar a otro {n || ''}</button>
-          <button className="rollbtn" disabled={left < 5} onClick={() => spend(LAY, 5)}>Quitar Envenenado (5)</button>
+          <button className="btn small" disabled={!self} onClick={() => { set({ hp: c.hp + self, death: { s: 0, f: 0 }, uses: { ...c.uses, [LAY]: used(LAY) + self } }); setAmount(''); }}>Curarme {self || ''}</button>
+          <button className="btn small" disabled={!n} onClick={() => { spend(LAY, n); setAmount(''); }}>Curar a otro {n || ''}</button>
+          <button className="btn small" disabled={left < 5} onClick={() => spend(LAY, 5)}>Quitar Envenenado (5)</button>
         </div>
       </details></li>,
     );
@@ -67,8 +67,8 @@ export default function ClassPanel({ c, d, data, set }: { c: Character; d: Deriv
         <b>Puntos de concentración</b><span className="muted small">{left} de {max} · vuelven en descanso corto o largo</span>{pips(FOCUS, max)}
         <span className="rollrow" onClick={(e) => e.preventDefault()}>
           <button className="rollbtn dmg" disabled={left < 1 || !d.unarmed} onClick={() => { spend(FOCUS); roll({ label: who + ' · ráfaga de golpes (' + flurry + ' golpes)', kind: 'damage', who, by: null, parts: Array.from({ length: flurry }, () => d.unarmed!.parts).flat() }); }}>Ráfaga de golpes: {flurry} golpes</button>
-          <button className="rollbtn" disabled={left < 1} onClick={() => spend(FOCUS)}>Defensa paciente</button>
-          <button className="rollbtn" disabled={left < 1} onClick={() => spend(FOCUS)}>Paso del viento</button>
+          <button className="btn small" disabled={left < 1} onClick={() => spend(FOCUS)}>Defensa paciente</button>
+          <button className="btn small" disabled={left < 1} onClick={() => spend(FOCUS)}>Paso del viento</button>
           {c.level >= 3 && <button className="rollbtn" onClick={() => roll({ label: who + ' · desviar ataques', kind: 'free', parts: [{ expr: '1d10' + sgn(d.mods.dex + c.level) }] })}>Desviar ataques 1d10{sgn(d.mods.dex + c.level)}</button>}
         </span>
       </summary><p className="pc-text">La ráfaga tira el daño de todos sus golpes sin armas de una vez (cada uno necesita su ataque). Desviar ataques reduce el daño recibido en el resultado.</p></details></li>,

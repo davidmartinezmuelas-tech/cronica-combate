@@ -25,7 +25,7 @@ function kitText(src: SubclassText | null, names: string[]): { n: string; d: str
   return null;
 }
 
-interface Btn { k: string; t: string; dmg?: boolean; off?: boolean; go: () => void }
+interface Btn { k: string; t: string; dmg?: boolean; off?: boolean; plain?: boolean; go: () => void }
 
 /** Rasgos de la subclase con sus tiradas: dados del recurso, usos propios, PG temporales, daño extra con las armas… */
 export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Character; d: Derived; lib: LibraryData; set: (patch: Partial<Character>) => void; kit: SubclassKit; actions: KitAction[] }) {
@@ -72,7 +72,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
             const half = Math.floor(d.hpMax / 2);
             const heal = c.hp <= half ? Math.min(pool, half - c.hp) : 0;
             btns.push({
-              k: 'self', t: 'Usar y curarme ' + heal + ' PG', off: left <= 0 || heal <= 0,
+              k: 'self', t: 'Usar y curarme ' + heal + ' PG', plain: true, off: left <= 0 || heal <= 0,
               go: () => {
                 set({ hp: c.hp + heal, death: { s: 0, f: 0 }, ...(res ? { uses: { ...c.uses, [res.key]: Math.min(max, (c.uses[res.key] || 0) + 1) } } : {}) });
                 setMsg({ ...msg, [name]: 'Te curas ' + heal + ' PG; quedan ' + (pool - heal) + ' para repartir entre los demás.' });
@@ -80,7 +80,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
             });
           }
           if (r.kind === 'regain') {
-            btns.push({ k: 'g', t: r.label, off: used <= 0, go: () => { if (res) set({ uses: { ...c.uses, [res.key]: Math.max(0, (c.uses[res.key] || 0) - 1) } }); } });
+            btns.push({ k: 'g', t: r.label, plain: true, off: used <= 0, go: () => { if (res) set({ uses: { ...c.uses, [res.key]: Math.max(0, (c.uses[res.key] || 0) - 1) } }); } });
           } else if (r.kind === 'unarmed') {
             const ab = d.mods[r.abil];
             btns.push({ k: 'a', t: 'Ataque ' + fmt(ab + d.pb), go: () => roll({ label: label('ataque sin armas'), kind: 'attack', who, parts: [{ expr: '1d20' + sgn(ab + d.pb) }] }) });
@@ -96,7 +96,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
               },
             });
           } else if (r.kind === 'spend') {
-            btns.push({ k: 's', t: r.label || (sides ? 'Gastar un dado (recuperar el uso)' : 'Usar (gasta un uso)'), off: left <= 0, go: () => spend() });
+            btns.push({ k: 's', t: r.label || (sides ? 'Gastar un dado (recuperar el uso)' : 'Usar (gasta un uso)'), plain: true, off: left <= 0, go: () => spend() });
           } else if (r.kind === 'extra') {
             d.attacks.forEach(({ w, parts, verParts }) => {
               btns.push({ k: 'w' + w.id, t: 'Daño con ' + w.name + ' + ' + r.expr, dmg: true, go: () => roll({ label: label('daño con ' + w.name), kind: 'damage', who, by: null, parts: [...parts, { expr: r.expr, type: w.type }] }) });
@@ -133,7 +133,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
             });
           } else if (r.kind === 'temp') {
             const n = Math.max(1, c.level + m(r.plus));
-            btns.push({ k: 't', t: 'Ganar ' + n + ' PG temporales', go: () => set({ temp: Math.max(c.temp, n) }) });
+            btns.push({ k: 't', t: 'Ganar ' + n + ' PG temporales', plain: true, go: () => set({ temp: Math.max(c.temp, n) }) });
           }
           return (
             <li key={a.n[0]}>
@@ -146,7 +146,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
                   {usesEl}
                   {btns.length > 0 && (
                     <span className="rollrow" onClick={(e) => e.preventDefault()}>
-                      {btns.map((b) => <button key={b.k} className={b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off} onClick={b.go}>{b.t}</button>)}
+                      {btns.map((b) => <button key={b.k} className={b.plain ? 'btn small' : b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off} onClick={b.go}>{b.t}</button>)}
                     </span>
                   )}
                   {msg[name] && <span className="pc-attack-feat small" role="status" style={{ flexBasis: '100%' }}>{msg[name]}</span>}

@@ -67,7 +67,7 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
     return (
       <div className="panel room">
         <div className="panel-head">
-          <h3 className="eyebrow">Sala</h3>
+          <h2>Sala</h2>
           {!open && <button className="btn small" onClick={() => setOpen(true)}>{mode === 'dm' ? 'Crear sala' : 'Entrar en una sala'}</button>}
         </div>
         {!open && <p className="muted small" style={{ margin: 0 }}>{mode === 'dm' ? 'Crea una sala y pasa el código a tus jugadores: verás sus tiradas y sus PG y CA en directo.' : 'Entra con el código que te dé el máster: tus tiradas y tu hoja resumida se verán en la mesa.'}</p>}
@@ -90,7 +90,7 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
   return (
     <div className="panel room" aria-label="Sala">
       <div className="panel-head">
-        <h3 className="eyebrow">Sala <span className="room-code" aria-label={'Código ' + code}>{code}</span></h3>
+        <h2>Sala <span className="room-code" aria-label={'Código ' + code}>{code}</span></h2>
         <span className="rollrow">
           {role === 'dm' && <button className="btn small ghost" title="Copiar el código" onClick={() => { try { void navigator.clipboard.writeText(code); } catch { /* sin portapapeles */ } }}>Copiar código</button>}
           <button className="btn small ghost" onClick={() => void leave()}>Salir</button>
