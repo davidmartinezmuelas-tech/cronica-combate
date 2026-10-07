@@ -854,3 +854,33 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await cure.getByRole('button', { name: 'Curarme' }).click();
   await expect(page.locator('.plaque')).toContainText('Recuperas', { timeout: 10000 });
 });
+
+test('copia de seguridad de personajes: guardar, borrar y volver a cargar', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Brakka');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('4');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByText('guarda una copia de vez en cuando')).toBeVisible();
+
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Guardar copia' }).click()]);
+  expect(dl.suggestedFilename()).toMatch(/^personajes-cronica-\d{4}-\d{2}-\d{2}\.json$/);
+  const path = await dl.path();
+  await expect(page.getByText(/Última copia:/)).toBeVisible();
+  const [one] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar Brakka' }).click()]);
+  expect(one.suggestedFilename()).toBe('brakka-cronica.json');
+
+  // se borra y vuelve con la copia
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByRole('button', { name: 'Borrar personaje' }).click();
+  await page.getByRole('button', { name: '¿Seguro? Borrar personaje' }).click();
+  await expect(page.locator('.pc h2', { hasText: 'Brakka' })).toHaveCount(0);
+  await page.getByLabel('Copia de personajes').setInputFiles(path!);
+  await expect(page.getByRole('status').filter({ hasText: 'Copia cargada: 1 personaje nuevo.' })).toBeVisible();
+  await expect(page.locator('.pc').getByRole('heading', { name: 'Brakka' })).toBeVisible();
+  await expect(page.locator('.pc')).toContainText('Guerrero 4');
+  // otra vez la misma copia: no cambia nada
+  await page.getByLabel('Copia de personajes').setInputFiles(path!);
+  await expect(page.getByRole('status').filter({ hasText: '1 sin cambios' })).toBeVisible();
+});

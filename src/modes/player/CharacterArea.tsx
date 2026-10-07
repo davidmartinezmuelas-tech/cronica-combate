@@ -3,7 +3,7 @@ import { sheetToCharacter } from '../../engine/characterImport';
 import { readSheet, type SheetField } from '../../engine/sheetImport';
 import { readPdfFields } from '../../store/pdfFields';
 import { useStore } from '../../store/useStore';
-import { activeCharacter, usePlayer } from '../../store/player';
+import { activeCharacter, lastBackup, usePlayer } from '../../store/player';
 import CharacterEditor from './CharacterEditor';
 import CharacterSheet from './CharacterSheet';
 
@@ -17,7 +17,36 @@ export default function CharacterArea() {
   const editing = usePlayer((s) => s.editing);
   const { init, loadData, select, create, replace, setEditing } = usePlayer.getState();
   const file = useRef<HTMLInputElement>(null);
+  const backupRef = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
+  const [note, setNote] = useState('');
+  const [last, setLast] = useState(lastBackup());
+
+  // copia de seguridad: un archivo .json que se descarga (todos los personajes o solo uno)
+  const download = (text: string, name: string) => {
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  const slug = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'personaje';
+  const backupAll = () => {
+    download(usePlayer.getState().exportText(), 'personajes-cronica-' + new Date().toISOString().slice(0, 10) + '.json');
+    setLast(lastBackup());
+    setNote('Copia guardada con ' + characters.length + (characters.length === 1 ? ' personaje.' : ' personajes.'));
+  };
+  const exportOne = () => {
+    if (!active) return;
+    download(usePlayer.getState().exportText([active.id]), slug(active.name) + '-cronica.json');
+    setNote((active.name || 'El personaje') + ' exportado: se carga con «Cargar copia» en otro dispositivo.');
+  };
+  const loadBackup = async (f: File | undefined) => {
+    if (!f) return;
+    setNote(await usePlayer.getState().importText(await f.text()));
+    if (backupRef.current) backupRef.current.value = '';
+  };
 
   useEffect(() => { void init(); void loadData(); }, [init, loadData]);
 
@@ -50,6 +79,14 @@ export default function CharacterArea() {
             <button className="btn small" onClick={() => file.current?.click()}>Importar desde PDF</button>
           </div>
         </div>
+        <div className="rollrow pc-backup">
+          <button className="btn small ghost" disabled={!characters.length} onClick={backupAll}>Guardar copia</button>
+          {active && <button className="btn small ghost" onClick={exportOne}>Exportar {active.name || 'personaje'}</button>}
+          <button className="btn small ghost" onClick={() => backupRef.current?.click()}>Cargar copia</button>
+          <span className="muted small">{characters.length ? (last ? 'Última copia: ' + new Date(last).toLocaleDateString('es-ES') + '.' : 'Tus personajes solo están en este dispositivo: guarda una copia de vez en cuando.') : ''} La copia no incluye tu biblioteca.</span>
+        </div>
+        <input ref={backupRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Copia de personajes" onChange={(e) => void loadBackup(e.target.files?.[0])} />
+        {note && <p className="muted small" role="status" style={{ margin: 0 }}>{note}</p>}
         {characters.length > 1 && (
           <div className="chips" role="group" aria-label="Elegir personaje">
             {characters.map((c) => <button key={c.id} className={c.id === active?.id ? 'chip on' : 'chip'} aria-pressed={c.id === active?.id} onClick={() => select(c.id)}>{c.name || 'Sin nombre'}</button>)}
