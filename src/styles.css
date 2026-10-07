@@ -50,6 +50,8 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 textarea.input{resize:vertical;line-height:1.4;font-family:'Alegreya',Georgia,serif}
 .check{display:flex;align-items:center;gap:8px;font-size:14px;color:#efe3cb;min-height:32px;cursor:pointer}
 .check input{width:18px;height:18px;accent-color:#d4a94f}
+/* casillas oscuras como el resto de la interfaz (no el blanco del navegador) */
+input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:#d4a94f}
 .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .row4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
@@ -336,7 +338,7 @@ button.pip{box-shadow:0 0 0 8px transparent;margin:2px}
 .sheet-links{margin-top:12px}
 .sheet-links summary{cursor:pointer;font-weight:700;color:#e6c98f}
 .sheet-links ul{margin:6px 0 0;padding-left:18px}
-.sheet-import input[type=checkbox],.sheet-import-notes input{accent-color:#b0412f;width:18px;height:18px}
+.sheet-import input[type=checkbox],.sheet-import-notes input{accent-color:#d4a94f;width:18px;height:18px}
 .add-opts{display:block}
 .add-opts>summary{cursor:pointer;display:flex;flex-direction:column;gap:2px;list-style:none}
 .add-opts>summary::-webkit-details-marker{display:none}
