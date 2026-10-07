@@ -95,3 +95,29 @@ describe('rasgos de subclase que se usan en la mesa', () => {
     expect(activeKit({ classId: 'warlock', subclass: 'Patrón infernal', level: 5 })!.actions.map((a) => a.n[0])).toEqual(['Bendición del oscuro']);
   });
 });
+
+describe('recursos de clase: Inspiración bárdica y Canalizar divinidad', () => {
+  it('se activan por clase; las acciones de una subclase solo con ella; usos y recuperación según nivel', async () => {
+    const { activeKits, resourceMax, resourcePer } = await import('../engine/subclassActions');
+    const bard = activeKits({ classId: 'bard', subclass: 'Colegio del Saber', level: 5 });
+    expect(bard).toHaveLength(1);
+    const names = bard[0].actions.map((a) => a.n[0]);
+    expect(names).toContain('Palabras cortantes');
+    expect(names).not.toContain('Manto de inspiración');
+    expect(resourceMax(bard[0].kit.res!, 5, { cha: 3 })).toBe(3);
+    expect(resourceMax(bard[0].kit.res!, 5, { cha: -1 })).toBe(1);
+    expect([resourcePer(bard[0].kit.res!, 4), resourcePer(bard[0].kit.res!, 5)]).toEqual(['lr', 'sr']);
+    const cleric = activeKits({ classId: 'cleric', subclass: 'Dominio de la luz', level: 6 })[0];
+    expect(resourceMax(cleric.kit.res!, 6)).toBe(3);
+    expect(cleric.actions.map((a) => a.n[0])).toEqual(['Chispa divina', 'Ahuyentar a los muertos vivientes', 'Resplandor del amanecer']);
+    expect(activeKits({ classId: 'paladin', subclass: 'Juramento de entrega', level: 9 })[0].actions.map((a) => a.n[0])).toEqual(['Sentido divino', 'Abjurar enemigos', 'Arma sagrada']);
+    expect(activeKits({ classId: 'paladin', subclass: '', level: 2 })).toEqual([]);
+  });
+
+  it('usos con max(1, …)', async () => {
+    const { usesMax, blankCharacter } = await import('../engine/character');
+    const c = { ...blankCharacter(), abil: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 8 } };
+    expect(usesMax({ max: 'max(1, @abilities.cha.mod)', per: 'lr' }, c, undefined)).toBe(1);
+    expect(usesMax({ max: 'max(1, @abilities.cha.mod)', per: 'lr' }, { ...c, abil: { ...c.abil, cha: 16 } }, undefined)).toBe(3);
+  });
+});

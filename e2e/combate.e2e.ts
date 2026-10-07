@@ -673,3 +673,47 @@ test('crítico con Perforador y Don del ataque imparable; Duelo se quita por arm
   // 2d8 (16) + 2 + un d8 más de Perforador (8) + Fuerza 15 de Don del ataque imparable = 41
   await expect(page.locator('.plaque-total')).toHaveText('41', { timeout: 10000 });
 });
+
+test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y Canalización divina (paladín)', async ({ page }) => {
+  await page.goto('/#/jugador');
+  const make = async (name: string, cls: string, lv: string, sub: string, abil: [string, string]) => {
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    await page.getByLabel('Nombre del personaje').fill(name);
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
+    await page.getByLabel('Nivel', { exact: true }).fill(lv);
+    await page.getByLabel(/^Subclase/).selectOption({ label: sub });
+    await page.locator('#ce-ab-' + abil[0]).fill(abil[1]);
+    await page.getByRole('button', { name: 'Listo' }).first().click();
+  };
+  const shortRest = async () => {
+    await page.getByRole('button', { name: 'Descanso corto' }).click();
+    await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
+  };
+
+  // bardo del Saber, nivel 5, Carisma 16: 3 usos de d8; Fuente de inspiración: el descanso corto los recupera todos
+  await make('Lira', 'Bardo', '5', 'Colegio del Saber', ['cha', '16']);
+  const bard = page.locator('section[aria-label="Inspiración bárdica"]');
+  await expect(bard).toContainText('Inspiración bárdica: 3 de 3 (d8)');
+  await bard.locator('summary', { hasText: 'Palabras hirientes' }).getByRole('button', { name: 'Tirar d8' }).click();
+  await bard.getByRole('button', { name: 'Dar un dado a un aliado' }).click();
+  await expect(bard).toContainText('1 de 3');
+  await shortRest();
+  await expect(bard).toContainText('3 de 3');
+
+  // clérigo de la Vida, nivel 6, Sabiduría 16: 3 usos; el descanso corto recupera uno
+  await make('Ilsa', 'Clérigo', '6', 'Dominio de la Vida', ['wis', '16']);
+  const cleric = page.locator('section[aria-label="Canalizar divinidad"]');
+  await expect(cleric).toContainText('Usos de Canalizar divinidad: 3 de 3');
+  await expect(cleric.locator('summary', { hasText: 'Preservar vida' })).toContainText('reparte 30 PG');
+  await cleric.locator('summary', { hasText: 'Chispa' }).getByRole('button', { name: 'Curar 1d8+3' }).click();
+  await cleric.locator('summary', { hasText: 'Preservar vida' }).getByRole('button', { name: 'Usar (gasta un uso)' }).click();
+  await expect(cleric).toContainText('1 de 3');
+  await shortRest();
+  await expect(cleric).toContainText('2 de 3');
+
+  // paladín de devoción, nivel 3, Carisma 16: Arma sagrada +3
+  await make('Aldo', 'Paladín', '3', 'Juramento de devoción', ['cha', '16']);
+  const pal = page.locator('section[aria-label="Canalización divina"]');
+  await expect(pal).toContainText('Usos de Canalización divina: 2 de 2');
+  await expect(pal.locator('summary', { hasText: 'Arma sagrada' })).toContainText('+3 al ataque');
+});

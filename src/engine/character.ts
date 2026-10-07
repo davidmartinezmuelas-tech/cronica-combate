@@ -266,6 +266,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
 export function usesMax(u: Uses | undefined, c: Character, cls: ClassData | undefined): number | null {
   if (!u) return null;
   const f = u.max.trim();
+  // «max(1, @abilities.cha.mod)» (Inspiración bárdica)
+  const mx = /^max\(\s*(\d+)\s*,\s*(.+)\)$/.exec(f);
+  if (mx) { const v = usesMax({ max: mx[2], per: u.per }, c, cls); return v == null ? null : Math.max(parseInt(mx[1], 10), v); }
   if (/^\d+$/.test(f)) return parseInt(f, 10);
   if (f === '@prof') return profBonus(c.level);
   const ab = /^@abilities\.(\w+)\.mod$/.exec(f);

@@ -328,9 +328,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
               <button className="rollbtn" disabled={c.hdSpent >= c.level || c.hp >= d.hpMax} onClick={spendHd}>Gastar un dado de golpe</button>
               <button className="btn small primary" onClick={() => {
                 const res = choiceResources(c, data, lib);
-                const rested = shortRest(c, [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.per === 'sr').map((r) => r.key)]);
-                // los que recuperan uno en descanso corto (dados de energía psiónica)
-                res.filter((r) => r.per === 'sr1' && rested.uses[r.key]).forEach((r) => { rested.uses[r.key] -= 1; });
+                const one = new Set(res.filter((r) => r.now === 'sr1').map((r) => r.key));
+                const all = [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
+                const rested = shortRest(c, all);
+                // los que recuperan uno en descanso corto (dados psiónicos, Canalizar divinidad)
+                one.forEach((k) => { if (rested.uses[k]) rested.uses[k] -= 1; });
                 replace(rested); setResting(false);
               }}>Terminar descanso corto</button>
             </div>

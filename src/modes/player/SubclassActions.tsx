@@ -1,7 +1,7 @@
 import type { Abil, PlayerData } from '../../data/player';
 import type { Character, Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
-import { activeKit, atLevel, optionAction, resourceMax, type DiceResource } from '../../engine/subclassActions';
+import { activeKits, atLevel, optionAction, resourceMax, resourcePer, type DiceResource } from '../../engine/subclassActions';
 import Pips from '../../shared/Pips';
 import type { LibraryData } from '../../store/library';
 import { useStore } from '../../store/useStore';
@@ -10,10 +10,10 @@ import { resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 
-/** Recursos de dados de las elecciones y rasgos de su subclase (para recuperarlos al descansar). */
-export function choiceResources(c: Character, data: PlayerData | null, lib: LibraryData): DiceResource[] {
-  const kit = activeKit(c)?.kit.res;
-  return [...resolveChoices(c, data, lib).flatMap((r) => (r.def.res ? [r.def.res] : [])), ...(kit ? [kit] : [])];
+/** Recursos de las elecciones y rasgos de su clase y subclase, con cuándo se recuperan a su nivel (para los descansos). */
+export function choiceResources(c: Character, data: PlayerData | null, lib: LibraryData): (DiceResource & { now: DiceResource['per'] })[] {
+  const kits = activeKits(c).flatMap((k) => (k.kit.res ? [k.kit.res] : []));
+  return [...resolveChoices(c, data, lib).flatMap((r) => (r.def.res ? [r.def.res] : [])), ...kits].map((r) => ({ ...r, now: resourcePer(r, c.level) }));
 }
 
 /**
@@ -24,12 +24,12 @@ export default function SubclassActions({ c, d, data, lib, set }: { c: Character
   const { roll } = useStore.getState();
   const who = c.name || 'Personaje';
   const groups = resolveChoices(c, data, lib).filter((r) => r.def.res && r.picked.length);
-  const kit = activeKit(c);
-  if (!groups.length && !kit) return null;
+  const kits = activeKits(c);
+  if (!groups.length && !kits.length) return null;
 
   return (
     <>
-      {kit && <KitPanel c={c} d={d} lib={lib} set={set} kit={kit.kit} actions={kit.actions} />}
+      {kits.map((k) => <KitPanel key={k.kit.id} c={c} d={d} lib={lib} set={set} kit={k.kit} actions={k.actions} />)}
       {groups.map(({ def, options, picked }) => {
         const res = def.res!;
         const max = resourceMax(res, c.level);
