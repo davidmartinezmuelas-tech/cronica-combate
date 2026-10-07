@@ -51,6 +51,8 @@ export const CHOICES: ChoiceDef[] = [
     from: { spells: { classes: ['wizard'], school, minLevel: 1 } },
   })),
   { id: 'lore.discoveries', cls: 'bard', subs: ['Colegio del conocimiento', 'Colegio del Saber', 'College of Lore'], label: 'Descubrimientos mágicos', at: { 6: 2 }, prepared: true, from: { spells: { classes: ['cleric', 'druid', 'wizard'], minLevel: 0 } } },
+  { id: 'cleric.blessed', cls: 'cleric', subs: [], label: 'Golpes benditos', at: { 7: 1 }, from: { list: ['Golpe divino', 'Lanzamiento de conjuros potente'] } },
+  { id: 'druid.fury', cls: 'druid', subs: [], label: 'Furia elemental', at: { 7: 1 }, from: { list: ['Golpe primordial', 'Lanzamiento de conjuros potente'] } },
   { id: 'fiend.resistance', cls: 'warlock', subs: ['Patrón infernal', 'Fiend Patron'], label: 'Resistencia infernal', at: { 10: 1 }, rest: 'sr', from: { list: DAMAGE.filter((t) => t !== 'fuerza') } },
 ];
 
@@ -64,8 +66,8 @@ export function choiceCount(def: ChoiceDef, level: number): number {
 /** Elecciones que tiene el personaje con su clase, subclase y nivel. */
 export function activeChoices(c: Pick<Character, 'classId' | 'subclass' | 'level'>): ChoiceDef[] {
   const sub = norm(c.subclass || '');
-  if (!sub) return [];
-  return CHOICES.filter((d) => d.cls === c.classId && d.subs.some((s) => norm(s) === sub) && choiceCount(d, c.level) > 0);
+  // `subs` vacío: elección de la clase (Golpes benditos, Furia elemental)
+  return CHOICES.filter((d) => d.cls === c.classId && (!d.subs.length || (sub && d.subs.some((s) => norm(s) === sub))) && choiceCount(d, c.level) > 0);
 }
 
 /** Rasgos y apartados de la subclase elegida: la del SRD o la de la biblioteca propia. */

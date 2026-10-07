@@ -157,3 +157,33 @@ describe('Perforador, críticos y Duelo a una mano', () => {
     expect(derive(pj({ ...base, weapons: [{ ...sword, duel: false }] }), data).attacks[0].dmg).toBe('1d8+3');
   });
 });
+
+describe('auditoría de clases: reglas que faltaban', () => {
+  const abil = { str: 16, dex: 16, con: 14, int: 10, wis: 14, cha: 16 };
+  it('velocidad del monje sin armadura y del bárbaro sin armadura pesada', () => {
+    expect([1, 2, 6, 10, 18].map((level) => derive(pj({ classId: 'monk', level, abil }), data).speed)).toEqual([30, 40, 45, 50, 60]);
+    const heavy = data.armor.find((a) => a.type === 'hvy')!;
+    expect(derive(pj({ classId: 'barbarian', level: 5, abil }), data).speed).toBe(40);
+    expect(derive(pj({ classId: 'barbarian', level: 5, abil, armorId: heavy.id }), data).speed).toBe(30);
+    expect(derive(pj({ classId: 'barbarian', level: 4, abil }), data).speed).toBe(30);
+  });
+
+  it('Resiliencia dracónica, Golpes radiantes, crítico del Campeón y golpe sin armas del monje', () => {
+    const plain = derive(pj({ classId: 'sorcerer', level: 5, abil }), data);
+    const dr = derive(pj({ classId: 'sorcerer', subclass: 'Hechicería dracónica', level: 5, abil }), data);
+    expect([dr.hpMax - plain.hpMax, dr.ac]).toEqual([5, 10 + 3 + 3]);
+    const sword = weaponFromData(data.weapons.find((w) => w.en === 'Longsword')!, data.classes.find((c) => c.id === 'paladin'));
+    expect(derive(pj({ classId: 'paladin', level: 11, abil, weapons: [sword] }), data).attacks[0].parts.map((p) => p.expr)).toEqual(['1d8+3', '1d8']);
+    expect(derive(pj({ classId: 'paladin', level: 10, abil, weapons: [sword] }), data).attacks[0].parts).toHaveLength(1);
+    expect([2, 3, 15].map((level) => derive(pj({ classId: 'fighter', subclass: 'Campeón', level, abil }), data).critOn)).toEqual([20, 19, 18]);
+    expect(derive(pj({ classId: 'fighter', subclass: 'Maestro del combate', level: 15, abil }), data).critOn).toBe(20);
+    expect([1, 5, 11, 17].map((level) => derive(pj({ classId: 'monk', level, abil }), data).unarmed!.parts[0].expr)).toEqual(['1d6+3', '1d8+3', '1d10+3', '1d12+3']);
+  });
+
+  it('usos: paréntesis de más y números fijos que no son usos', () => {
+    const c = pj({ classId: 'ranger', level: 14, abil });
+    expect(usesMax({ max: '(max(1,@abilities.wis.mod))', per: 'lr' }, c, undefined)).toBe(2);
+    expect(usesMax({ max: '20', per: 'sr' }, c, undefined)).toBeNull();
+    expect(usesMax({ max: '1', per: 'lr' }, c, undefined)).toBe(1);
+  });
+});

@@ -131,6 +131,8 @@ export interface Derived {
   hpMax: number;
   hdDie: number;
   spell: { abil: Abil; dc: number; atk: number } | null;
+  critOn: number; // el ataque es crítico con este número o más en el d20 (Campeón: 19, luego 18)
+  scale: (key: string) => string | number | null; // valor de una tabla de la clase a su nivel («rogue.sneak-attack»)
   slots: number[];
   pact: { n: number; lv: number } | null;
   attacks: { w: CharWeapon; atk: number; dmg: string; ver: string; abil: Abil; parts: { expr: string; type: string; min?: number }[]; verParts: { expr: string; type: string; min?: number }[]; throwParts: { expr: string; type: string }[]; offParts: Part[]; poleParts: Part[]; notes: string[] }[];
@@ -166,6 +168,14 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const all = mergeEffects(fx);
   // ataque extra de la propiedad «ligera»: hace falta otra arma ligera para el primer ataque
   const lightCount = c.weapons.filter((w) => (w.props || []).some((x) => norm(x) === 'ligera')).length;
+  // tablas de la clase a su nivel
+  const scale = (key: string): string | number | null => {
+    let v: string | number | null = null;
+    for (const [lv, x] of Object.entries(cls?.sc[key] || {})) if (parseInt(lv, 10) <= c.level) v = x;
+    return v;
+  };
+  const sub = norm(c.subclass || '');
+  const draconic = c.classId === 'sorcerer' && c.level >= 3 && ['hechiceria draconica', 'draconic sorcery'].includes(sub);
   const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra]);
   const saves = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + (saveProf.has(a) ? pb : 0), prof: saveProf.has(a) }])) as Derived['saves'];
   const subSkills = new Set(choiceSkills(c));
@@ -189,13 +199,17 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   } else if (c.classId === 'monk' && !c.shield) {
     ac = 10 + mods.dex + mods.wis;
     acNote = 'Defensa sin armadura';
+  } else if (draconic) {
+    // Resiliencia dracónica: escamas
+    ac = 10 + mods.dex + mods.cha;
+    acNote = 'Resiliencia dracónica';
   }
   if (c.shield) { ac += 2 + (c.shieldBonus || 0); acNote += ' y escudo' + (c.shieldBonus ? ' +' + c.shieldBonus : ''); }
 
   const hdDie = cls?.hd || 8;
   const lvl = Math.max(1, c.level || 1);
   // Robustez enana: +1 PG por nivel
-  const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con) + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat'));
+  const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con) + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvl : 0));
 
   const subCaster = subclassCaster(c);
   const spellAb = cls?.spellAb || subCaster?.abil || '';
@@ -203,6 +217,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   if (spell && c.ov.spellDc != null) spell.dc = c.ov.spellDc;
   if (spell && c.ov.spellAtk != null) spell.atk = c.ov.spellAtk;
 
+  const radiant = c.classId === 'paladin' && c.level >= 11;
   const attacks = c.weapons.map((w) => {
     const ab = weaponAbil(w, mods);
     const props = w.props || [];
@@ -225,6 +240,8 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     if (min2h && w.kind === 'melee' && (twoHanded || w.ver)) notes.push(featOf('minDie2h').join(', ') + ': los 1 y 2 cuentan como 3 a dos manos');
     const extra = (w.extra || []).filter((e) => e.dmg.trim()).map((e) => ({ expr: e.dmg.trim(), type: e.type }));
     const main = (expr: string, two: boolean) => ({ expr, type: w.type, ...(min2h && two && w.kind === 'melee' ? { min: min2h } : {}) });
+    // Golpes radiantes (paladín 11): +1d8 radiante con armas cuerpo a cuerpo
+    if (radiant && w.kind === 'melee') { extra.push({ expr: '1d8', type: 'radiante' }); notes.push('Golpes radiantes +1d8 radiante'); }
     // ataque extra (acción adicional): sin el modificador al daño salvo que sea negativo o lo dé una dote
     const light = has('ligera');
     const crossbow = /ballesta/.test(norm(w.name));
@@ -241,11 +258,22 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     };
   });
 
+  // Movimiento sin armadura (monje, sin armadura ni escudo) y Movimiento rápido (bárbaro 5, sin armadura pesada)
+  const heavyArmor = !!armor && armor.type === 'hvy';
+  const speedBonus = (c.classId === 'monk' && !worn && !c.shield ? Number(scale('monk.unarmored-movement')) || 0 : 0) + (c.classId === 'barbarian' && c.level >= 5 && !heavyArmor ? 10 : 0);
+  // golpe sin armas: el de las dotes o el dado de Artes marciales del monje (con Fuerza o Destreza, la mejor)
+  const monkDie = c.classId === 'monk' ? parseInt(String(scale('monk.die') || '').replace(/^1d/, ''), 10) || 0 : 0;
+  const ua = all.unarmed || (monkDie ? { die: monkDie } : null);
+  const uaDie = Math.max(ua?.die || 0, monkDie);
+  const uaAb = monkDie && mods.dex > mods.str ? mods.dex : mods.str;
+  const uaNotes = [...featOf('unarmed'), ...(monkDie ? ['Artes marciales'] : [])];
   return {
     cls, pb, mods, saves, skills,
+    critOn: c.classId === 'fighter' && ['campeon', 'champion'].includes(sub) ? (c.level >= 15 ? 18 : c.level >= 3 ? 19 : 20) : 20,
+    scale,
     ac: c.ov.ac ?? ac, acNote: c.ov.ac != null ? 'Ajustada a mano' : acNote,
     init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : 0),
-    speed: c.ov.speed ?? (species?.speed ?? 30) + sum('speed'),
+    speed: c.ov.speed ?? (species?.speed ?? 30) + sum('speed') + speedBonus,
     pp: c.ov.pp ?? 10 + skills.prc.bonus,
     hpMax: c.ov.hpMax ?? hpMax,
     hdDie,
@@ -253,12 +281,12 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     slots: spellSlots(cls?.caster && cls.caster !== 'none' ? cls.caster : subCaster ? 'third' : cls?.caster, c.level),
     pact: cls?.caster === 'pact' ? pactSlots(c.level) : null,
     attacks,
-    unarmed: all.unarmed ? {
-      atk: mods.str + pb,
-      parts: [{ expr: withBonus('1d' + all.unarmed.die, mods.str), type: 'contundente', reroll1: all.unarmed.reroll1 }],
-      free: all.unarmed.free ? [{ expr: withBonus('1d' + all.unarmed.free, mods.str), type: 'contundente', reroll1: all.unarmed.reroll1 }] : [],
-      grapple: all.unarmed.grapple || '',
-      notes: featOf('unarmed'),
+    unarmed: ua ? {
+      atk: uaAb + pb,
+      parts: [{ expr: withBonus('1d' + uaDie, uaAb), type: 'contundente', reroll1: all.unarmed?.reroll1 }, ...(radiant ? [{ expr: '1d8', type: 'radiante' }] : [])],
+      free: all.unarmed?.free && all.unarmed.free > uaDie ? [{ expr: withBonus('1d' + all.unarmed.free, uaAb), type: 'contundente', reroll1: all.unarmed.reroll1 }] : [],
+      grapple: all.unarmed?.grapple || '',
+      notes: uaNotes,
     } : null,
     feats: fx.map((f) => f.n),
     fx: all,
@@ -268,11 +296,13 @@ export function derive(c: Character, data: PlayerData | null): Derived {
 /** Máximo de usos de un rasgo: número, @prof, @abilities.X.mod (mínimo 1) o @scale.clase.rasgo por nivel. */
 export function usesMax(u: Uses | undefined, c: Character, cls: ClassData | undefined): number | null {
   if (!u) return null;
-  const f = u.max.trim();
+  // «(max(1, …))» con paréntesis de más
+  const f = u.max.trim().replace(/^\((.*)\)$/, '$1').trim();
   // «max(1, @abilities.cha.mod)» (Inspiración bárdica)
   const mx = /^max\(\s*(\d+)\s*,\s*(.+)\)$/.exec(f);
   if (mx) { const v = usesMax({ max: mx[2], per: u.per }, c, cls); return v == null ? null : Math.max(parseInt(mx[1], 10), v); }
-  if (/^\d+$/.test(f)) return parseInt(f, 10);
+  // un número fijo; 20 o más son restos de otros datos (CD de Furia implacable, Sobrecargar), no usos
+  if (/^\d+$/.test(f)) { const n = parseInt(f, 10); return n > 10 ? null : n; }
   if (f === '@prof') return profBonus(c.level);
   const ab = /^@abilities\.(\w+)\.mod$/.exec(f);
   if (ab) return Math.max(1, mod(c.abil[ab[1] as Abil]));

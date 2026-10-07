@@ -16,6 +16,7 @@ export interface RollSpec {
   half?: boolean;
   by?: string | null;
   noAdv?: boolean;
+  critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
   critBonus?: RollPart[]; // daño que solo se suma si este daño es de un crítico (Perforador, Don del ataque imparable)
   after?: (total: number, nat: number | null) => Partial<State> & { resultNote?: string; extraLog?: LogDraft[] };
 }

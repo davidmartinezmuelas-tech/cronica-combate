@@ -402,8 +402,9 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   await sheet.getByRole('button', { name: 'Ataque +4' }).click();
   await expect(page.locator('.plaque-label')).toContainText('Brakka · Espada larga: ataque', { timeout: 15000 });
   await expect(sheet.getByRole('button', { name: /Daño 1d8\+2 cortante/ })).toBeVisible();
-  await expect(sheet.locator('summary', { hasText: 'Segundo aliento' })).toBeVisible();
-  await expect(sheet.locator('summary', { hasText: 'Crítico mejorado' })).toBeVisible();
+  const traits = sheet.locator('section[aria-label="Rasgos y dotes"]');
+  await expect(traits.locator('summary', { hasText: 'Segundo aliento' })).toBeVisible();
+  await expect(traits.locator('summary', { hasText: 'Crítico mejorado' })).toBeVisible();
 
   // PG: daño y curación
   await sheet.getByLabel('Cantidad de PG').fill('7');
@@ -759,4 +760,56 @@ test('Preservar vida te cura a ti; conjuros de la escuela del mago; Caballero ar
   const sp = page.locator('section[aria-label="Conjuros"]');
   await expect(sp).toContainText('Inteligencia');
   await expect(sp).toContainText('Nivel 2');
+});
+
+test('rasgos de clase en la hoja: Ataque furtivo, Furia, Segundo aliento, Imposición de manos y crítico del Campeón', async ({ page }) => {
+  await page.goto('/#/jugador');
+  const make = async (name: string, cls: string, lv: string, weapon?: string, sub?: string) => {
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    await page.getByLabel('Nombre del personaje').fill(name);
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
+    await page.getByLabel('Nivel', { exact: true }).fill(lv);
+    if (sub) await page.getByLabel(/^Subclase/).selectOption({ label: sub });
+    await page.getByRole('button', { name: /Matriz estándar/ }).click();
+    if (weapon) {
+      await page.getByLabel('Arma para añadir').selectOption({ label: weapon });
+      await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+    }
+    await page.getByRole('button', { name: 'Listo' }).first().click();
+  };
+  const atk = page.locator('section[aria-label="Ataques"]');
+
+  // pícaro 5: Ataque furtivo 3d6 con el estoque (sutil), una vez
+  await make('Sombra', 'Pícaro', '5', 'Estoque (1d8 perforante)');
+  await atk.getByRole('button', { name: 'Ataque furtivo +3d6' }).click();
+  await atk.locator('.pc-attack', { hasText: 'Estoque' }).getByRole('button', { name: /^Daño/ }).click();
+  await expect(page.locator('.plaque-label')).toContainText('(ataque furtivo)');
+  await expect(atk.getByRole('button', { name: 'Ataque furtivo +3d6' })).toHaveAttribute('aria-pressed', 'false');
+
+  // bárbaro 9: entrar en Furia gasta un uso y suma +3 hasta que se apaga
+  await make('Ruk', 'Bárbaro', '9', 'Hacha a dos manos (1d12 cortante)');
+  await atk.getByRole('button', { name: 'Furia +3' }).click();
+  await atk.locator('.pc-attack', { hasText: 'Hacha a dos manos' }).getByRole('button', { name: /^Daño/ }).click();
+  await expect(page.locator('.plaque-label')).toContainText('(furia)');
+  await expect(atk.getByRole('button', { name: 'Furia +3' })).toHaveAttribute('aria-pressed', 'true');
+
+  // guerrero 3 Campeón: Segundo aliento cura solo
+  await make('Brakka', 'Guerrero', '3', 'Espada larga (1d8 cortante)', 'Campeón');
+  await page.getByLabel('Cantidad de PG').fill('10');
+  await page.getByRole('button', { name: 'Daño', exact: true }).click();
+  await page.locator('section[aria-label="Rasgos de clase"]').getByRole('button', { name: 'Curarte 1d10+3' }).click();
+  await expect(page.locator('.plaque')).toContainText('Recuperas', { timeout: 10000 });
+  // crítico con 19
+  await page.evaluate(() => { Math.random = () => 0.92; }); // d20 -> 19
+  await atk.locator('.pc-attack', { hasText: 'Espada larga' }).getByRole('button', { name: /^Ataque/ }).click();
+  await expect(page.locator('.plaque')).toContainText('¡Crítico!', { timeout: 10000 });
+
+  // paladín 2: Imposición de manos (10 PG) cura a uno mismo lo que le falta
+  await make('Aldo', 'Paladín', '2');
+  await page.getByLabel('Cantidad de PG').fill('4');
+  await page.getByRole('button', { name: 'Daño', exact: true }).click();
+  const lay = page.locator('section[aria-label="Rasgos de clase"]');
+  await lay.getByLabel('PG de Imposición de manos').fill('6');
+  await lay.getByRole('button', { name: 'Curarme 4' }).click();
+  await expect(lay).toContainText('6 de 10 PG');
 });

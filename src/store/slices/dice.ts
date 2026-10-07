@@ -23,12 +23,13 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       let cls: RollResult['cls'] = '';
       let note = '';
       const d20kind = spec.kind !== 'damage' && spec.kind !== 'death' && spec.kind !== 'free';
-      if (out.nat === 20 && d20kind) { cls = 'crit'; note = spec.kind === 'attack' ? (spec.who ? '¡Crítico! El próximo daño de ' + spec.who + ' dobla los dados.' : '¡Crítico!') : '¡20 natural!'; }
+      const critHit = out.nat != null && spec.kind === 'attack' ? out.nat >= (spec.critOn || 20) : out.nat === 20;
+      if (critHit && d20kind) { cls = 'crit'; note = spec.kind === 'attack' ? (spec.who ? '¡Crítico! El próximo daño de ' + spec.who + ' dobla los dados.' : '¡Crítico!') : '¡20 natural!'; }
       else if (out.nat === 1 && d20kind) { cls = 'fumble'; note = '1 natural.'; }
       if (mods.autoFail) note = (note ? note + ' ' : '') + 'Falla automáticamente.';
       if (mods.reasons.length) note = (note ? note + ' · ' : '') + mods.reasons.join(' · ');
       const after: Partial<State> = {};
-      if (spec.kind === 'attack' && spec.who) after.critFor = out.nat === 20 ? { who: spec.who } : s.critFor?.who === spec.who ? null : s.critFor;
+      if (spec.kind === 'attack' && spec.who) after.critFor = critHit ? { who: spec.who } : s.critFor?.who === spec.who ? null : s.critFor;
       if (spec.kind === 'damage' && crit) after.critFor = null;
       if (out.usedAdv && manual !== 'normal') after.adv = 'normal';
       set({ exprError: false });
