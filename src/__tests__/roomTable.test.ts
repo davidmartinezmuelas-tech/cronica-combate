@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { RoomMember, SheetSummary } from '../store/cloudAdapter';
-import { applyInitiativeRolls, resetRoomTable, syncMembersToTable } from '../store/roomTable';
+import { applyInitiativeRolls, resetRoomTable, syncMembersToTable, watchTableForPlayers } from '../store/roomTable';
 import { useStore } from '../store/useStore';
 
 const sheet = (o: Partial<SheetSummary>): SheetSummary => ({ name: 'Ana', cls: 'Guerrero', level: 3, ac: 16, hp: 28, hpMax: 28, temp: 0, pp: 12, init: 2, conds: [], ...o });
@@ -43,5 +43,34 @@ describe('jugadores de la sala en la mesa del máster', () => {
     expect(useStore.getState().combatants[0].init).toBe(14);
     applyInitiativeRolls([{ id: 'x3', uid: 'u1', who: 'Laura', label: 'Ana · iniciativa', total: '3', detail: '', cls: '', at: 3 }], ms);
     expect(useStore.getState().combatants[0].init).toBe(14); // ya la tenía
+  });
+});
+
+describe('el daño del máster llega a la hoja del jugador', () => {
+  beforeEach(() => {
+    resetRoomTable();
+    useStore.setState({ roster: [], combatants: [] });
+  });
+
+  it('se envía lo que cambia el máster (agrupado), no lo que llegó del jugador', async () => {
+    const { vi } = await import('vitest');
+    vi.useFakeTimers();
+    const sent: [string, string, number, number][] = [];
+    const stop = watchTableForPlayers((to, charId, hp, temp) => sent.push([to, charId, hp, temp]));
+    syncMembersToTable([member('u1', 'Laura', sheet({ hp: 28, charId: 'pj-ana' }))]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(sent).toEqual([]); // vino del jugador
+    const id = useStore.getState().combatants[0].id;
+    const hit = (hp: number, temp = 0) => useStore.setState({ combatants: useStore.getState().combatants.map((c) => (c.id === id ? { ...c, hp, temp } : c)) });
+    hit(20); hit(14, 3);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(sent).toEqual([['u1', 'pj-ana', 14, 3]]);
+    // el jugador publica esos mismos PG: no se vuelven a aplicar ni a enviar
+    syncMembersToTable([member('u1', 'Laura', sheet({ hp: 14, temp: 3, charId: 'pj-ana' }))]);
+    await vi.advanceTimersByTimeAsync(600);
+    expect(sent).toHaveLength(1);
+    expect(useStore.getState().combatants[0].hp).toBe(14);
+    stop();
+    vi.useRealTimers();
   });
 });

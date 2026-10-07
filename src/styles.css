@@ -532,6 +532,7 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .room-roll-label{font-weight:700;color:#efe3cb;font-size:13px}
 .room-roll-total{font-family:'Alegreya Sans',sans-serif;font-size:18px;color:#f3e6c8;grid-row:span 2;align-self:center}
 .room-roll-detail{font-size:12px}
+.room-notice{margin:0;padding:6px 8px;border-radius:6px;border:1px solid #9b2c22;background:#2a1714;color:#f3d6cc;font-size:13px;font-weight:700}
 .pc-login{display:flex;flex-direction:column;gap:8px;align-items:flex-start;border-top:1px solid #33271c;padding-top:8px}
 .pc-login .row2{width:100%}
 .pc-account .warn{font-size:13px}

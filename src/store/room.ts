@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { cloud, useAccount } from './account';
 import { cloudError, type RoomInfo, type RoomMember, type SharedRoll, type SheetSummary } from './cloudAdapter';
+import { usePlayer } from './player';
 import { useStore } from './useStore';
 
 /**
@@ -27,6 +28,7 @@ export interface RoomState {
   share: boolean; // publicar mis tiradas en la sala
   busy: boolean;
   error: string;
+  notice: string; // aviso al jugador (el máster le ha cambiado los PG)
   create: (name: string) => Promise<boolean>;
   join: (code: string, name: string) => Promise<boolean>;
   leave: () => Promise<void>;
@@ -34,6 +36,7 @@ export interface RoomState {
   setShare: (v: boolean) => void;
   publishSheet: (sheet: SheetSummary | null) => void;
   resume: () => Promise<void>;
+  sendHp: (to: string, charId: string, hp: number, temp: number) => void;
 }
 
 let stop: (() => void) | null = null;
@@ -69,7 +72,20 @@ export const useRoom = create<RoomState>()((set, get) => {
       if (!get().share || !uid || !get().code) return;
       a.addRoll(info.code, { uid, who: get().name, label: r.label, total: r.total, detail: r.detail, cls: r.cls, at: Date.now() }).catch((e) => set({ error: cloudError(e) }));
     });
-    stop = () => { unMembers(); unRolls(); unResult(); stop = null; };
+    // el jugador: los avisos del máster (sus PG tras el daño en la mesa) se aplican a su personaje
+    const myUid = me()?.uid;
+    const unEvents = role === 'player' && myUid ? a.watchEvents(info.code, myUid, (events) => {
+      for (const ev of events) {
+        const p = usePlayer.getState();
+        const c = p.characters.find((x) => x.id === ev.charId) || p.characters.find((x) => x.id === p.activeId);
+        if (c) {
+          p.update(c.id, { hp: Math.max(0, ev.hp), temp: Math.max(0, ev.temp), ...(ev.hp > 0 ? { death: { s: 0, f: 0 } } : {}) });
+          set({ notice: 'El máster ha cambiado los PG de ' + (c.name || 'tu personaje') + ': ' + ev.hp + (ev.temp ? ' (+' + ev.temp + ' temporales)' : '') + '.' });
+        }
+        a.deleteEvent(info.code, ev.id).catch(() => { /* ya borrado */ });
+      }
+    }, (e) => set({ error: cloudError(e) })) : () => {};
+    stop = () => { unMembers(); unRolls(); unResult(); unEvents(); stop = null; };
   }
 
   async function member(code: string, role: 'dm' | 'player', name: string, sheet: SheetSummary | null) {
@@ -78,7 +94,14 @@ export const useRoom = create<RoomState>()((set, get) => {
   }
 
   return {
-    code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '',
+    code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '',
+
+    sendHp(to, charId, hp, temp) {
+      const { code, role } = get();
+      const from = me()?.uid;
+      if (!code || role !== 'dm' || !from) return;
+      cloud()?.sendEvent(code, { to, from, charId, hp, temp, note: '', at: Date.now() }).catch((e) => set({ error: cloudError(e) }));
+    },
 
     async create(name) {
       set({ busy: true, error: '' });

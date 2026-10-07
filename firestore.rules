@@ -45,6 +45,13 @@ service cloud.firestore {
         allow delete: if signedIn() && (request.auth.uid == uid || isDm(code));
       }
 
+      // Avisos del máster a un jugador (sus PG tras el daño en la mesa): solo los envía el máster y solo los lee y
+      // borra el jugador al que van.
+      match /events/{id} {
+        allow create: if signedIn() && isDm(code) && request.resource.data.from == request.auth.uid;
+        allow read, delete: if signedIn() && (resource.data.to == request.auth.uid || isDm(code));
+      }
+
       // Tiradas: las ven todos los de la sala; cada uno publica solo las suyas; el máster puede limpiarlas.
       match /rolls/{id} {
         allow read: if signedIn() && isMember(code);

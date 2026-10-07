@@ -57,3 +57,26 @@ describe('salas', () => {
     expect(useRoom.getState().error).toMatch(/se ha cerrado/);
   });
 });
+
+describe('avisos del máster al jugador', () => {
+  it('el jugador aplica los PG que le envía el máster y ve el aviso', async () => {
+    const { usePlayer } = await import('../store/player');
+    const { blankCharacter } = await import('../engine/character');
+    await usePlayer.getState().init();
+    usePlayer.setState({ characters: [{ ...blankCharacter(), id: 'pj-ana', name: 'Ana', hp: 28 }], activeId: 'pj-ana' });
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+    useRoom.setState({ code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '' });
+    const cloud = fakeCloud({ uid: 'dm1', email: null, name: null, anon: false });
+    setCloudAdapter(async () => cloud.adapter);
+    await useRoom.getState().create('Laura');
+    const code = useRoom.getState().code!;
+    await useRoom.getState().leave();
+    await cloud.setUser({ uid: 'p1', email: null, name: null, anon: true });
+    await vi.waitFor(() => expect(useAccount.getState().user?.uid).toBe('p1'));
+    await useRoom.getState().join(code, 'Ana');
+    await cloud.adapter.sendEvent(code, { to: 'p1', from: 'dm1', charId: 'pj-ana', hp: 17, temp: 0, note: '', at: 1 });
+    await vi.waitFor(() => expect(usePlayer.getState().characters[0].hp).toBe(17));
+    expect(useRoom.getState().notice).toBe('El máster ha cambiado los PG de Ana: 17.');
+    expect(cloud.rooms.get(code)!.events).toHaveLength(0); // se borra al aplicarlo
+  });
+});

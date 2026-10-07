@@ -2,7 +2,9 @@ import type { Character } from '../engine/character';
 import { toCloud } from '../engine/sync';
 
 /** Resumen de la hoja que un jugador comparte en la sala (lo que el máster necesita ver). */
-export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; init?: number; conds: string[] }
+export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; init?: number; conds: string[]; charId?: string }
+/** Aviso del máster a un jugador: sus PG tras lo que ha pasado en la mesa (daño, curación…). */
+export interface RoomEvent { id: string; to: string; from: string; charId: string; hp: number; temp: number; note: string; at: number }
 /** Participante de una sala. */
 export interface RoomMember { uid: string; name: string; role: 'dm' | 'player'; sheet: SheetSummary | null; at: number }
 /** Tirada publicada en la sala. */
@@ -37,6 +39,9 @@ export interface CloudAdapter {
   watchMembers: (code: string, cb: (members: RoomMember[]) => void, onError: (e: Error) => void) => () => void;
   addRoll: (code: string, r: Omit<SharedRoll, 'id'>) => Promise<void>;
   watchRolls: (code: string, cb: (rolls: SharedRoll[]) => void, onError: (e: Error) => void) => () => void;
+  sendEvent: (code: string, ev: Omit<RoomEvent, 'id'>) => Promise<void>;
+  watchEvents: (code: string, uid: string, cb: (events: RoomEvent[]) => void, onError: (e: Error) => void) => () => void;
+  deleteEvent: (code: string, id: string) => Promise<void>;
 }
 
 /** Adaptador con el SDK de Firebase (cargado bajo demanda: quien no inicia sesión no lo descarga). */
@@ -79,7 +84,7 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
     createRoom: (room) => F.setDoc(F.doc(db, 'rooms', room.code), room),
     closeRoom: async (code) => {
       // sin borrado en cascada: primero lo de dentro (en lotes de 400) y luego la sala
-      for (const sub of ['rolls', 'members']) {
+      for (const sub of ['rolls', 'events', 'members']) {
         const snap = await F.getDocs(F.collection(db, 'rooms', code, sub));
         for (let i = 0; i < snap.docs.length; i += 400) {
           const batch = F.writeBatch(db);
@@ -93,6 +98,13 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
     removeMember: (code, uid) => F.deleteDoc(F.doc(db, 'rooms', code, 'members', uid)),
     watchMembers: (code, cb, onError) => F.onSnapshot(F.collection(db, 'rooms', code, 'members'), (snap) => cb(snap.docs.map((d) => d.data() as RoomMember)), onError),
     addRoll: async (code, r) => { await F.addDoc(F.collection(db, 'rooms', code, 'rolls'), r); },
+    sendEvent: async (code, ev) => { await F.addDoc(F.collection(db, 'rooms', code, 'events'), ev); },
+    watchEvents: (code, uid, cb, onError) => F.onSnapshot(
+      F.query(F.collection(db, 'rooms', code, 'events'), F.where('to', '==', uid)),
+      (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<RoomEvent, 'id'>), id: d.id })).sort((a, b) => a.at - b.at)),
+      onError,
+    ),
+    deleteEvent: (code, id) => F.deleteDoc(F.doc(db, 'rooms', code, 'events', id)),
     watchRolls: (code, cb, onError) => F.onSnapshot(
       F.query(F.collection(db, 'rooms', code, 'rolls'), F.orderBy('at', 'desc'), F.limit(40)),
       (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<SharedRoll, 'id'>), id: d.id }))),

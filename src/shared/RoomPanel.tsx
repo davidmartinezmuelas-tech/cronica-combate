@@ -3,7 +3,7 @@ import { derive } from '../engine/character';
 import type { SheetSummary } from '../store/cloudAdapter';
 import { activeCharacter, usePlayer } from '../store/player';
 import { cleanCode, hadRoom, useRoom } from '../store/room';
-import { applyInitiativeRolls, syncMembersToTable } from '../store/roomTable';
+import { applyInitiativeRolls, syncMembersToTable, watchTableForPlayers } from '../store/roomTable';
 
 /** Resumen de la hoja activa del jugador para la sala. */
 function useSheetSummary(enabled: boolean): SheetSummary | null {
@@ -11,7 +11,7 @@ function useSheetSummary(enabled: boolean): SheetSummary | null {
   const data = usePlayer((s) => s.data);
   if (!enabled || !c) return null;
   const d = derive(c, data);
-  return { name: c.name || 'Sin nombre', cls: d.cls?.n || c.className || '', level: c.level, ac: d.ac, hp: c.hp, hpMax: d.hpMax, temp: c.temp, pp: d.pp, init: d.init, conds: c.conds };
+  return { name: c.name || 'Sin nombre', cls: d.cls?.n || c.className || '', level: c.level, ac: d.ac, hp: c.hp, hpMax: d.hpMax, temp: c.temp, pp: d.pp, init: d.init, conds: c.conds, charId: c.id };
 }
 
 /**
@@ -19,7 +19,7 @@ function useSheetSummary(enabled: boolean): SheetSummary | null {
  * comparten en directo.
  */
 export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
-  const { code, role, room, members, rolls, share, busy, error } = useRoom();
+  const { code, role, room, members, rolls, share, busy, error, notice } = useRoom();
   const { create, join, leave, close, setShare, publishSheet, resume } = useRoom.getState();
   const active = usePlayer(activeCharacter);
   const [codeIn, setCodeIn] = useState('');
@@ -34,6 +34,8 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
   // el máster: los jugadores de la sala pasan a su Grupo y al combate, con sus PG en directo
   useEffect(() => { if (mode === 'dm' && role === 'dm') syncMembersToTable(members); }, [mode, role, members]);
   useEffect(() => { if (mode === 'dm' && role === 'dm') applyInitiativeRolls(rolls, members); }, [mode, role, rolls, members]);
+  // y lo que el máster cambia en la mesa (daño, curación) llega a la hoja del jugador
+  useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableForPlayers((to, charId, hp, temp) => useRoom.getState().sendHp(to, charId, hp, temp)) : undefined), [mode, role]);
 
   const defaultName = mode === 'dm' ? 'Máster' : active?.name || '';
 
@@ -72,6 +74,7 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
         </span>
       </div>
       <span className="muted small">{room?.name} · {members.length} en la sala</span>
+      {notice && <p className="room-notice" role="status">{notice}</p>}
       <label className="check small"><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />Compartir mis tiradas{role === 'dm' ? ' (las de los monstruos también)' : ''}</label>
       <ul className="room-members">
         {members.map((m) => (

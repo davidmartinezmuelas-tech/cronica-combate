@@ -8,12 +8,12 @@ import { useStore } from './useStore';
  * Mesa del máster con sala: los jugadores de la sala pasan a su Grupo y al combate, y sus PG y CA llegan en directo.
  * Solo se aplica lo que el jugador cambia (el daño que pone el máster no se pisa con cualquier otra actualización).
  */
-interface Seen { hp: number; temp: number; hpMax: number; ac: number }
+interface Seen { hp: number; temp: number; hpMax: number; ac: number; charId: string }
 const seen = new Map<string, Seen>(); // última hoja recibida de cada participante
 const rollsDone = new Set<string>(); // tiradas de iniciativa ya aplicadas
 
 /** Para las pruebas. */
-export function resetRoomTable() { seen.clear(); rollsDone.clear(); }
+export function resetRoomTable() { seen.clear(); rollsDone.clear(); pending.forEach((t) => clearTimeout(t)); pending.clear(); }
 
 export function syncMembersToTable(members: RoomMember[]) {
   const s = useStore.getState();
@@ -38,7 +38,7 @@ export function syncMembersToTable(members: RoomMember[]) {
       rosterChanged = true;
     }
     const prev = seen.get(m.uid);
-    const now: Seen = { hp: sh.hp, temp: sh.temp, hpMax: sh.hpMax, ac: sh.ac };
+    const now: Seen = { hp: sh.hp, temp: sh.temp, hpMax: sh.hpMax, ac: sh.ac, charId: sh.charId || '' };
     const inCombat = combatants.find((c) => c.rosterId === entry!.id);
     if (!prev && !inCombat) {
       // la primera vez que aparece en la sala entra al combate (si luego el máster lo quita, no vuelve solo)
@@ -57,6 +57,28 @@ export function syncMembersToTable(members: RoomMember[]) {
     seen.set(m.uid, now);
   }
   if (rosterChanged || combatChanged) useStore.setState({ ...(rosterChanged ? { roster } : {}), ...(combatChanged ? { combatants } : {}) });
+}
+
+const pending = new Map<string, ReturnType<typeof setTimeout>>();
+
+/**
+ * Lo que el máster cambia en la mesa (daño, curación, PG temporales) de un jugador de la sala se le envía a su hoja.
+ * Lo que llegó del propio jugador no se reenvía: su valor ya es el conocido. Varios cambios seguidos van en uno.
+ */
+export function watchTableForPlayers(send: (to: string, charId: string, hp: number, temp: number) => void): () => void {
+  return useStore.subscribe((s, prev) => {
+    if (s.combatants === prev.combatants) return;
+    for (const c of s.combatants) {
+      if (c.kind !== 'pc' || !c.rosterId) continue;
+      const uid = s.roster.find((r) => r.id === c.rosterId)?.roomUid;
+      const known = uid ? seen.get(uid) : undefined;
+      if (!uid || !known || (c.hp === known.hp && c.temp === known.temp)) continue;
+      known.hp = c.hp;
+      known.temp = c.temp;
+      clearTimeout(pending.get(uid));
+      pending.set(uid, setTimeout(() => { pending.delete(uid); const k = seen.get(uid)!; send(uid, k.charId, k.hp, k.temp); }, 500));
+    }
+  });
 }
 
 /** Las tiradas de iniciativa de los jugadores rellenan la suya si aún no la tienen. */
