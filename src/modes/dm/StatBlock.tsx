@@ -1,6 +1,8 @@
 import { ABIL, ABIL_LONG, DMG_TYPES, SECTIONS } from '../../data/constants';
 import type { Combatant, Feature, Monster, SectionKey } from '../../data/types';
 import { fmt, modOf, parseExpr, prettyExpr, sgn } from '../../engine/dice';
+import { saveEffectOf } from '../../engine/saveEffect';
+import { spellRoll } from '../../engine/spellRoll';
 import { nfmt, pbOf } from '../../engine/util';
 import { useStore } from '../../store/useStore';
 import { D20Icon } from '../../shared/Icons';
@@ -10,7 +12,7 @@ const dmgLabel = (parts: [string, string][]) => parts.map(([d, t]) => prettyExpr
 
 export { Pips };
 
-function SpellList({ f, c }: { f: Feature; c: Combatant | null }) {
+function SpellList({ f, c, who }: { f: Feature; c: Combatant | null; who: string }) {
   const spells = useStore((s) => s.spells);
   const spellOpen = useStore((s) => s.spellOpen);
   const { set, setSpUsed } = useStore.getState();
@@ -30,7 +32,7 @@ function SpellList({ f, c }: { f: Feature; c: Combatant | null }) {
               return (
                 <span key={k} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                   {sp ? (
-                    <button className={spellOpen === k ? 'spell on' : 'spell'} aria-expanded={spellOpen === k} onClick={() => set({ spellOpen: spellOpen === k ? null : k })}>
+                    <button className={spellOpen === k ? 'spell on' : 'spell'} aria-expanded={spellOpen === k} onClick={() => set({ spellOpen: spellOpen === k ? null : k, spellCtx: { dc: f.sdc, atk: f.satk, who, cid: c?.id } })}>
                       {sp.n}<span className="spell-lv">{sp.l ? 'nv ' + sp.l : 'truco'}</span>
                     </button>
                   ) : <span className="spell">{nm || k}</span>}
@@ -56,13 +58,15 @@ function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKe
   const spent = !!(c && f.rc && c.spent[key]);
   const legCost = f.cost || 1;
   const okDmg = !!(f.dmg && f.dmg.length && f.dmg.every((p) => parseExpr(p[0])));
+  // con salvación: al tirar el daño (o con «Objetivos» si no hace daño) se eligen objetivos y tiran
+  const effect = f.dc ? saveEffectOf(f.dc[0], f.dc[1], !!f.half, f.d, c?.id) : null;
   const dayMax = c && f.day && !isLR ? (c.inLair && f.dayl ? f.dayl : f.day) : 0;
   return (
     <div className="sb-action">
       <p className="sb-desc">
         <strong><em>{f.n}</em></strong>{tag && <span className="sb-tag">{tag}</span>}{f.en && <span className="en-note">texto original en inglés</span>}. {f.d}
       </p>
-      {f.sp && <SpellList f={f} c={c} />}
+      {f.sp && <SpellList f={f} c={c} who={who} />}
       <div className="rollrow">
         {f.atk != null && (
           <button className="rollbtn" onClick={() => roll({ label: who + ' · ' + f.n + ': ataque', kind: 'attack', who, cid: c?.id, parts: [{ expr: '1d20' + sgn(f.atk || 0) }] })}>
@@ -70,15 +74,18 @@ function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKe
           </button>
         )}
         {f.dc && <span className="dc-chip">CD {f.dc[0]} {f.dc[1]}{f.half ? ' · mitad si supera' : ''}</span>}
+        {effect && !okDmg && (
+          <button className="rollbtn" title="Elige objetivos y tira sus salvaciones" onClick={() => { useStore.getState().startEffect(who + ' · ' + f.n, effect); if (c && f.rc) setSpent(c.id, key, true); }}>Objetivos{effect.conds.length ? ' (' + effect.conds.join(', ').toLowerCase() + ')' : ''}</button>
+        )}
         {okDmg && (
           <button className="rollbtn dmg" onClick={() => {
-            roll({ label: who + ' · ' + f.n + ': daño', kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: f.dmg!.map(([e, t]) => ({ expr: e, type: t })) });
+            roll({ label: who + ' · ' + f.n + ': daño', kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: f.dmg!.map(([e, t]) => ({ expr: e, type: t })), ...(effect ? { effect } : {}) });
             if (c && f.rc) setSpent(c.id, key, true);
           }}>Daño {dmgLabel(f.dmg!)}</button>
         )}
         {okDmg && (f.alt || []).filter((a) => a.dmg.every((p) => parseExpr(p[0]))).map((a) => (
           <button key={a.l} className="rollbtn dmg" onClick={() => {
-            roll({ label: who + ' · ' + f.n + ': daño ' + a.l, kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: a.dmg.map(([e, t]) => ({ expr: e, type: t })) });
+            roll({ label: who + ' · ' + f.n + ': daño ' + a.l, kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: a.dmg.map(([e, t]) => ({ expr: e, type: t })), ...(effect ? { effect } : {}) });
             if (c && f.rc) setSpent(c.id, key, true);
           }}>Daño {a.l}: {dmgLabel(a.dmg)}</button>
         ))}
@@ -98,8 +105,13 @@ export function SpellCard() {
   const sp = useStore((s) => (s.spellOpen ? s.spells[s.spellOpen] : undefined));
   const { set, roll } = useStore.getState();
   if (!key || !sp) return null;
-  const dice = /(\d+d\d+)/.exec(sp.d || '');
-  const type = DMG_TYPES.find((t) => new RegExp('daño de ' + t, 'i').test(sp.d || '')) || '';
+  // lo que tira el conjuro (de su texto) con la CD y el ataque del monstruo que lo lanza
+  const sr = spellRoll(sp.d || '');
+  const ctx = useStore.getState().spellCtx;
+  const dice = sr?.damage ? [sr.damage.dice + (sr.damage.flat ? '+' + sr.damage.flat : ''), sr.damage.dice] as const : /(\d+d\d+)/.exec(sp.d || '');
+  const type = sr?.damage?.type || DMG_TYPES.find((t) => new RegExp('daño de ' + t, 'i').test(sp.d || '')) || '';
+  const effect = sr?.save && ctx?.dc ? saveEffectOf(ctx.dc, sr.save, sr.half, sp.d || '', ctx.cid) : null;
+  const who = ctx?.who || 'Monstruo';
   const meta = [sp.l ? 'Nivel ' + sp.l : 'Truco', sp.ct, sp.r, sp.du, sp.c ? 'concentración' : '', sp.rit ? 'ritual' : '', sp.cmp].filter(Boolean).join(' · ');
   return (
     <div className="spellcard" role="region" aria-label={'Conjuro ' + sp.n}>
@@ -111,7 +123,12 @@ export function SpellCard() {
         </span>
       </div>
       <p className="sb-desc" style={{ margin: 0 }}>{sp.d || 'Sin descripción disponible.'}</p>
-      {dice && <div className="rollrow"><button className="rollbtn" onClick={() => roll({ label: sp.n, kind: 'damage', parts: [{ expr: dice[1], type }] })}>Tirar {dice[1]}{type ? ' ' + type : ''}</button></div>}
+      <div className="rollrow">
+        {effect && <span className="dc-chip">CD {effect.dc} {ABIL[effect.abil]}{effect.half ? ' · mitad si supera' : ''}</span>}
+        {sr?.attack && ctx?.atk != null && <button className="rollbtn" onClick={() => roll({ label: who + ' · ' + sp.n + ': ataque', kind: 'attack', who, cid: ctx.cid, parts: [{ expr: '1d20' + sgn(ctx.atk || 0) }] })}><D20Icon />Ataque {fmt(ctx.atk || 0)}</button>}
+        {dice && <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': daño', kind: 'damage', who, half: !!effect?.half, by: ctx?.cid ?? null, parts: [{ expr: dice[0] === dice[1] ? dice[1] : String(dice[0]), type }], ...(effect ? { effect } : {}) })}>Daño {dice[0]}{type ? ' ' + type : ''}</button>}
+        {effect && !dice && <button className="rollbtn" onClick={() => useStore.getState().startEffect(who + ' · ' + sp.n, effect)}>Objetivos{effect.conds.length ? ' (' + effect.conds.join(', ').toLowerCase() + ')' : ''}</button>}
+      </div>
     </div>
   );
 }

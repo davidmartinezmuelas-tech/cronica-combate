@@ -36,7 +36,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const totalStr = mods.autoFail ? 'Falla' : String(out.total);
       animate(out.dice, () => {
         const patch: Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] } = {
-          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit },
+          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}) },
           logEntry: { label: spec.label, total: totalStr, detail: out.detail },
           ...after,
         };
@@ -49,6 +49,10 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
         }
         return patch;
       });
+    },
+
+    startEffect(label, effect) {
+      set({ result: { label, total: 'CD ' + effect.dc, detail: '', cls: '', note: 'Elige los objetivos y tira sus salvaciones.', isDmg: false, parts: [], half: effect.half, by: effect.by || null, effect }, dmgTargets: {} });
     },
 
     applyRolled() {

@@ -1,3 +1,4 @@
+import type { SaveEffect } from '../engine/saveEffect';
 /** Sección de la hoja de un monstruo. */
 export type SectionKey = 'tr' | 'ac_' | 'ba' | 're' | 'lg';
 
@@ -179,6 +180,7 @@ export interface RollResult {
   by: string | null;
   applied?: boolean;
   crit?: boolean;
+  effect?: SaveEffect; // efecto con salvación: se eligen objetivos, tiran y se aplica daño y estados
 }
 
 export interface DieView {

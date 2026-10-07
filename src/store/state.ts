@@ -1,5 +1,6 @@
 import type { Combatant, ConcPrompt, DieView, DmgPart, Encounter, LogEntry, Monster, RollResult, RosterEntry, Spell, TurnEvent } from '../data/types';
 import type { AdvMode, RollKind, RollPart } from '../engine/dice';
+import type { SaveEffect } from '../engine/saveEffect';
 import type { LogDraft } from '../engine/combat';
 import type { ForgeFeat, ForgeState } from '../engine/forge';
 import type { RuleEntry } from '../engine/rules';
@@ -17,6 +18,7 @@ export interface RollSpec {
   by?: string | null;
   noAdv?: boolean;
   critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
+  effect?: SaveEffect; // daño de un efecto con salvación (objetivos, salvaciones, mitad y estados)
   critBonus?: RollPart[]; // daño que solo se suma si este daño es de un crítico (Perforador, Don del ataque imparable)
   after?: (total: number, nat: number | null) => Partial<State> & { resultNote?: string; extraLog?: LogDraft[] };
 }
@@ -41,6 +43,7 @@ export interface CoreSlice {
   log: LogEntry[];
   toast: string;
   spellOpen: string | null;
+  spellCtx: { dc?: number; atk?: number; who: string; cid?: string } | null; // quién lanza el conjuro abierto (su CD y ataque)
   confirmKey: string | null;
   undoStack: Snapshot[];
   helpOpen: boolean;
@@ -81,6 +84,8 @@ export interface CombatSlice {
   endCombat: () => void;
   clearAll: () => void;
   applyParts: (map: Record<string, 'full' | 'half'>, parts: DmgPart[], crit?: boolean) => void;
+  /** Resultado de las salvaciones de un efecto: daño completo, mitad o nada, y los estados a quien falla. */
+  applyEffect: (outcomes: { id: string; total: number | null; fail: boolean }[], effect: SaveEffect, conds: string[], parts: DmgPart[], crit?: boolean) => void;
   heal: (id: string, amt: number, src?: string) => void;
   giveTemp: (id: string, amt: number) => void;
   toggleCond: (id: string, k: string) => void;
@@ -112,6 +117,8 @@ export interface DiceSlice {
   dice3d: boolean | null; // dados 3D o 2D elegidos por el usuario; null = automático
   roll: (spec: RollSpec) => void;
   applyRolled: () => void;
+  /** Efecto con salvación sin tirada de daño (solo estados): abre la elección de objetivos. */
+  startEffect: (label: string, effect: SaveEffect) => void;
 }
 
 /** Bestiario, criaturas propias y Forja. */

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import Die, { DieShape } from './Die';
 import Dice3D, { hasWebGL } from './Dice3D';
+import EffectTargets from './EffectTargets';
 
 const QUICK = [4, 6, 8, 10, 12, 20, 100];
 export const THEMES: [string, string][] = [['ruby', 'Rubí'], ['bone', 'Hueso'], ['obsidian', 'Obsidiana'], ['gem', 'Gema'], ['metal', 'Metal'], ['wood', 'Madera']];
@@ -141,7 +142,7 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
                 {result.note && <span className="plaque-note">{result.note}</span>}
               </div>
             </div>
-            {targets && <Targets />}
+            {targets && (result.effect ? <EffectTargets key={result.label + '|' + result.total + '|' + (log[0]?.id || '')} /> : <Targets />)}
           </div>
         )}
         {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#6b5238' }}>…</div><span className="plaque-label" style={{ color: '#b9a88a' }}>Los dados ruedan…</span></div></div>}

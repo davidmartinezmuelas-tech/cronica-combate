@@ -9,7 +9,7 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
   let confirmT: ReturnType<typeof setTimeout> | undefined;
   return {
     tab: 'combat', loaded: false, loadError: '', srd: [], spells: {}, types: [], storageOk: true, readFailed: false, persistent: false,
-    log: [], toast: '', spellOpen: null, confirmKey: null, undoStack: [], helpOpen: false,
+    log: [], toast: '', spellOpen: null, spellCtx: null, confirmKey: null, undoStack: [], helpOpen: false,
 
     async init() {
       const [{ data, ok }, persistent] = await Promise.all([loadSaved(), requestPersistence()]);

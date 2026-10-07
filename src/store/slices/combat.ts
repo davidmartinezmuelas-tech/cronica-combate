@@ -248,6 +248,41 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       set({ combatants, log: pushLog(logs), concPrompts: s.concPrompts.concat(prompts), amount: '' });
     },
 
+    applyEffect(outcomes, effect, conds, parts, crit = false) {
+      const s = get();
+      const ABIL_N = ['Fuerza', 'Destreza', 'Constitución', 'Inteligencia', 'Sabiduría', 'Carisma'];
+      // daño: completo a quien falla; la mitad a quien supera si el efecto lo dice
+      const map: Record<string, 'full' | 'half'> = {};
+      for (const o of outcomes) {
+        if (o.fail) map[o.id] = 'full';
+        else if (effect.half) map[o.id] = 'half';
+      }
+      if (parts.length && Object.keys(map).length) get().applyParts(map, parts, crit);
+      else get().snap('aplicar efecto');
+      // estados a quien falla, con su duración («hasta el final de tu/su siguiente turno», «1 minuto»)
+      const failed = new Set(outcomes.filter((o) => o.fail).map((o) => o.id));
+      if (conds.length && failed.size) {
+        const cs = get().combatants.map((c) => {
+          if (!failed.has(c.id)) return c;
+          let next = c.conds;
+          for (const k of conds) {
+            next = addCondition(next, k, effect.rounds, {
+              at: effect.until ? 'end' : s.condAt,
+              by: effect.until === 'caster' && effect.by ? effect.by : c.id,
+              activeId: s.started ? s.activeId : null, holderId: c.id,
+            });
+          }
+          return next === c.conds ? c : { ...c, conds: next };
+        });
+        set({ combatants: cs });
+      }
+      const logs = outcomes.map((o) => {
+        const c = s.combatants.find((x) => x.id === o.id);
+        return { label: (c?.name || '?') + ': salvación de ' + ABIL_N[effect.abil] + ' CD ' + effect.dc, detail: (o.fail ? 'falla' : 'supera') + (o.fail && conds.length ? ' · ' + conds.join(', ') : ''), total: o.total == null ? (o.fail ? 'Falla' : 'Supera') : String(o.total) };
+      });
+      set({ log: pushLog(logs), result: s.result ? { ...s.result, isDmg: false, applied: true, effect: undefined, note: 'Efecto aplicado.' } : s.result });
+    },
+
     heal(id, amt, src) {
       const c = get().combatants.find((x) => x.id === id);
       if (!c || !(amt > 0)) return;

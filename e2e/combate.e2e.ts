@@ -896,3 +896,35 @@ test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario d
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
 });
+
+test('efectos con salvación: objetivos, salvaciones de los monstruos, daño y estados', async ({ page }) => {
+  await page.goto('/#/dm');
+  await page.getByRole('button', { name: 'Bestiario', exact: true }).click();
+  for (const m of ['Dragón rojo adulto', 'Ogro', 'Aboleth']) {
+    await page.getByLabel('Buscar (español o inglés)').fill(m);
+    await page.locator('li.beast', { has: page.locator('.beast-name', { hasText: new RegExp('^' + m) }) }).first().getByRole('button', { name: 'Al combate' }).click();
+  }
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+
+  // aliento de fuego del dragón: CD 21 Destreza, mitad si supera; el ogro (DES -1) no puede superarla
+  await page.locator('.init-row', { hasText: 'Dragón rojo adulto' }).click();
+  await page.locator('.sb-action', { hasText: 'Aliento de fuego' }).getByRole('button', { name: /^Daño/ }).click();
+  const fx = page.locator('.targets.effect');
+  await expect(fx).toContainText('Salvación de Destreza CD 21 · mitad si supera', { timeout: 10000 });
+  await fx.getByRole('button', { name: 'Ogro', exact: true }).click();
+  await fx.getByRole('button', { name: 'Tirar salvaciones' }).click();
+  await expect(fx.locator('.effect-rows li', { hasText: 'Ogro' })).toContainText('todo el daño');
+  await fx.getByRole('button', { name: 'Aplicar' }).click();
+  await expect(page.locator('.init-row', { hasText: 'Ogro' })).not.toContainText('68 / 68');
+
+  // dominar mente del aboleth: sin daño, pone Hechizado a quien falla (se puede corregir el resultado)
+  await page.locator('.init-row', { hasText: 'Aboleth' }).click();
+  await page.locator('.sb-action', { hasText: 'Dominar mente' }).getByRole('button', { name: /^Objetivos/ }).click();
+  await fx.getByRole('button', { name: 'Ogro', exact: true }).click();
+  await fx.getByRole('button', { name: 'Tirar salvaciones' }).click();
+  const row = fx.locator('.effect-rows li', { hasText: 'Ogro' });
+  if (await row.getByRole('button', { name: /^Supera/ }).count()) await row.getByRole('button', { name: /^Supera/ }).click();
+  await expect(row).toContainText('Hechizado');
+  await fx.getByRole('button', { name: 'Aplicar' }).click();
+  await expect(page.locator('.init-row', { hasText: 'Ogro' })).toContainText('Hechizado');
+});

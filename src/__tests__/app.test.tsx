@@ -62,9 +62,10 @@ describe('flujo completo de un combate', () => {
     fireEvent.click(screen.getByRole('button', { name: /Daño 17d6 fuego/ }));
     expect(useStore.getState().combatants.find((c) => c.id === dragon.id)!.spent['ac_2']).toBe(true);
     const total = useStore.getState().result!.parts[0].amt;
-    fireEvent.click(screen.getByRole('button', { name: /^Jimena/ }));
-    fireEvent.click(screen.getByRole('button', { name: /^Jimena/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Aplicar daño' }));
+    // efecto con salvación: se elige a Jimena, su jugador dice que ha sacado 25 (supera: la mitad)
+    fireEvent.click(screen.getByRole('button', { name: 'Jimena' }));
+    fireEvent.change(screen.getByLabelText('Salvación de Jimena'), { target: { value: '25' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar' }));
     const hpAfter = useStore.getState().combatants.find((c) => c.kind === 'pc')!.hp;
     expect(hpAfter).toBe(Math.max(0, 60 - Math.floor(total / 2)));
     fireEvent.click(screen.getByRole('button', { name: /Deshacer: aplicar daño/ }));
