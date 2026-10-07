@@ -91,7 +91,7 @@ input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:#d4a94f}
 .def-note{margin:0;font-size:14px;color:#c6bba6}
 .res-row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
 .res{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:#c6bba6}
-.pips{display:inline-flex;gap:5px;align-items:center}
+.pips{display:inline-flex;flex-wrap:wrap;gap:5px;align-items:center}
 .pip{width:16px;height:16px;border-radius:50%;border:2px solid #d4a94f;background:#d4a94f;padding:0;display:inline-block;position:relative}
 /* el círculo es pequeño, pero la zona de toque sigue siendo de unos 28 px */
 button.pip{margin:2px}
@@ -502,8 +502,8 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-hp-row .input{width:90px}
 .pc-grid{display:grid;grid-template-columns:1fr;gap:14px}
 @container (min-width:720px){.pc-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
-.pc-abils{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
-.pc-abil{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px;border-radius:8px;background:#171412;border:1px solid #2c2723}
+.pc-abils{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex:1;grid-auto-rows:1fr}
+.pc-abil{display:grid;grid-template-columns:1fr 1fr;align-content:center;gap:6px;padding:8px;border-radius:8px;background:#171412;border:1px solid #2c2723}
 .pc-abil-k{grid-column:1/-1;font-weight:800;color:#d4a94f;letter-spacing:.06em}
 .pc-abil-k b{color:#f3e6c8;font-size:18px;margin-left:4px}
 .pc-skills{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px}
@@ -513,24 +513,29 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .dot{width:10px;height:10px;border-radius:50%;border:2px solid #605243;flex:none}
 .dot.on{background:#d4a94f;border-color:#d4a94f}
 .dot.exp{background:#d4a94f;border-color:#f3e6c8;box-shadow:0 0 0 2px #d4a94f}
-.pc-attack{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid #2c2723;border-radius:6px;background:#171412}
+.pc-attack{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:6px 10px;border:1px solid #2c2723;border-radius:6px;background:#171412;min-height:var(--card-act);box-sizing:border-box}
 /* cada arma en su tarjeta, varias por fila */
-.pc-attacks{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));align-items:start;gap:6px}
+.pc-attacks{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:stretch;gap:6px}
 /* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
-.pc-duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start}
-.pc-duo>.panel:has(.pc-features>li:nth-child(3)),.pc-duo>.panel:has(.pc-attacks>.pc-attack:nth-child(3)){grid-column:1/-1}
+.pc-duo{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch}
+/* un panel que se queda solo en su fila crece hasta ocupar el ancho; los de muchas tarjetas, a todo el ancho y detrás */
+.pc-duo>.panel{flex:1 1 420px;min-width:0}
+.pc-duo>.panel:has(.pc-attacks>.pc-attack:nth-child(3)){flex-basis:100%}
+.pc-duo>.panel:has(.pc-features>li:nth-child(3)){flex-basis:100%;order:1}
 .pc-attack-n{display:flex;flex-direction:column;gap:2px;font-weight:800;color:#f3e6c8;min-width:0}
 .pc-slots{display:flex;flex-wrap:wrap;gap:8px 18px}
 .pc-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .pc-features details{border:1px solid #2c2723;border-radius:6px;background:#171412;padding:6px 10px}
 .pc-features summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
 /* rasgos en columnas para no dejar filas vacías; el que se abre ocupa todo el ancho para leer su texto */
-.pc-features.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));align-items:start;gap:6px;--card-h:62px}
-.pc-features.grid.acts{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));--card-h:104px}
+/* tarjetas: misma altura en cada fila y la misma de partida en toda la hoja (las de acciones, la de las armas) */
+:root{--card-act:84px}
+.pc-features.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));align-items:stretch;gap:6px;--card-h:58px}
+.pc-features.grid.acts{--card-h:var(--card-act)}
 /* todas las tarjetas con la misma altura de partida; al abrir una, solo esa crece hacia abajo con su texto */
 .pc-features.grid>li>details,.pc-features.grid>li>.card{min-height:var(--card-h);box-sizing:border-box}
 /* tarjeta que abre su texto en una ventana (conjuros) */
-.pc-features .card{border:1px solid #2c2723;border-radius:6px;background:#171412;padding:6px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.pc-features .card{border:1px solid #2c2723;border-radius:6px;background:#171412;padding:6px 10px;display:flex;flex-wrap:wrap;align-items:center;align-content:flex-start;gap:4px 10px;height:100%}
 .card-title{flex-basis:100%;text-align:left;background:none;border:0;padding:0;color:inherit;font:inherit;font-size:16px;cursor:pointer}
 .card-title:hover b,.card-title:focus-visible b{color:#f3d48a;text-decoration:underline;text-underline-offset:3px}
 .pc-features.grid summary>b:first-child{flex-basis:100%}
