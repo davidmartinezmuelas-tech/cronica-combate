@@ -1,4 +1,4 @@
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 import type { Abil } from '../../data/player';
 import type { Character, Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
@@ -44,6 +44,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
   const spend = (n = 1) => { if (res) set({ uses: { ...c.uses, [res.key]: Math.min(max, (c.uses[res.key] || 0) + n) } }); };
   const dcOf = (a: Abil | 'spell') => (a === 'spell' ? d.spell?.dc ?? 8 + d.pb + d.mods.cha : 8 + d.pb + d.mods[a]);
   const m = (a?: Abil) => (a ? d.mods[a] : 0);
+  const [msg, setMsg] = useState<Record<string, string>>({});
 
   return (
     <section className="panel" aria-label={kit.title}>
@@ -65,6 +66,19 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
           const btns: Btn[] = [];
           let usesEl: JSX.Element | null = null;
           const tag = a.tag?.({ level: c.level, pb: d.pb, mods: d.mods });
+          if (a.selfHeal) {
+            // solo si estás maltrecho (a la mitad de tus PG o menos) y sin pasar de la mitad
+            const pool = a.selfHeal(c.level);
+            const half = Math.floor(d.hpMax / 2);
+            const heal = c.hp <= half ? Math.min(pool, half - c.hp) : 0;
+            btns.push({
+              k: 'self', t: 'Usar y curarme ' + heal + ' PG', off: left <= 0 || heal <= 0,
+              go: () => {
+                set({ hp: c.hp + heal, death: { s: 0, f: 0 }, ...(res ? { uses: { ...c.uses, [res.key]: Math.min(max, (c.uses[res.key] || 0) + 1) } } : {}) });
+                setMsg({ ...msg, [name]: 'Te curas ' + heal + ' PG; quedan ' + (pool - heal) + ' para repartir entre los demás.' });
+              },
+            });
+          }
           if (r.kind === 'regain') {
             btns.push({ k: 'g', t: r.label, off: used <= 0, go: () => { if (res) set({ uses: { ...c.uses, [res.key]: Math.max(0, (c.uses[res.key] || 0) - 1) } }); } });
           } else if (r.kind === 'unarmed') {
@@ -73,9 +87,9 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
             btns.push({ k: 'b', t: 'Daño 1' + die + sgn(ab) + ' contundente', dmg: true, go: () => roll({ label: label('daño sin armas'), kind: 'damage', who, by: null, parts: [{ expr: '1' + die + sgn(ab), type: 'contundente' }] }) });
           } else if (r.kind === 'die') {
             const plus = m(r.plus);
-            const expr = '1' + die + (r.plus ? sgn(plus) : '');
+            const expr = '1' + die + (plus ? sgn(plus) : '');
             btns.push({
-              k: 'd', t: (r.type ? 'Daño ' : 'Tirar ') + die + (r.plus ? ' ' + sgn(plus) : '') + (r.type ? ' ' + r.type : ''), dmg: !!r.type, off: r.spend !== false && left <= 0,
+              k: 'd', t: (r.type ? 'Daño ' : 'Tirar ') + die + (plus ? ' ' + sgn(plus) : '') + (r.type ? ' ' + r.type : ''), dmg: !!r.type, off: r.spend !== false && left <= 0,
               go: () => {
                 if (r.spend !== false) spend();
                 roll({ label: label(), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }], after: r.mult ? (t) => ({ resultNote: t * r.mult! + ' ' + (r.unit || 'm') }) : undefined });
@@ -102,7 +116,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
           } else if (r.kind === 'roll') {
             const plus = m(r.plus) + (r.plusLevel ? c.level : 0);
             const base = r.exprAt ? Object.entries(r.exprAt).reduce((e, [lv, x]) => (parseInt(lv, 10) <= c.level ? x : e), r.expr) : r.expr;
-            const expr = base + (r.plus || r.plusLevel ? sgn(plus) : '');
+            const expr = base + (plus ? sgn(plus) : '');
             if (r.spend) {
               if (r.heal) btns.push({ k: 'h', t: 'Curar ' + expr, off: left <= 0, go: () => { spend(); roll({ label: label('curación'), kind: 'free', parts: [{ expr }] }); } });
               btns.push({
@@ -135,7 +149,9 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
                       {btns.map((b) => <button key={b.k} className={b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off} onClick={b.go}>{b.t}</button>)}
                     </span>
                   )}
+                  {msg[name] && <span className="pc-attack-feat small" role="status" style={{ flexBasis: '100%' }}>{msg[name]}</span>}
                 </summary>
+                {a.selfHeal && <p className="muted small" style={{ margin: '4px 0' }}>{c.hp > Math.floor(d.hpMax / 2) ? 'Para curarte tienes que estar a la mitad de tus PG o menos (' + Math.floor(d.hpMax / 2) + ').' : 'Te curas hasta la mitad de tus PG máximos (' + Math.floor(d.hpMax / 2) + '); el resto lo repartes.'}</p>}
                 {a.note && <p className="muted small" style={{ margin: '4px 0' }}>{a.note}</p>}
                 {text ? <p className="pc-text">{text.d}</p> : <p className="muted small" style={{ margin: 0 }}>El texto de este rasgo sale de tu libro: impórtalo en «Biblioteca».</p>}
               </details>

@@ -14,7 +14,7 @@ import { subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { plainText, useSpells } from './spells';
 import FeatPanel from './FeatPanel';
 import SubclassActions, { choiceResources } from './SubclassActions';
-import SubclassChoices, { choiceRows, resolveChoices } from './SubclassChoices';
+import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -129,7 +129,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const skillsSorted = Object.entries(d.skills).sort((a, b) => (data?.skills[a[0]] || a[0]).localeCompare(data?.skills[b[0]] || b[0], 'es'));
   // los de la subclase (siempre preparados) se suman solos a los que ha elegido
   const subSpells = subclassSpells(c, d.cls, subclassText(c, d.cls, lib.subclasses), spellIdx.list).filter((x) => !c.spells.includes(x.id));
-  const spellList = [...c.spells.map((k) => ({ k, s: spellIdx.get(k), sub: false })), ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: true }))].filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
+  // elegidos por la subclase (Descubrimientos mágicos, conjuros gratis de la escuela del mago)
+  const picked = choiceSpells(c).filter((x) => !c.spells.includes(x.id) && !subSpells.some((y) => y.id === x.id));
+  const spellList = [
+    ...c.spells.map((k) => ({ k, s: spellIdx.get(k), sub: '' })),
+    ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: 'Subclase · siempre preparado' })),
+    ...picked.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: x.prepared ? 'Subclase · siempre preparado' : 'Subclase · en tu libro de conjuros' })),
+  ].filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
 
   return (
@@ -273,7 +279,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               {spellList.map(({ k, s, sub }) => (
                 <li key={k}>
                   <details>
-                    <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">Subclase · siempre preparado</span>}</summary>
+                    <summary><b>{s!.n}</b> <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}</summary>
                     <p className="muted small" style={{ margin: '4px 0' }}>{[s!.ct, s!.r, s!.cmp, s!.du].filter(Boolean).join(' · ')}</p>
                     <p className="pc-text">{plainText(s!.t)}</p>
                   </details>

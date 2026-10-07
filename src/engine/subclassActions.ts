@@ -94,6 +94,7 @@ export interface KitAction {
   when?: { choice: string; is: string[] }; // solo con esta opción elegida
   subs?: string[]; // en un rasgo de clase: solo con estas subclases
   tag?: (x: { level: number; pb: number; mods: Record<Abil, number> }) => string; // número que se muestra al lado
+  selfHeal?: (level: number) => number; // reparte curación que te puede incluir, hasta la mitad de tus PG máximos (Preservar vida)
   note?: string;
 }
 
@@ -174,7 +175,7 @@ export const KITS: SubclassKit[] = [
     actions: [
       { n: ['Chispa divina'], lv: 2, roll: { kind: 'roll', expr: '1d8', exprAt: { 2: '1d8', 7: '2d8', 13: '3d8', 18: '4d8' }, plus: 'wis', type: 'radiante', spend: true, heal: true }, save: { abil: 'con', dc: 'spell' }, note: 'Cura esa cantidad o hace daño radiante o necrótico (mitad si supera la salvación).' },
       { n: ['Ahuyentar a los muertos vivientes', 'Ahuyentar muertos vivientes'], lv: 2, roll: { kind: 'spend' }, save: { abil: 'wis', dc: 'spell' } },
-      { n: ['Preservar vida'], lv: 3, subs: ['Dominio de la vida', 'Life Domain'], roll: { kind: 'spend' }, tag: (x) => 'reparte ' + 5 * x.level + ' PG', note: 'Entre criaturas maltrechas a 9 m, sin pasar de la mitad de sus PG máximos.' },
+      { n: ['Preservar vida'], lv: 3, subs: ['Dominio de la vida', 'Life Domain'], roll: { kind: 'spend', label: 'Usar en otros (gasta un uso)' }, selfHeal: (lv) => 5 * lv, tag: (x) => 'reparte ' + 5 * x.level + ' PG', note: 'Entre criaturas maltrechas a 9 m, sin pasar de la mitad de sus PG máximos.' },
       { n: ['Resplandor del amanecer'], lv: 3, subs: ['Dominio de la luz', 'Light Domain'], roll: { kind: 'roll', expr: '2d10', plusLevel: true, type: 'radiante', spend: true }, save: { abil: 'con', dc: 'spell' }, note: 'Mitad de daño si superan la salvación.' },
       { n: ['Golpe guiado'], lv: 3, subs: ['Dominio de la guerra', 'War Domain'], roll: { kind: 'spend' }, tag: () => '+10 al ataque' },
       { n: ['Bendición del dios de la guerra'], lv: 6, subs: ['Dominio de la guerra', 'War Domain'], roll: { kind: 'spend' } },

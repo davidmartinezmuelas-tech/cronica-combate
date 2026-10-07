@@ -17,7 +17,8 @@ export type ChoiceFrom =
   | { list: string[] } // lista fija de términos de juego (tipos de daño, terrenos…)
   | { feature: string[] } // las opciones que describe un rasgo de la subclase («**Nombre.** texto»)
   | { section: string } // un apartado de opciones del libro («Opciones de maniobras»)
-  | { text: true }; // texto libre
+  | { text: true } // texto libre
+  | { spells: { classes: string[]; school?: string; minLevel: number } }; // conjuros de esas listas (y escuela), hasta el nivel que puede lanzar
 
 export interface ChoiceDef {
   id: string;
@@ -28,6 +29,7 @@ export interface ChoiceDef {
   rest?: 'sr' | 'lr'; // se puede cambiar tras un descanso: también se elige desde la hoja
   from: ChoiceFrom;
   res?: DiceResource; // las opciones gastan dados de este recurso y se tiran desde la hoja
+  prepared?: boolean; // conjuros elegidos que siempre tiene preparados (si no, gratis en su libro de conjuros)
 }
 
 const DAMAGE = DMG_TYPES;
@@ -44,6 +46,11 @@ export const CHOICES: ChoiceDef[] = [
   { id: 'wild-heart.aspect', cls: 'barbarian', subs: ['Senda del corazón salvaje', 'Path of the Wild Heart'], label: 'Aspecto de lo salvaje', at: { 6: 1 }, rest: 'lr', from: { feature: ['Aspecto de lo salvaje'] } },
   { id: 'land.terrain', cls: 'druid', subs: ['Círculo de la tierra', 'Circle of the Land'], label: 'Tipo de terreno', at: { 3: 1 }, rest: 'lr', from: { list: ['Árido', 'Polar', 'Templado', 'Tropical'] } },
   { id: 'draconic.affinity', cls: 'sorcerer', subs: ['Hechicería dracónica', 'Draconic Sorcery'], label: 'Afinidad elemental', at: { 6: 1 }, from: { list: ['ácido', 'frío', 'fuego', 'relámpago', 'veneno'] } },
+  ...([['Abjurador', 'Abjurer', 'abjuracion'], ['Adivino', 'Diviner', 'adivinacion'], ['Evocador', 'Evoker', 'evocacion'], ['Ilusionista', 'Illusionist', 'ilusi']] as const).map(([es, en, school]): ChoiceDef => ({
+    id: 'school.' + school, cls: 'wizard', subs: [es, en], label: 'Conjuros de tu escuela (gratis en tu libro)', at: { 3: 2, 5: 3, 7: 4, 9: 5, 11: 6, 13: 7, 15: 8, 17: 9 },
+    from: { spells: { classes: ['wizard'], school, minLevel: 1 } },
+  })),
+  { id: 'lore.discoveries', cls: 'bard', subs: ['Colegio del conocimiento', 'Colegio del Saber', 'College of Lore'], label: 'Descubrimientos mágicos', at: { 6: 2 }, prepared: true, from: { spells: { classes: ['cleric', 'druid', 'wizard'], minLevel: 0 } } },
   { id: 'fiend.resistance', cls: 'warlock', subs: ['Patrón infernal', 'Fiend Patron'], label: 'Resistencia infernal', at: { 10: 1 }, rest: 'sr', from: { list: DAMAGE.filter((t) => t !== 'fuerza') } },
 ];
 
@@ -116,6 +123,36 @@ export function choiceOptions(def: ChoiceDef, src: SubclassText | null, data: Pl
     return sec ? optionItems(sec.d) : [];
   }
   return [];
+}
+
+/** Nivel de conjuro más alto que puede lanzar un lanzador completo de ese nivel. */
+export const fullCasterMaxSpell = (level: number) => Math.min(9, Math.ceil(Math.max(1, level) / 2));
+
+/** Conjuros entre los que se elige: de esas listas de clase (SRD y biblioteca), escuela y nivel que puede lanzar. */
+export function spellOptions(from: { classes: string[]; school?: string; minLevel: number }, level: number, data: PlayerData | null, spells: { id: string; n: string; l?: number; esc?: string; classes?: string[] }[]): ChoiceOption[] {
+  const ids = new Set(from.classes.flatMap((k) => data?.classes.find((x) => x.id === k)?.spells || []));
+  const max = fullCasterMaxSpell(level);
+  return spells
+    .filter((s) => (ids.has(s.id) || s.classes?.some((k) => from.classes.includes(k))) && (s.l || 0) >= from.minLevel && (s.l || 0) <= max && (!from.school || norm(s.esc || '').startsWith(from.school)))
+    .sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es'))
+    .map((s) => ({ n: s.id, d: s.n + (s.l ? ' (' + s.l + ')' : ' (truco)') }));
+}
+
+/**
+ * Subclases que lanzan conjuros de mago con Inteligencia (Caballero arcano, Embaucador arcano): un tercio de lanzador,
+ * trucos y conjuros preparados según su tabla.
+ */
+const THIRD_PREPARED = { 3: 3, 4: 4, 7: 5, 8: 6, 10: 7, 11: 8, 13: 9, 14: 10, 16: 11, 19: 12, 20: 13 };
+export const SUB_CASTERS = [
+  { cls: 'fighter', subs: ['Caballero arcano', 'Eldritch Knight'], cantrips: { 3: 2, 10: 3 }, prepared: THIRD_PREPARED },
+  { cls: 'rogue', subs: ['Embaucador arcano', 'Arcane Trickster'], cantrips: { 3: 3, 10: 4 }, prepared: THIRD_PREPARED },
+];
+export function subclassCaster(c: Pick<Character, 'classId' | 'subclass' | 'level'>): { abil: 'int'; list: 'wizard'; cantrips: number; prepared: number } | null {
+  if (c.level < 3) return null;
+  const sc = SUB_CASTERS.find((x) => x.cls === c.classId && x.subs.some((s) => norm(s) === norm(c.subclass || '')));
+  if (!sc) return null;
+  const at = (t: Record<number, number>) => Object.entries(t).reduce((v, [lv, n]) => (parseInt(lv, 10) <= c.level ? n : v), 0);
+  return { abil: 'int', list: 'wizard', cantrips: at(sc.cantrips), prepared: at(sc.prepared) };
 }
 
 /** Habilidades con competencia que dan las elecciones de su subclase (claves de habilidad). */

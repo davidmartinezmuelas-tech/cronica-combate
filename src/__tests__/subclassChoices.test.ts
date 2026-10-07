@@ -121,3 +121,31 @@ describe('recursos de clase: Inspiración bárdica y Canalizar divinidad', () =>
     expect(usesMax({ max: 'max(1, @abilities.cha.mod)', per: 'lr' }, { ...c, abil: { ...c.abil, cha: 16 } }, undefined)).toBe(3);
   });
 });
+
+describe('conjuros de subclase elegidos y lanzadores de un tercio', () => {
+  const spells = [
+    { id: 'a1', n: 'Escudo', l: 1, esc: 'Abjuración' }, { id: 'a3', n: 'Contraconjuro', l: 3, esc: 'Abjuración' },
+    { id: 'e1', n: 'Proyectil mágico', l: 1, esc: 'Evocación' }, { id: 'i1', n: 'Imagen silenciosa', l: 1, esc: 'Ilusionismo' },
+    { id: 't0', n: 'Luz', l: 0, esc: 'Evocación' }, { id: 'lib', n: 'Rayo del libro', l: 1, esc: 'Evocación', classes: ['wizard'] },
+  ];
+  const fake = { classes: [{ id: 'wizard', spells: ['a1', 'a3', 'e1', 'i1', 't0'] }, { id: 'cleric', spells: [] }, { id: 'druid', spells: [] }] } as unknown as PlayerData;
+
+  it('opciones por lista, escuela y nivel que puede lanzar', async () => {
+    const { spellOptions } = await import('../engine/subclassChoices');
+    expect(spellOptions({ classes: ['wizard'], school: 'abjuracion', minLevel: 1 }, 3, fake, spells).map((o) => o.n)).toEqual(['a1']);
+    expect(spellOptions({ classes: ['wizard'], school: 'abjuracion', minLevel: 1 }, 5, fake, spells).map((o) => o.n)).toEqual(['a1', 'a3']);
+    expect(spellOptions({ classes: ['wizard'], school: 'ilusi', minLevel: 1 }, 3, fake, spells).map((o) => o.n)).toEqual(['i1']);
+    expect(spellOptions({ classes: ['cleric', 'druid', 'wizard'], minLevel: 0 }, 6, fake, spells).map((o) => o.n)).toEqual(['t0', 'a1', 'i1', 'e1', 'lib', 'a3']);
+  });
+
+  it('Caballero arcano: Inteligencia y espacios de un tercio de lanzador', async () => {
+    const { subclassCaster } = await import('../engine/subclassChoices');
+    const { spellSlots } = await import('../engine/character');
+    expect(subclassCaster({ classId: 'fighter', subclass: 'Caballero arcano', level: 7 })).toEqual({ abil: 'int', list: 'wizard', cantrips: 2, prepared: 5 });
+    expect(subclassCaster({ classId: 'rogue', subclass: 'Arcane Trickster', level: 10 })!.cantrips).toBe(4);
+    expect(subclassCaster({ classId: 'fighter', subclass: 'Campeón', level: 7 })).toBeNull();
+    expect([2, 3, 4, 7, 10, 13, 16, 19].map((l) => spellSlots('third', l))).toEqual([[], [2], [3], [4, 2], [4, 3], [4, 3, 2], [4, 3, 3], [4, 3, 3, 1]]);
+    const d = derive(pj({ classId: 'fighter', subclass: 'Caballero arcano', level: 7, abil: { str: 16, dex: 10, con: 10, int: 14, wis: 10, cha: 10 } }), data);
+    expect([d.spell?.abil, d.spell?.dc, d.slots]).toEqual(['int', 8 + 3 + 2, [4, 2]]);
+  });
+});

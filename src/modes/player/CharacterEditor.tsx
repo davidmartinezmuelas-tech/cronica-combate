@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
 import { derive, mod, weaponFromData, type Character, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { fmt } from '../../engine/dice';
-import { choiceSkills, subclassSpells, subclassText } from '../../engine/subclassChoices';
+import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
@@ -86,7 +86,12 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const setWeapon = (id: string, patch: Partial<CharWeapon>) => set({ weapons: c.weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)) });
 
   // conjuros: los de su lista de clase (o todos si se pide o la clase no es del SRD)
-  const classList = new Set([...(cls?.spells || []), ...spellIdx.list.filter((s) => cls && s.classes?.includes(cls.id)).map((s) => s.id)]);
+  // Caballero arcano y Embaucador arcano: lista de mago
+  const subCaster = subclassCaster(c);
+  const listCls = subCaster && !cls?.spells.length ? data.classes.find((x) => x.id === subCaster.list) : cls;
+  const classList = new Set([...(listCls?.spells || []), ...spellIdx.list.filter((s) => listCls && s.classes?.includes(listCls.id)).map((s) => s.id)]);
+  const known = c.spells.map((k) => spellIdx.get(k)).filter(Boolean);
+  const cantripsHave = known.filter((s) => !s!.l).length;
   const useClassList = !allSpells && classList.size > 0;
   const spellResults = spellIdx.list
     .filter((s) => !c.spells.includes(s.id) && (!useClassList || classList.has(s.id)))
@@ -267,8 +272,9 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <fieldset className="fs">
           <legend>Conjuros</legend>
+          {subCaster && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: {subCaster.cantrips} trucos y {subCaster.prepared} conjuros de mago preparados hasta el nivel {d.slots.length} (llevas {cantripsHave} y {known.length - cantripsHave}). Lanzas con Inteligencia.</p>}
           {subSpellNames.length > 0 && <p className="muted small" style={{ margin: 0 }}>Por tu subclase siempre tienes preparados (se añaden solos a la hoja): {subSpellNames.join(', ')}.</p>}
-          <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + cls!.n : ''}</label>
+          <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + listCls!.n : ''}</label>
             <input id="ce-spq" className="input" value={spellQ} onChange={(e) => setSpellQ(e.target.value)} placeholder="Castigo divino, Bola de fuego, Curar heridas…" /></div>
           <div className="rollrow">
             {classList.size > 0 && <label className="check"><input type="checkbox" checked={allSpells} onChange={(e) => setAllSpells(e.target.checked)} />Mostrar conjuros de otras clases</label>}

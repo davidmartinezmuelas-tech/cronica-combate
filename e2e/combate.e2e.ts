@@ -706,7 +706,7 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   await expect(cleric).toContainText('Usos de Canalizar divinidad: 3 de 3');
   await expect(cleric.locator('summary', { hasText: 'Preservar vida' })).toContainText('reparte 30 PG');
   await cleric.locator('summary', { hasText: 'Chispa' }).getByRole('button', { name: 'Curar 1d8+3' }).click();
-  await cleric.locator('summary', { hasText: 'Preservar vida' }).getByRole('button', { name: 'Usar (gasta un uso)' }).click();
+  await cleric.locator('summary', { hasText: 'Preservar vida' }).getByRole('button', { name: 'Usar en otros (gasta un uso)' }).click();
   await expect(cleric).toContainText('1 de 3');
   await shortRest();
   await expect(cleric).toContainText('2 de 3');
@@ -716,4 +716,47 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   const pal = page.locator('section[aria-label="Canalización divina"]');
   await expect(pal).toContainText('Usos de Canalización divina: 2 de 2');
   await expect(pal.locator('summary', { hasText: 'Arma sagrada' })).toContainText('+3 al ataque');
+});
+
+test('Preservar vida te cura a ti; conjuros de la escuela del mago; Caballero arcano lanza con Inteligencia', async ({ page }) => {
+  await page.goto('/#/jugador');
+  const make = async (name: string, cls: string, lv: string, sub: string, abil: [string, string], other?: string) => {
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    await page.getByLabel('Nombre del personaje').fill(name);
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
+    await page.getByLabel('Nivel', { exact: true }).fill(lv);
+    await page.getByLabel(/^Subclase/).selectOption({ label: sub });
+    if (other) await page.getByLabel('Nombre de la subclase').fill(other);
+    await page.locator('#ce-ab-' + abil[0]).fill(abil[1]);
+  };
+
+  // clérigo de la Vida 6 (33 PG): a 8 PG se cura hasta la mitad (16), quedan 22 de 30 para los demás
+  await make('Ilsa', 'Clérigo', '6', 'Dominio de la Vida', ['wis', '16']);
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.getByLabel('Cantidad de PG').fill('25');
+  await page.getByRole('button', { name: 'Daño', exact: true }).click();
+  const preserve = page.locator('section[aria-label="Canalizar divinidad"] li', { hasText: 'Preservar vida' });
+  await preserve.getByRole('button', { name: 'Usar y curarme 8 PG' }).click();
+  await expect(preserve.getByRole('status')).toContainText('Te curas 8 PG; quedan 22');
+  await expect(page.locator('.stat', { hasText: 'PG' }).first()).toContainText('16');
+  await expect(preserve.getByRole('button', { name: /^Usar y curarme/ })).toBeDisabled(); // ya está a la mitad: nada que curarse
+
+  // mago evocador 3: dos conjuros de evocación gratis, que salen en la hoja
+  await make('Oren', 'Mago', '3', 'Evocador', ['int', '16']);
+  const pick = page.locator('details.picker', { hasText: 'Conjuros de tu escuela' });
+  await pick.locator(':scope > summary').click();
+  await pick.getByLabel(/^Buscar en/).fill('proyectil');
+  await pick.getByRole('button', { name: /Proyectil mágico/ }).click();
+  await expect(pick.locator(':scope > summary')).toContainText('(1 de 2)');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.locator('section[aria-label="Conjuros"] summary', { hasText: 'Proyectil mágico' })).toContainText('Subclase · en tu libro de conjuros');
+
+  // Caballero arcano 7 (subclase escrita a mano): lista de mago, Inteligencia y espacios de nivel 1 y 2
+  await make('Bren', 'Guerrero', '7', 'Otra (escríbela)', ['int', '14'], 'Caballero arcano');
+  await expect(page.getByText('Caballero arcano: 2 trucos y 5 conjuros de mago preparados hasta el nivel 2')).toBeVisible();
+  await expect(page.getByLabel('Buscar conjuro de la lista de Mago')).toBeVisible();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  await expect(sp).toContainText('Inteligencia');
+  await expect(sp).toContainText('Nivel 2');
 });

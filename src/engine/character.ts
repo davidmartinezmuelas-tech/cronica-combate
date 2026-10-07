@@ -1,6 +1,6 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
-import { choiceSkills } from './subclassChoices';
+import { choiceSkills, subclassCaster } from './subclassChoices';
 import { norm, uid } from './util';
 
 /** Arma (o ataque) del personaje: de la lista del SRD o propia. */
@@ -100,10 +100,12 @@ const FULL_SLOTS: number[][] = [
 ];
 
 /** Espacios por nivel de conjuro (índice 0 = nivel 1). Los semilanzadores usan la tabla completa a la mitad de nivel, redondeando hacia arriba. */
-export function spellSlots(caster: ClassData['caster'] | undefined, level: number): number[] {
+export function spellSlots(caster: ClassData['caster'] | 'third' | undefined, level: number): number[] {
   const l = Math.max(1, Math.min(20, level || 1));
   if (caster === 'full') return FULL_SLOTS[l - 1].slice();
   if (caster === 'half') return FULL_SLOTS[Math.ceil(l / 2) - 1].slice();
+  // un tercio de lanzador (Caballero arcano, Embaucador arcano) desde el nivel 3: la tabla completa a un tercio del nivel
+  if (caster === 'third') return l >= 3 ? FULL_SLOTS[Math.ceil(l / 3) - 1].slice() : [];
   return [];
 }
 
@@ -195,7 +197,8 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   // Robustez enana: +1 PG por nivel
   const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con) + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat'));
 
-  const spellAb = cls?.spellAb || '';
+  const subCaster = subclassCaster(c);
+  const spellAb = cls?.spellAb || subCaster?.abil || '';
   const spell = spellAb ? { abil: spellAb, dc: 8 + pb + mods[spellAb], atk: pb + mods[spellAb] } : null;
   if (spell && c.ov.spellDc != null) spell.dc = c.ov.spellDc;
   if (spell && c.ov.spellAtk != null) spell.atk = c.ov.spellAtk;
@@ -247,7 +250,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     hpMax: c.ov.hpMax ?? hpMax,
     hdDie,
     spell,
-    slots: spellSlots(cls?.caster, c.level),
+    slots: spellSlots(cls?.caster && cls.caster !== 'none' ? cls.caster : subCaster ? 'third' : cls?.caster, c.level),
     pact: cls?.caster === 'pact' ? pactSlots(c.level) : null,
     attacks,
     unarmed: all.unarmed ? {
