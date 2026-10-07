@@ -5,6 +5,7 @@ import { fmt, sgn } from '../../engine/dice';
 import { atLevel, resourceMax, resourcePer, type KitAction, type SubclassKit } from '../../engine/subclassActions';
 import { optionItems, subclassText, type SubclassText } from '../../engine/subclassChoices';
 import { norm } from '../../engine/util';
+import Card from '../../shared/Card';
 import Pips from '../../shared/Pips';
 import type { LibraryData } from '../../store/library';
 import { useStore } from '../../store/useStore';
@@ -137,24 +138,22 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
           }
           return (
             <li key={a.n[0]}>
-              <details>
-                <summary>
-                  <b>{name}</b>
+              <Card name={name} head={<>
                   {a.save && <span className="chip-tag">CD {dcOf(a.save.dc)} {ABIL_N[a.save.abil]}</span>}
                   {tag && <span className="chip-tag">{tag}</span>}
                   {r.kind === 'roll' && r.uses && <span className="muted small">vuelve en descanso {per(r.uses.per)}</span>}
                   {usesEl}
                   {btns.length > 0 && (
-                    <span className="rollrow" onClick={(e) => e.preventDefault()}>
+                    <span className="rollrow">
                       {btns.map((b) => <button key={b.k} className={b.plain ? 'btn small' : b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off} onClick={b.go}>{b.t}</button>)}
                     </span>
                   )}
                   {msg[name] && <span className="pc-attack-feat small" role="status" style={{ flexBasis: '100%' }}>{msg[name]}</span>}
-                </summary>
+                </>}>
                 {a.selfHeal && <p className="muted small" style={{ margin: '4px 0' }}>{c.hp > Math.floor(d.hpMax / 2) ? 'Para curarte tienes que estar a la mitad de tus PG o menos (' + Math.floor(d.hpMax / 2) + ').' : 'Te curas hasta la mitad de tus PG máximos (' + Math.floor(d.hpMax / 2) + '); el resto lo repartes.'}</p>}
                 {a.note && <p className="muted small" style={{ margin: '4px 0' }}>{a.note}</p>}
                 {text ? <p className="pc-text">{text.d}</p> : <p className="muted small" style={{ margin: 0 }}>El texto de este rasgo sale de tu libro: impórtalo en «Biblioteca».</p>}
-              </details>
+              </Card>
             </li>
           );
         })}

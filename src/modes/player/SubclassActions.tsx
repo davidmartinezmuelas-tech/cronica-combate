@@ -2,6 +2,7 @@ import type { Abil, PlayerData } from '../../data/player';
 import type { Character, Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
 import { activeKits, atLevel, optionAction, resourceMax, resourcePer, type DiceResource } from '../../engine/subclassActions';
+import Card from '../../shared/Card';
 import Pips from '../../shared/Pips';
 import type { LibraryData } from '../../store/library';
 import { useStore } from '../../store/useStore';
@@ -78,16 +79,14 @@ export default function SubclassActions({ c, d, data, lib, set }: { c: Character
                 if (!buttons.length || (act.damage && !d.attacks.length)) buttons.push({ k: 'die', text: 'Tirar ' + die + (plus ? ' ' + sgn(plus) : ''), go: () => roll({ label: label(''), kind: 'free', parts: [{ expr: '1' + die + (plus ? sgn(plus) : '') }] }) });
                 return (
                   <li key={name}>
-                    <details>
-                      <summary>
-                        <b>{name}</b>
+                    <Card name={name} head={<>
                         {act.save && <span className="chip-tag">CD {dc} {ABIL_N[act.save]}</span>}
-                        <span className="rollrow" onClick={(e) => e.preventDefault()}>
+                        <span className="rollrow">
                           {buttons.map((b) => <button key={b.k} className={act.damage && b.k.startsWith('w') ? 'rollbtn dmg' : 'rollbtn'} disabled={left <= 0} title={left <= 0 ? 'No te quedan ' + res.n.toLowerCase() : 'Gasta un dado'} onClick={() => { spend(); b.go(); }}>{b.text}</button>)}
                         </span>
-                      </summary>
-                      <p className="pc-text">{text}</p>
-                    </details>
+                      </>}>
+                      {text && <p className="pc-text">{text}</p>}
+                    </Card>
                   </li>
                 );
               })}

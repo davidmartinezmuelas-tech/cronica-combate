@@ -1,6 +1,7 @@
 import { ABILS, type Abil, type PlayerData } from '../data/player';
 import { blankCharacter, derive, mod, profBonus, weaponFromData, type Character, type CustomFeat } from './character';
 import type { SheetData, SheetField } from './sheetImport';
+import { featCatOf, splitFeatText } from './featText';
 import { norm, uid } from './util';
 
 export interface SpellRef {
@@ -62,6 +63,16 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
     // campos de dotes («FEATS», «Dotes»…; no «Class Features») o bloques que dicen ser un estilo de combate
     const featField = /(^|[^a-z])(feats?|dotes?)\s*\d*$/i.test(f.name.trim());
     if (!v || !(featField || /\((fighting style|estilo de combate)\)/i.test(v.split(/\r?\n/)[0]))) continue;
+    // varias dotes escritas en lista en el mismo campo: cada una por separado
+    const list = featField ? splitFeatText(v) : null;
+    if (list) {
+      for (const p of list) {
+        const srd = data.feats.find((x) => norm(p.n).startsWith(norm(x.en)) || norm(p.n).startsWith(norm(x.n)));
+        if (srd) { if (!feats.includes(srd.n)) feats.push(srd.n); continue; }
+        if (!customFeats.some((x) => norm(x.n) === norm(p.n))) customFeats.push({ id: 'f-' + uid(), n: p.n, d: p.d, cat: featCatOf(p.n) || 'other', max: null, per: '' });
+      }
+      continue;
+    }
     const [first, ...rest] = v.split(/\r?\n/);
     const title = tidy(first);
     const srd = data.feats.find((x) => title.startsWith(norm(x.en)) || title.startsWith(norm(x.n)));

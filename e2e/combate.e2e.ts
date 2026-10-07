@@ -403,8 +403,8 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   await expect(page.locator('.plaque-label')).toContainText('Brakka · Espada larga: ataque', { timeout: 15000 });
   await expect(sheet.getByRole('button', { name: /Daño 1d8\+2 cortante/ })).toBeVisible();
   const traits = sheet.locator('section[aria-label="Rasgos y dotes"]');
-  await expect(traits.locator('summary', { hasText: 'Segundo aliento' })).toBeVisible();
-  await expect(traits.locator('summary', { hasText: 'Crítico mejorado' })).toBeVisible();
+  await expect(traits.locator('.card', { hasText: 'Segundo aliento' })).toBeVisible();
+  await expect(traits.locator('.card', { hasText: 'Crítico mejorado' })).toBeVisible();
 
   // PG: daño y curación
   await sheet.getByLabel('Cantidad de PG').fill('7');
@@ -445,9 +445,9 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
   await expect(sheet.getByRole('button', { name: 'Daño 1d8+2 cortante + 1d6 fuego' })).toBeVisible();
   await expect(sheet.locator('.card', { hasText: 'Castigo Divino' })).toBeVisible();
-  await expect(sheet.locator('summary', { hasText: 'Protección' })).toContainText('Estilo de combate');
+  await expect(sheet.locator('.card', { hasText: 'Protección' })).toContainText('Estilo de combate');
   // con otra subclase no salen los rasgos de la del SRD
-  await expect(sheet.locator('summary', { hasText: 'Juramento de devoción' })).toHaveCount(0);
+  await expect(sheet.locator('.card', { hasText: 'Juramento de devoción' })).toHaveCount(0);
 });
 
 test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjuros al crear el personaje', async ({ page }) => {
@@ -477,9 +477,9 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sheet = page.locator('.pc');
   await expect(sheet).toContainText('Paladín 3 (Juramento del faro) · Farero');
-  await expect(sheet.locator('summary', { hasText: 'Luz guía' })).toContainText('Juramento del faro 3');
-  await expect(sheet.locator('summary', { hasText: 'Aura del faro' })).toHaveCount(0); // es de nivel 7
-  await expect(sheet.locator('summary', { hasText: 'Vigía nocturno' })).toContainText('Dote de origen');
+  await expect(sheet.locator('.card', { hasText: 'Luz guía' })).toContainText('Juramento del faro 3');
+  await expect(sheet.locator('.card', { hasText: 'Aura del faro' })).toHaveCount(0); // es de nivel 7
+  await expect(sheet.locator('.card', { hasText: 'Vigía nocturno' })).toContainText('Dote de origen');
   await expect(sheet.locator('.card', { hasText: 'Rayo de faro' })).toBeVisible();
 });
 
@@ -513,13 +513,13 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sheet = page.locator('.pc');
-  await expect(sheet.locator('.pc-features summary', { hasText: 'Beta' }).first()).toBeVisible();
+  await expect(sheet.locator('.pc-features .card', { hasText: 'Beta' }).first()).toBeVisible();
   await expect(sheet.locator('.pc-skill', { hasText: 'Historia' }).locator('.dot')).toHaveClass(/on/);
 
   // las maniobras se usan desde la hoja: cada tirada gasta un dado de supremacía
   const man = sheet.locator('section[aria-label="Maniobras"]');
   await expect(man).toContainText('Dados de supremacía: 4 de 4 (d8)');
-  await expect(man.locator('summary', { hasText: 'Alfa' })).toContainText('CD 10 Fuerza');
+  await expect(man.locator('.card', { hasText: 'Alfa' })).toContainText('CD 10 Fuerza');
   await expect(man.getByRole('button', { name: 'Daño con Espada larga a dos manos + d8' })).toBeVisible();
   await man.getByRole('button', { name: 'Daño con Espada larga + d8' }).click();
   await expect(page.locator('.result-label, .dice-result, [aria-live]').filter({ hasText: 'Alfa' }).first()).toBeVisible();
@@ -544,7 +544,7 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   const prey = sheet.getByLabel('Presa del cazador');
   await expect(prey.locator('option')).toHaveCount(3);
   await prey.selectOption({ index: 1 });
-  await expect(sheet.locator('.pc-features summary').filter({ hasText: 'Presa del cazador' }).first()).toBeVisible();
+  await expect(sheet.locator('.pc-features .card').filter({ hasText: 'Presa del cazador' }).first()).toBeVisible();
 });
 
 test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero psiónico (biblioteca)', async ({ page }) => {
@@ -559,8 +559,8 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   const fiend = page.locator('section[aria-label="Patrón infernal"]');
   await fiend.getByRole('button', { name: 'Ganar 17 PG temporales' }).click();
   await expect(page.locator('.stat-tmp')).toContainText('+17');
-  await expect(fiend.locator('summary', { hasText: 'Arrojar a través del Infierno' })).toContainText(/CD \d+ Carisma/);
-  const luck = fiend.locator('summary', { hasText: 'Suerte propia del Oscuro' });
+  await expect(fiend.locator('.card', { hasText: 'Arrojar a través del Infierno' })).toContainText(/CD \d+ Carisma/);
+  const luck = fiend.locator('.card', { hasText: 'Suerte propia del Oscuro' });
   for (let i = 0; i < 3; i++) await luck.getByRole('button', { name: 'Tirar 1d10' }).click();
   await expect(luck.getByRole('button', { name: 'Tirar 1d10' })).toBeDisabled();
 
@@ -588,8 +588,8 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const psi = page.locator('section[aria-label="Poder psiónico"]');
   await expect(psi).toContainText('Dados de energía psiónica: 6 de 6 (d8)');
-  await psi.locator('summary', { hasText: 'Golpe psiónico' }).getByRole('button', { name: /^Daño d8/ }).click();
-  await psi.locator('summary', { hasText: 'Campo protector' }).getByRole('button', { name: /^Tirar d8/ }).click();
+  await psi.locator('.card', { hasText: 'Golpe psiónico' }).getByRole('button', { name: /^Daño d8/ }).click();
+  await psi.locator('.card', { hasText: 'Campo protector' }).getByRole('button', { name: /^Tirar d8/ }).click();
   await expect(psi).toContainText('4 de 6');
   await page.getByRole('button', { name: 'Descanso corto' }).click();
   await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
@@ -631,7 +631,7 @@ test('dotes con botones: atacante salvaje, ataque extra con arma ligera, sin arm
   await expect(atk.locator('.pc-attack', { hasText: 'Ataque sin armas' })).toContainText('repite los 1');
 
   const feats = page.locator('section[aria-label="Dotes"]');
-  await expect(feats.getByRole('button', { name: 'Usos de Puntos de suerte' }).or(feats.locator('summary', { hasText: 'Afortunado' }))).toBeVisible();
+  await expect(feats.getByRole('button', { name: 'Usos de Puntos de suerte' }).or(feats.locator('.card', { hasText: 'Afortunado' }))).toBeVisible();
   await feats.getByRole('button', { name: /^Recuperación rápida 1d10$/ }).click();
   await expect(page.locator('.plaque-label')).toContainText('recuperación rápida');
   await expect(feats).toContainText('dados de golpe: 4/5');
@@ -695,7 +695,7 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   await make('Lira', 'Bardo', '5', 'Colegio del Saber', ['cha', '16']);
   const bard = page.locator('section[aria-label="Inspiración bárdica"]');
   await expect(bard).toContainText('Inspiración bárdica: 3 de 3 (d8)');
-  await bard.locator('summary', { hasText: 'Palabras hirientes' }).getByRole('button', { name: 'Tirar d8' }).click();
+  await bard.locator('.card', { hasText: 'Palabras hirientes' }).getByRole('button', { name: 'Tirar d8' }).click();
   await bard.getByRole('button', { name: 'Dar un dado a un aliado' }).click();
   await expect(bard).toContainText('1 de 3');
   await shortRest();
@@ -705,9 +705,9 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   await make('Ilsa', 'Clérigo', '6', 'Dominio de la Vida', ['wis', '16']);
   const cleric = page.locator('section[aria-label="Canalizar divinidad"]');
   await expect(cleric).toContainText('Usos de Canalizar divinidad: 3 de 3');
-  await expect(cleric.locator('summary', { hasText: 'Preservar vida' })).toContainText('reparte 30 PG');
-  await cleric.locator('summary', { hasText: 'Chispa' }).getByRole('button', { name: 'Curar 1d8+3' }).click();
-  await cleric.locator('summary', { hasText: 'Preservar vida' }).getByRole('button', { name: 'Usar en otros (gasta un uso)' }).click();
+  await expect(cleric.locator('.card', { hasText: 'Preservar vida' })).toContainText('reparte 30 PG');
+  await cleric.locator('.card', { hasText: 'Chispa' }).getByRole('button', { name: 'Curar 1d8+3' }).click();
+  await cleric.locator('.card', { hasText: 'Preservar vida' }).getByRole('button', { name: 'Usar en otros (gasta un uso)' }).click();
   await expect(cleric).toContainText('1 de 3');
   await shortRest();
   await expect(cleric).toContainText('2 de 3');
@@ -716,7 +716,7 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   await make('Aldo', 'Paladín', '3', 'Juramento de devoción', ['cha', '16']);
   const pal = page.locator('section[aria-label="Canalización divina"]');
   await expect(pal).toContainText('Usos de Canalización divina: 2 de 2');
-  await expect(pal.locator('summary', { hasText: 'Arma sagrada' })).toContainText('+3 al ataque');
+  await expect(pal.locator('.card', { hasText: 'Arma sagrada' })).toContainText('+3 al ataque');
 });
 
 test('Preservar vida te cura a ti; conjuros de la escuela del mago; Caballero arcano lanza con Inteligencia', async ({ page }) => {

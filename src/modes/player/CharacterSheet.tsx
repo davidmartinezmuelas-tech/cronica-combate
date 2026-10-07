@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import { CONDITIONS } from '../../data/constants';
 import { ABILS, type Abil, type ClassFeature, type PlayerData } from '../../data/player';
-import { derive, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
+import { derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
 import { fmt, sgn, type RollPart } from '../../engine/dice';
 import { norm } from '../../engine/util';
+import Card from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import Pips from '../../shared/Pips';
 import { useLibrary, type LibraryData } from '../../store/library';
@@ -47,7 +48,7 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
     const lf = lib.feats.find((x) => x.n === name);
     if (lf) rows.push({ key: lf.id, n: lf.n, d: (lf.req ? 'Requisitos: ' + lf.req + '\n\n' : '') + lf.d, src: CAT[lf.cat] || 'Dote', max: null, per: '' });
   });
-  c.customFeats.forEach((f) => rows.push({ key: f.id, n: f.n, d: f.d, src: CAT[f.cat] || 'Rasgo propio', max: f.max && f.max > 0 ? f.max : null, per: f.per }));
+  expandCustomFeats(c.customFeats).forEach((f) => rows.push({ key: f.id, n: f.n, d: f.d, src: CAT[f.cat] || 'Rasgo propio', max: f.max && f.max > 0 ? f.max : null, per: f.per }));
   return rows;
 }
 
@@ -61,7 +62,6 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const features = useMemo(() => featureRows(c, data, lib), [c, data, lib]);
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
-  const [spellView, setSpellView] = useState<string | null>(null); // conjuro abierto en la ventana
   const [confirmLong, setConfirmLong] = useState(false);
   // Atacante salvaje y carga: se aplican al próximo daño y se apagan
   const [savage, setSavage] = useState(false);
@@ -248,6 +248,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </section>
       </div>
 
+      {/* ataques y paneles de rasgos con pocas tarjetas, uno al lado del otro (con muchas tarjetas, a todo el ancho) */}
+      <div className="pc-duo">
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
@@ -265,6 +267,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           )}
         </div>
         {!d.attacks.length && !d.unarmed && <p className="muted small" style={{ margin: 0 }}>Añade tus armas en «Editar hoja».</p>}
+        <div className="pc-attacks">
         {d.attacks.map(({ w, atk, abil, parts, verParts, throwParts, offParts, poleParts, notes }) => (
           <div key={w.id} className="pc-attack">
             <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small">{notes.join(' · ')}</span>}
@@ -293,11 +296,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </span>
           </div>
         )}
+        </div>
       </section>
 
       <SubclassActions c={c} d={d} data={data} lib={lib} set={set} />
       <ClassPanel c={c} d={d} data={data} set={set} />
       <FeatPanel c={c} d={d} set={set} />
+      </div>
 
       {(d.spell || spellList.length > 0) && (
         <section className="panel" aria-label="Conjuros">
@@ -323,27 +328,20 @@ export default function CharacterSheet({ c }: { c: Character }) {
               {spellList.map(({ k, s, sub }) => (
                 <li key={k}>
                   {/* el texto completo se abre en una ventana: en la tarjeta solo el nombre, sus datos y las tiradas */}
-                  <div className="card">
-                    <button className="card-title" aria-haspopup="dialog" title="Ver el conjuro" onClick={() => setSpellView(k)}><b>{s!.n}</b></button>
-                    <span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}
-                    <SpellRolls c={c} d={d} s={s!} set={set} />
-                  </div>
+                  <Card name={s!.n}
+                    head={<><span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}<SpellRolls c={c} d={d} s={s!} set={set} /></>}
+                    dialog={<>
+                      <p className="muted small" style={{ margin: 0 }}>{s!.l ? 'Nivel ' + s!.l : 'Truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}{sub ? ' · ' + sub : ''}</p>
+                      <p className="muted small" style={{ margin: '4px 0' }}>{[s!.ct, s!.r, s!.cmp, s!.du].filter(Boolean).join(' · ')}</p>
+                      <p className="pc-text">{plainText(s!.t)}</p>
+                      <SpellRolls c={c} d={d} s={s!} set={set} />
+                    </>} />
                 </li>
               ))}
             </ul>
           )}
         </section>
       )}
-
-      {(() => {
-        const v = spellList.find((x) => x.k === spellView);
-        return v && <SpellDialog onClose={() => setSpellView(null)} title={v.s!.n}>
-          <p className="muted small" style={{ margin: 0 }}>{v.s!.l ? 'Nivel ' + v.s!.l : 'Truco'}{v.s!.c ? ' · concentración' : ''}{v.s!.rit ? ' · ritual' : ''}{v.sub ? ' · ' + v.sub : ''}</p>
-          <p className="muted small" style={{ margin: '4px 0' }}>{[v.s!.ct, v.s!.r, v.s!.cmp, v.s!.du].filter(Boolean).join(' · ')}</p>
-          <p className="pc-text">{plainText(v.s!.t)}</p>
-          <SpellRolls c={c} d={d} s={v.s!} set={set} />
-        </SpellDialog>;
-      })()}
 
       <section className="panel" aria-label="Rasgos y dotes">
         <h3 className="eyebrow">Rasgos y dotes</h3>
@@ -352,13 +350,12 @@ export default function CharacterSheet({ c }: { c: Character }) {
         <ul className="pc-features grid">
           {features.map((f) => (
             <li key={f.src + f.key}>
-              <details>
-                <summary>
-                  <b>{f.n}</b> <span className="muted small">{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</span>
-                  {f.max != null && <span onClick={(e) => e.preventDefault()}><Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} /></span>}
-                </summary>
-                <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((s, i) => (i % 2 ? <b key={i}>{s}</b> : plainText(s)))}</p>
-              </details>
+              <Card name={f.n} head={<>
+                <span className="muted small">{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</span>
+                {f.max != null && <Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />}
+              </>}>
+                {f.d && <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((s, i) => (i % 2 ? <b key={i}>{s}</b> : plainText(s)))}</p>}
+              </Card>
             </li>
           ))}
         </ul>
@@ -409,26 +406,6 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </div>
         <div className="field"><label htmlFor="pc-notes">Notas</label><textarea id="pc-notes" className="input" rows={4} value={c.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Equipo, objetivos, vínculos, lo que pasó la última sesión…" /></div>
       </section>
-    </div>
-  );
-}
-
-/** Ventana con el texto completo de un conjuro: se cierra con Esc, con «Cerrar» o pulsando fuera. */
-function SpellDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-  return (
-    <div className="overlay" role="dialog" aria-modal="true" aria-label={title} onClick={onClose}>
-      <div className="panel dialog" onClick={(e) => e.stopPropagation()}>
-        <div className="panel-head">
-          <h2>{title}</h2>
-          <button className="btn small ghost" autoFocus onClick={onClose}>Cerrar</button>
-        </div>
-        {children}
-      </div>
     </div>
   );
 }

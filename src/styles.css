@@ -513,8 +513,12 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .dot{width:10px;height:10px;border-radius:50%;border:2px solid #605243;flex:none}
 .dot.on{background:#d4a94f;border-color:#d4a94f}
 .dot.exp{background:#d4a94f;border-color:#f3e6c8;box-shadow:0 0 0 2px #d4a94f}
-.pc-attack{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 12px;padding:8px 0;border-top:1px solid #2c2723}
-.pc-attack:first-of-type{border-top:0}
+.pc-attack{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:8px 10px;border:1px solid #2c2723;border-radius:6px;background:#171412}
+/* cada arma en su tarjeta, varias por fila */
+.pc-attacks{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));align-items:start;gap:6px}
+/* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
+.pc-duo{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:16px;align-items:start}
+.pc-duo>.panel:has(.pc-features>li:nth-child(3)),.pc-duo>.panel:has(.pc-attacks>.pc-attack:nth-child(3)){grid-column:1/-1}
 .pc-attack-n{display:flex;flex-direction:column;gap:2px;font-weight:800;color:#f3e6c8;min-width:0}
 .pc-slots{display:flex;flex-wrap:wrap;gap:8px 18px}
 .pc-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
@@ -530,7 +534,9 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .card-title{flex-basis:100%;text-align:left;background:none;border:0;padding:0;color:inherit;font:inherit;font-size:16px;cursor:pointer}
 .card-title:hover b,.card-title:focus-visible b{color:#f3d48a;text-decoration:underline;text-underline-offset:3px}
 .pc-features.grid summary>b:first-child{flex-basis:100%}
-.pc-features.grid details:not([open]) summary>b:first-child{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.pc-features.grid details:not([open]) summary>b:first-child,.pc-features .card-title b,b.card-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+b.card-title{flex-basis:100%;font-size:16px}
+.card-head-copy{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-bottom:6px}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:#e2d6be}
 .ce-choices{display:flex;flex-direction:column;gap:8px}
 .pc-attack-feat{display:block;color:#d4a94f;font-weight:700}

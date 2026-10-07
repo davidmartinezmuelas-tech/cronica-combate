@@ -1,5 +1,6 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
+import { featCatOf, splitFeatText } from './featText';
 import { choiceSkills, subclassCaster } from './subclassChoices';
 import { norm, uid } from './util';
 
@@ -26,6 +27,18 @@ export interface CharWeapon {
 export type FeatCat = 'origin' | 'general' | 'fighting-style' | 'epic-boon' | 'other';
 
 /** Dote o rasgo escrito por el jugador (de un libro que no es el SRD o de la campaña). */
+/**
+ * Las dotes propias tal como se usan en la hoja: un rasgo que en realidad es una lista («- Duro: … - Protección: …»,
+ * típico de una hoja importada) cuenta como varias. Lo guardado no cambia.
+ */
+export function expandCustomFeats(list: CustomFeat[]): CustomFeat[] {
+  return list.flatMap((f) => {
+    const parts = splitFeatText(f.n + (f.d ? '\n' + f.d : ''));
+    if (!parts) return [f];
+    return parts.map((p, i) => ({ ...f, id: f.id + '-' + i, n: p.n, d: p.d, cat: f.cat === 'other' ? featCatOf(p.n) || 'other' : f.cat, max: null, per: '' }));
+  });
+}
+
 export interface CustomFeat {
   id: string;
   n: string;
@@ -162,7 +175,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const pb = profBonus(c.level);
   const mods = Object.fromEntries(ABILS.map((a) => [a, mod(c.abil[a])])) as Record<Abil, number>;
   // dotes con efecto en los números (Tiro con arco, Duelo, Defensa, Alerta, Duro…)
-  const fx = featEffects([...c.feats, ...c.customFeats.map((f) => f.n)]);
+  const fx = featEffects([...c.feats, ...expandCustomFeats(c.customFeats).map((f) => f.n)]);
   const sum = (k: 'atkRanged' | 'dmgOneHand' | 'dmgThrown' | 'acArmor' | 'hpPerLevel' | 'hpFlat' | 'speed') => fx.reduce((t, f) => t + (f.e[k] || 0), 0);
   const featOf = (k: keyof (typeof fx)[number]['e']) => fx.filter((f) => f.e[k]).map((f) => f.n);
   const all = mergeEffects(fx);
