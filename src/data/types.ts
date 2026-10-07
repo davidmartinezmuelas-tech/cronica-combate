@@ -181,6 +181,7 @@ export interface RollResult {
   applied?: boolean;
   crit?: boolean;
   effect?: SaveEffect; // efecto con salvación: se eligen objetivos, tiran y se aplica daño y estados
+  heal?: boolean; // es una curación (para mandarla a la mesa)
 }
 
 export interface DieView {

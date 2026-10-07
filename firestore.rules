@@ -52,6 +52,23 @@ service cloud.firestore {
         allow read, delete: if signedIn() && (resource.data.to == request.auth.uid || isDm(code));
       }
 
+      // Lista de iniciativa que comparte el máster (sin PG ni números de los monstruos).
+      match /table/{doc} {
+        allow read: if signedIn() && isMember(code);
+        allow write: if signedIn() && isDm(code);
+      }
+
+      // Lanzamientos de los jugadores sobre objetivos y sus respuestas a peticiones de salvación:
+      // cada uno crea los suyos; los lee y borra el máster (y su autor).
+      match /casts/{id} {
+        allow create: if signedIn() && isMember(code) && request.resource.data.uid == request.auth.uid;
+        allow read, delete: if signedIn() && (isDm(code) || resource.data.uid == request.auth.uid);
+      }
+      match /replies/{id} {
+        allow create: if signedIn() && isMember(code) && request.resource.data.uid == request.auth.uid;
+        allow read, delete: if signedIn() && (isDm(code) || resource.data.uid == request.auth.uid);
+      }
+
       // Tiradas: las ven todos los de la sala; cada uno publica solo las suyas; el máster puede limpiarlas.
       match /rolls/{id} {
         allow read: if signedIn() && isMember(code);

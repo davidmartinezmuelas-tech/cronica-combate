@@ -80,3 +80,31 @@ describe('avisos del máster al jugador', () => {
     expect(cloud.rooms.get(code)!.events).toHaveLength(0); // se borra al aplicarlo
   });
 });
+
+describe('lanzamientos y peticiones de salvación por la sala', () => {
+  it('el jugador manda un lanzamiento y responde a una salvación; al máster le llegan', async () => {
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+    useRoom.setState({ code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '', table: [], casts: [], replies: [], saveRequests: [] });
+    const cloud = fakeCloud({ uid: 'dm1', email: null, name: null, anon: false });
+    setCloudAdapter(async () => cloud.adapter);
+    await useRoom.getState().create('Máster');
+    const code = useRoom.getState().code!;
+    useRoom.getState().publishTable([{ id: 'm1', name: 'Ogro', kind: 'monster' }]);
+    await useRoom.getState().leave();
+    await cloud.setUser({ uid: 'p1', email: null, name: null, anon: true });
+    await vi.waitFor(() => expect(useAccount.getState().user?.uid).toBe('p1'));
+    await useRoom.getState().join(code, 'Ana');
+    await vi.waitFor(() => expect(useRoom.getState().table.map((t) => t.name)).toEqual(['Ogro']));
+    // su último ataque se recuerda para mandarlo con el daño
+    useStore.setState({ result: result('Ana · Rayo de fuego: ataque', '17') });
+    expect(useRoom.getState().lastAttack?.total).toBe(17);
+    expect(await useRoom.getState().sendCast({ label: 'Rayo de fuego: daño', targets: ['m1'], parts: [{ type: 'fuego', amt: 9 }], crit: false, attack: 17, heal: null, effect: null })).toBe(true);
+    expect(cloud.rooms.get(code)!.casts.map((c) => [c.who, c.attack])).toEqual([['Ana', 17]]);
+    // el máster le pide una salvación: le aparece y responde
+    await cloud.adapter.sendEvent(code, { to: 'p1', from: 'dm1', charId: '', hp: 0, temp: 0, note: '', at: 1, kind: 'save', dc: 15, abil: 1, label: 'Ogro · Pisotón', reqId: 'q1' });
+    await vi.waitFor(() => expect(useRoom.getState().saveRequests.map((q) => q.reqId)).toEqual(['q1']));
+    useRoom.getState().answerSave('q1', 12);
+    await vi.waitFor(() => expect(cloud.rooms.get(code)!.replies.map((r) => [r.reqId, r.total])).toEqual([['q1', 12]]));
+    expect(useRoom.getState().saveRequests).toEqual([]);
+  });
+});

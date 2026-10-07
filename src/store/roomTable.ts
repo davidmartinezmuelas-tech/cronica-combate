@@ -1,7 +1,7 @@
 import type { Combatant, RosterEntry } from '../data/types';
 import { makePcCombatant } from '../engine/combat';
 import { norm, uid } from '../engine/util';
-import type { RoomMember, SharedRoll } from './cloudAdapter';
+import type { RoomCast, RoomMember, SharedRoll } from './cloudAdapter';
 import { useStore } from './useStore';
 
 /**
@@ -98,4 +98,66 @@ export function applyInitiativeRolls(rolls: SharedRoll[], members: RoomMember[])
     changed = true;
   }
   if (changed) useStore.setState({ combatants });
+}
+
+/** Lista de iniciativa para los jugadores: solo nombres y tipo (sin PG ni números de los monstruos). */
+export function tableOf(combatants: Combatant[], roster: RosterEntry[]) {
+  return combatants.filter((c) => c.kind !== 'lair').map((c) => {
+    const roomUid = c.kind === 'pc' ? roster.find((r) => r.id === c.rosterId)?.roomUid : undefined;
+    return { id: c.id, name: c.name, kind: c.kind === 'pc' ? 'pc' as const : 'monster' as const, ...(roomUid ? { roomUid } : {}) };
+  });
+}
+
+/** El máster publica la lista cada vez que cambia (agrupando los cambios seguidos). */
+export function watchTableToPublish(publish: (list: ReturnType<typeof tableOf>) => void): () => void {
+  let last = '';
+  let t: ReturnType<typeof setTimeout> | null = null;
+  const send = () => {
+    const s = useStore.getState();
+    const list = tableOf(s.combatants, s.roster);
+    const key = JSON.stringify(list);
+    if (key === last) return;
+    last = key;
+    publish(list);
+  };
+  send();
+  const un = useStore.subscribe((s, prev) => {
+    if (s.combatants === prev.combatants && s.roster === prev.roster) return;
+    if (t) clearTimeout(t);
+    t = setTimeout(send, 400);
+  });
+  return () => { un(); if (t) clearTimeout(t); };
+}
+
+/**
+ * Revisar el lanzamiento de un jugador en la mesa de dados: con salvación, en el paso de objetivos ya elegidos; con
+ * ataque, marcando a quién acierta según su CA; sin ataque ni salvación, a todos los objetivos.
+ */
+export function reviewCast(cast: RoomCast): string {
+  const s = useStore.getState();
+  const targets = cast.targets.filter((id) => s.combatants.some((c) => c.id === id));
+  const label = cast.who + ' · ' + cast.label;
+  const total = cast.parts.reduce((t, p) => t + p.amt, 0);
+  if (cast.effect) {
+    useStore.setState({
+      result: { label, total: cast.parts.length ? String(total) : 'CD ' + cast.effect.dc, detail: cast.parts.map((p) => p.amt + ' ' + p.type).join(' + '), cls: '', note: 'Lanzado por ' + cast.who + '.', isDmg: cast.parts.length > 0, parts: cast.parts, half: cast.effect.half, by: null, crit: cast.crit, effect: cast.effect },
+      effectSel: targets, dmgTargets: {},
+    });
+    return '';
+  }
+  const map: Record<string, 'full' | 'half'> = {};
+  const notes: string[] = [];
+  for (const id of targets) {
+    const c = s.combatants.find((x) => x.id === id)!;
+    const ac = typeof c.ac === 'number' ? c.ac : parseInt(String(c.ac), 10);
+    if (cast.attack == null || Number.isNaN(ac)) { map[id] = 'full'; continue; }
+    const hit = cast.attack >= ac;
+    notes.push(c.name + (hit ? ' acierta' : ' falla') + ' (CA ' + ac + ')');
+    if (hit) map[id] = 'full';
+  }
+  useStore.setState({
+    result: { label, total: String(total), detail: cast.parts.map((p) => p.amt + ' ' + p.type).join(' + '), cls: '', note: (cast.attack != null ? 'Ataque ' + cast.attack + ': ' + notes.join(', ') + '. ' : '') + 'Revisa y pulsa «Aplicar daño».', isDmg: true, parts: cast.parts, half: false, by: null, crit: cast.crit },
+    dmgTargets: map,
+  });
+  return notes.join(', ');
 }

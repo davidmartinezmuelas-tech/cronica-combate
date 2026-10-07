@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { cloud, useAccount } from './account';
-import { cloudError, type RoomInfo, type RoomMember, type SharedRoll, type SheetSummary } from './cloudAdapter';
+import { cloudError, type RoomCast, type RoomInfo, type RoomMember, type SaveReply, type SharedRoll, type SheetSummary, type TableEntry } from './cloudAdapter';
 import { usePlayer } from './player';
 import { useStore } from './useStore';
 
@@ -29,6 +29,17 @@ export interface RoomState {
   busy: boolean;
   error: string;
   notice: string; // aviso al jugador (el máster le ha cambiado los PG)
+  table: TableEntry[]; // lista de iniciativa que comparte el máster
+  casts: RoomCast[]; // el máster: lanzamientos de los jugadores pendientes de revisar
+  replies: SaveReply[]; // el máster: respuestas a sus peticiones de salvación
+  saveRequests: { reqId: string; dc: number; abil: number; label: string }[]; // el jugador: salvaciones que le pide el máster
+  lastAttack: { label: string; total: number; at: number } | null; // el jugador: su última tirada de ataque
+  publishTable: (list: TableEntry[]) => void;
+  sendCast: (cast: Omit<RoomCast, 'id' | 'uid' | 'who' | 'at'>) => Promise<boolean>;
+  dismissCast: (id: string) => void;
+  requestSave: (to: string, reqId: string, dc: number, abil: number, label: string) => void;
+  answerSave: (reqId: string, total: number) => void;
+  dismissReply: (id: string) => void;
   create: (name: string) => Promise<boolean>;
   join: (code: string, name: string) => Promise<boolean>;
   leave: () => Promise<void>;
@@ -62,12 +73,19 @@ export const useRoom = create<RoomState>()((set, get) => {
       set({ members: members.sort((x, y) => (x.role === y.role ? x.name.localeCompare(y.name, 'es') : x.role === 'dm' ? -1 : 1)) });
     }, (e) => set({ error: cloudError(e) }));
     const unRolls = a.watchRolls(info.code, (rolls) => set({ rolls }), (e) => set({ error: cloudError(e) }));
+    const fail = (e: Error) => set({ error: cloudError(e) });
+    // los jugadores ven la lista de iniciativa; el máster recibe los lanzamientos y las respuestas de salvación
+    const unTable = role === 'player' ? a.watchTable(info.code, (table) => set({ table }), fail) : () => {};
+    const unCasts = role === 'dm' ? a.watchCasts(info.code, (casts) => set({ casts }), fail) : () => {};
+    const unReplies = role === 'dm' ? a.watchReplies(info.code, (replies) => set({ replies }), fail) : () => {};
     // cada tirada nueva de la mesa de dados se publica (si se comparte)
     let prev = useStore.getState().result;
     const unResult = useStore.subscribe((s) => {
       const r = s.result;
       if (!r || r === prev) return;
       prev = r;
+      // el jugador recuerda su último ataque (para mandarlo con el daño a la mesa)
+      if (/: ataque$/.test(r.label) && /^-?\d+$/.test(r.total)) set({ lastAttack: { label: r.label.replace(/: ataque$/, ''), total: parseInt(r.total, 10), at: Date.now() } });
       const uid = me()?.uid;
       if (!get().share || !uid || !get().code) return;
       a.addRoll(info.code, { uid, who: get().name, label: r.label, total: r.total, detail: r.detail, cls: r.cls, at: Date.now() }).catch((e) => set({ error: cloudError(e) }));
@@ -76,6 +94,12 @@ export const useRoom = create<RoomState>()((set, get) => {
     const myUid = me()?.uid;
     const unEvents = role === 'player' && myUid ? a.watchEvents(info.code, myUid, (events) => {
       for (const ev of events) {
+        if (ev.kind === 'save' && ev.reqId) {
+          const req = { reqId: ev.reqId, dc: ev.dc || 10, abil: ev.abil ?? 0, label: ev.label || '' };
+          if (!get().saveRequests.some((x) => x.reqId === req.reqId)) set({ saveRequests: [...get().saveRequests, req] });
+          a.deleteEvent(info.code, ev.id).catch(() => { /* ya borrado */ });
+          continue;
+        }
         const p = usePlayer.getState();
         const c = p.characters.find((x) => x.id === ev.charId) || p.characters.find((x) => x.id === p.activeId);
         if (c) {
@@ -85,7 +109,7 @@ export const useRoom = create<RoomState>()((set, get) => {
         a.deleteEvent(info.code, ev.id).catch(() => { /* ya borrado */ });
       }
     }, (e) => set({ error: cloudError(e) })) : () => {};
-    stop = () => { unMembers(); unRolls(); unResult(); unEvents(); stop = null; };
+    stop = () => { unMembers(); unRolls(); unResult(); unEvents(); unTable(); unCasts(); unReplies(); stop = null; };
   }
 
   async function member(code: string, role: 'dm' | 'player', name: string, sheet: SheetSummary | null) {
@@ -95,6 +119,45 @@ export const useRoom = create<RoomState>()((set, get) => {
 
   return {
     code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '',
+    table: [], casts: [], replies: [], saveRequests: [], lastAttack: null,
+
+    publishTable(list) {
+      const { code, role } = get();
+      if (code && role === 'dm') cloud()?.publishTable(code, list).catch((e) => set({ error: cloudError(e) }));
+    },
+
+    async sendCast(c) {
+      const { code, role, name } = get();
+      const uid = me()?.uid;
+      if (!code || role !== 'player' || !uid) return false;
+      try { await cloud()!.sendCast(code, { ...c, uid, who: name, at: Date.now() }); return true; } catch (e) { set({ error: cloudError(e) }); return false; }
+    },
+
+    dismissCast(id) {
+      const { code } = get();
+      set({ casts: get().casts.filter((c) => c.id !== id) });
+      if (code) cloud()?.deleteCast(code, id).catch(() => { /* ya borrado */ });
+    },
+
+    requestSave(to, reqId, dc, abil, label) {
+      const { code, role } = get();
+      const from = me()?.uid;
+      if (!code || role !== 'dm' || !from) return;
+      cloud()?.sendEvent(code, { to, from, charId: '', hp: 0, temp: 0, note: '', at: Date.now(), kind: 'save', dc, abil, label, reqId }).catch((e) => set({ error: cloudError(e) }));
+    },
+
+    answerSave(reqId, total) {
+      const { code } = get();
+      const uid = me()?.uid;
+      set({ saveRequests: get().saveRequests.filter((r) => r.reqId !== reqId) });
+      if (code && uid) cloud()?.sendReply(code, { uid, reqId, total, at: Date.now() }).catch((e) => set({ error: cloudError(e) }));
+    },
+
+    dismissReply(id) {
+      const { code } = get();
+      set({ replies: get().replies.filter((r) => r.id !== id) });
+      if (code) cloud()?.deleteReply(code, id).catch(() => { /* ya borrado */ });
+    },
 
     sendHp(to, charId, hp, temp) {
       const { code, role } = get();
@@ -142,7 +205,7 @@ export const useRoom = create<RoomState>()((set, get) => {
       const uid = me()?.uid;
       stop?.();
       save(null);
-      set({ code: null, role: null, room: null, members: [], rolls: [], error: '' });
+      set({ code: null, role: null, room: null, members: [], rolls: [], error: '', table: [], casts: [], replies: [], saveRequests: [] });
       if (code && uid) await cloud()?.removeMember(code, uid).catch(() => { /* ya no estaba */ });
     },
 

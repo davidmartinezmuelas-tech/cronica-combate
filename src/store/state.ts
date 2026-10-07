@@ -19,6 +19,7 @@ export interface RollSpec {
   noAdv?: boolean;
   critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
   effect?: SaveEffect; // daño de un efecto con salvación (objetivos, salvaciones, mitad y estados)
+  heal?: boolean; // es una curación
   critBonus?: RollPart[]; // daño que solo se suma si este daño es de un crítico (Perforador, Don del ataque imparable)
   after?: (total: number, nat: number | null) => Partial<State> & { resultNote?: string; extraLog?: LogDraft[] };
 }
@@ -109,6 +110,7 @@ export interface DiceSlice {
   adv: AdvMode;
   critFor: { who: string } | null;
   dmgTargets: Record<string, 'full' | 'half'>;
+  effectSel: string[] | null; // objetivos ya elegidos para el efecto (un lanzamiento de un jugador)
   dieSize: number; // px, según cuántos dados haya que mostrar
   moreDice: number;
   expr: string;

@@ -2,7 +2,9 @@ import { useState } from 'react';
 import type { Abil } from '../../data/player';
 import type { Character, Derived } from '../../engine/character';
 import { fmt } from '../../engine/dice';
+import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
+import { useRoom } from '../../store/room';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import type { SpellEntry } from './spells';
@@ -43,6 +45,9 @@ export default function SpellRolls({ c, d, s, set }: { c: Character; d: Derived;
     return { resultNote: 'Recuperas ' + Math.max(0, total) + ' PG.' };
   };
   const dc = d.spell?.dc;
+  // con salvación: el daño lleva el efecto (CD, mitad, estados) para mandarlo a la mesa del máster
+  const effect = rr.save && dc != null ? saveEffectOf(dc, rr.save, rr.half, s.t) : null;
+  const inRoom = useRoom((x) => !!x.code && x.role === 'player');
 
   return (
     <span className="rollrow" onClick={(e) => e.preventDefault()}>
@@ -56,13 +61,16 @@ export default function SpellRolls({ c, d, s, set }: { c: Character; d: Derived;
         <button className="rollbtn" onClick={() => roll({ label: label('ataque' + (cast.count > 1 ? ' (uno por ' + (s.n.match(/dardo|rayo/i)?.[0] || 'impacto') + ')' : '')), kind: 'attack', who, parts: [{ expr: '1d20' + (d.spell!.atk >= 0 ? '+' : '') + d.spell!.atk }] })}>Ataque {fmt(d.spell.atk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
       )}
       {cast.dmg && (rr.attack || cast.count === 1 ? (
-        <button className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [cast.dmg!] })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}{cast.count > 1 ? ' cada uno' : ''}</button>
+        <button className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [cast.dmg!], ...(effect ? { effect } : {}) })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}{cast.count > 1 ? ' cada uno' : ''}</button>
       ) : (
-        <button className="rollbtn dmg" onClick={() => roll({ label: label(cast.count + ' impactos'), kind: 'damage', who, by: null, parts: Array.from({ length: cast.count }, () => cast.dmg!) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
+        <button className="rollbtn dmg" onClick={() => roll({ label: label(cast.count + ' impactos'), kind: 'damage', who, by: null, parts: Array.from({ length: cast.count }, () => cast.dmg!), ...(effect ? { effect } : {}) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
       ))}
+      {effect && !cast.dmg && !cast.heal && inRoom && (
+        <button className="rollbtn" title="Elige objetivos en la mesa del máster" onClick={() => useStore.getState().startEffect(label('efecto'), effect)}>Objetivos{effect.conds.length ? ' (' + effect.conds.join(', ').toLowerCase() + ')' : ''}</button>
+      )}
       {cast.heal && (
         <>
-          <button className="rollbtn" onClick={() => roll({ label: label('curación'), kind: 'free', parts: [{ expr: cast.heal }] })}>Curar {cast.heal}</button>
+          <button className="rollbtn" onClick={() => roll({ label: label('curación'), kind: 'free', heal: true, parts: [{ expr: cast.heal }] })}>Curar {cast.heal}</button>
           <button className="rollbtn" onClick={() => roll({ label: label('curarme'), kind: 'free', parts: [{ expr: cast.heal }], after: healAfter })}>Curarme</button>
         </>
       )}

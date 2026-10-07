@@ -3,7 +3,29 @@ import { derive } from '../engine/character';
 import type { SheetSummary } from '../store/cloudAdapter';
 import { activeCharacter, usePlayer } from '../store/player';
 import { cleanCode, hadRoom, useRoom } from '../store/room';
-import { applyInitiativeRolls, syncMembersToTable, watchTableForPlayers } from '../store/roomTable';
+import { applyInitiativeRolls, reviewCast, syncMembersToTable, watchTableForPlayers, watchTableToPublish } from '../store/roomTable';
+import { useStore } from '../store/useStore';
+import { sgn } from '../engine/dice';
+
+const ABIL_N = ['Fuerza', 'Destreza', 'Constitución', 'Inteligencia', 'Sabiduría', 'Carisma'];
+const ABIL_K = ['str', 'dex', 'con', 'int', 'wis', 'cha'] as const;
+
+/** El máster pide una salvación: se tira con el bonificador de la hoja activa y la respuesta vuelve a la mesa. */
+function SaveRequest({ q }: { q: { reqId: string; dc: number; abil: number; label: string } }) {
+  const c = usePlayer(activeCharacter);
+  const data = usePlayer((s) => s.data);
+  const b = c ? derive(c, data).saves[ABIL_K[q.abil]].bonus : 0;
+  const go = () => useStore.getState().roll({
+    label: (c?.name || 'Personaje') + ' · salvación de ' + ABIL_N[q.abil] + ' (' + q.label.replace(/^.*· /, '') + ')', kind: 'save', parts: [{ expr: '1d20' + sgn(b) }],
+    after: (total) => { useRoom.getState().answerSave(q.reqId, total); return { resultNote: (total >= q.dc ? 'Supera' : 'Falla') + ' la CD ' + q.dc + '. Enviado al máster.' }; },
+  });
+  return (
+    <div className="room-notice save-req" role="alert">
+      <span>El máster te pide una salvación de {ABIL_N[q.abil]} CD {q.dc}: {q.label}</span>
+      <button className="btn small gold" onClick={go}>Tirar {ABIL_N[q.abil]} {sgn(b)}</button>
+    </div>
+  );
+}
 
 /** Resumen de la hoja activa del jugador para la sala. */
 function useSheetSummary(enabled: boolean): SheetSummary | null {
@@ -19,7 +41,7 @@ function useSheetSummary(enabled: boolean): SheetSummary | null {
  * comparten en directo.
  */
 export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
-  const { code, role, room, members, rolls, share, busy, error, notice } = useRoom();
+  const { code, role, room, members, rolls, share, busy, error, notice, casts, saveRequests } = useRoom();
   const { create, join, leave, close, setShare, publishSheet, resume } = useRoom.getState();
   const active = usePlayer(activeCharacter);
   const [codeIn, setCodeIn] = useState('');
@@ -36,6 +58,8 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
   useEffect(() => { if (mode === 'dm' && role === 'dm') applyInitiativeRolls(rolls, members); }, [mode, role, rolls, members]);
   // y lo que el máster cambia en la mesa (daño, curación) llega a la hoja del jugador
   useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableForPlayers((to, charId, hp, temp) => useRoom.getState().sendHp(to, charId, hp, temp)) : undefined), [mode, role]);
+  // la lista de iniciativa (solo nombres) para que los jugadores elijan objetivos
+  useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableToPublish((list) => useRoom.getState().publishTable(list)) : undefined), [mode, role]);
 
   const defaultName = mode === 'dm' ? 'Máster' : active?.name || '';
 
@@ -88,6 +112,31 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
           </li>
         ))}
       </ul>
+      {role === 'dm' && casts.length > 0 && (
+        <div className="room-casts">
+          <h4 className="eyebrow">Lanzamientos por revisar</h4>
+          <ul className="room-members">
+            {casts.map((c) => {
+              const names = c.targets.map((id) => useStore.getState().combatants.find((x) => x.id === id)?.name).filter(Boolean).join(', ');
+              const what = c.heal != null ? 'cura ' + c.heal : c.effect ? 'salvación de ' + ABIL_N[c.effect.abil] + ' CD ' + c.effect.dc + (c.parts.length ? ', ' + c.parts.map((p) => p.amt + ' ' + p.type).join(' + ') : '') : c.parts.map((p) => p.amt + ' ' + p.type).join(' + ') + (c.attack != null ? ' (ataque ' + c.attack + ')' : '');
+              return (
+                <li key={c.id}>
+                  <b>{c.who}</b><span className="small">{c.label} · {what} → {names || 'objetivos que ya no están'}</span>
+                  <span className="rollrow">
+                    {c.heal != null ? (
+                      <button className="btn small gold" onClick={() => { c.targets.forEach((id) => useStore.getState().heal(id, c.heal!, c.who)); useRoom.getState().dismissCast(c.id); }}>Aplicar curación</button>
+                    ) : (
+                      <button className="btn small gold" onClick={() => { reviewCast(c); useRoom.getState().dismissCast(c.id); }}>Revisar en la mesa de dados</button>
+                    )}
+                    <button className="btn small ghost" onClick={() => useRoom.getState().dismissCast(c.id)}>Descartar</button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {role === 'player' && saveRequests.map((q) => <SaveRequest key={q.reqId} q={q} />)}
       <h4 className="eyebrow">Tiradas</h4>
       {!rolls.length ? <p className="muted small" style={{ margin: 0 }}>Aún no hay tiradas en la sala.</p> : (
         <ul className="room-rolls" aria-live="polite">

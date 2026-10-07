@@ -6,7 +6,7 @@ import type { DiceSlice, GetState, SetState, State } from '../state';
 
 export function createDiceSlice(set: SetState, get: GetState, { guard, animate }: Kit): DiceSlice {
   return {
-    dice: [], rolling: false, result: null, adv: 'normal', critFor: null, dmgTargets: {}, dieSize: 64, moreDice: 0, expr: '', exprError: false,
+    dice: [], rolling: false, result: null, adv: 'normal', critFor: null, dmgTargets: {}, effectSel: null, dieSize: 64, moreDice: 0, expr: '', exprError: false,
     diceTheme: 'ruby', dice3d: null,
 
     roll(spec) {
@@ -36,7 +36,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const totalStr = mods.autoFail ? 'Falla' : String(out.total);
       animate(out.dice, () => {
         const patch: Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] } = {
-          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}) },
+          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.heal ? { heal: true } : {}) },
           logEntry: { label: spec.label, total: totalStr, detail: out.detail },
           ...after,
         };

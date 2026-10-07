@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Combatant } from '../data/types';
 import { rollModifiers } from '../engine/combat';
 import { fmt, rollDie } from '../engine/dice';
+import { uid as newId } from '../engine/util';
+import { useRoom } from '../store/room';
 import { useStore } from '../store/useStore';
 
 const ABIL_N = ['Fuerza', 'Destreza', 'Constitución', 'Inteligencia', 'Sabiduría', 'Carisma'];
 
-interface Save { total: number | null; fail: boolean; note: string; manual?: boolean }
+interface Save { total: number | null; fail: boolean; note: string; manual?: boolean; pending?: string }
 
 /**
  * Efecto con salvación: elegir objetivos de la lista de iniciativa, tirar sus salvaciones (los monstruos con su
@@ -18,7 +20,13 @@ export default function EffectTargets() {
   const { monById, applyEffect } = useStore.getState();
   const e = r.effect!;
   const list = combatants.filter((c) => c.kind !== 'lair' && c.id !== r.by);
-  const [sel, setSel] = useState<string[]>([]);
+  // los objetivos ya elegidos (lanzamiento de un jugador que el máster está revisando)
+  const [sel, setSel] = useState<string[]>(() => { const pre = useStore.getState().effectSel; if (pre) useStore.setState({ effectSel: null }); return pre || []; });
+  const roster = useStore((s) => s.roster);
+  const room = useRoom();
+  // jugador de la sala al que se le puede pedir la salvación en su hoja
+  const roomUidOf = (c: Combatant) => (room.code && room.role === 'dm' && c.kind === 'pc' ? roster.find((r) => r.id === c.rosterId)?.roomUid : undefined);
+  const online = new Set(room.members.map((m) => m.uid));
   const [saves, setSaves] = useState<Record<string, Save>>({});
   const [conds, setConds] = useState<string[]>(e.conds);
   const hasDmg = r.parts.length > 0;
@@ -39,17 +47,39 @@ export default function EffectTargets() {
     const next: Record<string, Save> = {};
     for (const id of sel) {
       const c = list.find((x) => x.id === id);
-      if (c) next[id] = saves[id]?.manual ? saves[id] : rollFor(c);
+      if (!c) continue;
+      if (saves[id]?.manual || saves[id]?.pending) { next[id] = saves[id]; continue; }
+      const ru = roomUidOf(c);
+      if (ru && online.has(ru)) {
+        // en la sala: se la pide al jugador, que la tira en su hoja con su bonificador
+        const reqId = newId() + '-' + id;
+        useRoom.getState().requestSave(ru, reqId, e.dc, e.abil, r.label);
+        next[id] = { total: null, fail: true, note: 'esperando su tirada…', pending: reqId };
+      } else next[id] = rollFor(c);
     }
     setSaves(next);
   };
+  // las respuestas de los jugadores rellenan su salvación
+  useEffect(() => {
+    const done: string[] = [];
+    let changed = false;
+    const next = { ...saves };
+    for (const [id, sv] of Object.entries(saves)) {
+      const rep = sv.pending && room.replies.find((x) => x.reqId === sv.pending);
+      if (!rep) continue;
+      next[id] = { total: rep.total, fail: rep.total < e.dc, note: 'su tirada', manual: true };
+      done.push(rep.id);
+      changed = true;
+    }
+    if (changed) { setSaves(next); done.forEach((x) => useRoom.getState().dismissReply(x)); }
+  }, [room.replies, saves, e.dc]);
   const toggle = (id: string) => setSel(sel.includes(id) ? sel.filter((x) => x !== id) : [...sel, id]);
   const setTotal = (id: string, v: string) => {
     const n = parseInt(v, 10);
     setSaves({ ...saves, [id]: Number.isNaN(n) ? { total: null, fail: true, note: '', manual: true } : { total: n, fail: n < e.dc, note: 'tirada del jugador', manual: true } });
   };
   const flip = (id: string) => setSaves({ ...saves, [id]: { ...saves[id], fail: !saves[id].fail } });
-  const ready = sel.length > 0 && sel.every((id) => saves[id]);
+  const ready = sel.length > 0 && sel.every((id) => saves[id] && !saves[id].pending);
   const consequence = (s: Save) => (s.fail
     ? [hasDmg ? 'todo el daño' : '', conds.length ? conds.join(', ') : ''].filter(Boolean).join(' y ') || 'falla'
     : hasDmg && e.half ? 'la mitad del daño' : 'nada');

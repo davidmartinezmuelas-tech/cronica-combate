@@ -1,10 +1,24 @@
 import type { Character } from '../engine/character';
+import type { SaveEffect } from '../engine/saveEffect';
 import { toCloud } from '../engine/sync';
 
 /** Resumen de la hoja que un jugador comparte en la sala (lo que el máster necesita ver). */
 export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; init?: number; conds: string[]; charId?: string }
 /** Aviso del máster a un jugador: sus PG tras lo que ha pasado en la mesa (daño, curación…). */
-export interface RoomEvent { id: string; to: string; from: string; charId: string; hp: number; temp: number; note: string; at: number }
+export interface RoomEvent {
+  id: string; to: string; from: string; charId: string; hp: number; temp: number; note: string; at: number;
+  kind?: 'hp' | 'save'; // 'save': el máster le pide una salvación
+  dc?: number; abil?: number; label?: string; reqId?: string;
+}
+/** Entrada de la lista de iniciativa que el máster comparte (sin PG ni números de los monstruos). */
+export interface TableEntry { id: string; name: string; kind: 'monster' | 'pc'; roomUid?: string }
+/** Lanzamiento de un jugador sobre objetivos: llega al máster, que lo revisa y lo aplica. */
+export interface RoomCast {
+  id: string; uid: string; who: string; label: string; targets: string[]; at: number;
+  parts: { type: string; amt: number }[]; crit: boolean; attack: number | null; heal: number | null; effect: SaveEffect | null;
+}
+/** Respuesta de un jugador a una petición de salvación. */
+export interface SaveReply { id: string; uid: string; reqId: string; total: number; at: number }
 /** Participante de una sala. */
 export interface RoomMember { uid: string; name: string; role: 'dm' | 'player'; sheet: SheetSummary | null; at: number }
 /** Tirada publicada en la sala. */
@@ -42,6 +56,14 @@ export interface CloudAdapter {
   sendEvent: (code: string, ev: Omit<RoomEvent, 'id'>) => Promise<void>;
   watchEvents: (code: string, uid: string, cb: (events: RoomEvent[]) => void, onError: (e: Error) => void) => () => void;
   deleteEvent: (code: string, id: string) => Promise<void>;
+  publishTable: (code: string, list: TableEntry[]) => Promise<void>;
+  watchTable: (code: string, cb: (list: TableEntry[]) => void, onError: (e: Error) => void) => () => void;
+  sendCast: (code: string, cast: Omit<RoomCast, 'id'>) => Promise<void>;
+  watchCasts: (code: string, cb: (casts: RoomCast[]) => void, onError: (e: Error) => void) => () => void;
+  deleteCast: (code: string, id: string) => Promise<void>;
+  sendReply: (code: string, r: Omit<SaveReply, 'id'>) => Promise<void>;
+  watchReplies: (code: string, cb: (r: SaveReply[]) => void, onError: (e: Error) => void) => () => void;
+  deleteReply: (code: string, id: string) => Promise<void>;
 }
 
 /** Adaptador con el SDK de Firebase (cargado bajo demanda: quien no inicia sesión no lo descarga). */
@@ -84,7 +106,7 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
     createRoom: (room) => F.setDoc(F.doc(db, 'rooms', room.code), room),
     closeRoom: async (code) => {
       // sin borrado en cascada: primero lo de dentro (en lotes de 400) y luego la sala
-      for (const sub of ['rolls', 'events', 'members']) {
+      for (const sub of ['rolls', 'events', 'casts', 'replies', 'table', 'members']) {
         const snap = await F.getDocs(F.collection(db, 'rooms', code, sub));
         for (let i = 0; i < snap.docs.length; i += 400) {
           const batch = F.writeBatch(db);
@@ -105,6 +127,14 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
       onError,
     ),
     deleteEvent: (code, id) => F.deleteDoc(F.doc(db, 'rooms', code, 'events', id)),
+    publishTable: (code, list) => F.setDoc(F.doc(db, 'rooms', code, 'table', 'state'), { list: JSON.parse(JSON.stringify(list)), at: Date.now() }),
+    watchTable: (code, cb, onError) => F.onSnapshot(F.doc(db, 'rooms', code, 'table', 'state'), (d) => cb(d.exists() ? ((d.data() as { list: TableEntry[] }).list || []) : []), onError),
+    sendCast: async (code, cast) => { await F.addDoc(F.collection(db, 'rooms', code, 'casts'), JSON.parse(JSON.stringify(cast))); },
+    watchCasts: (code, cb, onError) => F.onSnapshot(F.collection(db, 'rooms', code, 'casts'), (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<RoomCast, 'id'>), id: d.id })).sort((a, b) => a.at - b.at)), onError),
+    deleteCast: (code, id) => F.deleteDoc(F.doc(db, 'rooms', code, 'casts', id)),
+    sendReply: async (code, r) => { await F.addDoc(F.collection(db, 'rooms', code, 'replies'), r); },
+    watchReplies: (code, cb, onError) => F.onSnapshot(F.collection(db, 'rooms', code, 'replies'), (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<SaveReply, 'id'>), id: d.id }))), onError),
+    deleteReply: (code, id) => F.deleteDoc(F.doc(db, 'rooms', code, 'replies', id)),
     watchRolls: (code, cb, onError) => F.onSnapshot(
       F.query(F.collection(db, 'rooms', code, 'rolls'), F.orderBy('at', 'desc'), F.limit(40)),
       (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<SharedRoll, 'id'>), id: d.id }))),

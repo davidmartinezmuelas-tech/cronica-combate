@@ -74,3 +74,30 @@ describe('el daño del máster llega a la hoja del jugador', () => {
     vi.useRealTimers();
   });
 });
+
+describe('lanzamientos de los jugadores y lista de iniciativa', () => {
+  beforeEach(() => { resetRoomTable(); useStore.setState({ roster: [], combatants: [], result: null, dmgTargets: {}, effectSel: null }); });
+
+  it('la lista para los jugadores no lleva números de los monstruos', async () => {
+    const { tableOf } = await import('../store/roomTable');
+    syncMembersToTable([member('u1', 'Laura', sheet({ name: 'Ana' }))]);
+    const s = useStore.getState();
+    const ogre = { ...s.combatants[0], id: 'm1', kind: 'monster' as const, name: 'Ogro', rosterId: undefined, ac: 11, hp: 59 };
+    useStore.setState({ combatants: [...s.combatants, ogre] });
+    const list = tableOf(useStore.getState().combatants, useStore.getState().roster);
+    expect(list).toEqual([{ id: s.combatants[0].id, name: 'Ana', kind: 'pc', roomUid: 'u1' }, { id: 'm1', name: 'Ogro', kind: 'monster' }]);
+  });
+
+  it('revisar: con ataque marca a quién acierta según su CA; con salvación pasa al paso de objetivos', async () => {
+    const { reviewCast } = await import('../store/roomTable');
+    syncMembersToTable([member('u1', 'Laura', sheet({ name: 'Ana' }))]);
+    const base = useStore.getState().combatants[0];
+    useStore.setState({ combatants: [{ ...base, id: 'a', name: 'Ogro', kind: 'monster', ac: 11 }, { ...base, id: 'b', name: 'Dragón', kind: 'monster', ac: 19 }] });
+    const notes = reviewCast({ id: 'c1', uid: 'u1', who: 'Ana', label: 'Rayo de fuego: daño', targets: ['a', 'b'], at: 1, parts: [{ type: 'fuego', amt: 9 }], crit: false, attack: 15, heal: null, effect: null });
+    expect(notes).toBe('Ogro acierta (CA 11), Dragón falla (CA 19)');
+    expect(useStore.getState().dmgTargets).toEqual({ a: 'full' });
+    const effect = { dc: 14, abil: 1, half: true, conds: [], rounds: null, until: null, repeat: false };
+    reviewCast({ id: 'c2', uid: 'u1', who: 'Ana', label: 'Bola de fuego: daño', targets: ['a', 'b', 'gone'], at: 2, parts: [{ type: 'fuego', amt: 28 }], crit: false, attack: null, heal: null, effect });
+    expect([useStore.getState().result!.effect?.dc, useStore.getState().effectSel]).toEqual([14, ['a', 'b']]);
+  });
+});
