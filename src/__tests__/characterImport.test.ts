@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlayerData } from '../data/player';
 import { derive } from '../engine/character';
-import { sheetToCharacter } from '../engine/characterImport';
+import { offListSpells, sheetToCharacter } from '../engine/characterImport';
 import { readSheet, splitClasses, type SheetField } from '../engine/sheetImport';
 
 const data = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/jugador_es.json'), 'utf8')) as PlayerData;
@@ -67,5 +67,19 @@ describe('importar una hoja con multiclase', () => {
     expect(c.multi).toEqual([{ classId: 'warlock', className: '', level: 5, subclass: 'Patrón infernal' }]);
     expect(c.skills).toContain('ath'); // +5 = FUE +2 y competencia +3 (nivel total 8)
     expect(derive(c, data).pb).toBe(3);
+  });
+});
+
+describe('conjuros al importar', () => {
+  const f = F({ Name: 'Vex', Class: 'Paladin', Level: '5', 'Text Field10': 'Bless, Fire Bolt, Rayo inventado', 'Armor Worn1': 'Shield' });
+  const lib = [...spells, { id: 'lib-rayo', n: 'Rayo inventado', en: '', classes: ['paladin'] }];
+  it('reconoce los de la biblioteca de su clase y deja aparte los de fuera de su lista', () => {
+    const sheet = readSheet(f)!;
+    const c = sheetToCharacter(f, sheet, data, lib);
+    const names = c.spells.map((id) => lib.find((s) => s.id === id)!.n);
+    expect(names).toContain('Bendición');
+    expect(names).toContain('Rayo inventado');
+    expect(names).not.toContain('Descarga de fuego');
+    expect(offListSpells(f, sheet, data, lib).map((s) => s.n)).toEqual(['Descarga de fuego']); // el escudo del equipo no se propone
   });
 });

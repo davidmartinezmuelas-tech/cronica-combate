@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { sheetToCharacter } from '../../engine/characterImport';
+import { offListSpells, sheetToCharacter, type SpellRef } from '../../engine/characterImport';
+import { norm } from '../../engine/util';
+import { InfoDialog } from '../../shared/Card';
+import { useLibrary } from '../../store/library';
 import { readSheet, type SheetField } from '../../engine/sheetImport';
 import { readPdfFields } from '../../store/pdfFields';
 import { useStore } from '../../store/useStore';
@@ -21,6 +24,8 @@ export default function CharacterArea() {
   const [msg, setMsg] = useState('');
   const [note, setNote] = useState('');
   const [last, setLast] = useState(lastBackup());
+  // conjuros de la hoja importada que no son de la lista de su clase: se pregunta antes de añadirlos
+  const [askSpells, setAskSpells] = useState<{ charId: string; cls: string; list: SpellRef[] } | null>(null);
 
   // copia de seguridad: un archivo .json que se descarga (todos los personajes o solo uno)
   const download = (text: string, name: string) => {
@@ -61,10 +66,17 @@ export default function CharacterArea() {
     await Promise.all([loadData(), useStore.getState().loadRules()]);
     const d = usePlayer.getState().data;
     if (!d) { setMsg('No se pudieron cargar las clases y especies.'); return; }
-    const spells = (useStore.getState().rules || []).filter((e) => e.cat === 'Conjuros').map((e) => ({ id: e.id, n: e.n, en: e.en }));
+    // los del SRD y los de tu biblioteca (los que no repiten un conjuro del SRD)
+    await useLibrary.getState().init();
+    const srd: SpellRef[] = (useStore.getState().rules || []).filter((e) => e.cat === 'Conjuros').map((e) => ({ id: e.id, n: e.n, en: e.en }));
+    const srdNames = new Set(srd.map((x) => norm(x.n)));
+    const spells: SpellRef[] = [...srd, ...useLibrary.getState().spells.filter((x) => !srdNames.has(norm(x.n))).map((x) => ({ id: x.id, n: x.n, en: '', classes: x.classes }))];
     const base = create();
-    replace({ ...sheetToCharacter(fields, sheet, d, spells, f.name), id: base.id });
+    const ch = { ...sheetToCharacter(fields, sheet, d, spells, f.name), id: base.id };
+    replace(ch);
     setEditing(true);
+    const off = offListSpells(fields, sheet, d, spells).filter((x) => !ch.spells.includes(x.id));
+    if (off.length) setAskSpells({ charId: ch.id, cls: d.classes.find((k) => k.id === ch.classId)?.n || 'tu clase', list: off });
   };
 
   if (!loaded) return <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando tus personajes…</p></div>;
@@ -105,6 +117,19 @@ export default function CharacterArea() {
         </div>
         {note && <p className="muted small" role="status" style={{ margin: 0 }}>{note}</p>}
       </div>
+      {askSpells && (
+        <InfoDialog title="Conjuros de fuera de tu lista" onClose={() => setAskSpells(null)}>
+          <p style={{ marginTop: 0 }}>La hoja tiene conjuros que no son de la lista de {askSpells.cls}: <b>{askSpells.list.map((x) => x.n).join(', ')}</b>.</p>
+          <p className="muted small">Puede ser por una dote (Iniciado en la magia), un rasgo de tu especie o un objeto. ¿Los añado a la hoja?</p>
+          <div className="rollrow">
+            <button className="btn small primary" onClick={() => {
+              const cur = usePlayer.getState().characters.find((x) => x.id === askSpells.charId);
+              if (cur) usePlayer.getState().update(cur.id, { spells: [...cur.spells, ...askSpells.list.map((x) => x.id).filter((id) => !cur.spells.includes(id))] });
+              setAskSpells(null);
+            }}>Sí, añadirlos</button>
+          </div>
+        </InfoDialog>
+      )}
       <input ref={backupRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Copia de personajes" onChange={(e) => void loadBackup(e.target.files?.[0])} />
       <input ref={file} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="Hoja de personaje en PDF" onChange={(e) => void importPdf(e.target.files?.[0])} />
     </>

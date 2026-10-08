@@ -1,4 +1,4 @@
-import { ABILS, type Abil, type PlayerData } from '../data/player';
+import { ABILS, type Abil, type ClassData, type PlayerData } from '../data/player';
 import { blankCharacter, derive, mod, profBonus, weaponFromData, type Character, type CustomFeat } from './character';
 import type { SheetData, SheetField } from './sheetImport';
 import { featCatOf, splitFeatText } from './featText';
@@ -8,6 +8,29 @@ export interface SpellRef {
   id: string;
   n: string;
   en: string;
+  classes?: string[]; // conjuros de la biblioteca: las clases que lo tienen en su lista
+}
+
+const isShield = (s: SpellRef) => ['shield', 'escudo'].includes(norm(s.en)) || ['shield', 'escudo'].includes(norm(s.n));
+
+/**
+ * Conjuros escritos en la hoja, reconocidos por su nombre: `inList`, los de la lista de su clase (o todos si su clase
+ * no tiene lista); `offList`, los que no son de su lista (por una dote, su especie…), para preguntar antes de añadirlos.
+ * «Escudo» puede ser el del equipo: fuera de la lista no se propone.
+ */
+function matchSpells(tidyLines: string[], cls: ClassData | undefined, spells: SpellRef[]): { inList: SpellRef[]; offList: SpellRef[] } {
+  const found = spells.filter((s) => tidyLines.includes(norm(s.n)) || (!!s.en && tidyLines.includes(norm(s.en))));
+  if (!cls?.spells.length) return { inList: found.filter((s) => !isShield(s)), offList: [] };
+  const ok = (s: SpellRef) => cls.spells.includes(s.id) || !!s.classes?.includes(cls.id);
+  return { inList: found.filter(ok), offList: found.filter((s) => !ok(s) && !isShield(s)) };
+}
+
+/** Los conjuros de la hoja que no son de la lista de su clase (para preguntar si se añaden). */
+export function offListSpells(fields: SheetField[], sheet: SheetData, data: PlayerData, spells: SpellRef[]): SpellRef[] {
+  const clsName = sheet.classes && sheet.classes.length > 1 ? sheet.classes[0].cls : sheet.cls.replace(/\s*\d+\s*$/, '');
+  const cls = data.classes.find((k) => norm(clsName) === norm(k.n) || norm(clsName) === norm(k.en));
+  const lines = fields.flatMap((f) => String(f.value || '').split(/\r?\n|,/)).map((l) => l.trim()).filter((l) => l && l !== 'Yes' && l !== 'Off');
+  return matchSpells([...new Set(lines.map(tidy))].filter((l) => l.length > 1), cls, spells).offList;
 }
 
 /** Nombre limpio de una línea de la hoja: sin «S/P», sin paréntesis finales ni signos sueltos. */
@@ -59,9 +82,9 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   const weapons = data.weapons.filter((w) => tidyLines.includes(norm(w.n)) || tidyLines.includes(norm(w.en))).map((w) => weaponFromData(w, cls));
   const armor = data.armor.find((a) => a.type !== 'shl' && (tidyLines.includes(norm(a.n)) || tidyLines.includes(norm(a.en))));
   const shield = fields.some((f) => /shield|escudo/i.test(f.name) && /^(yes|on|true|1)$/i.test(String(f.value))) || tidyLines.includes('shield') || tidyLines.includes('escudo');
-  // conjuros: si la clase tiene lista, solo los de su lista («Escudo» de la armadura no es el conjuro Escudo de un paladín)
-  const pool = cls?.spells.length ? spells.filter((s) => cls.spells.includes(s.id)) : spells.filter((s) => !['shield', 'escudo'].includes(norm(s.en)) && !['shield', 'escudo'].includes(norm(s.n)));
-  const spellIds = pool.filter((s) => tidyLines.includes(norm(s.n)) || tidyLines.includes(norm(s.en))).map((s) => s.id);
+  // conjuros: los de la lista de su clase (o de la biblioteca marcados para su clase); los de fuera se devuelven aparte
+  const { inList } = matchSpells(tidyLines, cls, spells);
+  const spellIds = inList.map((s) => s.id);
 
   // dotes: la primera línea de cada bloque («Savage Attacker (soldier)», «Protection (Fighting Style)»)
   const feats: string[] = bg?.feat ? [bg.feat] : [];
