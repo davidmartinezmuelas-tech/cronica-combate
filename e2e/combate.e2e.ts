@@ -1016,3 +1016,34 @@ test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ p
   await expect(traits.locator('.card', { hasText: 'Imposición de manos' })).toBeVisible();
   await expect(traits.locator('.card', { hasText: 'Invocaciones sobrenaturales' }).or(traits.locator('.card', { hasText: 'Brujo 1' })).first()).toBeVisible();
 });
+
+test('multiclase: los paneles de acciones de cada clase', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Auriel');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Añadir otra clase (multiclase)' }).click();
+  await page.getByLabel('Otra clase').selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel en ella').fill('3');
+  await page.getByLabel('Subclase', { exact: true }).fill('Patrón infernal');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByRole('region', { name: 'Canalización divina' })).toBeVisible();
+  await expect(page.locator('.card', { hasText: 'Bendición del Oscuro' }).first()).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Rasgos de clase' })).toContainText('Imposición de manos');
+
+  // guerrero con bárbaro: Segundo aliento y Furia en Ataques
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Grosh');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Añadir otra clase (multiclase)' }).click();
+  await page.getByLabel('Otra clase').selectOption({ label: 'Bárbaro' });
+  await page.getByLabel('Nivel en ella').fill('2');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByRole('region', { name: 'Rasgos de clase' })).toContainText('Segundo aliento');
+  await expect(page.getByRole('button', { name: /^Furia \+2/ })).toBeVisible();
+  await expect(page.locator('.pc-stats .stat', { hasText: 'CA' })).toContainText('Defensa sin armadura');
+});

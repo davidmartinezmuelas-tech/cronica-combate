@@ -225,7 +225,8 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const draconic = lvOf('sorcerer') >= 3 && ['hechiceria draconica', 'draconic sorcery'].includes(subOf('sorcerer'));
   const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra]);
   const saves = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + (saveProf.has(a) ? pb : 0), prof: saveProf.has(a) }])) as Derived['saves'];
-  const subSkills = new Set(choiceSkills(c));
+  // habilidades de las elecciones de subclase de cada clase (multiclase: todas)
+  const subSkills = new Set(entries.flatMap((e, i) => choiceSkills(i === 0 ? c : asClass(c, e))));
   const skills = Object.fromEntries(Object.entries(SKILL_ABIL).map(([k, ab]) => {
     const prof = c.skills.includes(k) || subSkills.has(k);
     const exp = prof && c.expertise.includes(k);

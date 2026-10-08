@@ -1,7 +1,7 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { CONDITIONS } from '../../data/constants';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
-import { asClass, classEntries, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
+import { asClass, classEntries, classLevel, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character, type Derived } from '../../engine/character';
 import { fmt, sgn, type RollPart } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Card from '../../shared/Card';
@@ -42,8 +42,8 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
     // subclase de la biblioteca propia (si es la elegida)
     const libSub = lib.subclasses.find((s) => s.cls === e.classId && norm(s.n) === norm(e.subclass));
     libSub?.f.filter((f) => f.lv <= e.level).forEach((f) => rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: null, per: '' }));
+    choiceRows(resolveChoices(v, data, lib)).forEach((r) => rows.push({ ...r, max: null, per: '' }));
   }
-  choiceRows(resolveChoices(c, data, lib)).forEach((r) => rows.push({ ...r, max: null, per: '' }));
   sp?.t.forEach((f) => add(f, sp.n));
   const CAT: Record<string, string> = { origin: 'Dote de origen', general: 'Dote', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
   c.feats.forEach((name) => {
@@ -64,8 +64,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const d = useMemo(() => derive(c, data), [c, data]);
   const lib = useLibrary();
   const features = useMemo(() => featureRows(c, data, lib), [c, data, lib]);
+  // multiclase: cada clase vista por separado (su nivel y sus datos) para sus paneles de acciones y elecciones
+  const views = useMemo(() => classEntries(c).map((e, i): { v: Character; dv: Derived } => ({ v: i === 0 ? c : asClass(c, e), dv: { ...d, cls: data?.classes.find((x) => x.id === e.classId) } })), [c, d, data]);
   // los usos que ya tienen sus círculos en un panel de acciones no se repiten en «Rasgos y dotes»
-  const panelKeys = useMemo(() => new Set([...classPanelKeys(c, data), ...actionPanelKeys(c, data, lib)]), [c, data, lib]);
+  const panelKeys = useMemo(() => new Set(views.flatMap(({ v }) => [...classPanelKeys(v, data), ...actionPanelKeys(v, data, lib)])), [views, data, lib]);
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
   const [confirmLong, setConfirmLong] = useState(false);
@@ -91,15 +93,16 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // característica que subió Don del ataque imparable (Fuerza o Destreza)
   const boonAbil: 'str' | 'dex' = c.choices?.['feat.irresistible']?.[0] === 'dex' ? 'dex' : c.choices?.['feat.irresistible']?.[0] === 'str' ? 'str' : c.abil.dex > c.abil.str ? 'dex' : 'str';
   // números de clase a su nivel
-  const rageDmg = c.classId === 'barbarian' ? Number(d.scale('barbarian.rage-damage')) || 0 : 0;
-  const brutalDice = c.classId === 'barbarian' ? String(d.scale('barbarian.brutal-strike') || '') : '';
-  const sneakDice = c.classId === 'rogue' ? String(d.scale('rogue.sneak-attack') || '') : '';
-  const markDie = c.classId === 'ranger' ? String(d.scale('ranger.mark') || '') : '';
+  const rageDmg = classLevel(c, 'barbarian') ? Number(d.scale('barbarian.rage-damage')) || 0 : 0;
+  const brutalDice = classLevel(c, 'barbarian') ? String(d.scale('barbarian.brutal-strike') || '') : '';
+  const sneakDice = classLevel(c, 'rogue') ? String(d.scale('rogue.sneak-attack') || '') : '';
+  const markDie = classLevel(c, 'ranger') ? String(d.scale('ranger.mark') || '') : '';
   const blessed = c.choices?.['cleric.blessed']?.[0] === 'Golpe divino' ? String(d.scale('cleric.divine-strike') || '') : '';
   const primal = c.choices?.['druid.fury']?.[0] === 'Golpe primordial' ? String(d.scale('druid.elemental-fury') || '') : '';
   const strikeDice = blessed || primal;
   const strikeName = blessed ? 'Golpe divino' : 'Golpe primordial';
-  const rageMax = usesMax(d.cls?.f.find((f) => f.n === 'Furia')?.u, c, d.cls) || 0;
+  const barb = data?.classes.find((x) => x.id === 'barbarian');
+  const rageMax = classLevel(c, 'barbarian') ? usesMax(barb?.f.find((f) => f.n === 'Furia')?.u, c, barb) || 0 : 0;
   const toggleRage = () => {
     // entrar en Furia gasta un uso
     if (!rage && rageMax && (c.uses['Furia'] || 0) < rageMax) set({ uses: { ...c.uses, Furia: (c.uses['Furia'] || 0) + 1 } });
@@ -133,7 +136,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (sneak && hit.finesse) setSneak(false);
     if (strike) setStrike(false);
   };
-  const uaHit: Hit = { melee: true, str: !(c.classId === 'monk' && d.mods.dex > d.mods.str), finesse: false };
+  const uaHit: Hit = { melee: true, str: !(classLevel(c, 'monk') && d.mods.dex > d.mods.str), finesse: false };
   const amt = parseInt(amount, 10);
   const damage = () => {
     if (!(amt > 0)) return;
@@ -179,9 +182,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
 
   const skillsSorted = Object.entries(d.skills).sort((a, b) => (data?.skills[a[0]] || a[0]).localeCompare(data?.skills[b[0]] || b[0], 'es'));
   // los de la subclase (siempre preparados) se suman solos a los que ha elegido
-  const subSpells = subclassSpells(c, d.cls, subclassText(c, d.cls, lib.subclasses), spellIdx.list).filter((x) => !c.spells.includes(x.id));
+  const subSpells = views.flatMap(({ v, dv }) => subclassSpells(v, dv.cls, subclassText(v, dv.cls, lib.subclasses), spellIdx.list)).filter((x, i, a) => !c.spells.includes(x.id) && a.findIndex((y) => y.id === x.id) === i);
   // elegidos por la subclase (Descubrimientos mágicos, conjuros gratis de la escuela del mago)
-  const picked = choiceSpells(c).filter((x) => !c.spells.includes(x.id) && !subSpells.some((y) => y.id === x.id));
+  const picked = views.flatMap(({ v }) => choiceSpells(v)).filter((x) => !c.spells.includes(x.id) && !subSpells.some((y) => y.id === x.id));
   const spellList = [
     ...c.spells.map((k) => ({ k, s: spellIdx.get(k), sub: '' })),
     ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: 'Subclase · siempre preparado' })),
@@ -312,8 +315,12 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </div>
       </section>
 
-      <SubclassActions c={c} d={d} data={data} lib={lib} set={set} />
-      <ClassPanel c={c} d={d} data={data} set={set} />
+      {views.map(({ v, dv }, i) => (
+        <Fragment key={i}>
+          <SubclassActions c={v} d={dv} data={data} lib={lib} set={set} />
+          <ClassPanel c={v} d={dv} data={data} set={set} />
+        </Fragment>
+      ))}
       <FeatPanel c={c} d={d} set={set} />
       </div>
 
@@ -362,7 +369,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
 
       <section className="panel" aria-label="Rasgos y dotes">
         <h3 className="eyebrow">Rasgos y dotes</h3>
-        <SubclassChoices c={c} data={data} lib={lib} set={set} restOnly />
+        {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
         <ul className="pc-features grid">
           {features.map((f) => (
@@ -404,7 +411,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
                 <button key={x.die} className="rollbtn" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} onClick={() => spendHd(x.die)}>{multiHd ? 'Gastar un d' + x.die : 'Gastar un dado de golpe'}</button>
               ))}
               <button className="btn small primary" onClick={() => {
-                const res = choiceResources(c, data, lib);
+                const res = views.flatMap(({ v }) => choiceResources(v, data, lib));
                 // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)
                 const one = new Set([...res.filter((r) => r.now === 'sr1').map((r) => r.key), 'Furia', 'Forma salvaje', 'Segundo aliento', 'Canalizar Divinidad', 'Canalización divina']);
                 const all = [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));

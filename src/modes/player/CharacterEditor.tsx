@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
-import { derive, mod, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
+import { asClass, derive, mod, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { fmt } from '../../engine/dice';
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
@@ -203,6 +203,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
                   <datalist id={'ce-msl' + i}>{subs.map((n) => <option key={n} value={n} />)}</datalist></div>
                 <button className="btn small ghost" onClick={() => setMulti(multi.filter((_, j) => j !== i))}>Quitar</button>
                 {e.classId && (unmet(e.classId) || (i === 0 && unmet(c.classId))) && <span className="warn small ce-multi-note">Requisito de multiclase: {[unmet(c.classId), unmet(e.classId)].filter(Boolean).join('; ')}. Puedes añadirla igual.</span>}
+                {e.classId && <div className="ce-multi-note"><SubclassChoices c={asClass(c, e)} data={data} lib={lib} set={set} /></div>}
               </div>
             );
           })}
