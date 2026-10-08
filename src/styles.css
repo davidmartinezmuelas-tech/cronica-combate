@@ -597,3 +597,54 @@ b.card-title{flex-basis:100%;font-size:16px}
 .ce-multi .field{flex:1 1 180px;min-width:0}
 .ce-multi .ce-multi-lvl{flex:0 0 96px}
 .ce-multi-note{flex-basis:100%}
+
+/* ===== Ficha del jugador en papel (claro): solo dentro de .paper; la mesa alrededor sigue oscura ===== */
+.pc-death-t{color:#f3e6c8}
+.paper{color:#2b2118}
+.paper .panel{background:#f3ead8;border-color:#c8b38e;box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 26px rgba(0,0,0,.35)}
+.paper .panel h2,.paper .pc-death-t{color:#7a1f14}
+.paper .eyebrow,.paper .fs legend{color:#8a2a1c}
+.paper .muted,.paper .stat-k,.paper .stat-of{color:#6e5f4d}
+.paper label,.paper .check,.paper .res{color:#3b2f24}
+.paper .fs{border-color:#d3c09c}
+.paper .stat,.paper .pc-abil,.paper .pc-skill,.paper .pc-features .card,.paper .pc-features details,.paper .pc-attack,.paper .sub,.paper .ce-multi{background:#fbf6ea;border-color:#d9c9a6;color:#2b2118}
+.paper .stat-v,.paper .pc-attack-n,.paper .pc-abil-k b{color:#2b2118}
+.paper .stat-tmp{color:#2c5f8a}
+.paper .pc-abil-k{color:#8a2a1c}
+.paper .pc-text{color:#3b2f24}
+.paper .pc-attack-feat{color:#8a5a0e}
+.paper .warn{color:#9b2c22}
+.paper .hpbar{background:#ddd0b4}
+.paper .dot{border-color:#b49a6c}
+.paper .pc-skill:hover,.paper .stat-btn:hover{border-color:#b07f22}
+.paper .card-title:hover b,.paper .card-title:focus-visible b{color:#8a2a1c}
+.paper .chip-tag{background:rgba(122,31,20,.1);color:#7a1f14}
+.paper .input{background:#fffdf7;border-color:#c8b38e;color:#2b2118}
+.paper .input::placeholder{color:#9a8b74}
+.paper input[type=checkbox],.paper input[type=radio]{color-scheme:light;accent-color:#b07f22}
+.paper .btn{background:#ece1c8;border-color:#bfa983;color:#2b2118}
+.paper .btn:hover{background:#e3d5b6}
+.paper .btn.ghost{background:transparent}
+.paper .btn.ghost:hover{background:#ece1c8}
+.paper .btn.primary{background:#9b2c22;border-color:#b8442f;color:#fbf1dc}
+.paper .btn.primary:hover{background:#ad3428}
+.paper .btn.heal{background:#2f5a2a;border-color:#4d8a44;color:#eef8ea}
+.paper .btn.temp{background:#2c4a64;border-color:#5a86a8;color:#eef5fa}
+.paper .btn.gold,.paper .pc .rollbtn:not(.dmg){background:#d4a94f;border-color:#b8892f;color:#2a1d10}
+.paper .btn.prof{border-color:#b07f22;color:#6b4a0e;box-shadow:inset 3px 0 0 #b07f22}
+.paper .pc .rollbtn.dmg{background:transparent;color:#9b2c22;border-color:#b8442f}
+.paper .pc .rollbtn.dmg:hover{background:#f6e1d6}
+.paper .chip{background:#fbf6ea;border-color:#d9c9a6;border-left-color:#b49a6c;color:#2b2118}
+.paper .chip:hover{border-color:#b49a6c;border-left-color:#b07f22;background:#f6eedb;color:#2b2118}
+.paper .chip.on{background:#f1dfb0;border-color:#c8952f;border-left-color:#b07f22;color:#3a2a10}
+.paper .chip.vuln{background:#f6d9d0;border-color:#c0513c;border-left-color:#9b2c22;color:#6e1d12}
+.paper .linkbtn{color:#8a5a0e}
+.paper .pc-login{border-top-color:#d9c9a6}
+.paper .picker{background:#fbf6ea;border-color:#d9c9a6}
+.paper .picker>summary::before{color:#b07f22}
+.paper .picker-title{color:#2b2118}
+.paper .picker-sum{color:#8a5a0e}
+.paper .ce-skill.suggest .check{color:#2b2118}
+.paper .ce-skill:not(.suggest) .check{color:#6e5f4d}
+.paper .abil-edit{background:#fbf6ea;border-color:#d9c9a6}
+.paper .abil-edit label{color:#8a2a1c}

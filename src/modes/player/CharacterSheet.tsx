@@ -223,7 +223,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </div>
         {c.hp === 0 && (
           <div className="sub" style={{ borderColor: '#c0513c' }}>
-            <div className="panel-head"><strong style={{ color: '#f3e6c8' }}>Salvaciones contra la muerte</strong>
+            <div className="panel-head"><strong className="pc-death-t">Salvaciones contra la muerte</strong>
               <span className="res-row">
                 <span className="res">Éxitos <span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.s ? 'pip ok' : 'pip off'} />)}</span></span>
                 <span className="res">Fallos <span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.f ? 'pip bad' : 'pip off'} />)}</span></span>
