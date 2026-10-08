@@ -1,5 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AccountMenu from '../../shared/AccountMenu';
+import HelpMenu from '../../shared/HelpMenu';
+import Tour, { tourPending } from '../../shared/Tour';
+import { playerTour } from '../../shared/tours';
 import Attribution from '../../shared/Attribution';
 import Brand from '../../shared/Brand';
 import DiceTable from '../../shared/DiceTable';
@@ -17,6 +20,9 @@ const TABS: [PlayerTab, string][] = [['sheet', 'Mi personaje'], ['library', 'Bib
  */
 export default function PlayerApp() {
   const [tab, setTab] = useState<PlayerTab>('sheet');
+  // visita guiada: sola la primera vez; luego, desde el «?» del encabezado
+  const [tour, setTour] = useState(false);
+  useEffect(() => { if (tourPending('jugador')) { const t = setTimeout(() => setTour(true), 900); return () => clearTimeout(t); } }, []);
   const hasRule = useStore((s) => !!s.rules && !!s.ruleId && s.rules.some((x) => x.id === s.ruleId));
   return (
     <div className="app">
@@ -28,7 +34,7 @@ export default function PlayerApp() {
           ))}
         </nav>
         {/* la cuenta, en la esquina */}
-        <div className="app-header-end"><AccountMenu /></div>
+        <div className="app-header-end" data-tour="header-end"><HelpMenu onTour={() => setTour(true)} /><AccountMenu /></div>
       </header>
       <main className="app-main">
         {tab === 'sheet' || tab === 'library' ? (
@@ -39,7 +45,7 @@ export default function PlayerApp() {
               </div>
               <Attribution />
             </section>
-            <section className="col-right" aria-label="Mesa de dados">
+            <section className="col-right" aria-label="Mesa de dados" data-tour="table">
               <RoomPanel mode="player" />
               <DiceTable targets={false} />
             </section>
@@ -64,6 +70,7 @@ export default function PlayerApp() {
           </>
         )}
       </main>
+      {tour && <Tour steps={playerTour(() => setTab('sheet'))} storeKey="jugador" onClose={() => setTour(false)} />}
     </div>
   );
 }

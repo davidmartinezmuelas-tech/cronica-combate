@@ -11,12 +11,18 @@ import DiceTable from '../../shared/DiceTable';
 import RoomPanel from '../../shared/RoomPanel';
 import Attribution from '../../shared/Attribution';
 import { InfoDialog } from '../../shared/Card';
+import { useEffect } from 'react';
+import Tour, { tourPending } from '../../shared/Tour';
+import { dmTour } from '../../shared/tours';
 
 /** Modo máster: todo lo de la mesa del DM (combate, bestiario, grupo, forja y reglas). */
 export default function DmApp() {
   const tab = useStore((s) => s.tab);
   const helpOpen = useStore((s) => s.helpOpen);
   const initAsk = useStore((s) => s.initAsk);
+  // visita guiada: sola la primera vez; luego, desde el «?» del encabezado
+  const tour = useStore((s) => s.tourOpen);
+  useEffect(() => { if (tourPending('master')) { const t = setTimeout(() => useStore.getState().set({ tourOpen: true }), 900); return () => clearTimeout(t); } }, []);
   useHotkeys();
 
   return (
@@ -43,6 +49,7 @@ export default function DmApp() {
           </section>
         )}
       </main>
+      {tour && <Tour steps={dmTour((t) => useStore.getState().set({ tab: t }))} storeKey="master" onClose={() => useStore.getState().set({ tourOpen: false })} />}
       {initAsk && (
         <InfoDialog title="Iniciativa de monstruos" onClose={() => useStore.getState().set({ initAsk: null })}>
           <p style={{ marginTop: 0 }}>Hay monstruos iguales: {initAsk}. ¿Cómo tiras su iniciativa?</p>

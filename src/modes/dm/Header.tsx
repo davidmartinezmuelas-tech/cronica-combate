@@ -1,4 +1,5 @@
 import AccountMenu from '../../shared/AccountMenu';
+import HelpMenu from '../../shared/HelpMenu';
 import { useStore, type Tab } from '../../store/useStore';
 import Brand from '../../shared/Brand';
 import { UndoIcon } from '../../shared/Icons';
@@ -34,7 +35,8 @@ export default function Header() {
             <UndoIcon />
           </button>
         )}
-        {/* la cuenta, en la esquina (como en el modo jugador) */}
+        {/* ayuda (visita guiada y atajos) y la cuenta, en la esquina (como en el modo jugador) */}
+        <HelpMenu onTour={() => set({ tourOpen: true })} onKeys={() => set({ helpOpen: true })} />
         <AccountMenu />
       </div>
     </header>

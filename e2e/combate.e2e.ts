@@ -1090,3 +1090,26 @@ test('estados del jugador en sus tiradas: envenenado da desventaja en ataques y 
   await page.locator('.pc-abil', { hasText: 'FUE' }).getByRole('button', { name: /^Prueba/ }).click();
   await expect(page.locator('.plaque')).toContainText('desventaja: envenenado', { timeout: 15000 });
 });
+
+test('visita guiada: se abre desde el «?», avanza, señala y se puede saltar', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Ayuda' }).click();
+  await page.getByRole('menuitem', { name: 'Repetir la visita guiada' }).click();
+  const tour = page.getByRole('dialog', { name: 'Visita guiada' });
+  await expect(tour).toContainText('Paso 1 de 7');
+  await expect(tour).toContainText('Tus personajes');
+  await tour.getByRole('button', { name: 'Siguiente' }).click();
+  await expect(tour).toContainText('Paso 2 de 7');
+  await tour.getByRole('button', { name: 'Saltar visita' }).click();
+  await expect(tour).toHaveCount(0);
+  // máster: también con los atajos de teclado en el mismo menú
+  await page.goto('/#/dm');
+  await page.getByRole('button', { name: 'Ayuda' }).click();
+  await page.getByRole('menuitem', { name: 'Repetir la visita guiada' }).click();
+  await expect(page.getByRole('dialog', { name: 'Visita guiada' })).toContainText('Paso 1 de 8');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Visita guiada' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Ayuda' }).click();
+  await page.getByRole('menuitem', { name: 'Atajos de teclado' }).click();
+  await expect(page.getByRole('heading', { name: 'Atajos de teclado' })).toBeVisible();
+});

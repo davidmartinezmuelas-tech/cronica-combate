@@ -59,7 +59,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
 
   return {
     combatants: [], round: 1, activeId: null, started: false, turnEvents: [],
-    selId: null, concPrompts: [], surprised: false, initAsk: null, amount: '', dmgType: '', condRounds: '', condAt: 'start', condBy: '', initDraft: null,
+    selId: null, concPrompts: [], surprised: false, initAsk: null, tourOpen: false, amount: '', dmgType: '', condRounds: '', condAt: 'start', condBy: '', initDraft: null,
 
     patchC(id, patch, label) {
       get().snap(label || 'cambio en combatiente');

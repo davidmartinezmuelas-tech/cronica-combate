@@ -69,6 +69,7 @@ export interface CombatSlice {
   selId: string | null;
   concPrompts: ConcPrompt[];
   surprised: boolean;
+  tourOpen: boolean; // visita guiada del máster abierta
   initAsk: string | null; // hay monstruos repetidos sin iniciativa: «Esbirro goblin ×4» (se pregunta si en grupo o individual)
   amount: string;
   dmgType: string;

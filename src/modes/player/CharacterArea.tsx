@@ -85,7 +85,7 @@ export default function CharacterArea() {
     <>
       {/* pestañas de personajes sobre la hoja; a la derecha, crear o importar uno nuevo */}
       <div className="pc-book">
-        <div className="pc-tabs-row">
+        <div className="pc-tabs-row" data-tour="pc-tabs">
           <div className="pc-tabs" role="tablist" aria-label="Elegir personaje">
             {characters.map((c) => <button key={c.id} role="tab" aria-selected={c.id === active?.id} className={c.id === active?.id ? 'pc-tab on' : 'pc-tab'} onClick={() => select(c.id)}>{c.name || 'Sin nombre'}</button>)}
           </div>

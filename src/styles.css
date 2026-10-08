@@ -690,3 +690,13 @@ b.card-title{flex-basis:100%;font-size:16px}
 /* ficha: las seis casillas en una fila; en una hoja estrecha, en dos filas de tres */
 .pc-stats{grid-template-columns:repeat(6,minmax(0,1fr))}
 @container (max-width:720px){.pc-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+/* visita guiada: todo oscuro salvo el elemento del paso, y el globo con la explicación */
+.tour{position:fixed;inset:0;z-index:80}
+.tour-dim{position:fixed;inset:0;background:rgba(10,7,5,.68)}
+.tour-spot{position:fixed;border-radius:10px;box-shadow:0 0 0 9999px rgba(10,7,5,.68),0 0 0 2px #d4a94f inset;pointer-events:none;transition:all .25s ease}
+.tour-tip{position:fixed;width:min(380px,calc(100vw - 24px));gap:8px;padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.55)}
+.tour-tip h2{font-size:22px}
+.tour-text{margin:0;font-size:15px;line-height:1.5;color:#e2d6be}
+.tour-actions{display:flex;align-items:center;gap:8px;margin-top:4px}
+.app-header-end{gap:10px}
+.help-pop{width:auto;min-width:220px;display:flex;flex-direction:column;gap:6px;padding:10px}

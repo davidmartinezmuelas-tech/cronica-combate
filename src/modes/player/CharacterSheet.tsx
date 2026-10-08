@@ -211,7 +211,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className={c.inspiration ? 'chip on' : 'chip'} aria-pressed={c.inspiration} onClick={() => set({ inspiration: !c.inspiration })}>Inspiración heroica</button>
-            <button className="btn small" onClick={() => setEditing(true)}>Editar hoja</button>
+            <button className="btn small" data-tour="edit" onClick={() => setEditing(true)}>Editar hoja</button>
           </div>
         </div>
         <div className="pc-stats">
@@ -223,7 +223,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="stat"><span className="stat-k">Competencia</span><span className="stat-v">{fmt(d.pb)}</span></div>
           <div className="stat"><span className="stat-k">Percepción pasiva</span><span className="stat-v">{d.pp}</span></div>
         </div>
-        <div className="pc-hp-row">
+        <div className="pc-hp-row" data-tour="hp">
           <input className="input" type="number" min={0} inputMode="numeric" aria-label="Cantidad de PG" placeholder="PG" value={amount} onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') damage(); }} />
           <select className="input pc-dmg-type" aria-label="Tipo de daño recibido" value={dmgType} onChange={(e) => setDmgType(e.target.value)}>
             <option value="">sin tipo</option>
@@ -247,7 +247,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         )}
       </div>
 
-      <div className="pc-grid">
+      <div className="pc-grid" data-tour="rolls">
         <section className="panel" aria-label="Características">
           <h3 className="eyebrow">Características y salvaciones</h3>
           <div className="pc-abils">
@@ -382,7 +382,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </section>
       )}
 
-      <section className="panel" aria-label="Rasgos y dotes">
+      <section className="panel" aria-label="Rasgos y dotes" data-tour="traits">
         <h3 className="eyebrow">Rasgos y dotes</h3>
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
