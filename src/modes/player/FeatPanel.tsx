@@ -54,9 +54,9 @@ export default function FeatPanel({ c, d, set }: { c: Character; d: Derived; set
         )}
         {fx.hdHeal && (
           <li><Card name="Resistente" head={<>
-            <span className="muted small">dados de golpe: {c.level - c.hdSpent}/{c.level}</span>
+            <span className="muted small">dados de golpe: {d.level - c.hdSpent}/{d.level}</span>
             <span className="rollrow">
-              <button className="rollbtn" disabled={c.hdSpent >= c.level} onClick={() => { set({ hdSpent: c.hdSpent + 1 }); roll({ label: who + ' · recuperación rápida', kind: 'free', parts: [{ expr: '1d' + d.hdDie }], after: healAfter }); }}>Recuperación rápida 1d{d.hdDie}</button>
+              <button className="rollbtn" disabled={c.hdSpent >= d.level} onClick={() => { set({ hdSpent: c.hdSpent + 1 }); roll({ label: who + ' · recuperación rápida', kind: 'free', parts: [{ expr: '1d' + d.hdDie }], after: healAfter }); }}>Recuperación rápida 1d{d.hdDie}</button>
             </span>
           </>}>
             <p className="pc-text">Acción adicional: gasta un dado de golpe y recupera el resultado. Además, ventaja en las salvaciones contra la muerte.</p>

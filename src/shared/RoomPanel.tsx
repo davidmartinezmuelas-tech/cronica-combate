@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { derive } from '../engine/character';
+import { classEntries, derive } from '../engine/character';
 import type { SheetSummary } from '../store/cloudAdapter';
 import { activeCharacter, usePlayer } from '../store/player';
 import { cleanCode, hadRoom, useRoom } from '../store/room';
@@ -33,7 +33,7 @@ function useSheetSummary(enabled: boolean): SheetSummary | null {
   const data = usePlayer((s) => s.data);
   if (!enabled || !c) return null;
   const d = derive(c, data);
-  return { name: c.name || 'Sin nombre', cls: d.cls?.n || c.className || '', level: c.level, ac: d.ac, hp: c.hp, hpMax: d.hpMax, temp: c.temp, pp: d.pp, init: d.init, conds: c.conds, charId: c.id };
+  return { name: c.name || 'Sin nombre', cls: classEntries(c).map((e) => data?.classes.find((x) => x.id === e.classId)?.n || e.className).filter(Boolean).join(' / '), level: d.level, ac: d.ac, hp: c.hp, hpMax: d.hpMax, temp: c.temp, pp: d.pp, init: d.init, conds: c.conds, charId: c.id };
 }
 
 /**

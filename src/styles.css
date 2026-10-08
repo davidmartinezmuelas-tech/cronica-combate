@@ -589,3 +589,8 @@ b.card-title{flex-basis:100%;font-size:16px}
 .btn.prof{border-color:#d4a94f;color:#f3d48a;box-shadow:inset 3px 0 0 #d4a94f}
 .pc .rollbtn.dmg:hover{background:rgba(192,81,60,.15)}
 .warn-border{border-color:#c0513c;box-shadow:inset 3px 0 0 #c0513c}
+/* editor: cada clase de multiclase en una fila (clase, nivel, subclase, quitar) */
+.ce-multi{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:8px 10px;border:1px solid #2c2723;border-radius:8px;background:#171412}
+.ce-multi .field{flex:1 1 180px;min-width:0}
+.ce-multi .ce-multi-lvl{flex:0 0 96px}
+.ce-multi-note{flex-basis:100%}

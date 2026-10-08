@@ -91,7 +91,30 @@ export interface Character {
   tools: string;
   notes: string;
   ov: Partial<Record<'ac' | 'hpMax' | 'init' | 'speed' | 'pp' | 'spellDc' | 'spellAtk', number>>;
+  /** Multiclase: las clases además de la primera (classId/level/subclass). Sin esto, una sola clase como siempre. */
+  multi?: ClassEntry[];
+  /** Multiclase: dados de golpe gastados por tipo de dado («10»: 2). Con una sola clase basta hdSpent. */
+  hdUsed?: Record<string, number>;
+  /** Solo en memoria: nivel total del personaje cuando se calcula una de sus clases por separado (asClass). */
+  lvTotal?: number;
 }
+
+/** Una clase del personaje con su nivel y subclase. */
+export interface ClassEntry { classId: string; className: string; level: number; subclass: string }
+
+/** Todas las clases del personaje: la primera (la de classId) y las de multiclase. */
+export function classEntries(c: Pick<Character, 'classId' | 'className' | 'level' | 'subclass' | 'multi'>): ClassEntry[] {
+  return [{ classId: c.classId, className: c.className, level: c.level, subclass: c.subclass }, ...(c.multi || []).filter((e) => (e.classId || e.className) && e.level > 0)];
+}
+
+/** Nivel total del personaje (suma de sus clases). */
+export const totalLevel = (c: Character): number => Math.max(1, Math.min(20, c.lvTotal ?? classEntries(c).reduce((t, e) => t + Math.max(0, e.level || 0), 0)));
+
+/** Nivel en una clase (0 si no la tiene). */
+export const classLevel = (c: Character, classId: string): number => classEntries(c).find((e) => e.classId === classId)?.level || 0;
+
+/** El personaje visto como si solo tuviera esa clase (para sus rasgos y tablas), sin perder su nivel total. */
+export const asClass = (c: Character, e: ClassEntry): Character => ({ ...c, classId: e.classId, className: e.className, level: e.level, subclass: e.subclass, multi: undefined, lvTotal: totalLevel(c) });
 
 export const mod = (score: number) => Math.floor(((score || 10) - 10) / 2);
 export const profBonus = (level: number) => Math.ceil(Math.max(1, Math.min(20, level || 1)) / 4) + 1;
@@ -143,7 +166,10 @@ export interface Derived {
   pp: number;
   hpMax: number;
   hdDie: number;
+  level: number; // nivel total
+  hitDice: { die: number; n: number }[]; // dados de golpe por tipo (multiclase: varios)
   spell: { abil: Abil; dc: number; atk: number } | null;
+  casters: { classId: string; n: string; abil: Abil; dc: number; atk: number }[]; // multiclase: CD y ataque de cada clase lanzadora
   critOn: number; // el ataque es crítico con este número o más en el d20 (Campeón: 19, luego 18)
   scale: (key: string) => string | number | null; // valor de una tabla de la clase a su nivel («rogue.sneak-attack»)
   slots: number[];
@@ -172,7 +198,12 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const cls = data?.classes.find((x) => x.id === c.classId);
   const species = data?.species.find((x) => x.id === c.speciesId);
   const armor: ArmorData | undefined = data?.armor.find((x) => x.id === c.armorId);
-  const pb = profBonus(c.level);
+  const entries = classEntries(c);
+  const clsOf = (id: string) => data?.classes.find((x) => x.id === id);
+  const lvOf = (id: string) => entries.find((e) => e.classId === id)?.level || 0;
+  const subOf = (id: string) => norm(entries.find((e) => e.classId === id)?.subclass || '');
+  const level = totalLevel(c);
+  const pb = profBonus(level);
   const mods = Object.fromEntries(ABILS.map((a) => [a, mod(c.abil[a])])) as Record<Abil, number>;
   // dotes con efecto en los números (Tiro con arco, Duelo, Defensa, Alerta, Duro…)
   const fx = featEffects([...c.feats, ...expandCustomFeats(c.customFeats).map((f) => f.n)]);
@@ -183,12 +214,15 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const lightCount = c.weapons.filter((w) => (w.props || []).some((x) => norm(x) === 'ligera')).length;
   // tablas de la clase a su nivel
   const scale = (key: string): string | number | null => {
+    const id = key.split('.')[0];
+    const own = lvOf(id) ? clsOf(id) : undefined;
+    const table = (own || cls)?.sc[key] || {};
+    const at = own ? lvOf(id) : c.level;
     let v: string | number | null = null;
-    for (const [lv, x] of Object.entries(cls?.sc[key] || {})) if (parseInt(lv, 10) <= c.level) v = x;
+    for (const [lv, x] of Object.entries(table)) if (parseInt(lv, 10) <= at) v = x;
     return v;
   };
-  const sub = norm(c.subclass || '');
-  const draconic = c.classId === 'sorcerer' && c.level >= 3 && ['hechiceria draconica', 'draconic sorcery'].includes(sub);
+  const draconic = lvOf('sorcerer') >= 3 && ['hechiceria draconica', 'draconic sorcery'].includes(subOf('sorcerer'));
   const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra]);
   const saves = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + (saveProf.has(a) ? pb : 0), prof: saveProf.has(a) }])) as Derived['saves'];
   const subSkills = new Set(choiceSkills(c));
@@ -206,10 +240,10 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     ac = worn.ac + (worn.dex == null ? mods.dex : Math.min(worn.dex, mods.dex)) + (c.armorBonus || 0);
     acNote = worn.n + (c.armorBonus ? ' ' + (c.armorBonus > 0 ? '+' : '') + c.armorBonus : '');
     if (sum('acArmor')) { ac += sum('acArmor'); acNote += ' + ' + featOf('acArmor').join(', '); }
-  } else if (c.classId === 'barbarian') {
+  } else if (lvOf('barbarian')) {
     ac = 10 + mods.dex + mods.con;
     acNote = 'Defensa sin armadura';
-  } else if (c.classId === 'monk' && !c.shield) {
+  } else if (lvOf('monk') && !c.shield) {
     ac = 10 + mods.dex + mods.wis;
     acNote = 'Defensa sin armadura';
   } else if (draconic) {
@@ -220,17 +254,42 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   if (c.shield) { ac += 2 + (c.shieldBonus || 0); acNote += ' y escudo' + (c.shieldBonus ? ' +' + c.shieldBonus : ''); }
 
   const hdDie = cls?.hd || 8;
-  const lvl = Math.max(1, c.level || 1);
-  // Robustez enana: +1 PG por nivel
-  const hpMax = Math.max(1, hdDie + mods.con + (lvl - 1) * (Math.floor(hdDie / 2) + 1 + mods.con) + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvl : 0));
+  const lvl = level;
+  const avg = (die: number) => Math.floor(die / 2) + 1 + mods.con;
+  const classHp = entries.reduce((t, e, i) => {
+    const die = clsOf(e.classId)?.hd || 8;
+    const n = Math.max(i === 0 ? 1 : 0, e.level || 0);
+    return t + (i === 0 ? die + mods.con + (n - 1) * avg(die) : n * avg(die));
+  }, 0);
+  const hitDice = Object.entries(entries.reduce<Record<number, number>>((m, e, i) => {
+    const die = clsOf(e.classId)?.hd || 8;
+    m[die] = (m[die] || 0) + Math.max(i === 0 ? 1 : 0, e.level || 0);
+    return m;
+  }, {})).map(([die, n]) => ({ die: Number(die), n })).sort((a, b) => b.die - a.die);
+  // Robustez enana: +1 PG por nivel; Resiliencia dracónica: +1 por nivel de hechicero
+  const hpMax = Math.max(1, classHp + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvOf('sorcerer') : 0));
 
-  const subCaster = subclassCaster(c);
-  const spellAb = cls?.spellAb || subCaster?.abil || '';
-  const spell = spellAb ? { abil: spellAb, dc: 8 + pb + mods[spellAb], atk: pb + mods[spellAb] } : null;
+  // lanzadores: cada clase con su característica (y el Caballero arcano / Embaucador arcano, con Inteligencia)
+  const casterOf = (e: ClassEntry) => {
+    const cd = clsOf(e.classId);
+    const sc = subclassCaster(e);
+    const kind: ClassData['caster'] | 'third' | undefined = cd?.caster && cd.caster !== 'none' ? cd.caster : sc ? 'third' : undefined;
+    const abil = (cd?.spellAb || sc?.abil || '') as Abil | '';
+    return { e, cd, kind, abil };
+  };
+  const castersAll = entries.map(casterOf).filter((x) => x.kind && x.abil);
+  const casters = castersAll.map(({ e, cd, abil }) => ({ classId: e.classId, n: cd?.n || e.className, abil: abil as Abil, dc: 8 + pb + mods[abil as Abil], atk: pb + mods[abil as Abil] }));
+  const spell = casters.length ? { abil: casters[0].abil, dc: casters[0].dc, atk: casters[0].atk } : null;
   if (spell && c.ov.spellDc != null) spell.dc = c.ov.spellDc;
   if (spell && c.ov.spellAtk != null) spell.atk = c.ov.spellAtk;
+  if (casters.length && c.ov.spellDc != null) casters[0].dc = c.ov.spellDc;
+  if (casters.length && c.ov.spellAtk != null) casters[0].atk = c.ov.spellAtk;
+  // espacios: con una clase lanzadora, su tabla; con varias, la tabla de multiclase (nivel de lanzador combinado). El pacto va aparte.
+  const slotCasters = castersAll.filter((x) => x.kind !== 'pact');
+  const casterLevel = slotCasters.reduce((t, { e, kind }) => t + (kind === 'full' ? e.level : kind === 'half' ? Math.ceil(e.level / 2) : kind === 'third' ? Math.floor(e.level / 3) : 0), 0);
+  const slots = slotCasters.length > 1 ? (casterLevel > 0 ? FULL_SLOTS[Math.min(20, casterLevel) - 1].slice() : []) : slotCasters.length === 1 ? spellSlots(slotCasters[0].kind as ClassData['caster'] | 'third', slotCasters[0].e.level) : [];
 
-  const radiant = c.classId === 'paladin' && c.level >= 11;
+  const radiant = lvOf('paladin') >= 11;
   const attacks = c.weapons.map((w) => {
     const ab = weaponAbil(w, mods);
     const props = w.props || [];
@@ -273,16 +332,16 @@ export function derive(c: Character, data: PlayerData | null): Derived {
 
   // Movimiento sin armadura (monje, sin armadura ni escudo) y Movimiento rápido (bárbaro 5, sin armadura pesada)
   const heavyArmor = !!armor && armor.type === 'hvy';
-  const speedBonus = (c.classId === 'monk' && !worn && !c.shield ? Number(scale('monk.unarmored-movement')) || 0 : 0) + (c.classId === 'barbarian' && c.level >= 5 && !heavyArmor ? 10 : 0);
+  const speedBonus = (lvOf('monk') && !worn && !c.shield ? Number(scale('monk.unarmored-movement')) || 0 : 0) + (lvOf('barbarian') >= 5 && !heavyArmor ? 10 : 0);
   // golpe sin armas: el de las dotes o el dado de Artes marciales del monje (con Fuerza o Destreza, la mejor)
-  const monkDie = c.classId === 'monk' ? parseInt(String(scale('monk.die') || '').replace(/^1d/, ''), 10) || 0 : 0;
+  const monkDie = lvOf('monk') ? parseInt(String(scale('monk.die') || '').replace(/^1d/, ''), 10) || 0 : 0;
   const ua = all.unarmed || (monkDie ? { die: monkDie } : null);
   const uaDie = Math.max(ua?.die || 0, monkDie);
   const uaAb = monkDie && mods.dex > mods.str ? mods.dex : mods.str;
   const uaNotes = [...featOf('unarmed'), ...(monkDie ? ['Artes marciales'] : [])];
   return {
     cls, pb, mods, saves, skills,
-    critOn: c.classId === 'fighter' && ['campeon', 'champion'].includes(sub) ? (c.level >= 15 ? 18 : c.level >= 3 ? 19 : 20) : 20,
+    critOn: ['campeon', 'champion'].includes(subOf('fighter')) ? (lvOf('fighter') >= 15 ? 18 : lvOf('fighter') >= 3 ? 19 : 20) : 20,
     scale,
     ac: c.ov.ac ?? ac, acNote: c.ov.ac != null ? 'Ajustada a mano' : acNote,
     init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : 0),
@@ -290,9 +349,12 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     pp: c.ov.pp ?? 10 + skills.prc.bonus,
     hpMax: c.ov.hpMax ?? hpMax,
     hdDie,
+    level,
+    hitDice,
     spell,
-    slots: spellSlots(cls?.caster && cls.caster !== 'none' ? cls.caster : subCaster ? 'third' : cls?.caster, c.level),
-    pact: cls?.caster === 'pact' ? pactSlots(c.level) : null,
+    casters,
+    slots,
+    pact: lvOf('warlock') && clsOf('warlock')?.caster === 'pact' ? pactSlots(lvOf('warlock')) : null,
     attacks,
     unarmed: ua ? {
       atk: uaAb + pb,
@@ -316,7 +378,7 @@ export function usesMax(u: Uses | undefined, c: Character, cls: ClassData | unde
   if (mx) { const v = usesMax({ max: mx[2], per: u.per }, c, cls); return v == null ? null : Math.max(parseInt(mx[1], 10), v); }
   // un número fijo; 20 o más son restos de otros datos (CD de Furia implacable, Sobrecargar), no usos
   if (/^\d+$/.test(f)) { const n = parseInt(f, 10); return n > 10 ? null : n; }
-  if (f === '@prof') return profBonus(c.level);
+  if (f === '@prof') return profBonus(totalLevel(c));
   const ab = /^@abilities\.(\w+)\.mod$/.exec(f);
   if (ab) return Math.max(1, mod(c.abil[ab[1] as Abil]));
   const sc = /^@scale\.([\w-]+)\.([\w-]+)$/.exec(f);
@@ -324,7 +386,8 @@ export function usesMax(u: Uses | undefined, c: Character, cls: ClassData | unde
     const table = cls.sc[sc[1] + '.' + sc[2]];
     if (!table) return null;
     let v: number | string | null = null;
-    for (const [lv, val] of Object.entries(table)) if (parseInt(lv, 10) <= c.level) v = val;
+    const at = classLevel(c, cls.id) || c.level;
+    for (const [lv, val] of Object.entries(table)) if (parseInt(lv, 10) <= at) v = val;
     return typeof v === 'number' ? v : v == null ? 0 : parseInt(String(v), 10) || null;
   }
   return null;
@@ -342,7 +405,7 @@ export function weaponFromData(w: WeaponData, cls: ClassData | undefined): CharW
 /** Descanso largo (2024): PG al máximo, recupera espacios, usos y todos los dados de golpe; reduce el agotamiento en 1. */
 export function longRest(c: Character, d: Derived): Character {
   return {
-    ...c, hp: d.hpMax, temp: 0, slotsUsed: c.slotsUsed.map(() => 0), pactUsed: 0, uses: {}, hdSpent: 0,
+    ...c, hp: d.hpMax, temp: 0, slotsUsed: c.slotsUsed.map(() => 0), pactUsed: 0, uses: {}, hdSpent: 0, hdUsed: {},
     exh: Math.max(0, c.exh - 1), death: { s: 0, f: 0 }, updatedAt: Date.now(),
   };
 }

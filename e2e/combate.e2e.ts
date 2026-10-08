@@ -990,3 +990,29 @@ test('subir de nivel en el editor sube también los PG actuales', async ({ page 
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(hp).toHaveText('38 / 38');
 });
+
+test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Auriel');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Añadir otra clase (multiclase)' }).click();
+  await page.getByLabel('Otra clase').selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel en ella').fill('3');
+  await expect(page.getByText('Nivel total 8')).toBeVisible();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.locator('.pc-head')).toContainText('Paladín 5');
+  await expect(page.locator('.pc-head')).toContainText('Brujo 3');
+  await expect(page.locator('.pc-stats .stat', { hasText: 'Competencia' })).toContainText('+3');
+  await expect(page.locator('.pc-hp-row')).toContainText('5/5 d10 · 3/3 d8');
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  await expect(sp).toContainText('(Paladín)');
+  await expect(sp).toContainText('(Brujo)');
+  await expect(sp).toContainText('Magia de pacto (nivel 2)');
+  // rasgos de las dos clases
+  const traits = page.locator('section[aria-label="Rasgos y dotes"]');
+  await expect(traits.locator('.card', { hasText: 'Imposición de manos' })).toBeVisible();
+  await expect(traits.locator('.card', { hasText: 'Invocaciones sobrenaturales' }).or(traits.locator('.card', { hasText: 'Brujo 1' })).first()).toBeVisible();
+});

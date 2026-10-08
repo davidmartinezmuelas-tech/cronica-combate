@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { CONDITIONS } from '../../data/constants';
-import { ABILS, type Abil, type ClassFeature, type PlayerData } from '../../data/player';
-import { derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
+import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
+import { asClass, classEntries, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character } from '../../engine/character';
 import { fmt, sgn, type RollPart } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Card from '../../shared/Card';
@@ -26,19 +26,23 @@ interface FeatureRow { key: string; n: string; d: string; src: string; max: numb
 
 /** Rasgos que tiene a su nivel: de clase, de subclase, de especie y dotes, con sus usos. */
 function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): FeatureRow[] {
-  const cls = data?.classes.find((x) => x.id === c.classId);
   const sp = data?.species.find((x) => x.id === c.speciesId);
   const rows: FeatureRow[] = [];
-  const add = (f: ClassFeature, src: string) => {
-    const max = usesMax(f.u, c, cls);
+  const add = (f: ClassFeature, src: string, who: Character = c, cls?: ClassData) => {
+    const max = usesMax(f.u, who, cls);
     rows.push({ key: f.n, n: f.n, d: f.d, src, max: max && max > 0 ? max : null, per: f.u?.per || '' });
   };
-  cls?.f.filter((f) => f.lv <= c.level).forEach((f) => add(f, cls.n + ' ' + f.lv));
-  // los rasgos de la subclase del SRD solo si es la elegida
-  if (cls?.sub && c.level >= cls.sub.lv && norm(c.subclass) === norm(cls.sub.n)) cls.sub.f.filter((f) => f.lv <= c.level).forEach((f) => add(f, cls.sub!.n + ' ' + f.lv));
-  // subclase de la biblioteca propia (si es la elegida)
-  const libSub = lib.subclasses.find((s) => s.cls === c.classId && norm(s.n) === norm(c.subclass));
-  libSub?.f.filter((f) => f.lv <= c.level).forEach((f) => rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: null, per: '' }));
+  // cada clase (multiclase: también las demás) con sus rasgos hasta su nivel y los de su subclase
+  for (const e of classEntries(c)) {
+    const v = asClass(c, e);
+    const cls = data?.classes.find((x) => x.id === e.classId);
+    cls?.f.filter((f) => f.lv <= e.level).forEach((f) => add(f, cls.n + ' ' + f.lv, v, cls));
+    // los rasgos de la subclase del SRD solo si es la elegida
+    if (cls?.sub && e.level >= cls.sub.lv && norm(e.subclass) === norm(cls.sub.n)) cls.sub.f.filter((f) => f.lv <= e.level).forEach((f) => add(f, cls.sub!.n + ' ' + f.lv, v, cls));
+    // subclase de la biblioteca propia (si es la elegida)
+    const libSub = lib.subclasses.find((s) => s.cls === e.classId && norm(s.n) === norm(e.subclass));
+    libSub?.f.filter((f) => f.lv <= e.level).forEach((f) => rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: null, per: '' }));
+  }
   choiceRows(resolveChoices(c, data, lib)).forEach((r) => rows.push({ ...r, max: null, per: '' }));
   sp?.t.forEach((f) => add(f, sp.n));
   const CAT: Record<string, string> = { origin: 'Dote de origen', general: 'Dote', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
@@ -154,13 +158,20 @@ export default function CharacterSheet({ c }: { c: Character }) {
     },
   });
 
-  const spendHd = () => {
-    if (c.hdSpent >= c.level) return;
-    r('dado de golpe', 'free', '1d' + d.hdDie + sgn(d.mods.con), {
+  // dados de golpe que quedan de cada tipo (con una sola clase, uno: el de la clase)
+  const multiHd = d.hitDice.length > 1;
+  const hdLeft = (die: number) => {
+    const n = d.hitDice.find((x) => x.die === die)?.n || 0;
+    return multiHd ? Math.max(0, n - (c.hdUsed?.[die] || 0)) : Math.max(0, d.level - c.hdSpent);
+  };
+  const hdText = d.hitDice.map((x) => hdLeft(x.die) + '/' + x.n + ' d' + x.die).join(' · ');
+  const spendHd = (die = d.hdDie) => {
+    if (hdLeft(die) <= 0) return;
+    r('dado de golpe', 'free', '1d' + die + sgn(d.mods.con), {
       after: (total) => {
         const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
         const gain = Math.max(0, total);
-        update(c.id, { hp: Math.min(d.hpMax, cur.hp + gain), hdSpent: cur.hdSpent + 1 });
+        update(c.id, { hp: Math.min(d.hpMax, cur.hp + gain), hdSpent: cur.hdSpent + 1, ...(multiHd ? { hdUsed: { ...(cur.hdUsed || {}), [die]: (cur.hdUsed?.[die] || 0) + 1 } } : {}) });
         return { resultNote: 'Recupera ' + gain + ' PG.' };
       },
     });
@@ -184,7 +195,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         <div className="panel-head">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
             <h2>{c.name || 'Sin nombre'}</h2>
-            <span className="muted">{[sp?.n || c.speciesName, (d.cls?.n || c.className || 'Sin clase') + ' ' + c.level + (c.subclass ? ' (' + c.subclass + ')' : ''), bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</span>
+            <span className="muted">{[sp?.n || c.speciesName, classEntries(c).map((e) => (data?.classes.find((x) => x.id === e.classId)?.n || e.className || 'Sin clase') + ' ' + e.level + (e.subclass ? ' (' + e.subclass + ')' : '')).join(' / '), bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className={c.inspiration ? 'chip on' : 'chip'} aria-pressed={c.inspiration} onClick={() => set({ inspiration: !c.inspiration })}>Inspiración heroica</button>
@@ -205,7 +216,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <button className="btn primary" onClick={damage}>Daño</button>
           <button className="btn heal" onClick={heal}>Curación</button>
           <button className="btn temp" onClick={giveTemp}>PG temporales</button>
-          <span className="muted small">Dados de golpe: {c.level - c.hdSpent}/{c.level} (d{d.hdDie})</span>
+          <span className="muted small">Dados de golpe: {hdText}</span>
         </div>
         {c.hp === 0 && (
           <div className="sub" style={{ borderColor: '#c0513c' }}>
@@ -311,8 +322,12 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="panel-head">
             <h3 className="eyebrow">Conjuros</h3>
             {d.spell && <span className="rollrow">
-              <span className="muted small">CD {d.spell.dc} · {ABIL_N[d.spell.abil]}</span>
-              <button className="rollbtn" onClick={() => r('ataque de conjuro', 'attack', d20(d.spell!.atk))}>Ataque de conjuro {fmt(d.spell.atk)}</button>
+              {(d.casters.length > 1 ? d.casters : [{ ...d.spell, classId: '', n: '' }]).map((x) => (
+                <span key={x.classId} className="rollrow">
+                  <span className="muted small">CD {x.dc} · {ABIL_N[x.abil]}{x.n ? ' (' + x.n + ')' : ''}</span>
+                  <button className="rollbtn" onClick={() => r('ataque de conjuro' + (x.n ? ' de ' + x.n.toLowerCase() : ''), 'attack', d20(x.atk))}>Ataque de conjuro {fmt(x.atk)}</button>
+                </span>
+              ))}
             </span>}
           </div>
           {d.slots.length > 0 && (
@@ -383,9 +398,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </div>
         {resting && (
           <div className="sub">
-            <span className="small">Gasta dados de golpe para curarte (d{d.hdDie} {fmt(d.mods.con)} cada uno). Te quedan {c.level - c.hdSpent}.</span>
+            <span className="small">Gasta dados de golpe para curarte ({fmt(d.mods.con)} cada uno). Te quedan {hdText}.</span>
             <div className="rollrow">
-              <button className="rollbtn" disabled={c.hdSpent >= c.level || c.hp >= d.hpMax} onClick={spendHd}>Gastar un dado de golpe</button>
+              {d.hitDice.map((x) => (
+                <button key={x.die} className="rollbtn" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} onClick={() => spendHd(x.die)}>{multiHd ? 'Gastar un d' + x.die : 'Gastar un dado de golpe'}</button>
+              ))}
               <button className="btn small primary" onClick={() => {
                 const res = choiceResources(c, data, lib);
                 // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
-import { derive, mod, weaponFromData, type Character, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
+import { derive, mod, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { fmt } from '../../engine/dice';
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
@@ -67,8 +67,21 @@ export default function CharacterEditor({ c }: { c: Character }) {
     set({ abil: Object.fromEntries(order.map((a, i) => [a, STANDARD[i]])) as Record<Abil, number> });
   };
   // al llegar al nivel de subclase se propone la del SRD (se puede cambiar por otra escribiéndola)
+  // multiclase: las demás clases y su nivel (el total no pasa de 20)
+  const multi = c.multi || [];
+  const otherLevels = multi.reduce((t, e) => t + (e.level || 0), 0);
+  const setMulti = (next: ClassEntry[]) => set({ multi: next.length ? next : undefined });
+  const patchMulti = (i: number, p: Partial<ClassEntry>) => setMulti(multi.map((e, j) => (j === i ? { ...e, ...p } : e)));
+  // requisito de 2024: 13 en la característica principal de cada clase (guerrero: Fuerza o Destreza; monje, paladín y explorador: las dos)
+  const ABIL_NAME: Record<string, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
+  const unmet = (id: string) => {
+    const k = data.classes.find((x) => x.id === id);
+    if (!k?.primary?.length) return '';
+    const ok = id === 'fighter' ? k.primary.some((a) => c.abil[a as Abil] >= 13) : k.primary.every((a) => c.abil[a as Abil] >= 13);
+    return ok ? '' : k.n + ' pide 13 en ' + k.primary.map((a) => ABIL_NAME[a]).join(id === 'fighter' ? ' o ' : ' y ');
+  };
   const setLevel = (v: number) => {
-    const level = Math.max(1, Math.min(20, v || 1));
+    const level = Math.max(1, Math.min(20 - otherLevels, v || 1));
     set({ level, subclass: !c.subclass && cls?.sub && level >= cls.sub.lv ? cls.sub.n : c.subclass });
   };
   const chooseClass = (id: string) => {
@@ -171,6 +184,32 @@ export default function CharacterEditor({ c }: { c: Character }) {
           </div>
           <SubclassChoices c={c} data={data} lib={lib} set={set} />
           {cls?.sub && !libSubs.length && <span className="muted small">El SRD solo incluye una subclase por clase ({cls.sub.n}). Las demás de tu libro puedes añadirlas en «Biblioteca»; si eliges otra, sus rasgos los añades abajo como rasgos propios.</span>}
+          {/* multiclase: otras clases con su nivel y subclase; la primera (arriba) da las salvaciones y el dado de golpe completo del nivel 1 */}
+          {multi.map((e, i) => {
+            const k = data.classes.find((x) => x.id === e.classId);
+            const subs = [...(k?.sub ? [k.sub.n] : []), ...lib.subclasses.filter((x) => x.cls === e.classId).map((x) => x.n)];
+            return (
+              <div key={i} className="ce-multi">
+                <div className="field"><label htmlFor={'ce-mc' + i}>Otra clase</label>
+                  <select id={'ce-mc' + i} className="input" value={e.classId} onChange={(ev) => patchMulti(i, { classId: ev.target.value, subclass: '' })}>
+                    <option value="">Otra (escríbela)</option>
+                    {data.classes.filter((x) => x.id === e.classId || (x.id !== c.classId && !multi.some((m) => m.classId === x.id))).map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
+                  </select></div>
+                {!e.classId && <div className="field"><label htmlFor={'ce-mcn' + i}>Nombre de la clase</label><input id={'ce-mcn' + i} className="input" value={e.className} onChange={(ev) => patchMulti(i, { className: ev.target.value })} /></div>}
+                <div className="field ce-multi-lvl"><label htmlFor={'ce-ml' + i}>Nivel en ella</label>
+                  <input id={'ce-ml' + i} className="input" type="number" min={1} max={20} value={e.level} onChange={(ev) => patchMulti(i, { level: Math.max(1, Math.min(20 - c.level - otherLevels + e.level, parseInt(ev.target.value, 10) || 1)) })} /></div>
+                <div className="field"><label htmlFor={'ce-ms' + i}>Subclase</label>
+                  <input id={'ce-ms' + i} className="input" list={'ce-msl' + i} value={e.subclass} placeholder={k?.sub ? 'Desde el nivel ' + k.sub.lv : ''} onChange={(ev) => patchMulti(i, { subclass: ev.target.value })} />
+                  <datalist id={'ce-msl' + i}>{subs.map((n) => <option key={n} value={n} />)}</datalist></div>
+                <button className="btn small ghost" onClick={() => setMulti(multi.filter((_, j) => j !== i))}>Quitar</button>
+                {e.classId && (unmet(e.classId) || (i === 0 && unmet(c.classId))) && <span className="warn small ce-multi-note">Requisito de multiclase: {[unmet(c.classId), unmet(e.classId)].filter(Boolean).join('; ')}. Puedes añadirla igual.</span>}
+              </div>
+            );
+          })}
+          <div className="rollrow">
+            <button className="btn small" disabled={totalLevel(c) >= 20} onClick={() => setMulti([...multi, { classId: '', className: '', level: 1, subclass: '' }])}>Añadir otra clase (multiclase)</button>
+            {multi.length > 0 && <span className="muted small">Nivel total {totalLevel(c)}. La primera clase da las salvaciones y el dado de golpe completo del nivel 1.</span>}
+          </div>
           <div className="row2">
             <div className="field"><label htmlFor="ce-bg">Trasfondo</label>
               <select id="ce-bg" className="input" value={c.backgroundId} onChange={(e) => chooseBackground(e.target.value)}>
