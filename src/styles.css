@@ -680,3 +680,4 @@ b.card-title{flex-basis:100%;font-size:16px}
 .pc-book .pc>.panel:first-child{border-top-left-radius:0}
 .pc-backup-bar{gap:8px}
 .hdr-sep{width:1px;align-self:stretch;background:#5b4837;margin:0 2px}
+.turn-ctrls{display:flex;gap:8px;align-items:center}

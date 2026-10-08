@@ -3,6 +3,7 @@ import { useShallow } from 'zustand/react/shallow';
 import { reminders } from '../../engine/combat';
 import { forgeToMonster } from '../../engine/forge';
 import { fmt } from '../../engine/dice';
+import { ChevronLeft, ChevronRight } from '../../shared/Icons';
 import { useStore } from '../../store/useStore';
 import CombatantCard from './CombatantCard';
 import EncounterGenerator from './EncounterGenerator';
@@ -22,7 +23,7 @@ function Onboarding() {
     { title: 'Añade los monstruos', text: mons.length ? mons.length + ' en el encuentro.' : 'Búscalos en el Bestiario (todo el SRD 2024) o crea los tuyos en la Forja.', done: mons.length > 0, btn: 'Ir al bestiario', act: () => set({ tab: 'bestiary' }) },
     { title: 'Tira su iniciativa', text: !mons.length ? 'Cuando tengas monstruos.' : monsNoInit ? monsNoInit + ' sin iniciativa.' : 'Hecho. Se ordenan solos por número.', done: mons.length > 0 && monsNoInit === 0, btn: 'Tirar iniciativa', act: () => rollInit() },
     { title: 'Añade a los jugadores', text: !pcs.length ? (roster.length ? 'Tienes ' + roster.length + ' guardados en Grupo.' : 'Guárdalos en Grupo una vez y reutilízalos.') : pcsNoInit ? 'Escribe la iniciativa de ' + pcsNoInit + ' jugador' + (pcsNoInit > 1 ? 'es' : '') + ' en la lista.' : pcs.length + ' jugadores listos.', done: pcs.length > 0 && pcsNoInit === 0, btn: roster.length ? 'Añadir todo el grupo' : 'Ir a Grupo', act: () => (roster.length ? addAllPcs() : set({ tab: 'group' })) },
-    { title: 'Empieza el combate', text: 'La app lleva rondas, turnos, recargas, legendarias y estados.', done: false, btn: 'Empezar combate', act: startCombat },
+    { title: 'Empieza el combate', text: 'La app lleva rondas, turnos, recargas, legendarias y estados.', done: false, btn: 'Empezar combate', act: () => startCombat(), primary: true },
   ];
   return (
     <div className="panel">
@@ -32,7 +33,7 @@ function Onboarding() {
           <li key={st.title} className={st.done ? 'done' : ''}>
             <span className="step-n" aria-hidden="true">{st.done ? '✓' : i + 1}</span>
             <span style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 2 }}><strong style={{ color: '#f3e6c8' }}>{st.title}</strong><span className="muted small">{st.text}</span></span>
-            {!st.done && <button className="btn small" onClick={st.act}>{st.btn}</button>}
+            {!st.done && <button className={'primary' in st ? 'btn small primary' : 'btn small'} onClick={st.act} title={'primary' in st ? 'Empezar combate (N)' : undefined}>{st.btn}</button>}
           </li>
         ))}
       </ol>
@@ -57,7 +58,10 @@ function TurnCard() {
           <span className="eyebrow" style={{ color: '#e8c062' }}>Ronda {round} · inicio de turno</span>
           <span className="display" style={{ fontSize: 30, color: '#f3e6c8', lineHeight: 1.05 }}>{active.name}</span>
         </div>
-        <button className="btn small" onClick={() => step(1)}>Terminar turno</button>
+        <div className="turn-ctrls">
+          <button className="btn icon" onClick={() => step(-1)} aria-label="Volver al turno anterior" title="Volver al turno anterior (B)"><ChevronLeft /></button>
+          <button className="btn primary" onClick={() => step(1)} title="Siguiente turno (N)"><span>Siguiente turno</span><ChevronRight /></button>
+        </div>
       </div>
       <ul className="rem">
         {events.map((e, i) => <li key={'e' + i} className="ev">{e.text}</li>)}
