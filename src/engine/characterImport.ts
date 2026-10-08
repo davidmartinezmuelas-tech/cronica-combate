@@ -22,16 +22,24 @@ const tidy = (s: string) => norm(s.replace(/\bS\/P\b/gi, '').replace(/\(.*?\)\s*
 export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: PlayerData, spells: SpellRef[], fileName = ''): Character {
   const extra = (label: string) => sheet.extras.find((e) => e.label === label)?.value || '';
   const same = (a: string, ...b: string[]) => b.some((x) => norm(x) === norm(a));
-  const clsName = sheet.cls.replace(/\s*\d+\s*$/, '');
+  // multiclase: la primera clase es la principal; las demás van a «multi»
+  const mc = sheet.classes && sheet.classes.length > 1 ? sheet.classes : null;
+  const clsName = mc ? mc[0].cls : sheet.cls.replace(/\s*\d+\s*$/, '');
   const cls = data.classes.find((k) => same(clsName, k.n, k.en));
-  const level = Math.max(1, Math.min(20, parseInt(sheet.level, 10) || 1));
+  const level = Math.max(1, Math.min(20, mc ? mc[0].level : parseInt(sheet.level, 10) || 1));
+  const total = mc ? Math.max(1, Math.min(20, mc.reduce((t, x) => t + x.level, 0))) : level;
+  const subName = (k: (typeof data.classes)[number] | undefined, raw: string, lv: number) => (k?.sub && raw && same(raw, k.sub.n, k.sub.en) ? k.sub.n : raw || (k?.sub && lv >= k.sub.lv ? k.sub.n : ''));
+  const multi = mc?.slice(1).map((x) => {
+    const k = data.classes.find((y) => same(x.cls, y.n, y.en));
+    return { classId: k?.id || '', className: k ? '' : x.cls, level: x.level, subclass: subName(k, x.sub, x.level) };
+  });
   const species = data.species.find((s) => same(extra('Especie'), s.n, s.en)) || data.species.find((s) => norm(extra('Especie')).length > 2 && norm(s.n).startsWith(norm(extra('Especie'))));
   const bg = data.backgrounds.find((b) => same(extra('Trasfondo'), b.n, b.en));
-  const subRaw = extra('Subclase');
+  const subRaw = mc?.[0].sub || extra('Subclase');
   const subclass = cls?.sub && subRaw && same(subRaw, cls.sub.n, cls.sub.en) ? cls.sub.n : subRaw || (cls?.sub && level >= cls.sub.lv ? cls.sub.n : '');
 
   const abil = Object.fromEntries(ABILS.map((a) => [a, sheet.abil[a] ?? 10])) as Record<Abil, number>;
-  const pb = profBonus(level);
+  const pb = profBonus(total);
   // competencia (y pericia) deducidas: bonificador escrito − modificador de la característica
   const skills: string[] = [];
   const expertise: string[] = [];
@@ -85,7 +93,7 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   }
 
   const c: Character = {
-    ...blankCharacter(), name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName, level, subclass,
+    ...blankCharacter(), name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName, level, subclass, ...(multi?.length ? { multi } : {}),
     speciesId: species?.id || '', speciesName: species ? '' : extra('Especie'), backgroundId: bg?.id || '', backgroundName: bg ? '' : extra('Trasfondo'),
     abil, skills, expertise, saveExtra, weapons, armorId: armor?.id || '', shield, spells: spellIds, feats, customFeats, langs: extra('Idiomas'),
     notes: (fileName ? 'Importado de ' + fileName + '. ' : '') + 'Revisa la hoja: lo que no se ha podido reconocer está en el PDF original.',

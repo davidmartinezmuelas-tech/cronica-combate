@@ -37,7 +37,11 @@ function ImportDialog({ r, data, onClose }: { r: RosterEntry; data: SheetData; o
   const apply = () => {
     const patch: Partial<RosterEntry> = {};
     for (const [k] of FIELDS) if (on[k] && vals[k].trim()) patch[k] = vals[k].trim();
-    if (patch.cls) patch.level = (/\d+/.exec(patch.cls) || [data.level || r.level])[0];
+    // el nivel total: la suma de las clases («Paladín 3 / Brujo 5» → 8) o el número de la única clase
+    if (patch.cls) {
+      const lvs = (patch.cls.match(/\d+/g) || []).map(Number);
+      patch.level = lvs.length > 1 ? String(Math.min(20, lvs.reduce((t, n) => t + n, 0))) : String(lvs[0] ?? (data.level || r.level));
+    }
     if (on.res) patch.res = [...r.res, ...newRes];
     if (on.notes) patch.notes = (r.notes ? r.notes.replace(/\s+$/, '') + '\n\n' : '') + line;
     if (Object.keys(patch).length) useStore.getState().updatePc(r.id, patch, 'datos de la hoja de ' + r.name);

@@ -12,8 +12,9 @@ export type SheetTemplate = 'oficial-2024' | 'fifthedition' | 'generica';
 export interface SheetData {
   template: SheetTemplate;
   name: string;
-  cls: string; // «Paladín 3»
-  level: string;
+  cls: string; // «Paladín 3» o, con multiclase, «Paladín 3 / Brujo 5»
+  level: string; // nivel total
+  classes?: { cls: string; level: number; sub: string }[]; // multiclase: cada clase con su nivel (y subclase si la escribe)
   ac: string;
   hp: string;
   initb: string; // sin signo «+»: «2», «-1»
@@ -108,6 +109,20 @@ function bonus(s: string): string {
 }
 const number = (s: string) => (/\d+/.exec(s) || [''])[0];
 
+/**
+ * Varias clases con su nivel en el mismo campo (multiclase): «Paladín 3 / Brujo 5», «Fighter 2, Rogue 3»,
+ * «Paladín 3 (Devoción) + Brujo 2». Con menos de dos, o si alguna no lleva nivel, devuelve [].
+ */
+export function splitClasses(s: string): { cls: string; level: number; sub: string }[] {
+  const parts = s.split(/\s*(?:\/|,|;|\+|&|\s+y\s+|\s+and\s+)\s*/i).map((p) => p.trim()).filter(Boolean);
+  const out = parts.map((p) => /^(.*?[^\d\s])\s*(\d{1,2})\s*(?:\((.*)\))?$/.exec(p) || /^(.*?[^\d\s])\s*(?:\((.*?)\))\s*(\d{1,2})$/.exec(p));
+  if (parts.length < 2 || out.some((m) => !m)) return [];
+  return out.map((m) => {
+    const lvFirst = /^\d+$/.test(m![2]);
+    return { cls: classToEs(m![1].trim()), level: parseInt(lvFirst ? m![2] : m![3], 10), sub: ((lvFirst ? m![3] : m![2]) || '').trim() };
+  });
+}
+
 /** Pasa al español los nombres de clase en inglés: «Paladin» -> «Paladín». */
 export function classToEs(s: string): string {
   return s.replace(/[A-Za-z]+/g, (w) => CLASSES[w.toLowerCase()] || w);
@@ -148,9 +163,16 @@ export function readSheet(fields: SheetField[]): SheetData | null {
 
   let cls = get('cls');
   let level = number(get('level'));
-  // hojas con «Clase y nivel» juntos: «Fighter 3»
-  if (!level && /\d/.test(cls)) level = number(cls);
-  cls = classToEs(cls.replace(/\s*\d+\s*$/, '').trim());
+  // multiclase en el campo de clase: «Paladín 3 / Brujo 5»
+  const classes = splitClasses(cls);
+  if (classes.length) {
+    level = String(Math.min(20, classes.reduce((t, x) => t + x.level, 0)));
+    cls = classes.map((x) => x.cls + ' ' + x.level).join(' / ');
+  } else {
+    // hojas con «Clase y nivel» juntos: «Fighter 3»
+    if (!level && /\d/.test(cls)) level = number(cls);
+    cls = classToEs(cls.replace(/\s*\d+\s*$/, '').trim());
+  }
   const init = bonus(get('init'));
   let pp = number(get('pp'));
   if (!pp && get('perception')) pp = String(10 + Number(bonus(get('perception')) || 0));
@@ -183,7 +205,7 @@ export function readSheet(fields: SheetField[]): SheetData | null {
   }
 
   const data: SheetData = {
-    template, name: get('name'), cls: cls && level ? cls + ' ' + level : cls, level, ac: number(get('ac')), hp: number(get('hp')),
+    template, name: get('name'), cls: cls && level && !classes.length ? cls + ' ' + level : cls, level, ...(classes.length ? { classes } : {}), ac: number(get('ac')), hp: number(get('hp')),
     initb: init, pp, res: findResistances(traitText), extras, abil, saveBonus, skillBonus,
   };
   const useful = [data.name, data.cls, data.ac, data.hp, data.initb, data.pp].filter(Boolean).length + data.extras.length;

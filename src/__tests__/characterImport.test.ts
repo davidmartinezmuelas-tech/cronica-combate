@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import type { PlayerData } from '../data/player';
 import { derive } from '../engine/character';
 import { sheetToCharacter } from '../engine/characterImport';
-import { readSheet, type SheetField } from '../engine/sheetImport';
+import { readSheet, splitClasses, type SheetField } from '../engine/sheetImport';
 
 const data = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/jugador_es.json'), 'utf8')) as PlayerData;
 const spells = (JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/reglas_es.json'), 'utf8')).e as { id: string; n: string; en: string; cat: string }[])
@@ -47,5 +47,25 @@ describe('importar la hoja PDF a un personaje', () => {
     expect(c.spells.map((id) => spells.find((s) => s.id === id)!.n).sort()).toEqual(['Bendición', 'Castigo Divino']);
     expect(c.feats).toContain('Atacante salvaje');
     expect(c.customFeats.map((f) => [f.cat, f.n])).toEqual([['fighting-style', 'Protection']]);
+  });
+});
+
+describe('importar una hoja con multiclase', () => {
+  it('separa las clases del campo de clase en varios formatos', () => {
+    expect(splitClasses('Paladin 3 / Warlock 5')).toEqual([{ cls: 'Paladín', level: 3, sub: '' }, { cls: 'Brujo', level: 5, sub: '' }]);
+    expect(splitClasses('Guerrero 2, Pícaro 3 (Ladrón)')).toEqual([{ cls: 'Guerrero', level: 2, sub: '' }, { cls: 'Pícaro', level: 3, sub: 'Ladrón' }]);
+    expect(splitClasses('Fighter 3')).toEqual([]);
+    expect(splitClasses('Paladín / Brujo')).toEqual([]);
+  });
+  it('la primera clase es la principal, las demás van a multiclase y la competencia es por nivel total', () => {
+    const f = F({ Name: 'Vex', Class: 'Paladin 3 / Warlock 5', AC: '16', 'Max HP': '60', 'STR SORE': '14', 'CHA SCORE': '16', 'CHA SAVE': '+6', ATHLETICS: '+5' });
+    const sheet = readSheet(f)!;
+    expect(sheet.cls).toBe('Paladín 3 / Brujo 5');
+    expect(sheet.level).toBe('8');
+    const c = sheetToCharacter(f, sheet, data, spells);
+    expect([c.classId, c.level]).toEqual(['paladin', 3]);
+    expect(c.multi).toEqual([{ classId: 'warlock', className: '', level: 5, subclass: 'Patrón infernal' }]);
+    expect(c.skills).toContain('ath'); // +5 = FUE +2 y competencia +3 (nivel total 8)
+    expect(derive(c, data).pb).toBe(3);
   });
 });
