@@ -739,3 +739,16 @@ b.card-title{flex-basis:100%;font-size:16px}
   .pc-skill{padding:6px 7px;gap:5px;font-size:14px}
   .pc-skill .muted.small{display:none}
 }
+/* barra con el resultado de la última tirada (solo móvil y tablet: la mesa queda lejos) */
+.roll-peek{display:none}
+@media (max-width:1023px){
+  .roll-peek{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:60;display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:10px;border:1px solid #80644d;background:#3b2e23;color:#efe3cb;text-align:left;font:inherit;box-shadow:0 10px 28px rgba(0,0,0,.55);animation:rise .25s ease-out both}
+  .roll-peek.crit{border-color:#d4a94f;box-shadow:0 0 0 1px #d4a94f inset,0 10px 28px rgba(0,0,0,.55)}
+  .roll-peek.fumble{border-color:#c0513c}
+  .roll-peek-total{font-family:'Alegreya',Georgia,serif;font-weight:700;font-feature-settings:'lnum' 1;font-size:30px;line-height:1;min-width:44px;text-align:center;color:#f3e6c8}
+  .roll-peek.crit .roll-peek-total{color:#e8c062}
+  .roll-peek-txt{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;font-size:13px}
+  .roll-peek-txt b{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .roll-peek-txt span{color:#c6bba6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .roll-peek-go{font-size:12px;font-weight:800;color:#e8c062;white-space:nowrap}
+}

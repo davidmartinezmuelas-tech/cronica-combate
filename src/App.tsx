@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import ModeSelect from './app/ModeSelect';
+import RollPeek from './shared/RollPeek';
 import { useMode } from './app/mode';
 import DmApp from './modes/dm/DmApp';
 import { hadSession, useAccount } from './store/account';
@@ -32,6 +33,7 @@ export default function App() {
       {mode === 'dm' ? <DmApp /> : mode === 'player' ? (
         <Suspense fallback={<p className="muted" style={{ padding: 24 }}>Cargando…</p>}><PlayerApp /></Suspense>
       ) : <ModeSelect />}
+      {mode && <RollPeek />}
     </>
   );
 }
