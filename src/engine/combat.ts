@@ -122,7 +122,8 @@ export function applyDamage(c: Combatant, m: Monster | null, parts: DmgPart[], f
   let total = 0;
   const notes: string[] = [];
   const imm = m ? m.imm : [];
-  const res = m ? m.res : c.res || [];
+  // un jugador en Furia resiste el daño contundente, cortante y perforante
+  const res = m ? m.res : [...(c.res || []), ...(hasCond(c, 'Furia') ? ['contundente', 'cortante', 'perforante'] : [])];
   const vul = m ? m.vul : [];
   const petrified = hasCond(c, 'Petrificado');
   for (const p of parts) {

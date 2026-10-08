@@ -1047,3 +1047,27 @@ test('multiclase: los paneles de acciones de cada clase', async ({ page }) => {
   await expect(page.getByRole('button', { name: /^Furia \+2/ })).toBeVisible();
   await expect(page.locator('.pc-stats .stat', { hasText: 'CA' })).toContainText('Defensa sin armadura');
 });
+
+test('Furia: estado guardado, resistencias, ventaja en Fuerza y daño recibido a la mitad', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Grosh');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Bárbaro' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.getByRole('button', { name: /^Furia \+2/ }).click();
+  await expect(page.locator('.pc-resist')).toContainText('cortante (Furia)');
+  await expect(page.locator('.pc-abil', { hasText: 'FUE' }).getByRole('button', { name: /^Salv/ })).toContainText('V');
+  // sigue en Furia tras recargar
+  await page.reload();
+  await expect(page.locator('.pc-resist')).toContainText('perforante (Furia)');
+  const hp = page.locator('.pc-stats .stat', { hasText: 'PG' }).locator('.stat-v');
+  const before = parseInt((await hp.textContent())!.split('/')[0], 10);
+  await page.getByLabel('Tipo de daño recibido').selectOption('cortante');
+  await page.getByLabel('Cantidad de PG').fill('10');
+  await page.getByRole('button', { name: 'Daño (mitad)' }).click();
+  await expect(hp).toContainText(String(before - 5) + ' /');
+  await page.getByRole('button', { name: /^Furia \+2/ }).click();
+  await expect(page.locator('.pc-resist')).toHaveCount(0);
+});

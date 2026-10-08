@@ -8,7 +8,7 @@ import { useStore } from './useStore';
  * Mesa del máster con sala: los jugadores de la sala pasan a su Grupo y al combate, y sus PG y CA llegan en directo.
  * Solo se aplica lo que el jugador cambia (el daño que pone el máster no se pisa con cualquier otra actualización).
  */
-interface Seen { hp: number; temp: number; hpMax: number; ac: number; charId: string }
+interface Seen { hp: number; temp: number; hpMax: number; ac: number; charId: string; rage: boolean }
 const seen = new Map<string, Seen>(); // última hoja recibida de cada participante
 const rollsDone = new Set<string>(); // tiradas de iniciativa ya aplicadas
 
@@ -38,13 +38,15 @@ export function syncMembersToTable(members: RoomMember[]) {
       rosterChanged = true;
     }
     const prev = seen.get(m.uid);
-    const now: Seen = { hp: sh.hp, temp: sh.temp, hpMax: sh.hpMax, ac: sh.ac, charId: sh.charId || '' };
+    // la Furia del bárbaro llega como estado (da resistencias al daño que aplica el máster)
+    const now: Seen = { hp: sh.hp, temp: sh.temp, hpMax: sh.hpMax, ac: sh.ac, charId: sh.charId || '', rage: (sh.conds || []).includes('Furia') };
+    const withRage = (conds: Combatant['conds']) => [...conds.filter((x) => x.k !== 'Furia'), ...(now.rage ? [{ k: 'Furia', r: null }] : [])];
     const inCombat = combatants.find((c) => c.rosterId === entry!.id);
     if (!prev && !inCombat) {
       // la primera vez que aparece en la sala entra al combate (si luego el máster lo quita, no vuelve solo)
       const taken = new Set(combatants.map((c) => c.name));
       const c = makePcCombatant(entry, taken.has(entry.name) ? entry.name + ' (' + m.name + ')' : entry.name);
-      combatants = combatants.concat([{ ...c, hp: sh.hp, temp: sh.temp }]);
+      combatants = combatants.concat([{ ...c, hp: sh.hp, temp: sh.temp, conds: withRage(c.conds) }]);
       combatChanged = true;
     } else if (inCombat && prev) {
       const patch: Partial<Combatant> = {};
@@ -52,6 +54,7 @@ export function syncMembersToTable(members: RoomMember[]) {
       if (prev.temp !== now.temp) patch.temp = now.temp;
       if (prev.hpMax !== now.hpMax) patch.maxHp = now.hpMax;
       if (prev.ac !== now.ac) patch.ac = now.ac;
+      if (prev.rage !== now.rage) patch.conds = withRage(inCombat.conds);
       if (Object.keys(patch).length) { combatants = combatants.map((c) => (c.id === inCombat.id ? { ...c, ...patch } : c)); combatChanged = true; }
     }
     seen.set(m.uid, now);

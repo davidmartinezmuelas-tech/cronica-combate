@@ -74,6 +74,7 @@ export interface RollPart {
   expr: string;
   type?: string;
   min?: number; // en daño, cada dado vale como mínimo esto (Combate con armas a dos manos: 1 y 2 cuentan como 3)
+  minD20?: number; // en pruebas, el d20 cuenta como mínimo esto (Talento fiable: 10)
   reroll1?: boolean; // en daño, un 1 se repite una vez (Matón de taberna)
   best2?: boolean; // en daño, los dados se tiran dos veces y cuenta la mejor (Atacante salvaje)
   rerollLow?: boolean; // en daño, se repite el dado más bajo si no llega a la mitad (Perforador)
@@ -125,9 +126,10 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
         const keep = keepA ? a : b;
         dice.push({ sides: 20, final: a, dim: !keepA }, { sides: 20, final: b, dim: keepA });
         usedAdv = true;
-        sub += g.sign * keep;
+        const counted = part.minD20 && keep < part.minD20 ? part.minD20 : keep;
+        sub += g.sign * counted;
         nat = keep;
-        segs.push((adv === 'adv' ? 'ventaja ' : 'desventaja ') + '[' + a + ', ' + b + ']');
+        segs.push((adv === 'adv' ? 'ventaja ' : 'desventaja ') + '[' + a + ', ' + b + ']' + (counted !== keep ? ' (cuenta como ' + counted + ')' : ''));
       } else {
         const dmg = opts.kind === 'damage';
         // en daño: mínimo por dado (armas a dos manos) y repetir los 1 una vez (Matón de taberna)
@@ -154,9 +156,11 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
         const die = (v: number, dim?: boolean): PhysicalDie => ({ sides: g.sides, final: v, ...(part.type && dmg ? { type: part.type } : {}), ...(dim ? { dim: true } : {}) });
         vals.forEach((v) => dice.push(die(v)));
         other?.forEach((v) => dice.push(die(v, true)));
-        sub += g.sign * vals.reduce((x, y) => x + y, 0);
+        // Talento fiable: un d20 de prueba por debajo del mínimo cuenta como el mínimo
+        const floor = !dmg && g.sides === 20 && n === 1 && part.minD20 && vals[0] < part.minD20 ? part.minD20 : 0;
+        sub += g.sign * (floor || vals.reduce((x, y) => x + y, 0));
         if (g.sides === 20 && n === 1) nat = vals[0];
-        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']' + rerolled + (other ? ' (la otra: [' + other.join(', ') + '])' : ''));
+        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']' + rerolled + (other ? ' (la otra: [' + other.join(', ') + '])' : '') + (floor ? ' (cuenta como ' + floor + ')' : ''));
       }
     }
     if (p.mod) segs.push(fmt(p.mod));

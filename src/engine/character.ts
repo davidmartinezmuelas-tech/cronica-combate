@@ -1,4 +1,5 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
+import { classEffects, type ClassFx } from './classEffects';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { featCatOf, splitFeatText } from './featText';
 import { choiceSkills, subclassCaster } from './subclassChoices';
@@ -156,9 +157,14 @@ export function pactSlots(level: number): { n: number; lv: number } {
 export interface Derived {
   cls?: ClassData;
   pb: number;
+  abil: Record<Abil, number>; // puntuaciones con los aumentos de clase (Campeón primordial, Cuerpo y mente)
   mods: Record<Abil, number>;
-  saves: Record<Abil, { bonus: number; prof: boolean }>;
-  skills: Record<string, { bonus: number; prof: boolean; exp: boolean; abil: Abil }>;
+  saves: Record<Abil, { bonus: number; prof: boolean; adv?: string; why?: string }>;
+  checks: Record<Abil, { bonus: number; adv?: string }>; // pruebas de característica (Aprendiz de todo, ventajas)
+  skills: Record<string, { bonus: number; prof: boolean; exp: boolean; abil: Abil; adv?: string; min10?: boolean }>;
+  initAdv: string; // ventaja en iniciativa (motivo)
+  resist: { type: string; why: string }[]; // resistencias al daño de los rasgos (Furia, Resiliencia infernal…)
+  cfx: ClassFx; // efectos de los rasgos de clase
   ac: number;
   acNote: string;
   init: number;
@@ -204,7 +210,11 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const subOf = (id: string) => norm(entries.find((e) => e.classId === id)?.subclass || '');
   const level = totalLevel(c);
   const pb = profBonus(level);
-  const mods = Object.fromEntries(ABILS.map((a) => [a, mod(c.abil[a])])) as Record<Abil, number>;
+  // rasgos de clase con efecto en los números (Aura de protección, Aprendiz de todo, Furia…)
+  const cfx = classEffects({ entries, choices: c.choices, conds: c.conds, cha: mod(c.abil.cha) });
+  // aumentos de clase: +N hasta un máximo de 25 (no bajan una puntuación que ya pase de 25)
+  const abil = Object.fromEntries(ABILS.map((a) => { const b = cfx.abil[a] || 0; const v = c.abil[a]; return [a, b ? Math.max(v, Math.min(25, v + b)) : v]; })) as Record<Abil, number>;
+  const mods = Object.fromEntries(ABILS.map((a) => [a, mod(abil[a])])) as Record<Abil, number>;
   // dotes con efecto en los números (Tiro con arco, Duelo, Defensa, Alerta, Duro…)
   const fx = featEffects([...c.feats, ...expandCustomFeats(c.customFeats).map((f) => f.n)]);
   const sum = (k: 'atkRanged' | 'dmgOneHand' | 'dmgThrown' | 'acArmor' | 'hpPerLevel' | 'hpFlat' | 'speed') => fx.reduce((t, f) => t + (f.e[k] || 0), 0);
@@ -223,14 +233,22 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     return v;
   };
   const draconic = lvOf('sorcerer') >= 3 && ['hechiceria draconica', 'draconic sorcery'].includes(subOf('sorcerer'));
-  const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra]);
-  const saves = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + (saveProf.has(a) ? pb : 0), prof: saveProf.has(a) }])) as Derived['saves'];
+  const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra, ...(cfx.saveProfAll ? ABILS : []), ...cfx.saveProf.map((x) => x.abil)]);
+  const saveFlat = cfx.saveBonus?.n || 0;
+  const saves = Object.fromEntries(ABILS.map((a) => [a, {
+    bonus: mods[a] + (saveProf.has(a) ? pb : 0) + saveFlat, prof: saveProf.has(a),
+    ...(cfx.saveAdv[a] ? { adv: cfx.saveAdv[a] } : {}), ...(saveFlat ? { why: cfx.saveBonus!.why + ' ' + (saveFlat > 0 ? '+' : '') + saveFlat } : {}),
+  }])) as Derived['saves'];
+  // Aprendiz de todo: la mitad de la competencia (hacia abajo) en las pruebas sin competencia
+  const half = cfx.halfProf ? Math.floor(pb / 2) : 0;
+  const checks = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + half, ...(cfx.checkAdv[a] ? { adv: cfx.checkAdv[a] } : {}) }])) as Derived['checks'];
   // habilidades de las elecciones de subclase de cada clase (multiclase: todas)
   const subSkills = new Set(entries.flatMap((e, i) => choiceSkills(i === 0 ? c : asClass(c, e))));
   const skills = Object.fromEntries(Object.entries(SKILL_ABIL).map(([k, ab]) => {
     const prof = c.skills.includes(k) || subSkills.has(k);
     const exp = prof && c.expertise.includes(k);
-    return [k, { bonus: mods[ab] + (prof ? pb * (exp ? 2 : 1) : 0), prof, exp, abil: ab }];
+    const adv = cfx.skillAdv[k] || cfx.checkAdv[ab as Abil];
+    return [k, { bonus: mods[ab] + (prof ? pb * (exp ? 2 : 1) : half), prof, exp, abil: ab, ...(adv ? { adv } : {}), ...(prof && cfx.reliable ? { min10: true } : {}) }];
   })) as Derived['skills'];
 
   // CA: armadura (con el límite de Destreza), defensa sin armadura del bárbaro o del monje, o 10 + Destreza
@@ -345,8 +363,13 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     critOn: ['campeon', 'champion'].includes(subOf('fighter')) ? (lvOf('fighter') >= 15 ? 18 : lvOf('fighter') >= 3 ? 19 : 20) : 20,
     scale,
     ac: c.ov.ac ?? ac, acNote: c.ov.ac != null ? 'Ajustada a mano' : acNote,
-    init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : 0),
-    speed: c.ov.speed ?? (species?.speed ?? 30) + sum('speed') + speedBonus,
+    init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : half),
+    initAdv: cfx.initAdv,
+    speed: c.ov.speed ?? (species?.speed ?? 30) + sum('speed') + speedBonus + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0),
+    resist: cfx.resist,
+    cfx,
+    abil,
+    checks,
     pp: c.ov.pp ?? 10 + skills.prc.bonus,
     hpMax: c.ov.hpMax ?? hpMax,
     hdDie,

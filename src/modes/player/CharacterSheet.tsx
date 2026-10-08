@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react';
-import { CONDITIONS } from '../../data/constants';
+import { CONDITIONS, DMG_TYPES } from '../../data/constants';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
 import { asClass, classEntries, classLevel, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character, type Derived } from '../../engine/character';
 import { fmt, sgn, type RollPart } from '../../engine/dice';
@@ -76,7 +76,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const [charge, setCharge] = useState(false);
   const [pierce, setPierce] = useState(false);
   // de clase: Furia y Marca del cazador duran; Golpe brutal, Ataque furtivo y Golpe divino/primordial, una vez
-  const [rage, setRage] = useState(false);
+  const [reckless, setReckless] = useState(false); // Ataque temerario (ventaja en los ataques con Fuerza este turno)
+  const [dmgType, setDmgType] = useState(''); // tipo del daño que recibe (para sus resistencias)
   const [mark, setMark] = useState(false);
   const [sneak, setSneak] = useState(false);
   const [brutal, setBrutal] = useState(false);
@@ -102,11 +103,15 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const strikeDice = blessed || primal;
   const strikeName = blessed ? 'Golpe divino' : 'Golpe primordial';
   const barb = data?.classes.find((x) => x.id === 'barbarian');
+  const rage = d.cfx.rage;
+  // Frenesí (berserker 3): con Furia y Ataque temerario, el primer objetivo al que aciertas recibe tantos d6 como el daño de la Furia
+  const frenzy = rage && reckless && classLevel(c, 'barbarian') >= 3 && /berserker/i.test(classEntries(c).find((e) => e.classId === 'barbarian')?.subclass || '');
   const rageMax = classLevel(c, 'barbarian') ? usesMax(barb?.f.find((f) => f.n === 'Furia')?.u, c, barb) || 0 : 0;
   const toggleRage = () => {
     // entrar en Furia gasta un uso
-    if (!rage && rageMax && (c.uses['Furia'] || 0) < rageMax) set({ uses: { ...c.uses, Furia: (c.uses['Furia'] || 0) + 1 } });
-    setRage(!rage);
+    // la Furia es un estado de la hoja (se guarda, llega al máster por la sala y da resistencias y ventaja en Fuerza)
+    if (!rage) set({ conds: [...c.conds, 'Furia'], ...(rageMax && (c.uses['Furia'] || 0) < rageMax ? { uses: { ...c.uses, Furia: (c.uses['Furia'] || 0) + 1 } } : {}) });
+    else set({ conds: c.conds.filter((k) => k !== 'Furia') });
   };
   type Hit = { melee: boolean; str: boolean; finesse: boolean };
   const dmgRoll = (label: string, parts: RollPart[], hit: Hit) => {
@@ -121,12 +126,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (d.fx.critScore && parts[0]) critBonus.push({ expr: String(c.abil[boonAbil]), type: parts[0].type, noDouble: true });
     const type = parts[0]?.type || '';
     if (rage && hit.str && rageDmg) ps.push({ expr: String(rageDmg), type });
+    if (frenzy && hit.str && rageDmg) ps.push({ expr: rageDmg + 'd6', type });
     if (brutal && hit.str && brutalDice) ps.push({ expr: brutalDice, type });
     if (sneak && hit.finesse && sneakDice) ps.push({ expr: sneakDice, type });
     if (mark && markDie) ps.push({ expr: markDie, type: 'fuerza' });
     if (strike && strikeDice) ps.push({ expr: strikeDice, type: blessed ? 'radiante' : 'elemental' });
     const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : '', pierce && piercing ? 'perforador' : '',
-      rage && hit.str && rageDmg ? 'furia' : '', brutal && hit.str && brutalDice ? 'golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'ataque furtivo' : '',
+      rage && hit.str && rageDmg ? 'furia' : '', frenzy && hit.str && rageDmg ? 'frenesí: solo al primer objetivo del turno' : '', brutal && hit.str && brutalDice ? 'golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'ataque furtivo' : '',
       mark && markDie ? 'marca del cazador' : '', strike && strikeDice ? strikeName.toLowerCase() : ''].filter(Boolean);
     roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps, critBonus });
     if (savage) setSavage(false);
@@ -138,10 +144,12 @@ export default function CharacterSheet({ c }: { c: Character }) {
   };
   const uaHit: Hit = { melee: true, str: !(classLevel(c, 'monk') && d.mods.dex > d.mods.str), finesse: false };
   const amt = parseInt(amount, 10);
+  const resisted = dmgType && d.resist.find((x) => x.type === dmgType);
   const damage = () => {
     if (!(amt > 0)) return;
-    const fromTemp = Math.min(c.temp, amt);
-    const rest = amt - fromTemp;
+    const taken = resisted ? Math.floor(amt / 2) : amt;
+    const fromTemp = Math.min(c.temp, taken);
+    const rest = taken - fromTemp;
     const hp = Math.max(0, c.hp - rest);
     set({ temp: c.temp - fromTemp, hp, death: c.hp > 0 && hp === 0 ? { s: 0, f: 0 } : c.death });
     setAmount('');
@@ -199,6 +207,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
             <h2>{c.name || 'Sin nombre'}</h2>
             <span className="muted">{[sp?.n || c.speciesName, classEntries(c).map((e) => (data?.classes.find((x) => x.id === e.classId)?.n || e.className || 'Sin clase') + ' ' + e.level + (e.subclass ? ' (' + e.subclass + ')' : '')).join(' / '), bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</span>
+            {d.resist.length > 0 && <span className="small pc-resist">Resistencias: {d.resist.map((x) => x.type + ' (' + x.why + ')').join(' · ')}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className={c.inspiration ? 'chip on' : 'chip'} aria-pressed={c.inspiration} onClick={() => set({ inspiration: !c.inspiration })}>Inspiración heroica</button>
@@ -209,14 +218,18 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="stat" title={d.acNote}><span className="stat-k">CA</span><span className="stat-v">{d.ac}</span><span className="muted small">{d.acNote}</span></div>
           <div className="stat"><span className="stat-k">PG</span><span className="stat-v">{c.hp}<span className="stat-of"> / {d.hpMax}</span></span>{c.temp > 0 && <span className="stat-tmp">+{c.temp} temporales</span>}
             <span className="hpbar"><span className={'hpfill ' + (hpPct <= 25 ? 'low' : hpPct <= 50 ? 'mid' : '')} style={{ width: hpPct + '%' }} /></span></div>
-          <button className="stat stat-btn" onClick={() => r('iniciativa', 'init', d20(d.init))} title="Tirar iniciativa"><span className="stat-k">Iniciativa</span><span className="stat-v">{fmt(d.init)}</span></button>
+          <button className="stat stat-btn" onClick={() => r('iniciativa', 'init', d20(d.init), d.initAdv ? { adv: d.initAdv } : {})} title={'Tirar iniciativa' + (d.initAdv ? ' con ventaja (' + d.initAdv + ')' : '')}><span className="stat-k">Iniciativa{d.initAdv && <span className="adv-mark">V</span>}</span><span className="stat-v">{fmt(d.init)}</span></button>
           <div className="stat"><span className="stat-k">Velocidad</span><span className="stat-v">{d.speed}<span className="stat-of"> pies</span></span></div>
           <div className="stat"><span className="stat-k">Competencia</span><span className="stat-v">{fmt(d.pb)}</span></div>
           <div className="stat"><span className="stat-k">Percepción pasiva</span><span className="stat-v">{d.pp}</span></div>
         </div>
         <div className="pc-hp-row">
           <input className="input" type="number" min={0} inputMode="numeric" aria-label="Cantidad de PG" placeholder="PG" value={amount} onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') damage(); }} />
-          <button className="btn primary" onClick={damage}>Daño</button>
+          <select className="input pc-dmg-type" aria-label="Tipo de daño recibido" value={dmgType} onChange={(e) => setDmgType(e.target.value)}>
+            <option value="">sin tipo</option>
+            {DMG_TYPES.map((t) => <option key={t} value={t}>{t}{d.resist.some((x) => x.type === t) ? ' (resistes)' : ''}</option>)}
+          </select>
+          <button className="btn primary" onClick={damage} title={resisted ? 'Resistencia (' + resisted.why + '): recibes la mitad' : undefined}>Daño{resisted ? ' (mitad)' : ''}</button>
           <button className="btn heal" onClick={heal}>Curación</button>
           <button className="btn temp" onClick={giveTemp}>PG temporales</button>
           <span className="muted small">Dados de golpe: {hdText}</span>
@@ -240,9 +253,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="pc-abils">
             {ABILS.map((a) => (
               <div key={a} className="pc-abil">
-                <span className="pc-abil-k">{ABIL_S[a]} <b>{c.abil[a]}</b></span>
-                <button className="btn small" title={'Prueba de ' + ABIL_N[a]} onClick={() => r('prueba de ' + ABIL_N[a], 'check', d20(d.mods[a]))}>Prueba {fmt(d.mods[a])}</button>
-                <button className={d.saves[a].prof ? 'btn small prof' : 'btn small ghost'} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20(d.saves[a].bonus))}>Salv {fmt(d.saves[a].bonus)}</button>
+                <span className="pc-abil-k">{ABIL_S[a]} <b>{d.abil[a]}</b></span>
+                <button className="btn small" title={'Prueba de ' + ABIL_N[a] + (d.checks[a].adv ? ' con ventaja (' + d.checks[a].adv + ')' : '')} onClick={() => r('prueba de ' + ABIL_N[a], 'check', d20(d.checks[a].bonus), d.checks[a].adv ? { adv: d.checks[a].adv } : {})}>Prueba {fmt(d.checks[a].bonus)}{d.checks[a].adv && <span className="adv-mark">V</span>}</button>
+                <button className={d.saves[a].prof ? 'btn small prof' : 'btn small ghost'} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].why ? ' · ' + d.saves[a].why : '') + (d.saves[a].adv ? ' · ventaja (' + d.saves[a].adv + ')' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20(d.saves[a].bonus), d.saves[a].adv ? { adv: d.saves[a].adv } : {})}>Salv {fmt(d.saves[a].bonus)}{d.saves[a].adv && <span className="adv-mark">V</span>}</button>
               </div>
             ))}
           </div>
@@ -253,9 +266,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <ul className="pc-skills">
             {skillsSorted.map(([k, s]) => (
               <li key={k}>
-                <button className="pc-skill" onClick={() => r(data?.skills[k] || k, 'check', d20(s.bonus))} title={'Tirar ' + (data?.skills[k] || k)}>
+                <button className="pc-skill" onClick={() => r(data?.skills[k] || k, 'check', d20(s.bonus), { ...(s.adv ? { adv: s.adv } : {}), ...(s.min10 ? { parts: [{ expr: d20(s.bonus), minD20: 10 }] } : {}) })} title={'Tirar ' + (data?.skills[k] || k) + (s.adv ? ' con ventaja (' + s.adv + ')' : '') + (s.min10 ? ' · Talento fiable: el d20 cuenta como 10 como mínimo' : '')}>
                   <span className={s.exp ? 'dot exp' : s.prof ? 'dot on' : 'dot'} aria-label={s.exp ? 'Pericia' : s.prof ? 'Competente' : 'Sin competencia'} />
                   <span className="pc-skill-n">{data?.skills[k] || k} <span className="muted small">{ABIL_S[s.abil]}</span></span>
+                  {s.adv && <span className="adv-mark" title={s.adv}>V</span>}
                   <b>{fmt(s.bonus)}</b>
                 </button>
               </li>
@@ -273,6 +287,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="rollrow">
               {d.fx.savage && <button className={savage ? 'chip on' : 'chip'} aria-pressed={savage} title="Una vez por turno: el próximo daño con arma tira sus dados dos veces y usa el mejor" onClick={() => setSavage(!savage)}>Atacante salvaje</button>}
               {rageDmg > 0 && <button className={rage ? 'chip on' : 'chip'} aria-pressed={rage} title={'Mientras dure: +' + rageDmg + ' al daño de los ataques con Fuerza; resistencia a contundente, cortante y perforante. Entrar gasta un uso de Furia.'} onClick={toggleRage}>Furia +{rageDmg}</button>}
+              {classLevel(c, 'barbarian') >= 2 && <button className={reckless ? 'chip on' : 'chip'} aria-pressed={reckless} title={'Este turno: ventaja en tus ataques con Fuerza (y los ataques contra ti también la tienen)' + (frenzy ? '. Con Furia: Frenesí, ' + rageDmg + 'd6 más al primer objetivo que aciertes' : '')} onClick={() => setReckless(!reckless)}>Ataque temerario</button>}
               {brutalDice && <button className={brutal ? 'chip on' : 'chip'} aria-pressed={brutal} title="Renuncias a la ventaja en un ataque con Fuerza: si acierta, este daño extra" onClick={() => setBrutal(!brutal)}>Golpe brutal +{brutalDice}</button>}
               {sneakDice && <button className={sneak ? 'chip on' : 'chip'} aria-pressed={sneak} title="Una vez por turno, con un arma sutil o a distancia, si tienes ventaja o un aliado junto al objetivo" onClick={() => setSneak(!sneak)}>Ataque furtivo +{sneakDice}</button>}
               {markDie && <button className={mark ? 'chip on' : 'chip'} aria-pressed={mark} title="Mientras el objetivo tenga tu Marca del cazador: este daño de fuerza en cada impacto" onClick={() => setMark(!mark)}>Marca del cazador +{markDie}</button>}
@@ -292,7 +307,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               )}
             </span>
             <span className="rollrow">
-              <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk), { critOn: d.critOn })}>Ataque {fmt(atk)}</button>
+              <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Daño {partsLabel(parts)}</button>
               {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse })}>A dos manos {partsLabel(verParts)}</button>}
               {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño lanzada', throwParts, { melee: false, str: abil === 'str', finesse: true })}>Lanzada {partsLabel(throwParts)}</button>}
@@ -305,7 +320,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="pc-attack">
             <span className="pc-attack-n">Ataque sin armas<span className="muted small">cuerpo a cuerpo</span><span className="pc-attack-feat small">{d.unarmed.notes.join(', ')}{d.unarmed.parts[0].reroll1 ? ' · repite los 1' : ''}</span></span>
             <span className="rollrow">
-              <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20(d.unarmed!.atk), { critOn: d.critOn })}>Ataque {fmt(d.unarmed.atk)}</button>
+              <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20(d.unarmed!.atk), { critOn: d.critOn, ...(reckless && uaHit.str ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(d.unarmed.atk)}{reckless && uaHit.str && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit)}>Daño {partsLabel(d.unarmed.parts)}</button>
               {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, uaHit)}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
               {d.unarmed.grapple && <button className="rollbtn dmg" title="Al principio de tu turno, a una criatura que tengas agarrada" onClick={() => roll({ label: who + ' · daño a la criatura agarrada', kind: 'damage', who, by: null, parts: [{ expr: d.unarmed!.grapple, type: 'contundente' }] })}>Agarrada {d.unarmed.grapple} contundente</button>}
@@ -398,7 +413,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </span>
           </span>
         </Picker>
-        {c.conds.length > 0 && <ul className="rem">{c.conds.map((k) => <li key={k}><span><strong>{k}:</strong> {CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
+        {c.conds.length > 0 && <ul className="rem">{c.conds.map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
         <div className="pc-rest">
           <button className="btn small" onClick={() => setResting(!resting)} aria-expanded={resting}>Descanso corto</button>
           <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>

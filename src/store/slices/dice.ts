@@ -15,7 +15,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const c = spec.cid ? s.combatants.find((x) => x.id === spec.cid) || null : null;
       const mods = rollModifiers(c, spec.kind, spec.ability);
       const manual: AdvMode = spec.noAdv ? 'normal' : s.adv;
-      const adv = combineAdv(manual, mods.adv, mods.dis);
+      const adv = combineAdv(manual, mods.adv || !!spec.adv, mods.dis);
       const crit = spec.kind === 'damage' && !!spec.who && s.critFor?.who === spec.who;
       const parts = crit && spec.critBonus?.length ? [...spec.parts, ...spec.critBonus] : spec.parts;
       const out = rollParts(parts, { kind: spec.kind, adv, doubleDice: crit, flat: mods.flat || undefined });
@@ -28,6 +28,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       else if (out.nat === 1 && d20kind) { cls = 'fumble'; note = '1 natural.'; }
       if (mods.autoFail) note = (note ? note + ' ' : '') + 'Falla automáticamente.';
       if (mods.reasons.length) note = (note ? note + ' · ' : '') + mods.reasons.join(' · ');
+      if (spec.adv) note = (note ? note + ' · ' : '') + 'ventaja: ' + spec.adv;
       const after: Partial<State> = {};
       if (spec.kind === 'attack' && spec.who) after.critFor = critHit ? { who: spec.who } : s.critFor?.who === spec.who ? null : s.critFor;
       if (spec.kind === 'damage' && crit) after.critFor = null;

@@ -17,6 +17,7 @@ export interface RollSpec {
   half?: boolean;
   by?: string | null;
   noAdv?: boolean;
+  adv?: string; // ventaja por un rasgo (motivo: «Furia», «Sentir el peligro»…)
   critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
   effect?: SaveEffect; // daño de un efecto con salvación (objetivos, salvaciones, mitad y estados)
   heal?: boolean; // es una curación
