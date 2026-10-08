@@ -57,7 +57,7 @@ function Row({ c }: { c: Combatant }) {
   const commit = (v: string) => { const n = parseInt(v.replace('−', '-'), 10); if (!isNaN(n)) patchC(c.id, { init: n }, 'iniciativa'); };
   return (
     <li style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-      <button className={cls} onClick={() => { set({ selId: c.id, spellOpen: null }); showCard(); }} aria-pressed={isSel}>
+      <button className={cls} title={c.name} onClick={() => { set({ selId: c.id, spellOpen: null }); showCard(); }} aria-pressed={isSel}>
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {/* una línea: iniciativa, nombre y marcas a la izquierda; CA y PG a la derecha (la fila ocupa la mitad que antes) */}
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -701,3 +701,7 @@ b.card-title{flex-basis:100%;font-size:16px}
 .tour-actions{display:flex;align-items:center;gap:8px;margin-top:4px}
 .app-header-end{gap:10px}
 .help-pop{width:auto;min-width:220px;display:flex;flex-direction:column;gap:6px;padding:10px}
+/* forja: añadir rasgos en una rejilla pareja; guardar en dos columnas y «empezar de cero» debajo a todo el ancho */
+.forge-adds{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
+.forge-save{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.forge-save .btn.ghost{grid-column:1/-1}

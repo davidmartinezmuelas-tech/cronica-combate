@@ -231,7 +231,7 @@ export default function ForgePanel() {
       <fieldset className="fs">
         <legend>Rasgos y acciones</legend>
         {f.feats.map((ft, i) => <Feat key={ft.k} ft={ft} i={i} />)}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="forge-adds">
           <button className="btn small" onClick={() => addFeat('tr')}>+ Rasgo</button>
           <button className="btn small" onClick={() => addFeat('ac_')}>+ Acción</button>
           <button className="btn small" onClick={() => addFeat('ba')}>+ Adicional</button>
@@ -241,7 +241,7 @@ export default function ForgePanel() {
       </fieldset>
 
       {forgeMsg && <p className="warn" role="status">{forgeMsg}</p>}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+      <div className="forge-save">
         <button className="btn primary" onClick={() => saveForge(false)}>Guardar en el bestiario</button>
         <button className="btn" onClick={() => saveForge(true)}>Guardar y al combate</button>
         <button className="btn ghost" onClick={newForge}>Empezar de cero</button>
