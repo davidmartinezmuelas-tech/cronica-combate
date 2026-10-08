@@ -681,3 +681,12 @@ b.card-title{flex-basis:100%;font-size:16px}
 .pc-backup-bar{gap:8px}
 .hdr-sep{width:1px;align-self:stretch;background:#5b4837;margin:0 2px}
 .turn-ctrls{display:flex;gap:8px;align-items:center}
+.paper .rem li{background:#ecdfc4;border-color:#b39c74;color:#2b2118}
+.paper .rem li.ev{background:#dfe8ef;border-color:#5a86a8}
+.paper .step{background:#e9dcbe;border-color:#b39c74;color:#2b2118}
+/* el aviso del encabezado flota debajo (no empuja deshacer ni la cuenta a otra línea) */
+.app-header{position:relative}
+.app-header .toast{position:absolute;right:28px;top:calc(100% + 8px);z-index:30;max-width:min(460px,90vw);box-shadow:0 8px 22px rgba(0,0,0,.4)}
+/* ficha: las seis casillas en una fila; en una hoja estrecha, en dos filas de tres */
+.pc-stats{grid-template-columns:repeat(6,minmax(0,1fr))}
+@container (max-width:720px){.pc-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}

@@ -1,4 +1,4 @@
-import type { RollResult } from '../../data/types';
+import type { Combatant, RollResult } from '../../data/types';
 import { rollModifiers, type LogDraft } from '../../engine/combat';
 import { combineAdv, rollParts, type AdvMode } from '../../engine/dice';
 import type { Kit } from '../kit';
@@ -12,7 +12,8 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
     roll(spec) {
       if (guard(() => get().roll(spec))) return;
       const s = get();
-      const c = spec.cid ? s.combatants.find((x) => x.id === spec.cid) || null : null;
+      // estados de quien tira: el combatiente de la mesa o, desde la hoja del jugador, sus propios estados
+      const c = spec.cid ? s.combatants.find((x) => x.id === spec.cid) || null : spec.self ? ({ kind: 'pc', conds: spec.self.conds.map((k) => ({ k, r: null })), exh: spec.self.exh } as unknown as Combatant) : null;
       const mods = rollModifiers(c, spec.kind, spec.ability);
       const manual: AdvMode = spec.noAdv ? 'normal' : s.adv;
       const adv = combineAdv(manual, mods.adv || !!spec.adv, mods.dis);

@@ -1076,3 +1076,17 @@ test('Furia: estado guardado, resistencias, ventaja en Fuerza y daño recibido a
   await page.getByRole('button', { name: /^Furia \+2/ }).click();
   await expect(page.locator('.pc-resist')).toHaveCount(0);
 });
+
+test('estados del jugador en sus tiradas: envenenado da desventaja en ataques y pruebas', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Brakka');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const rest = page.getByRole('region', { name: 'Estados y descansos' });
+  await rest.locator('summary').first().click();
+  await rest.getByRole('button', { name: 'Envenenado' }).click();
+  await page.locator('.pc-abil', { hasText: 'FUE' }).getByRole('button', { name: /^Prueba/ }).click();
+  await expect(page.locator('.plaque')).toContainText('desventaja: envenenado', { timeout: 15000 });
+});

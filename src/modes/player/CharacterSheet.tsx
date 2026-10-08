@@ -87,7 +87,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const bg = data?.backgrounds.find((x) => x.id === c.backgroundId) || lib.backgrounds.find((x) => x.id === c.backgroundId);
   const who = c.name || 'Personaje';
   const r = (label: string, kind: RollSpec['kind'], expr: string, extra: Partial<RollSpec> = {}) =>
-    roll({ label: who + ' · ' + label, kind, who, parts: [{ expr }], ...extra });
+    roll({ label: who + ' · ' + label, kind, who, parts: [{ expr }], self: { conds: c.conds, exh: c.exh }, ...extra });
   const d20 = (b: number) => '1d20' + sgn(b);
   const set = (patch: Partial<Character>) => update(c.id, patch);
 
