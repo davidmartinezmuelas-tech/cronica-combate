@@ -147,8 +147,8 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
             {!targets && <SendToTable key={'s|' + result.label + '|' + result.total + '|' + (log[0]?.id || '')} />}
           </div>
         )}
-        {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#605243' }}>…</div><span className="plaque-label" style={{ color: '#b2a691' }}>Los dados ruedan…</span></div></div>}
-        {!result && !rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#413a33' }}>d20</div><span className="muted" style={{ fontSize: 14 }}>Pulsa un dado, una característica o un ataque de la hoja.</span></div></div>}
+        {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#80644d' }}>…</div><span className="plaque-label" style={{ color: '#b2a691' }}>Los dados ruedan…</span></div></div>}
+        {!result && !rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#65503d' }}>d20</div><span className="muted" style={{ fontSize: 14 }}>Pulsa un dado, una característica o un ataque de la hoja.</span></div></div>}
       </div>
 
       {critFor && (
