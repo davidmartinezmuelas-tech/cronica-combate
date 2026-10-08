@@ -508,7 +508,7 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-abil{display:grid;grid-template-columns:1fr 1fr;align-content:center;gap:6px;padding:8px;border-radius:8px;background:#31271d;border:1px solid #524031}
 .pc-abil-k{grid-column:1/-1;font-weight:800;color:#d4a94f;letter-spacing:.06em}
 .pc-abil-k b{color:#f3e6c8;font-size:18px;margin-left:4px}
-.pc-skills{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(165px,1fr));gap:4px}
+.pc-skills{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(max(165px,calc(50% - 4px)),1fr));gap:4px}
 .pc-skill{display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;border-radius:6px;border:1px solid #524031;background:#31271d;color:#efe3cb;font:inherit;text-align:left;min-height:36px;cursor:pointer}
 .pc-skill:hover{border-color:#d4a94f}
 .pc-skill-n{flex:1;min-width:0}
@@ -517,7 +517,7 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .dot.exp{background:#d4a94f;border-color:#f3e6c8;box-shadow:0 0 0 2px #d4a94f}
 .pc-attack{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:6px 10px;border:1px solid #524031;border-radius:6px;background:#31271d;min-height:var(--card-act);box-sizing:border-box}
 /* cada arma en su tarjeta, varias por fila */
-.pc-attacks{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));align-items:stretch;gap:6px}
+.pc-attacks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:stretch;gap:6px}
 /* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
 .pc-duo{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch}
 /* un panel que se queda solo en su fila crece hasta ocupar el ancho; los de muchas tarjetas, a todo el ancho y detrás */
@@ -762,3 +762,28 @@ b.card-title{flex-basis:100%;font-size:16px}
 .lib-stats .stat{min-height:0}
 @container (max-width:520px){.lib-stats{grid-template-columns:repeat(2,minmax(0,1fr)) !important}}
 @container (max-width:820px){.pc-skill .muted.small{display:none}}
+/* móvil: zonas de toque de al menos ~34 px y letra de al menos 12 px */
+@media (max-width:560px){
+  .card-title{min-height:30px;display:flex;align-items:center}
+  .abil-btn{min-height:34px}
+  .linkbtn{padding:8px 0;display:inline-block}
+  .swatch{width:34px !important;height:34px !important}
+  .swatches{gap:5px;flex-wrap:nowrap}
+  /* rasgos y dotes (solo texto) de dos en dos; las tarjetas con botones siguen a todo el ancho */
+  .pc-features.grid:not(.acts){grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pc-features.grid:not(.acts) .card{padding:6px 8px}
+  .pc-features.grid:not(.acts) .card .muted.small{font-size:12px}
+  .chip-tag,.turn-flag,.en-note,.spell-lv,.tag,.pc-flag{font-size:12px !important}
+  .check{min-height:36px}
+}
+.swatches{display:flex;gap:8px;justify-content:flex-end;min-width:0}
+@media (max-width:560px){.swatches{gap:5px}}
+/* opciones de preparación de la iniciativa: plegables solo en móvil */
+.init-extras{display:flex;flex-direction:column;gap:12px}
+.init-extras>summary{display:none}
+@media (max-width:560px){
+  .init-extras>summary{display:flex;align-items:center;gap:8px;min-height:38px;cursor:pointer;list-style:none;font-weight:700;font-size:14px;color:#c6bba6;border-top:1px solid #524031;padding-top:10px}
+  .init-extras>summary::-webkit-details-marker{display:none}
+  .init-extras>summary::before{content:'▸';color:#d4a94f;font-size:12px}
+  .init-extras[open]>summary::before{content:'▾'}
+}

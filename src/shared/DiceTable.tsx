@@ -178,7 +178,7 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
       </label>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <span className="muted small" style={{ fontWeight: 700 }}>Color</span>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="swatches">
           {THEMES.map(([k, l]) => <button key={k} className={'swatch sw-' + k + (theme === k ? ' on' : '')} aria-pressed={theme === k} aria-label={'Dados ' + l} title={l} onClick={() => set({ diceTheme: k })} />)}
         </div>
       </div>

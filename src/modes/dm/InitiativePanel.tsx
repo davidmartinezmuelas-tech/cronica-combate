@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Combatant } from '../../data/types';
 import { encounterDifficulty, sortCombatants } from '../../engine/combat';
 import { nfmt } from '../../engine/util';
@@ -141,6 +141,10 @@ export default function InitiativePanel() {
   const pendingMon = combatants.filter((c) => c.init == null && c.kind === 'monster').length;
   // ya en combate, el botón solo sirve para los refuerzos: volver a tirar a todos desordenaría la ronda
   const showRoll = !started || pendingMon > 0;
+  // móvil: al empezar el combate se pliegan las opciones de preparación (se pueden abrir)
+  const narrow = () => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 560px)').matches;
+  const [extrasOpen, setExtrasOpen] = useState(() => !(started && narrow()));
+  useEffect(() => { setExtrasOpen(!(started && narrow())); }, [started]);
   return (
     <div className="panel">
       <div className="panel-head">
@@ -154,6 +158,9 @@ export default function InitiativePanel() {
       <Difficulty />
       {!combatants.length && <p className="muted" style={{ margin: 0 }}>El encuentro está vacío. Empieza añadiendo monstruos desde el Bestiario.</p>}
       {pendingPc && <p className="muted small" style={{ margin: 0 }}>Escribe en la casilla la iniciativa que saque cada jugador y pulsa Intro.</p>}
+      {/* en móvil, durante el combate, lo que se usa poco va plegado para llegar antes al turno */}
+      <details className="init-extras" open={extrasOpen} onToggle={(e) => setExtrasOpen((e.target as HTMLDetailsElement).open)}>
+      <summary className="init-extras-sum">Más opciones (grupo, encuentros, guarida)</summary>
       {rosterOut.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #524031', paddingTop: 12 }}>
           <div className="panel-head"><span className="eyebrow">Tu grupo</span><button className="btn small" onClick={addAllPcs}>Añadir a todos</button></div>
@@ -167,6 +174,7 @@ export default function InitiativePanel() {
         {started && <button className="btn small ghost" onClick={() => confirm('end', endCombat)}>{confirmKey === 'end' ? '¿Seguro? Pulsa otra vez' : 'Terminar combate'}</button>}
         {combatants.length > 0 && <button className="btn small ghost" onClick={() => confirm('clear', clearAll)}>{confirmKey === 'clear' ? '¿Seguro? Pulsa otra vez' : 'Vaciar encuentro'}</button>}
       </div>
+      </details>
     </div>
   );
 }
