@@ -31,8 +31,7 @@ export default function PlayerApp() {
         {tab === 'sheet' || tab === 'library' ? (
           <>
             <section className="col-center" aria-label={tab === 'sheet' ? 'Mi personaje' : 'Biblioteca'}>
-              {/* la ficha del jugador, en papel claro como una hoja de verdad (la mesa alrededor sigue oscura) */}
-              <div className={tab === 'sheet' ? 'center-main paper' : 'center-main'}>
+              <div className="center-main">
                 {tab === 'sheet' ? <CharacterArea /> : <LibraryPanel />}
               </div>
               <Attribution />

@@ -98,7 +98,10 @@ export default function CharacterArea() {
         <input ref={file} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="Hoja de personaje en PDF" onChange={(e) => void importPdf(e.target.files?.[0])} />
         {(msg || dataError) && <p className="warn" role="alert" style={{ margin: 0 }}>{msg || dataError}</p>}
       </div>
-      {active && (editing ? <CharacterEditor c={active} /> : data || active.classId === '' ? <CharacterSheet c={active} /> : <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando…</p></div>)}
+      {/* la ficha y el editor, en papel claro como una hoja de verdad (la barra de personajes sigue oscura) */}
+      <div className="paper" style={{ display: 'contents' }}>
+        {active && (editing ? <CharacterEditor c={active} /> : data || active.classId === '' ? <CharacterSheet c={active} /> : <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando…</p></div>)}
+      </div>
     </>
   );
 }
