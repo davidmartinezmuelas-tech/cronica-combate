@@ -894,8 +894,8 @@ test('copia de seguridad de personajes: guardar, borrar y volver a cargar', asyn
 
 test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario de inicio carga al pedirlo', async ({ page }) => {
   await page.goto('/#/jugador');
-  await expect(page.getByText('Sin cuenta: todo está solo en este dispositivo.')).toBeVisible();
-  await page.getByRole('button', { name: 'Iniciar sesión' }).click();
+  // la cuenta está en la esquina del encabezado
+  await page.locator('.app-header').getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page.getByRole('button', { name: 'Entrar con Google' })).toBeEnabled({ timeout: 15000 }); // Firebase cargado y sin sesión
   await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeDisabled();
   await page.getByLabel('Correo').fill('jugador@ejemplo.test');
@@ -906,8 +906,9 @@ test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario d
   await expect(page.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled(); // menos de 6 caracteres
   await page.getByRole('button', { name: 'Entrar', exact: true }).click(); // vuelve al formulario de entrar
   await expect(page.getByRole('button', { name: 'He olvidado la contraseña' })).toBeVisible();
-  await page.getByRole('button', { name: 'Cancelar' }).click();
-  await expect(page.getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Cuenta' })).toHaveCount(0);
+  await expect(page.locator('.app-header').getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
 });
 
 test('cuenta en la pantalla de inicio y en el grupo del máster', async ({ page }) => {

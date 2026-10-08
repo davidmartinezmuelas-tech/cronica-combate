@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import AccountMenu from '../../shared/AccountMenu';
 import Attribution from '../../shared/Attribution';
 import Brand from '../../shared/Brand';
 import DiceTable from '../../shared/DiceTable';
@@ -26,6 +27,8 @@ export default function PlayerApp() {
             <button key={k} className={tab === k ? 'tab on' : 'tab'} aria-current={tab === k ? 'page' : undefined} onClick={() => setTab(k)}>{label}</button>
           ))}
         </nav>
+        {/* la cuenta, en la esquina */}
+        <div className="app-header-end"><AccountMenu /></div>
       </header>
       <main className="app-main">
         {tab === 'sheet' || tab === 'library' ? (

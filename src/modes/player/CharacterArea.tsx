@@ -4,7 +4,6 @@ import { readSheet, type SheetField } from '../../engine/sheetImport';
 import { readPdfFields } from '../../store/pdfFields';
 import { useStore } from '../../store/useStore';
 import { activeCharacter, lastBackup, usePlayer } from '../../store/player';
-import AccountBox from '../../shared/AccountBox';
 import CharacterEditor from './CharacterEditor';
 import CharacterSheet from './CharacterSheet';
 
@@ -72,47 +71,42 @@ export default function CharacterArea() {
 
   return (
     <>
-      <div className="panel pc-bar">
-        {/* arriba: título y las dos acciones principales */}
-        <div className="panel-head">
-          <h2>Mis personajes</h2>
-          <div className="rollrow">
+      {/* pestañas de personajes sobre la hoja; a la derecha, crear o importar uno nuevo */}
+      <div className="pc-book">
+        <div className="pc-tabs-row">
+          <div className="pc-tabs" role="tablist" aria-label="Elegir personaje">
+            {characters.map((c) => <button key={c.id} role="tab" aria-selected={c.id === active?.id} className={c.id === active?.id ? 'pc-tab on' : 'pc-tab'} onClick={() => select(c.id)}>{c.name || 'Sin nombre'}</button>)}
+          </div>
+          <div className="pc-tabs-actions">
             <button className="btn small primary" onClick={() => create()}>Nuevo personaje</button>
             <button className="btn small" onClick={() => file.current?.click()}>Importar desde PDF</button>
           </div>
         </div>
-        {/* en medio: elegir personaje (lo que más se usa) */}
-        {characters.length > 1 && (
-          <div className="chips pc-bar-chars" role="group" aria-label="Elegir personaje">
-            {characters.map((c) => <button key={c.id} className={c.id === active?.id ? 'chip on' : 'chip'} aria-pressed={c.id === active?.id} onClick={() => select(c.id)}>{c.name || 'Sin nombre'}</button>)}
+        {(msg || dataError) && <p className="warn" role="alert" style={{ margin: '0 0 8px' }}>{msg || dataError}</p>}
+        {!characters.length && (
+          <div className="panel">
+            <h2>Mis personajes</h2>
+            <p className="muted" style={{ margin: 0 }}>Aún no tienes personajes. Créalo paso a paso con las clases, especies y trasfondos del SRD 2024, o importa tu hoja en PDF rellenable (la oficial de 2024 y otras con campos como Name, Class, AC o Max HP).</p>
           </div>
         )}
-        {!characters.length && <p className="muted" style={{ margin: 0 }}>Aún no tienes personajes. Créalo paso a paso con las clases, especies y trasfondos del SRD 2024, o importa tu hoja en PDF rellenable (la oficial de 2024 y otras con campos como Name, Class, AC o Max HP).</p>}
-        {/* pie: copia de seguridad y cuenta, cada uno con su rótulo */}
-        <div className="pc-bar-foot">
-          <div className="pc-bar-group">
-            <span className="eyebrow">Copia de seguridad</span>
-            <div className="rollrow">
-              <button className="btn small" disabled={!characters.length} onClick={backupAll} title="Descarga todos tus personajes en un archivo (sin tu biblioteca)">Guardar copia</button>
-              {active && <button className="btn small" onClick={exportOne} aria-label={'Exportar ' + (active.name || 'personaje')} title={'Descarga solo a ' + (active.name || 'este personaje')}>Exportar personaje</button>}
-              <button className="btn small" onClick={() => backupRef.current?.click()}>Cargar copia</button>
-            </div>
-            {characters.length > 0 && <span className="muted small">{last ? 'Última copia: ' + new Date(last).toLocaleDateString('es-ES') + '.' : 'Aún no tienes copia: guarda una copia de vez en cuando.'}</span>}
-          </div>
-          <div className="pc-bar-group">
-            <span className="eyebrow">Cuenta</span>
-            <AccountBox />
-          </div>
+        {/* la ficha y el editor, en papel claro como una hoja de verdad */}
+        <div className="paper" style={{ display: 'contents' }}>
+          {active && (editing ? <CharacterEditor c={active} /> : data || active.classId === '' ? <CharacterSheet c={active} /> : <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando…</p></div>)}
         </div>
-        <input ref={backupRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Copia de personajes" onChange={(e) => void loadBackup(e.target.files?.[0])} />
+      </div>
+      {/* al final de la hoja: copia de seguridad */}
+      <div className="panel pc-backup-bar">
+        <span className="eyebrow">Copia de seguridad</span>
+        <div className="rollrow">
+          <button className="btn small" disabled={!characters.length} onClick={backupAll} title="Descarga todos tus personajes en un archivo (sin tu biblioteca)">Guardar copia</button>
+          {active && <button className="btn small" onClick={exportOne} aria-label={'Exportar ' + (active.name || 'personaje')} title={'Descarga solo a ' + (active.name || 'este personaje')}>Exportar personaje</button>}
+          <button className="btn small" onClick={() => backupRef.current?.click()}>Cargar copia</button>
+          {characters.length > 0 && <span className="muted small">{last ? 'Última copia: ' + new Date(last).toLocaleDateString('es-ES') + '.' : 'Aún no tienes copia: guarda una copia de vez en cuando.'}</span>}
+        </div>
         {note && <p className="muted small" role="status" style={{ margin: 0 }}>{note}</p>}
-        <input ref={file} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="Hoja de personaje en PDF" onChange={(e) => void importPdf(e.target.files?.[0])} />
-        {(msg || dataError) && <p className="warn" role="alert" style={{ margin: 0 }}>{msg || dataError}</p>}
       </div>
-      {/* la ficha y el editor, en papel claro como una hoja de verdad (la barra de personajes sigue oscura) */}
-      <div className="paper" style={{ display: 'contents' }}>
-        {active && (editing ? <CharacterEditor c={active} /> : data || active.classId === '' ? <CharacterSheet c={active} /> : <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando…</p></div>)}
-      </div>
+      <input ref={backupRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Copia de personajes" onChange={(e) => void loadBackup(e.target.files?.[0])} />
+      <input ref={file} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="Hoja de personaje en PDF" onChange={(e) => void importPdf(e.target.files?.[0])} />
     </>
   );
 }

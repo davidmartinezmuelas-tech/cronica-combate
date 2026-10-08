@@ -660,3 +660,22 @@ b.card-title{flex-basis:100%;font-size:16px}
 .pc-bar-group{display:flex;flex-direction:column;gap:6px;min-width:0}
 .pc-bar-group .pc-account,.pc-bar-group .pc-account .rollrow{margin:0}
 .pc-bar-group .pc-account>.rollrow,.pc-bar-group .pc-account.rollrow{flex-direction:column-reverse;align-items:flex-start;gap:6px}
+
+/* cuenta en la esquina del encabezado */
+.app-header-end{margin-left:auto;display:flex;align-items:center}
+.acct{position:relative}
+.acct-btn{max-width:260px}
+.acct-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-dot{width:8px;height:8px;border-radius:50%;flex:none;background:#6aa152}
+.acct-dot.busy{background:#d4a94f}.acct-dot.bad{background:#c0513c}
+.acct-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:40;width:min(420px,92vw);padding:14px}
+/* pestañas de personajes pegadas a la hoja (la activa, del color del papel) */
+.pc-book{display:flex;flex-direction:column}
+.pc-tabs-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px 12px;flex-wrap:wrap}
+.pc-tabs{display:flex;gap:4px;flex-wrap:wrap;align-items:flex-end;min-width:0}
+.pc-tab{border:1px solid #604b39;border-bottom:0;border-radius:8px 8px 0 0;background:#3b2e23;color:#c6bba6;font:inherit;font-weight:700;font-size:14px;padding:8px 14px;min-height:38px;cursor:pointer;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-tab:hover{color:#f3e6c8;background:#47382a}
+.pc-tab.on{background:#e3d3b2;border-color:#b39c74;color:#7a1f14;font-family:'IM Fell English SC',Georgia,serif;font-size:17px;font-weight:400;position:relative;top:1px}
+.pc-tabs-actions{display:flex;gap:8px;padding-bottom:6px}
+.pc-book .pc>.panel:first-child{border-top-left-radius:0}
+.pc-backup-bar{gap:8px}
