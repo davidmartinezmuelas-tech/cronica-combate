@@ -17,6 +17,7 @@ import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import SpellRolls from './SpellRolls';
+import LevelUp from './LevelUp';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
@@ -70,6 +71,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const panelKeys = useMemo(() => new Set(views.flatMap(({ v }) => [...classPanelKeys(v, data), ...actionPanelKeys(v, data, lib)])), [views, data, lib]);
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
+  // subir de nivel: el asistente y, tras confirmar, la hoja de antes para poder deshacerlo
+  const [leveling, setLeveling] = useState(false);
+  const [undoLevel, setUndoLevel] = useState<Character | null>(null);
   const [confirmLong, setConfirmLong] = useState(false);
   // Atacante salvaje y carga: se aplican al próximo daño y se apagan
   const [savage, setSavage] = useState(false);
@@ -211,9 +215,18 @@ export default function CharacterSheet({ c }: { c: Character }) {
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button className={c.inspiration ? 'chip on' : 'chip'} aria-pressed={c.inspiration} onClick={() => set({ inspiration: !c.inspiration })}>Inspiración heroica</button>
+            {data && <button className="btn small primary" onClick={() => setLeveling(true)}>Subir de nivel</button>}
             <button className="btn small" data-tour="edit" onClick={() => setEditing(true)}>Editar hoja</button>
           </div>
         </div>
+        {undoLevel && undoLevel.id === c.id && (
+          <div className="lvl-done" role="status">
+            <span>¡Has subido de nivel! Revisa tus rasgos, conjuros y usos nuevos.</span>
+            <button className="btn small" onClick={() => { replace(undoLevel); setUndoLevel(null); }}>Deshacer la subida</button>
+            <button className="btn small ghost" onClick={() => setUndoLevel(null)}>Cerrar</button>
+          </div>
+        )}
+        {leveling && data && <LevelUp c={c} data={data} lib={lib} onClose={() => setLeveling(false)} onDone={(prev) => { setLeveling(false); setUndoLevel(prev); }} />}
         <div className="pc-stats">
           <div className="stat" title={d.acNote}><span className="stat-k">CA</span><span className="stat-v">{d.ac}</span><span className="muted small">{d.acNote}</span></div>
           <div className="stat"><span className="stat-k">PG</span><span className="stat-v">{c.hp}<span className="stat-of"> / {d.hpMax}</span></span>{c.temp > 0 && <span className="stat-tmp">+{c.temp} temporales</span>}

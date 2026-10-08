@@ -94,6 +94,8 @@ export interface Character {
   ov: Partial<Record<'ac' | 'hpMax' | 'init' | 'speed' | 'pp' | 'spellDc' | 'spellAtk', number>>;
   /** Multiclase: las clases además de la primera (classId/level/subclass). Sin esto, una sola clase como siempre. */
   multi?: ClassEntry[];
+  /** PG tirados al subir de nivel en vez de la media: «paladin:4» → resultado del dado (sin Constitución). */
+  hpRolls?: Record<string, number>;
   /** Multiclase: dados de golpe gastados por tipo de dado («10»: 2). Con una sola clase basta hdSpent. */
   hdUsed?: Record<string, number>;
   /** Solo en memoria: nivel total del personaje cuando se calcula una de sus clases por separado (asClass). */
@@ -275,10 +277,16 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const hdDie = cls?.hd || 8;
   const lvl = level;
   const avg = (die: number) => Math.floor(die / 2) + 1 + mods.con;
+  // cada nivel: el dado completo en el primero de la primera clase; en el resto, lo tirado al subir (si se guardó) o la media
   const classHp = entries.reduce((t, e, i) => {
     const die = clsOf(e.classId)?.hd || 8;
     const n = Math.max(i === 0 ? 1 : 0, e.level || 0);
-    return t + (i === 0 ? die + mods.con + (n - 1) * avg(die) : n * avg(die));
+    let hp = 0;
+    for (let lv = 1; lv <= n; lv++) {
+      const rolled = c.hpRolls?.[e.classId + ':' + lv];
+      hp += i === 0 && lv === 1 ? die + mods.con : rolled != null ? Math.max(1, rolled + mods.con) : avg(die);
+    }
+    return t + hp;
   }, 0);
   const hitDice = Object.entries(entries.reduce<Record<number, number>>((m, e, i) => {
     const die = clsOf(e.classId)?.hd || 8;

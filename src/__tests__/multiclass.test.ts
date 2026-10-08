@@ -43,3 +43,11 @@ describe('multiclase', () => {
     expect(r.hdUsed).toEqual({});
   });
 });
+
+describe('PG tirados al subir de nivel', () => {
+  it('sustituyen a la media en ese nivel (con la Constitución) y sin tiradas todo sigue igual', () => {
+    const base = pj({ classId: 'fighter', level: 3 }); // d10, CON 14 (+2): 12 + 2×8
+    expect(derive(base, data).hpMax).toBe(28);
+    expect(derive({ ...base, hpRolls: { 'fighter:2': 10, 'fighter:3': 1 } }, data).hpMax).toBe(12 + 12 + 3);
+  });
+});

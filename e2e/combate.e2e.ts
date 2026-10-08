@@ -1146,3 +1146,38 @@ test('características: compra de puntos, tirar 4d6 y repartir; conjuros hasta e
   await page.getByLabel(/^Buscar conjuro/).fill('proyectil');
   await expect(page.locator('.ce-spell-results .chip', { hasText: 'Proyectil mágico' })).toHaveCount(1);
 });
+
+test('subir de nivel: PG tirados, mejora de característica, conjuros nuevos, multiclase y deshacer', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Brakka');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const hp = page.locator('.pc-stats .stat', { hasText: 'PG' }).locator('.stat-v');
+  const hpBefore = parseInt((await hp.textContent())!.split('/')[1], 10);
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Subir a nivel 4' });
+  await expect(dlg).toContainText('Guerrero 3 → 4');
+  await expect(dlg).toContainText('Mejora de característica o dote');
+  await dlg.getByRole('button', { name: /^Tirar 1d10/ }).click();
+  await expect(dlg.getByText(/^Tirada: \d+/)).toBeVisible({ timeout: 15000 });
+  await dlg.getByLabel('Característica que sube').selectOption('str');
+  await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 4' }).click();
+  await expect(page.locator('.pc-head')).toContainText('Guerrero 4');
+  await expect(page.locator('.pc-abil', { hasText: 'FUE' })).toContainText('17');
+  const hpAfter = parseInt((await hp.textContent())!.split('/')[1], 10);
+  expect(hpAfter).toBeGreaterThan(hpBefore);
+  // deshacer la subida
+  await page.getByRole('button', { name: 'Deshacer la subida' }).click();
+  await expect(page.locator('.pc-head')).toContainText('Guerrero 3');
+  // multiclase: a mago 1, con sus trucos nuevos
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  await dlg.getByLabel('O multiclasear en otra clase').selectOption({ label: 'Mago (nivel 1)' });
+  await expect(dlg).toContainText('Requisito de multiclase');
+  await expect(dlg).toContainText('Ganas 3 trucos');
+  await dlg.locator('.lvl-spells .chip').first().click();
+  await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 4' }).click();
+  await expect(page.locator('.pc-head')).toContainText('Guerrero 3 (Campeón) / Mago 1');
+});
