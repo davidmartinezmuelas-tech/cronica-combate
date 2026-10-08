@@ -11,7 +11,7 @@ import DiceTable from '../../shared/DiceTable';
 import RoomPanel from '../../shared/RoomPanel';
 import Attribution from '../../shared/Attribution';
 import { InfoDialog } from '../../shared/Card';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Tour, { tourPending } from '../../shared/Tour';
 import { dmTour } from '../../shared/tours';
 
@@ -28,6 +28,8 @@ export default function DmApp() {
   return (
     <div className="app">
       <Header />
+      {/* el modo máster está pensado para tablet u ordenador; en el móvil se puede usar, con un aviso */}
+      <PhoneNote />
       <main className="app-main">
         <section className="col-left" aria-label="Panel izquierdo">
           {tab === 'combat' && <InitiativePanel />}
@@ -71,6 +73,18 @@ export default function DmApp() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const NOTE = 'cronica-aviso-movil-master';
+function PhoneNote() {
+  const [hidden, setHidden] = useState(() => { try { return !!localStorage.getItem(NOTE); } catch { return false; } });
+  if (hidden) return null;
+  return (
+    <div className="phone-note" role="note">
+      <span>El modo máster está pensado para tablet u ordenador. En el móvil funciona, pero se ve mejor en una pantalla grande.</span>
+      <button className="btn small" onClick={() => { try { localStorage.setItem(NOTE, '1'); } catch { /* nada */ } setHidden(true); }}>Entendido</button>
     </div>
   );
 }

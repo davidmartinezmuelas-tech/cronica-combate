@@ -54,6 +54,8 @@ export default function CharacterArea() {
   };
 
   useEffect(() => { void init(); void loadData(); }, [init, loadData]);
+  // la pestaña del personaje activo, siempre a la vista (con muchos personajes la fila se desplaza)
+  useEffect(() => { document.querySelector('.pc-tab.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }, [active?.id]);
 
   const importPdf = async (f: File | undefined) => {
     if (!f) return;

@@ -6,6 +6,7 @@ import { playerTour } from '../../shared/tours';
 import Attribution from '../../shared/Attribution';
 import Brand from '../../shared/Brand';
 import DiceTable from '../../shared/DiceTable';
+import DiceDock from '../../shared/DiceDock';
 import RoomPanel from '../../shared/RoomPanel';
 import CharacterArea from './CharacterArea';
 import LibraryPanel from './LibraryPanel';
@@ -47,7 +48,7 @@ export default function PlayerApp() {
             </section>
             <section className="col-right" aria-label="Mesa de dados" data-tour="table">
               <RoomPanel mode="player" />
-              <DiceTable targets={false} />
+              <DiceDock><DiceTable targets={false} /></DiceDock>
             </section>
           </>
         ) : (

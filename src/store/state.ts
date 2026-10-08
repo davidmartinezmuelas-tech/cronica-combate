@@ -110,6 +110,7 @@ export interface CombatSlice {
 export interface DiceSlice {
   dice: DieView[];
   rolling: boolean;
+  diceOpen: boolean; // móvil: la ventana de la mesa de dados está abierta
   result: RollResult | null;
   adv: AdvMode;
   critFor: { who: string } | null;

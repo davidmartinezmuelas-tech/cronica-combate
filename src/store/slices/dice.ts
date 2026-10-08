@@ -6,7 +6,7 @@ import type { DiceSlice, GetState, SetState, State } from '../state';
 
 export function createDiceSlice(set: SetState, get: GetState, { guard, animate }: Kit): DiceSlice {
   return {
-    dice: [], rolling: false, result: null, adv: 'normal', critFor: null, dmgTargets: {}, effectSel: null, dieSize: 64, moreDice: 0, expr: '', exprError: false,
+    dice: [], rolling: false, diceOpen: false, result: null, adv: 'normal', critFor: null, dmgTargets: {}, effectSel: null, dieSize: 64, moreDice: 0, expr: '', exprError: false,
     diceTheme: 'ruby', dice3d: null,
 
     roll(spec) {
