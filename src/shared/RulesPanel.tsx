@@ -33,6 +33,12 @@ export function RuleQuick() {
 }
 
 /** Buscador de reglas (columna izquierda). */
+/** En pantallas estrechas la regla abierta queda debajo de la lista: se baja hasta ella. */
+function showRule() {
+  if (typeof window === 'undefined' || !window.matchMedia?.('(max-width: 1023px)').matches) return;
+  setTimeout(() => document.querySelector('section.col-center')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+}
+
 export default function RulesPanel() {
   const rules = useStore((s) => s.rules);
   const rulesError = useStore((s) => s.rulesError);
@@ -65,7 +71,7 @@ export default function RulesPanel() {
           <ul className="rule-list">
             {found.slice(0, limit).map((e) => (
               <li key={e.id}>
-                <button className={e.id === ruleId ? 'rule-item on' : 'rule-item'} aria-pressed={e.id === ruleId} onClick={() => openRule(e.id)}>
+                <button className={e.id === ruleId ? 'rule-item on' : 'rule-item'} aria-pressed={e.id === ruleId} onClick={() => { openRule(e.id); showRule(); }}>
                   <span className="rule-name">{e.n}</span>
                   <span className="rule-meta">{e.cat === 'Conjuros' ? (e.l ? 'Conjuro de nivel ' + e.l : 'Truco') : e.cat}{e.en && e.en !== e.n ? ' · ' + e.en : ''}</span>
                 </button>
