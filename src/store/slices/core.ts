@@ -12,8 +12,11 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
     log: [], toast: '', spellOpen: null, spellCtx: null, confirmKey: null, undoStack: [], helpOpen: false,
 
     async init() {
-      const [{ data, ok }, persistent] = await Promise.all([loadSaved(), requestPersistence()]);
-      set({ ...data, selId: data.started ? data.activeId : null, storageOk: ok, readFailed: !ok, persistent });
+      // los datos guardados primero: pedir al navegador que no los borre puede tardar (o, en Firefox, esperar a que el
+      // usuario responda a un aviso), así que va aparte y no retrasa la carga
+      const { data, ok } = await loadSaved();
+      set({ ...data, selId: data.started ? data.activeId : null, storageOk: ok, readFailed: !ok });
+      void requestPersistence().then((persistent) => set({ persistent }));
       // hojas de personaje que ya no usa ningún jugador (quitadas o sustituidas en sesiones anteriores)
       if (ok) void prunePdfs(new Set(data.roster.map((r) => r.pdf?.id).filter((x): x is string => !!x)));
       try {
