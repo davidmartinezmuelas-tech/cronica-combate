@@ -734,6 +734,8 @@ b.card-title{flex-basis:100%;font-size:16px}
   .brand-title{font-size:clamp(15px,4.8vw,20px);overflow:hidden;text-overflow:ellipsis}
   .brand>span{min-width:0}
   .acct-btn{max-width:118px}
+  /* editor: los campos de cuatro en fila pasan a dos */
+  .row4f{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
   /* habilidades en dos columnas (la lista no se hace eterna) */
   .pc-skills{grid-template-columns:repeat(2,minmax(0,1fr))}
   .pc-skill{padding:6px 7px;gap:5px;font-size:14px}

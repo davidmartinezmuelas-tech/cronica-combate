@@ -54,6 +54,8 @@ export default function Tour({ steps, storeKey, onClose }: { steps: TourStep[]; 
     if (!tip) return;
     const w = tip.offsetWidth, h = tip.offsetHeight, vw = window.innerWidth, vh = window.innerHeight, m = 12;
     if (!rect) { setTipPos({ top: Math.max(m, (vh - h) / 2), left: Math.max(m, (vw - w) / 2) }); return; }
+    // móvil: el globo siempre abajo (lo señalado suele ocupar casi toda la pantalla y se taparía)
+    if (vw <= 560) { setTipPos({ top: vh - h - m, left: Math.max(m, (vw - w) / 2) }); return; }
     const clampL = (x: number) => Math.min(Math.max(m, x), vw - w - m);
     const clampT = (y: number) => Math.min(Math.max(m, y), vh - h - m);
     // debajo, encima, a la derecha o a la izquierda (lo primero que quepa sin tapar el elemento)
