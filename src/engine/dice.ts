@@ -75,6 +75,7 @@ export interface RollPart {
   type?: string;
   min?: number; // en daño, cada dado vale como mínimo esto (Combate con armas a dos manos: 1 y 2 cuentan como 3)
   minD20?: number; // en pruebas, el d20 cuenta como mínimo esto (Talento fiable: 10)
+  dropLowest?: number; // se descartan los N dados más bajos (características: 4d6 sin el menor)
   reroll1?: boolean; // en daño, un 1 se repite una vez (Matón de taberna)
   best2?: boolean; // en daño, los dados se tiran dos veces y cuenta la mejor (Atacante salvaje)
   rerollLow?: boolean; // en daño, se repite el dado más bajo si no llega a la mitad (Perforador)
@@ -158,9 +159,15 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
         other?.forEach((v) => dice.push(die(v, true)));
         // Talento fiable: un d20 de prueba por debajo del mínimo cuenta como el mínimo
         const floor = !dmg && g.sides === 20 && n === 1 && part.minD20 && vals[0] < part.minD20 ? part.minD20 : 0;
-        sub += g.sign * (floor || vals.reduce((x, y) => x + y, 0));
+        // descartar los más bajos (4d6 sin el menor): se ven todos, los descartados atenuados
+        const drop = part.dropLowest && vals.length > part.dropLowest ? vals.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]).slice(0, part.dropLowest).map((x) => x[1]) : [];
+        if (drop.length) {
+          const first = dice.length - vals.length - (other?.length || 0);
+          drop.forEach((i) => { dice[first + i] = { ...dice[first + i], dim: true }; });
+        }
+        sub += g.sign * (floor || vals.reduce((x, y, i) => x + (drop.includes(i) ? 0 : y), 0));
         if (g.sides === 20 && n === 1) nat = vals[0];
-        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']' + rerolled + (other ? ' (la otra: [' + other.join(', ') + '])' : '') + (floor ? ' (cuenta como ' + floor + ')' : ''));
+        segs.push((g.sign < 0 ? '− ' : '') + '[' + vals.join(', ') + ']' + rerolled + (other ? ' (la otra: [' + other.join(', ') + '])' : '') + (floor ? ' (cuenta como ' + floor + ')' : '') + (drop.length ? ' (se descarta ' + drop.map((i) => vals[i]).join(', ') + ')' : ''));
       }
     }
     if (p.mod) segs.push(fmt(p.mod));

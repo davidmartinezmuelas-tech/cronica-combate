@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
-import { asClass, derive, mod, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
-import { fmt } from '../../engine/dice';
+import { asClass, derive, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
@@ -11,11 +10,9 @@ import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
+import AbilityMethods from './AbilityMethods';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
-const STANDARD = [15, 14, 13, 12, 10, 8];
-/** Coste de la compra de puntos (27 puntos, puntuaciones de 8 a 15). */
-const POINT_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
 const DMG_TYPES = ['contundente', 'cortante', 'perforante', 'ácido', 'frío', 'fuego', 'fuerza', 'necrótico', 'psíquico', 'radiante', 'relámpago', 'trueno', 'veneno'];
 const FEAT_CATS: [FeatCat, string][] = [['origin', 'Dotes de origen'], ['general', 'Dotes generales'], ['fighting-style', 'Estilos de combate'], ['epic-boon', 'Dones épicos'], ['other', 'Rasgos propios']];
 const CAT_ONE: Record<FeatCat, string> = { origin: 'Dote de origen', general: 'Dote general', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
@@ -60,13 +57,6 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
   if (!data) return <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando clases, especies y equipo…</p></div>;
 
-  const setAbil = (a: Abil, v: number) => set({ abil: { ...c.abil, [a]: Math.max(1, Math.min(30, v || 1)) } });
-  const points = ABILS.reduce((t, a) => t + (POINT_COST[c.abil[a]] ?? NaN), 0);
-  // matriz estándar: las puntuaciones altas a las características principales de la clase, luego Constitución
-  const standard = () => {
-    const order = [...(cls?.primary || []), ...(['con', 'dex', 'wis', 'cha', 'int', 'str'] as Abil[])].filter((a, i, arr) => arr.indexOf(a) === i);
-    set({ abil: Object.fromEntries(order.map((a, i) => [a, STANDARD[i]])) as Record<Abil, number> });
-  };
   // al llegar al nivel de subclase se propone la del SRD (se puede cambiar por otra escribiéndola)
   // multiclase: las demás clases y su nivel (el total no pasa de 20)
   const multi = c.multi || [];
@@ -120,8 +110,14 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const known = c.spells.map((k) => spellIdx.get(k)).filter(Boolean);
   const cantripsHave = known.filter((s) => !s!.l).length;
   const useClassList = !allSpells && classList.size > 0;
+  // nivel de conjuro más alto que ya puede lanzar (espacios normales o de pacto); con la lista de su clase no se ofrecen los de más nivel
+  const maxLv = Math.max(d.slots.length, d.pact?.lv || 0);
+  // cuántos trucos y conjuros preparados le tocan a su nivel (tablas del SRD; el Caballero/Embaucador arcano, los suyos)
+  const tableAt = (k: string) => { const v = cls ? Number(d.scale(cls.id + '.' + k)) : NaN; return Number.isFinite(v) && v > 0 ? v : null; };
+  const cantripsMax = subCaster && !cls?.spells.length ? subCaster.cantrips : tableAt('cantrips-known');
+  const preparedMax = subCaster && !cls?.spells.length ? subCaster.prepared : tableAt('max-prepared');
   const spellResults = spellIdx.list
-    .filter((s) => !c.spells.includes(s.id) && (!useClassList || classList.has(s.id)))
+    .filter((s) => !c.spells.includes(s.id) && (!useClassList || (classList.has(s.id) && (s.l || 0) <= maxLv)))
     .filter((s) => { const q = norm(spellQ); return q.length >= 2 ? norm(s.n).includes(q) || norm(s.en).includes(q) : !q && useClassList; })
     .sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es'))
     .slice(0, useClassList && !spellQ ? 60 : 16);
@@ -233,20 +229,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <fieldset className="fs">
           <legend>Características</legend>
-          <div className="row3 abil-grid">
-            {ABILS.map((a) => (
-              <div key={a} className="abil-edit">
-                <label htmlFor={'ce-ab-' + a}>{ABIL_N[a].slice(0, 3).toUpperCase()}</label>
-                <input id={'ce-ab-' + a} type="number" min={1} max={30} className="input" value={c.abil[a]} onChange={(e) => setAbil(a, parseInt(e.target.value, 10))} />
-                <span className="muted small">{fmt(mod(c.abil[a]))}{d.saves[a].prof ? ' · salv.' : ''}</span>
-              </div>
-            ))}
-          </div>
-          <div className="rollrow">
-            <button className="btn small" onClick={standard}>Matriz estándar (15, 14, 13, 12, 10, 8)</button>
-            <span className="muted small">{Number.isNaN(points) ? 'Compra de puntos: fuera de 8–15' : 'Compra de puntos: ' + points + ' de 27'}</span>
-          </div>
-          <span className="muted small">Suma aquí los bonificadores del trasfondo y las mejoras de característica.</span>
+          <AbilityMethods c={c} cls={cls} set={set} />
         </fieldset>
 
         <fieldset className="fs">
@@ -332,7 +315,14 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <fieldset className="fs">
           <legend>Conjuros</legend>
-          {subCaster && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: {subCaster.cantrips} trucos y {subCaster.prepared} conjuros de mago preparados hasta el nivel {d.slots.length} (llevas {cantripsHave} y {known.length - cantripsHave}). Lanzas con Inteligencia.</p>}
+          {subCaster && !cls?.spells.length && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: conjuros de mago. Lanzas con Inteligencia.</p>}
+          {(cantripsMax != null || preparedMax != null) && (
+            <div className="spell-counts">
+              {cantripsMax != null && <span className={cantripsHave > cantripsMax ? 'chip vuln' : cantripsHave === cantripsMax ? 'chip on' : 'chip'}>Trucos {cantripsHave} de {cantripsMax}</span>}
+              {preparedMax != null && <span className={known.length - cantripsHave > preparedMax ? 'chip vuln' : known.length - cantripsHave === preparedMax ? 'chip on' : 'chip'}>Conjuros preparados {known.length - cantripsHave} de {preparedMax}</span>}
+              {maxLv > 0 && <span className="muted small">Puedes elegir conjuros hasta el nivel {maxLv}.</span>}
+            </div>
+          )}
           {subSpellNames.length > 0 && <p className="muted small" style={{ margin: 0 }}>Por tu subclase siempre tienes preparados (se añaden solos a la hoja): {subSpellNames.join(', ')}.</p>}
           <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + listCls!.n : ''}</label>
             <input id="ce-spq" className="input" value={spellQ} onChange={(e) => setSpellQ(e.target.value)} placeholder="Castigo divino, Bola de fuego, Curar heridas…" /></div>

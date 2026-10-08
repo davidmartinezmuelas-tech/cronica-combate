@@ -758,7 +758,10 @@ test('Preservar vida te cura a ti; conjuros de la escuela del mago; Caballero ar
 
   // Caballero arcano 7 (subclase escrita a mano): lista de mago, Inteligencia y espacios de nivel 1 y 2
   await make('Bren', 'Guerrero', '7', 'Otra (escríbela)', ['int', '14'], 'Caballero arcano');
-  await expect(page.getByText('Caballero arcano: 2 trucos y 5 conjuros de mago preparados hasta el nivel 2')).toBeVisible();
+  await expect(page.getByText('Caballero arcano: conjuros de mago. Lanzas con Inteligencia.')).toBeVisible();
+  await expect(page.locator('.spell-counts')).toContainText('Trucos 0 de 2');
+  await expect(page.locator('.spell-counts')).toContainText('Conjuros preparados 0 de 5');
+  await expect(page.locator('.spell-counts')).toContainText('hasta el nivel 2');
   await expect(page.getByLabel('Buscar conjuro de la lista de Mago')).toBeVisible();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sp = page.locator('section[aria-label="Conjuros"]');
@@ -1112,4 +1115,34 @@ test('visita guiada: se abre desde el «?», avanza, señala y se puede saltar',
   await page.getByRole('button', { name: 'Ayuda' }).click();
   await page.getByRole('menuitem', { name: 'Atajos de teclado' }).click();
   await expect(page.getByRole('heading', { name: 'Atajos de teclado' })).toBeVisible();
+});
+
+test('características: compra de puntos, tirar 4d6 y repartir; conjuros hasta el nivel que se puede lanzar', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Elara');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Mago' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  // compra de puntos: todo a 8 y 27 puntos para gastar
+  await page.getByRole('button', { name: 'Compra de puntos' }).click();
+  await expect(page.getByText('Puntos: 0 de 27 · te quedan 27')).toBeVisible();
+  for (let i = 0; i < 7; i++) await page.getByRole('button', { name: 'Subir Inteligencia' }).click();
+  await expect(page.getByText('Puntos: 9 de 27 · te quedan 18')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Subir Inteligencia' })).toBeDisabled(); // máximo 15
+  // tirar 4d6 seis veces: se reparten solas (y se pueden intercambiar)
+  await page.getByRole('button', { name: 'Tirar 4d6' }).click();
+  for (let i = 1; i <= 6; i++) {
+    await page.getByRole('button', { name: 'Tirar 4d6 (' + i + ' de 6)' }).click();
+    await expect(page.locator('.plaque-label')).toContainText('característica ' + i + ' de 6', { timeout: 15000 });
+    await expect(page.locator('.plaque')).toContainText('se descarta');
+  }
+  await expect(page.getByRole('button', { name: 'Seis tiradas hechas' })).toBeDisabled();
+  await expect(page.locator('select#ce-ab-int')).toBeVisible(); // ya se reparten con desplegables
+  // conjuros: un mago 3 solo ve los de su lista hasta nivel 2, y su cuenta
+  await expect(page.locator('.spell-counts')).toContainText('Trucos 0 de 3');
+  await expect(page.locator('.spell-counts')).toContainText('Puedes elegir conjuros hasta el nivel 2');
+  await page.getByLabel(/^Buscar conjuro/).fill('bola de fuego');
+  await expect(page.locator('.ce-spell-results .chip', { hasText: 'Bola de fuego' })).toHaveCount(0);
+  await page.getByLabel(/^Buscar conjuro/).fill('proyectil');
+  await expect(page.locator('.ce-spell-results .chip', { hasText: 'Proyectil mágico' })).toHaveCount(1);
 });
