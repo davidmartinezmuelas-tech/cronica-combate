@@ -35,7 +35,16 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const [askSpell, setAskSpell] = useState<{ id: string; n: string } | null>(null);
   const [nonCasterOk, setNonCasterOk] = useState(false);
   const [newFeat, setNewFeat] = useState<CustomFeat | null>(null);
-  const set = (patch: Partial<Character>) => update(c.id, patch);
+  const set = (patch: Partial<Character>) => {
+    // si un cambio sube los PG máximos (nivel, Constitución, Duro…), los actuales suben lo mismo; si los baja, no pasan del nuevo máximo
+    // (un personaje recién creado, con 0 PG, empieza con el máximo al terminar)
+    if (c.hp > 0 && !('hp' in patch)) {
+      const before = derive(c, data).hpMax;
+      const after = derive({ ...c, ...patch }, data).hpMax;
+      if (after !== before) patch = { ...patch, hp: Math.max(1, Math.min(after, c.hp + Math.max(0, after - before))) };
+    }
+    update(c.id, patch);
+  };
   const d = useMemo(() => derive(c, data), [c, data]);
   const cls = d.cls;
   // subclases: la del SRD, las de la biblioteca propia para esta clase u «Otra»

@@ -58,21 +58,19 @@ function Row({ c }: { c: Combatant }) {
   return (
     <li style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
       <button className={cls} onClick={() => { set({ selId: c.id, spellOpen: null }); showCard(); }} aria-pressed={isSel}>
-        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            {/* la iniciativa, pequeña a la izquierda del nombre */}
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {/* una línea: iniciativa, nombre y marcas a la izquierda; CA y PG a la derecha (la fila ocupa la mitad que antes) */}
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="init-badge" aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
-            <span style={{ fontWeight: 800, fontSize: 16, lineHeight: 1.2, overflowWrap: 'anywhere' }}>{c.name}</span>
+            <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
-            {isActive && <span className="turn-flag">En turno</span>}
-          </span>
-          {c.kind !== 'lair' && <span className="hpbar"><span className={'hpfill ' + (pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '')} style={{ width: pct + '%' }} /></span>}
-          <span style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-start', gap: '2px 8px', fontSize: 13, color: '#c6bba6' }}>
-            <span style={{ minWidth: 0, lineHeight: 1.3, overflowWrap: 'anywhere' }}>{statusOf(c, started)}</span>
+            {isActive && <span className="turn-flag">Turno</span>}
             {c.kind !== 'lair' && (
-              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto' }}>CA {c.ac} · {c.hp} / {c.maxHp} PG{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
+              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto', fontSize: 12, color: '#c6bba6' }}>CA {c.ac} · {c.hp}/{c.maxHp}{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
             )}
           </span>
+          {c.kind !== 'lair' && <span className="hpbar"><span className={'hpfill ' + (pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '')} style={{ width: pct + '%' }} /></span>}
+          {(() => { const st = statusOf(c, started); return st ? <span style={{ fontSize: 12, color: '#c6bba6', lineHeight: 1.3, overflowWrap: 'anywhere' }}>{st}</span> : null; })()}
         </span>
       </button>
       {c.init == null && (

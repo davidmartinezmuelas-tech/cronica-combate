@@ -975,3 +975,18 @@ test('conjuro en una clase que no lanza: pide confirmación una vez', async ({ p
   await expect(dlg).toHaveCount(0);
   await expect(page.locator('.chips .chip.on')).toHaveCount(2);
 });
+
+test('subir de nivel en el editor sube también los PG actuales', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Nim');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Pícaro' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const hp = page.locator('.pc-stats .stat', { hasText: 'PG' }).locator('.stat-v');
+  await expect(hp).toHaveText('10 / 10'); // d8 + CON 14
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(hp).toHaveText('38 / 38');
+});
