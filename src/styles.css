@@ -705,3 +705,37 @@ b.card-title{flex-basis:100%;font-size:16px}
 .forge-adds{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .forge-save{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .forge-save .btn.ghost{grid-column:1/-1}
+/* ===== Móvil (≤560 px) ===== */
+@media (max-width:560px){
+  /* encabezado en dos filas: marca y botones (ayuda, deshacer, cuenta) arriba; pestañas debajo a todo el ancho */
+  .app-header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;padding:10px 12px}
+  .app-header .brand{grid-column:1;grid-row:1;min-width:0}
+  .app-header .brand svg{width:30px;height:30px}
+  .brand-title{font-size:20px;white-space:nowrap}
+  .brand-sub{display:none}
+  .app-header .app-header-end,.app-header .hdr-actions{grid-column:2;grid-row:1;width:auto !important;margin:0 !important;gap:6px !important;justify-content:flex-end}
+  .app-header .app-nav{grid-column:1/-1;grid-row:2;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none}
+  .acct-btn{max-width:140px}
+  .app-header .btn.icon{width:38px;min-height:38px}
+  .app-header .btn.small{min-height:38px}
+  /* jugador: pestañas de personajes en una fila con scroll; crear e importar debajo, en dos mitades */
+  .pc-tabs-row{flex-direction:column;align-items:stretch;gap:6px}
+  .pc-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+  .pc-tabs-actions{order:-1;display:grid;grid-template-columns:1fr 1fr;padding:0}
+  /* daño y curación: cantidad y tipo arriba; los tres botones debajo, iguales */
+  .pc-hp-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+  .pc-hp-row>*{min-width:0;width:auto !important;max-width:none}
+  .pc-hp-row .pc-dmg-type{grid-column:span 2}
+  .pc-hp-row .btn{padding-left:4px;padding-right:4px}
+  .pc-hp-row>.muted{grid-column:1/-1}
+  /* características: botones más justos para que quepan con la marca de ventaja */
+  .pc-abil .btn{font-size:13px;padding-left:3px;padding-right:3px}
+  .pc-abil .adv-mark{margin-left:3px}
+  .brand-title{font-size:clamp(15px,4.8vw,20px);overflow:hidden;text-overflow:ellipsis}
+  .brand>span{min-width:0}
+  .acct-btn{max-width:118px}
+  /* habilidades en dos columnas (la lista no se hace eterna) */
+  .pc-skills{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pc-skill{padding:6px 7px;gap:5px;font-size:14px}
+  .pc-skill .muted.small{display:none}
+}
