@@ -23,6 +23,24 @@ export interface ClassFx {
 
 const B_P_S = ['contundente', 'cortante', 'perforante'];
 
+/** Ascendencias dracónicas (2024): color y tipo de daño de su resistencia y su aliento. */
+export const DRACONIC_ANCESTRY: [string, string][] = [
+  ['Azul', 'relámpago'], ['Blanco', 'frío'], ['Bronce', 'relámpago'], ['Cobre', 'ácido'], ['Latón', 'fuego'],
+  ['Negro', 'ácido'], ['Oro', 'fuego'], ['Plata', 'frío'], ['Rojo', 'fuego'], ['Verde', 'veneno'],
+];
+
+/** Resistencias de la especie: enano (veneno), tiefling según su legado y dracónido según su ascendencia elegida. */
+export function speciesResist(speciesId: string, choices?: Record<string, string[]>): { type: string; why: string }[] {
+  if (speciesId === 'dwarf') return [{ type: 'veneno', why: 'Resistencia enana' }];
+  const tiefling: Record<string, string> = { 'tiefling-abyssal': 'veneno', 'tiefling-chthonic': 'necrótico', 'tiefling-infernal': 'fuego' };
+  if (tiefling[speciesId]) return [{ type: tiefling[speciesId], why: 'Legado infernal' }];
+  if (speciesId === 'dragonborn') {
+    const t = DRACONIC_ANCESTRY.find(([n]) => n === choices?.['species.ancestry']?.[0])?.[1];
+    return t ? [{ type: t, why: 'Resistencia dracónica' }] : [];
+  }
+  return [];
+}
+
 export function classEffects(c: FxChar): ClassFx {
   const fx: ClassFx = { abil: {}, saveProfAll: '', saveProf: [], saveBonus: null, saveAdv: {}, checkAdv: {}, skillAdv: {}, initAdv: '', halfProf: '', reliable: '', speed: [], resist: [], rage: false };
   const lv = (id: string) => c.entries.find((e) => e.classId === id)?.level || 0;

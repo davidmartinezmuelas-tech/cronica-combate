@@ -23,7 +23,7 @@ export default function AccountBox({ start: openAtStart = false }: { start?: boo
     return (
       <div className="rollrow pc-account">
         <span className="muted small">Cuenta: <b>{user.email || user.name}</b> · <span className={sync === 'error' ? 'warn' : ''}>{syncText}</span></span>
-        <button className="btn small ghost" onClick={() => void out()}>Cerrar sesión</button>
+        <button className="btn small" onClick={() => void out()}>Cerrar sesión</button>
         {sync === 'error' && syncError && <span className="warn small" role="alert">{syncError}</span>}
       </div>
     );
@@ -34,7 +34,7 @@ export default function AccountBox({ start: openAtStart = false }: { start?: boo
       {!open ? (
         <div className="rollrow">
           <span className="muted small">{status === 'loading' ? 'Comprobando la sesión…' : 'Sin cuenta: todo está solo en este dispositivo.'}</span>
-          <button className="btn small ghost" disabled={status === 'loading'} onClick={() => setOpen(true)}>Iniciar sesión</button>
+          <button className="btn small" disabled={status === 'loading'} onClick={() => setOpen(true)}>Iniciar sesión</button>
         </div>
       ) : (
         <form className="pc-login" onSubmit={(e) => { e.preventDefault(); void run(() => (signup ? emailUp(email, pass) : emailIn(email, pass))); }}>

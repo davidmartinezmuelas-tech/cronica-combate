@@ -654,3 +654,9 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .pc-resist{color:#2c5f8a}
 .pc-dmg-type{width:auto;max-width:150px}
 .pc-abil .btn{white-space:nowrap;padding-left:6px;padding-right:6px}
+/* «Mis personajes»: pie con dos grupos alineados (copia de seguridad y cuenta) */
+.pc-bar-chars{margin:0}
+.pc-bar-foot{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:12px;padding-top:12px;border-top:1px solid #524031}
+.pc-bar-group{display:flex;flex-direction:column;gap:6px;min-width:0}
+.pc-bar-group .pc-account,.pc-bar-group .pc-account .rollrow{margin:0}
+.pc-bar-group .pc-account>.rollrow,.pc-bar-group .pc-account.rollrow{flex-direction:column-reverse;align-items:flex-start;gap:6px}

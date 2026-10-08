@@ -4,6 +4,7 @@ import { asClass, derive, mod, totalLevel, weaponFromData, type Character, type 
 import { fmt } from '../../engine/dice';
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
+import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
@@ -162,6 +163,12 @@ export default function CharacterEditor({ c }: { c: Character }) {
                 {data.species.map((s) => <option key={s.id} value={s.id}>{s.n}</option>)}
               </select></div>
             {!c.speciesId && <div className="field"><label htmlFor="ce-spn">Nombre de la especie</label><input id="ce-spn" className="input" value={c.speciesName} onChange={(e) => set({ speciesName: e.target.value })} /></div>}
+            {/* dracónido: su ascendencia da el tipo de su resistencia (y de su aliento) */}
+            {c.speciesId === 'dragonborn' && <div className="field"><label htmlFor="ce-anc">Ascendencia dracónica</label>
+              <select id="ce-anc" className="input" value={c.choices?.['species.ancestry']?.[0] || ''} onChange={(e) => set({ choices: { ...(c.choices || {}), 'species.ancestry': e.target.value ? [e.target.value] : [] } })}>
+                <option value="">Sin elegir</option>
+                {DRACONIC_ANCESTRY.map(([n, t]) => <option key={n} value={n}>{n} ({t})</option>)}
+              </select></div>}
           </div>
           <div className="row-name">
             <div className="field"><label htmlFor="ce-cls">Clase</label>

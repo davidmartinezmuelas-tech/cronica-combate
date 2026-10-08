@@ -73,6 +73,7 @@ export default function CharacterArea() {
   return (
     <>
       <div className="panel pc-bar">
+        {/* arriba: título y las dos acciones principales */}
         <div className="panel-head">
           <h2>Mis personajes</h2>
           <div className="rollrow">
@@ -80,21 +81,31 @@ export default function CharacterArea() {
             <button className="btn small" onClick={() => file.current?.click()}>Importar desde PDF</button>
           </div>
         </div>
-        <div className="rollrow pc-backup">
-          <button className="btn small ghost" disabled={!characters.length} onClick={backupAll}>Guardar copia</button>
-          {active && <button className="btn small ghost" onClick={exportOne}>Exportar {active.name || 'personaje'}</button>}
-          <button className="btn small ghost" onClick={() => backupRef.current?.click()}>Cargar copia</button>
-          <span className="muted small">{characters.length ? (last ? 'Última copia: ' + new Date(last).toLocaleDateString('es-ES') + '.' : 'Tus personajes solo están en este dispositivo: guarda una copia de vez en cuando.') : ''} La copia no incluye tu biblioteca.</span>
-        </div>
-        <AccountBox />
-        <input ref={backupRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Copia de personajes" onChange={(e) => void loadBackup(e.target.files?.[0])} />
-        {note && <p className="muted small" role="status" style={{ margin: 0 }}>{note}</p>}
+        {/* en medio: elegir personaje (lo que más se usa) */}
         {characters.length > 1 && (
-          <div className="chips" role="group" aria-label="Elegir personaje">
+          <div className="chips pc-bar-chars" role="group" aria-label="Elegir personaje">
             {characters.map((c) => <button key={c.id} className={c.id === active?.id ? 'chip on' : 'chip'} aria-pressed={c.id === active?.id} onClick={() => select(c.id)}>{c.name || 'Sin nombre'}</button>)}
           </div>
         )}
         {!characters.length && <p className="muted" style={{ margin: 0 }}>Aún no tienes personajes. Créalo paso a paso con las clases, especies y trasfondos del SRD 2024, o importa tu hoja en PDF rellenable (la oficial de 2024 y otras con campos como Name, Class, AC o Max HP).</p>}
+        {/* pie: copia de seguridad y cuenta, cada uno con su rótulo */}
+        <div className="pc-bar-foot">
+          <div className="pc-bar-group">
+            <span className="eyebrow">Copia de seguridad</span>
+            <div className="rollrow">
+              <button className="btn small" disabled={!characters.length} onClick={backupAll} title="Descarga todos tus personajes en un archivo (sin tu biblioteca)">Guardar copia</button>
+              {active && <button className="btn small" onClick={exportOne} aria-label={'Exportar ' + (active.name || 'personaje')} title={'Descarga solo a ' + (active.name || 'este personaje')}>Exportar personaje</button>}
+              <button className="btn small" onClick={() => backupRef.current?.click()}>Cargar copia</button>
+            </div>
+            {characters.length > 0 && <span className="muted small">{last ? 'Última copia: ' + new Date(last).toLocaleDateString('es-ES') + '.' : 'Aún no tienes copia: guarda una copia de vez en cuando.'}</span>}
+          </div>
+          <div className="pc-bar-group">
+            <span className="eyebrow">Cuenta</span>
+            <AccountBox />
+          </div>
+        </div>
+        <input ref={backupRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Copia de personajes" onChange={(e) => void loadBackup(e.target.files?.[0])} />
+        {note && <p className="muted small" role="status" style={{ margin: 0 }}>{note}</p>}
         <input ref={file} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="Hoja de personaje en PDF" onChange={(e) => void importPdf(e.target.files?.[0])} />
         {(msg || dataError) && <p className="warn" role="alert" style={{ margin: 0 }}>{msg || dataError}</p>}
       </div>

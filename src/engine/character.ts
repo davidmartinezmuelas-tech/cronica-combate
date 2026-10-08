@@ -1,5 +1,5 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
-import { classEffects, type ClassFx } from './classEffects';
+import { classEffects, speciesResist, type ClassFx } from './classEffects';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { featCatOf, splitFeatText } from './featText';
 import { choiceSkills, subclassCaster } from './subclassChoices';
@@ -366,7 +366,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : half),
     initAdv: cfx.initAdv,
     speed: c.ov.speed ?? (species?.speed ?? 30) + sum('speed') + speedBonus + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0),
-    resist: cfx.resist,
+    resist: [...speciesResist(c.speciesId, c.choices), ...cfx.resist],
     cfx,
     abil,
     checks,

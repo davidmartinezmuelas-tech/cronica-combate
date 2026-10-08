@@ -55,3 +55,12 @@ describe('rasgos de clase que cambian la hoja', () => {
     expect(applyDamage(c, null, [{ type: 'cortante', amt: 10 }], 1).total).toBe(5);
   });
 });
+
+describe('resistencias de especie', () => {
+  it('enano, tiefling según su legado y dracónido según su ascendencia', () => {
+    expect(derive(pj({ speciesId: 'dwarf' }), data).resist).toEqual([{ type: 'veneno', why: 'Resistencia enana' }]);
+    expect(derive(pj({ speciesId: 'tiefling-chthonic' }), data).resist[0].type).toBe('necrótico');
+    expect(derive(pj({ speciesId: 'dragonborn' }), data).resist).toEqual([]);
+    expect(derive(pj({ speciesId: 'dragonborn', choices: { 'species.ancestry': ['Plata'] } }), data).resist).toEqual([{ type: 'frío', why: 'Resistencia dracónica' }]);
+  });
+});
