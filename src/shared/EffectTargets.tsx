@@ -107,11 +107,13 @@ export default function EffectTargets() {
             const s = saves[id];
             return (
               <li key={id}>
-                <b>{c.name}</b>
-                {c.kind === 'pc' && <input className="input effect-in" inputMode="numeric" aria-label={'Salvación de ' + c.name} placeholder="Tirada" value={s?.manual && s.total != null ? s.total : ''} onChange={(ev) => setTotal(id, ev.target.value)} />}
-                {s && <span className="muted small">{s.total != null ? s.total + ' ' : ''}{s.note}</span>}
-                {s && <button className={s.fail ? 'chip vuln' : 'chip on'} aria-label={(s.fail ? 'Falla' : 'Supera') + ': pulsa para cambiar'} onClick={() => flip(id)}>{s.fail ? 'Falla' : 'Supera'}</button>}
-                {s && <span className="small">→ {consequence(s)}</span>}
+                {/* siempre dos líneas: nombre, tirada del jugador y resultado; debajo, el detalle y lo que le pasa */}
+                <span className="ef-top">
+                  <b>{c.name}</b>
+                  {c.kind === 'pc' && <input className="input effect-in" inputMode="numeric" aria-label={'Salvación de ' + c.name} placeholder="Tirada" value={s?.manual && s.total != null ? s.total : ''} onChange={(ev) => setTotal(id, ev.target.value)} />}
+                  {s && <button className={s.fail ? 'chip vuln' : 'chip on'} aria-label={(s.fail ? 'Falla' : 'Supera') + ': pulsa para cambiar'} onClick={() => flip(id)}>{s.fail ? 'Falla' : 'Supera'}</button>}
+                </span>
+                <span className="ef-sub small">{s ? <><span className="muted">{s.total != null ? s.total + ' ' : ''}{s.note}</span> → {consequence(s)}</> : <span className="muted">sin tirar</span>}</span>
               </li>
             );
           })}

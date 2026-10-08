@@ -939,7 +939,7 @@ test('efectos con salvación: objetivos, salvaciones de los monstruos, daño y e
   await fx.getByRole('button', { name: 'Tirar salvaciones' }).click();
   await expect(fx.locator('.effect-rows li', { hasText: 'Ogro' })).toContainText('todo el daño');
   await fx.getByRole('button', { name: 'Aplicar' }).click();
-  await expect(page.locator('.init-row', { hasText: 'Ogro' })).not.toContainText('68 / 68');
+  await expect(page.locator('.init-row', { hasText: 'Ogro' })).not.toContainText('68/68');
 
   // dominar mente del aboleth: sin daño, pone Hechizado a quien falla (se puede corregir el resultado)
   await page.locator('.init-row', { hasText: 'Aboleth' }).click();
