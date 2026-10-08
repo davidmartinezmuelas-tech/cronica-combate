@@ -132,6 +132,26 @@ describe('tirar iniciativa de monstruos', () => {
   });
 });
 
+describe('iniciativa de monstruos iguales', () => {
+  it('pregunta si en grupo o individual; en grupo comparten la tirada', () => {
+    const cs = [base({ id: 'a', name: 'Lobo 1', grp: 'g1', init: null }), base({ id: 'b', name: 'Lobo 2', grp: 'g1', init: null })];
+    useStore.setState({ combatants: cs, started: false, undoStack: [], initAsk: null });
+    const st = () => useStore.getState();
+    st().rollInit();
+    expect(st().initAsk).toBe('Lobo ×2');
+    expect(st().combatants.every((c) => c.init == null)).toBe(true);
+    vi.useFakeTimers();
+    st().rollInit('group');
+    vi.advanceTimersByTime(5000);
+    vi.useRealTimers();
+    expect(st().initAsk).toBeNull();
+    const [x, y] = st().combatants.map((c) => c.init);
+    expect(x).not.toBeNull();
+    expect(x).toBe(y);
+    useStore.setState({ combatants: [], undoStack: [] });
+  });
+});
+
 describe('estados en las tiradas', () => {
   it('envenenado da desventaja en ataques y pruebas', () => {
     const c = base({ conds: [{ k: 'Envenenado', r: null }] });

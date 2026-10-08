@@ -52,6 +52,10 @@ test('combate completo: iniciativa, turnos, quitar al activo y guardado tras rec
   await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 2);
   await page.getByRole('button', { name: 'Combate', exact: true }).click();
   await page.getByRole('button', { name: 'Tirar iniciativa de monstruos' }).click();
+  // dos iguales: pregunta si en grupo o individual
+  await expect(page.getByRole('dialog', { name: 'Iniciativa de monstruos' })).toContainText('Guerrero goblin ×2');
+  await page.getByRole('button', { name: /^En grupo/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Iniciativa de monstruos' })).toHaveCount(0);
   await addPlayer(page, 'Jimena', '30');
 
   await page.getByTitle('Empezar combate (N)').click();
@@ -918,8 +922,8 @@ test('cuenta en la pantalla de inicio y en el grupo del máster', async ({ page 
   await expect(box).toContainText('tus criaturas, encuentros y grupo');
   await expect(box.getByRole('button', { name: 'Cancelar' })).toHaveCount(0);
   await page.getByRole('button', { name: /Soy el máster/ }).click();
-  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
-  await expect(page.getByText('Sin cuenta: todo está solo en este dispositivo.')).toBeVisible();
+  // en el modo máster, la cuenta está en la esquina del encabezado
+  await expect(page.locator('.app-header').getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
 });
 
 test('efectos con salvación: objetivos, salvaciones de los monstruos, daño y estados', async ({ page }) => {

@@ -20,7 +20,7 @@ function Onboarding() {
   const pcsNoInit = pcs.filter((c) => c.init == null).length;
   const steps = [
     { title: 'Añade los monstruos', text: mons.length ? mons.length + ' en el encuentro.' : 'Búscalos en el Bestiario (todo el SRD 2024) o crea los tuyos en la Forja.', done: mons.length > 0, btn: 'Ir al bestiario', act: () => set({ tab: 'bestiary' }) },
-    { title: 'Tira su iniciativa', text: !mons.length ? 'Cuando tengas monstruos.' : monsNoInit ? monsNoInit + ' sin iniciativa.' : 'Hecho. Se ordenan solos por número.', done: mons.length > 0 && monsNoInit === 0, btn: 'Tirar iniciativa', act: rollInit },
+    { title: 'Tira su iniciativa', text: !mons.length ? 'Cuando tengas monstruos.' : monsNoInit ? monsNoInit + ' sin iniciativa.' : 'Hecho. Se ordenan solos por número.', done: mons.length > 0 && monsNoInit === 0, btn: 'Tirar iniciativa', act: () => rollInit() },
     { title: 'Añade a los jugadores', text: !pcs.length ? (roster.length ? 'Tienes ' + roster.length + ' guardados en Grupo.' : 'Guárdalos en Grupo una vez y reutilízalos.') : pcsNoInit ? 'Escribe la iniciativa de ' + pcsNoInit + ' jugador' + (pcsNoInit > 1 ? 'es' : '') + ' en la lista.' : pcs.length + ' jugadores listos.', done: pcs.length > 0 && pcsNoInit === 0, btn: roster.length ? 'Añadir todo el grupo' : 'Ir a Grupo', act: () => (roster.length ? addAllPcs() : set({ tab: 'group' })) },
     { title: 'Empieza el combate', text: 'La app lleva rondas, turnos, recargas, legendarias y estados.', done: false, btn: 'Empezar combate', act: startCombat },
   ];

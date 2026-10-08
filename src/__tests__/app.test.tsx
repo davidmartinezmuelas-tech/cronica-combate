@@ -37,7 +37,7 @@ describe('flujo completo de un combate', () => {
     expect(useStore.getState().combatants.map((c) => c.name)).toEqual(['Dragón rojo adulto', 'Guerrero goblin 1', 'Guerrero goblin 2']);
 
     // 2. Iniciativa (movimiento reducido: sin animación)
-    act(() => useStore.getState().rollInit());
+    act(() => useStore.getState().rollInit('group'));
     expect(useStore.getState().combatants.every((c) => c.init != null)).toBe(true);
 
     // 3. Jugador guardado

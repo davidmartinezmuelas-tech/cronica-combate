@@ -10,11 +10,13 @@ import CenterPanel from './CenterPanel';
 import DiceTable from '../../shared/DiceTable';
 import RoomPanel from '../../shared/RoomPanel';
 import Attribution from '../../shared/Attribution';
+import { InfoDialog } from '../../shared/Card';
 
 /** Modo máster: todo lo de la mesa del DM (combate, bestiario, grupo, forja y reglas). */
 export default function DmApp() {
   const tab = useStore((s) => s.tab);
   const helpOpen = useStore((s) => s.helpOpen);
+  const initAsk = useStore((s) => s.initAsk);
   useHotkeys();
 
   return (
@@ -41,6 +43,15 @@ export default function DmApp() {
           </section>
         )}
       </main>
+      {initAsk && (
+        <InfoDialog title="Iniciativa de monstruos" onClose={() => useStore.getState().set({ initAsk: null })}>
+          <p style={{ marginTop: 0 }}>Hay monstruos iguales: {initAsk}. ¿Cómo tiras su iniciativa?</p>
+          <div className="rollrow">
+            <button className="btn gold" autoFocus onClick={() => useStore.getState().rollInit('group')}>En grupo (una tirada por grupo)</button>
+            <button className="btn" onClick={() => useStore.getState().rollInit('single')}>Individual (una cada uno)</button>
+          </div>
+        </InfoDialog>
+      )}
       {helpOpen && (
         <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="help-title" onClick={() => useStore.getState().set({ helpOpen: false })}>
           {/* único control enfocable: Tab no debe sacar el foco del diálogo */}

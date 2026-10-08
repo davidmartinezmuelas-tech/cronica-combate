@@ -145,7 +145,7 @@ export default function InitiativePanel() {
     <div className="panel">
       <div className="panel-head">
         <h2>Iniciativa</h2>
-        {showRoll && <button className="btn small gold" onClick={rollInit} title="Atajo: I">{started ? 'Tirar iniciativa de los nuevos (' + pendingMon + ')' : 'Tirar iniciativa de monstruos'}</button>}
+        {showRoll && <button className="btn small gold" onClick={() => rollInit()} title="Atajo: I">{started ? 'Tirar iniciativa de los nuevos (' + pendingMon + ')' : 'Tirar iniciativa de monstruos'}</button>}
       </div>
       {(!started || surprised) && <label className="check"><input type="checkbox" checked={surprised} onChange={(e) => set({ surprised: e.target.checked })} />Los monstruos están sorprendidos (desventaja)</label>}
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>

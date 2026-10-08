@@ -1,3 +1,4 @@
+import AccountMenu from '../../shared/AccountMenu';
 import { useStore, type Tab } from '../../store/useStore';
 import Brand from '../../shared/Brand';
 import { ChevronLeft, ChevronRight, UndoIcon } from '../../shared/Icons';
@@ -50,6 +51,9 @@ export default function Header() {
             <button className="btn primary" onClick={startCombat} title="Empezar combate (N)">Empezar combate</button>
           </>
         )}
+        {/* la cuenta, en la esquina (como en el modo jugador) */}
+        <span className="hdr-sep" aria-hidden="true" />
+        <AccountMenu />
       </div>
     </header>
   );

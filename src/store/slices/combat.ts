@@ -59,23 +59,30 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
 
   return {
     combatants: [], round: 1, activeId: null, started: false, turnEvents: [],
-    selId: null, concPrompts: [], surprised: false, amount: '', dmgType: '', condRounds: '', condAt: 'start', condBy: '', initDraft: null,
+    selId: null, concPrompts: [], surprised: false, initAsk: null, amount: '', dmgType: '', condRounds: '', condAt: 'start', condBy: '', initDraft: null,
 
     patchC(id, patch, label) {
       get().snap(label || 'cambio en combatiente');
       set({ combatants: get().combatants.map((c) => (c.id === id ? { ...c, ...(typeof patch === 'function' ? patch(c) : patch) } : c)) });
     },
 
-    rollInit() {
-      if (guard(() => get().rollInit())) return;
+    rollInit(mode) {
+      if (guard(() => get().rollInit(mode))) return;
       const s = get();
       let targets = s.combatants.filter((c) => c.kind === 'monster' && c.init == null);
       // en mitad del combate no se vuelve a tirar la de todos (el atajo I tampoco)
       if (!targets.length && s.started) { get().showToast('Todos los monstruos tienen ya su iniciativa'); return; }
       if (!targets.length) targets = s.combatants.filter((c) => c.kind === 'monster');
       if (!targets.length) { get().showToast('No hay monstruos en el encuentro'); return; }
+      // monstruos iguales añadidos juntos: se pregunta si comparten la tirada o cada uno la suya
+      const byGrp = new Map<string, Combatant[]>();
+      targets.forEach((c) => { if (c.grp) byGrp.set(c.grp, [...(byGrp.get(c.grp) || []), c]); });
+      const repeated = [...byGrp.values()].filter((l) => l.length > 1);
+      if (!mode && repeated.length) { set({ initAsk: repeated.map((l) => l[0].name.replace(/ \d+$/, '') + ' ×' + l.length).join(', ') }); return; }
+      if (s.initAsk) set({ initAsk: null });
+      const share = mode ? mode === 'group' : s.shareInit;
       const groups = new Map<string, Combatant[]>();
-      targets.forEach((c) => { const g = s.shareInit && c.grp ? c.grp : c.id; groups.set(g, [...(groups.get(g) || []), c]); });
+      targets.forEach((c) => { const g = share && c.grp ? c.grp : c.id; groups.set(g, [...(groups.get(g) || []), c]); });
       const dice: PhysicalDie[] = [];
       const res: Record<string, number> = {};
       const det: string[] = [];

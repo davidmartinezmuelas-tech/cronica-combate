@@ -68,6 +68,7 @@ export interface CombatSlice {
   selId: string | null;
   concPrompts: ConcPrompt[];
   surprised: boolean;
+  initAsk: string | null; // hay monstruos repetidos sin iniciativa: «Esbirro goblin ×4» (se pregunta si en grupo o individual)
   amount: string;
   dmgType: string;
   condRounds: string;
@@ -75,7 +76,7 @@ export interface CombatSlice {
   condBy: string; // '' = la propia criatura
   initDraft: { id: string; text: string } | null;
   patchC: (id: string, patch: Partial<Combatant> | ((c: Combatant) => Partial<Combatant>), label?: string) => void;
-  rollInit: () => void;
+  rollInit: (mode?: 'group' | 'single') => void; // sin modo y con repetidos, pregunta primero
   addMonster: (m: Monster, qty: number, opts?: { inLair?: boolean; silent?: boolean }) => void;
   addPc: (r: RosterEntry) => void;
   addAllPcs: () => void;
