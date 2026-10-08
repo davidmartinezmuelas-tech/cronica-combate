@@ -30,7 +30,7 @@ function Beast({ m }: { m: Monster }) {
         <button className="step" onClick={() => setQty(qty - 1)} aria-label={'Uno menos de ' + m.n}>−</button>
         <span className="qty" aria-label="Cantidad">{qty}</span>
         <button className="step" onClick={() => setQty(qty + 1)} aria-label={'Uno más de ' + m.n}>+</button>
-        <button className="btn small primary" onClick={() => addMonster(m, qty)}>Al combate</button>
+        <button className={isSel ? 'btn small primary' : 'btn small'} onClick={() => addMonster(m, qty)}>Al combate</button>
         {m.custom ? (
           <>
             <button className="btn small ghost" onClick={() => editMonster(m, true)}>Editar</button>

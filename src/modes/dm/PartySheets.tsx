@@ -174,7 +174,7 @@ function Sheet({ r, inCombat, open, onToggle, onZoom }: { r: RosterEntry; inComb
             ) : (
               <div className="pdf-drop">
                 <span className="muted small">Sube la hoja de personaje en PDF (hasta 30 MB). Se guarda en este dispositivo y va incluida en «Descargar copia».</span>
-                <button className="btn small primary" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Guardando…' : 'Subir PDF'}</button>
+                <button className="btn small" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'Guardando…' : 'Subir PDF'}</button>
               </div>
             )}
             <input ref={file} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label={'Hoja de personaje de ' + r.name} onChange={(e) => void upload(e.target.files?.[0])} />

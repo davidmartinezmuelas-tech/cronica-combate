@@ -62,7 +62,7 @@ export default function GroupPanel() {
             </span>
             </span>
             <div className="roster-actions">
-              {!inC.has(r.id) && <button className="btn small primary" onClick={() => addPc(r)}>Al combate</button>}
+              {!inC.has(r.id) && <button className="btn small" onClick={() => addPc(r)}>Al combate</button>}
               <button className="btn small ghost" onClick={() => set({ pcForm: { ...blankRoster(), ...r }, editingPcId: r.id, pcMsg: '' })}>Editar</button>
               <button className="btn small ghost" onClick={() => deletePc(r.id)}>{confirmKey === 'pc-' + r.id ? '¿Seguro? Quitar' : 'Quitar'}</button>
             </div>
