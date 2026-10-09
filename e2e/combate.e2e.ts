@@ -1181,3 +1181,30 @@ test('subir de nivel: PG tirados, mejora de característica, conjuros nuevos, mu
   await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 4' }).click();
   await expect(page.locator('.pc-head')).toContainText('Guerrero 3 (Campeón) / Mago 1');
 });
+
+test('subir de nivel: elecciones de clase o subclase y cambiar un conjuro', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ilsa');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('6');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel(/^Buscar conjuro/).fill('escudo de fe');
+  await page.locator('.ce-spell-results .chip', { hasText: /^\+ Escudo de fe 1$/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Subir a nivel 7' });
+  // Golpes benditos (clérigo 7): se elige aquí
+  await expect(dlg).toContainText('Golpes benditos: 1 más');
+  await dlg.getByLabel('Golpes benditos').selectOption('Golpe divino');
+  // cambiar Curar heridas por otro conjuro de nivel
+  await dlg.getByLabel('Conjuro que cambias').selectOption({ label: 'Escudo de fe (nivel 1)' });
+  const newSpell = await dlg.getByLabel('Conjuro nuevo').locator('option').nth(1).textContent();
+  await dlg.getByLabel('Conjuro nuevo').selectOption({ index: 1 });
+  await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 7' }).click();
+  await expect(page.locator('.pc-head')).toContainText('Clérigo 7');
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  await expect(sp.locator('.card', { hasText: 'Escudo de fe' })).toHaveCount(0);
+  await expect(sp).toContainText(newSpell!.replace(/ \(.*\)$/, ''));
+  await expect(page.getByRole('button', { name: /^Golpe divino/ })).toBeVisible();
+});

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
-import { classEntries, derive, totalLevel, type Character, type ClassEntry } from '../../engine/character';
+import { asClass, classEntries, derive, totalLevel, type Character, type ClassEntry } from '../../engine/character';
+import { activeChoices, choiceCount } from '../../engine/subclassChoices';
 import { fmt } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import { InfoDialog } from '../../shared/Card';
@@ -8,6 +9,7 @@ import type { LibraryData } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import { plainText, useSpells } from './spells';
+import SubclassChoices from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 
@@ -37,6 +39,9 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const [asi, setAsi] = useState<{ mode: '2' | '11' | 'feat'; a: Abil; b: Abil; feat: string }>({ mode: '2', a: 'str', b: 'dex', feat: '' });
   const [sub, setSub] = useState('');
   const [picks, setPicks] = useState<string[]>([]);
+  // elecciones de subclase (maniobras, invocaciones…) hechas aquí y un conjuro cambiado por otro (opcional)
+  const [choices, setChoices] = useState<Record<string, string[]>>(() => c.choices || {});
+  const [swap, setSwap] = useState<{ out: string; in: string }>({ out: '', in: '' });
   const total = totalLevel(c);
   if (total >= 20) return <InfoDialog title="Subir de nivel" onClose={onClose}><p style={{ margin: 0 }}>Ya estás en el nivel 20, el máximo.</p></InfoDialog>;
 
@@ -68,12 +73,18 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const maxAfter = Math.max(after.slots.length, after.pact?.lv || 0);
   const newCantrips = Math.max(0, tableAt(cls, 'cantrips-known', newLv) - tableAt(cls, 'cantrips-known', newLv - 1));
   const newPrepared = Math.max(0, tableAt(cls, 'max-prepared', newLv) - tableAt(cls, 'max-prepared', newLv - 1));
+  // la clase que sube, vista sola con su nuevo nivel y subclase: sus elecciones y si alguna gana opciones en este nivel
+  const view = asClass({ ...next, choices }, { classId, className: cur?.className || '', level: newLv, subclass: subName });
+  const growing = activeChoices(view).filter((d) => choiceCount(d, newLv) > choiceCount(d, newLv - 1));
   const classSpells = new Set([...(cls?.spells || []), ...spellIdx.list.filter((s) => s.classes?.includes(classId)).map((s) => s.id)]);
   // solo lo que toca: trucos si gana trucos; conjuros si gana preparados o un nivel nuevo (los del nivel recién desbloqueado, primero)
   const wantSpells = newPrepared > 0 || maxAfter > maxBefore;
   const pickable = spellIdx.list
     .filter((s) => classSpells.has(s.id) && !c.spells.includes(s.id) && (s.l || 0) <= maxAfter && (s.l ? wantSpells : newCantrips > 0))
     .sort((a, b) => (a.l ? 1 : 0) - (b.l ? 1 : 0) || (b.l || 0) - (a.l || 0) || a.n.localeCompare(b.n, 'es'));
+  const known = c.spells.map((id) => spellIdx.get(id)).filter((x): x is NonNullable<typeof x> => !!x && classSpells.has(x.id));
+  const outIsCantrip = !spellIdx.get(swap.out)?.l;
+  const swapTo = swap.out ? spellIdx.list.filter((x) => classSpells.has(x.id) && !c.spells.includes(x.id) && !picks.includes(x.id) && (outIsCantrip ? !x.l : !!x.l && x.l <= maxAfter)).sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es')) : [];
   const pickedCantrips = picks.filter((id) => !spellIdx.get(id)?.l).length;
   const pickedSpells = picks.length - pickedCantrips;
   const feats = [...data.feats.filter((f) => f.cat === 'general'), ...lib.feats.filter((f) => f.cat === 'general' && !data.feats.some((x) => norm(x.n) === norm(f.n)))];
@@ -94,6 +105,8 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
     }
     if (hp.mode === 'roll' && hp.roll != null) n = { ...n, hpRolls: { ...(n.hpRolls || {}), [classId + ':' + newLv]: hp.roll } };
     if (picks.length) n = { ...n, spells: [...n.spells, ...picks.filter((id) => !n.spells.includes(id))] };
+    if (growing.length) n = { ...n, choices };
+    if (swap.out && swap.in) n = { ...n, spells: [...n.spells.filter((id) => id !== swap.out), ...(n.spells.includes(swap.in) ? [] : [swap.in])] };
     // los PG actuales suben lo mismo que el máximo
     const gain = derive(n, data).hpMax - before.hpMax;
     n = { ...n, hp: Math.max(1, c.hp + Math.max(0, gain)), updatedAt: Date.now() };
@@ -198,6 +211,31 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
                 const on = picks.includes(s.id);
                 return <button key={s.id} className={on ? 'chip on' : 'chip'} aria-pressed={on} onClick={() => setPicks(on ? picks.filter((x) => x !== s.id) : [...picks, s.id])}>{s.n} <span className="chip-tag">{s.l ? s.l : 'T'}</span></button>;
               })}
+            </div>
+          </section>
+        )}
+
+        {growing.length > 0 && (
+          <section className="lvl-step">
+            <h3 className="eyebrow">Elecciones de {subName || cls?.n}</h3>
+            <p className="small" style={{ margin: 0 }}>{growing.map((d) => d.label + ': ' + (choiceCount(d, newLv) - choiceCount(d, newLv - 1)) + ' más').join(' · ')}</p>
+            <SubclassChoices c={view} data={data} lib={lib} set={(p) => { if (p.choices) setChoices(p.choices); }} />
+          </section>
+        )}
+
+        {known.length > 0 && (
+          <section className="lvl-step">
+            <h3 className="eyebrow">Cambiar un conjuro (opcional)</h3>
+            <p className="muted small" style={{ margin: 0 }}>Al subir de nivel puedes cambiar uno de tus conjuros por otro de tu lista del mismo tipo (truco por truco).</p>
+            <div className="row2">
+              <select className="input" aria-label="Conjuro que cambias" value={swap.out} onChange={(e) => setSwap({ out: e.target.value, in: '' })}>
+                <option value="">No cambiar ninguno</option>
+                {known.map((x) => <option key={x.id} value={x.id}>{x.n} ({x.l ? 'nivel ' + x.l : 'truco'})</option>)}
+              </select>
+              <select className="input" aria-label="Conjuro nuevo" value={swap.in} disabled={!swap.out} onChange={(e) => setSwap({ ...swap, in: e.target.value })}>
+                <option value="">Por…</option>
+                {swapTo.map((x) => <option key={x.id} value={x.id}>{x.n} ({x.l ? 'nivel ' + x.l : 'truco'})</option>)}
+              </select>
             </div>
           </section>
         )}
