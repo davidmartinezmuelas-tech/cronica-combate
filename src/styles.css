@@ -527,8 +527,39 @@ a:focus-visible{outline:2px solid #d4a94f;outline-offset:2px;border-radius:2px}
 /* ---------- Hoja del jugador ---------- */
 div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:inline-size}
 .pc-bar .chips{margin:0}
-.pc-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
-.pc-stats .stat{min-height:92px}
+/* barra superior compacta (como la cabecera de la hoja oficial): CA, PG, Iniciativa (se pulsa) y Velocidad */
+.pc-stats{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.pc-stats .stat{min-height:0;padding:6px 10px;flex:1 1 auto}
+.pc-stats .stat-v{font-size:28px}
+.pc-stats .stat-lv{flex:1 1 80px;align-items:center;text-align:center}
+.stat-xp{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#b2a691}
+.stat-xp .input{width:60px;padding:2px 6px;min-height:26px;font-size:13px}
+/* la CA con forma de escudo, como en la hoja */
+.pc-stats .stat-ac{flex:1 1 110px;align-items:center;text-align:center;border-radius:8px 8px 40% 40% / 8px 8px 22% 22%}
+.stat-shield{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer}
+.stat-shield input{width:18px;height:18px;accent-color:#b07f22;cursor:pointer;margin:0}
+.pc-stats .stat-hp{flex:2 1 200px}
+.stat-hp-row{display:flex;align-items:stretch;gap:12px}
+.stat-hp-cur{display:flex;flex-direction:column;align-items:center}
+.stat-hp-cur .stat-v{font-size:34px}
+.stat-hp-side{display:flex;flex-direction:column;justify-content:center;gap:2px;padding-left:12px;border-left:1px solid #6b5440;font-size:16px}
+.pc-stats .stat-hd{flex:1 1 140px}
+.stat-hd-row{display:flex;align-items:baseline;gap:6px}
+.stat-hd-btns{display:flex;gap:4px;flex-wrap:wrap}
+.pc-stats .stat-death{flex:1 1 130px}
+.stat-death .btn{align-self:flex-start;padding:2px 10px;min-height:26px}
+.stat-death.on{border-color:#c0513c;box-shadow:0 0 0 1px #c0513c inset}
+.death-row{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.pc-stats .stat-sm{flex:1 1 100px}
+.stat-note{font-size:12px;color:#b2a691;line-height:1.2}
+.stat-hp .hpbar{margin:2px 0}
+.pc-stats .stat-init{flex:1 1 140px;flex-direction:row;align-items:center;gap:10px;cursor:pointer;text-align:left;font:inherit;background:linear-gradient(180deg,#e8c062,#c99a3a);border-color:#9c7426;color:#2b1d0e;box-shadow:0 2px 0 #8a6420}
+.stat-init:hover{filter:brightness(1.06)}
+.stat-init:active{transform:translateY(1px);box-shadow:none}
+.stat-init .stat-k,.stat-init .stat-v{color:#2b1d0e}
+.init-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.init-hint{font-size:12px;font-weight:800;color:#5a3d12}
+.init-die{width:34px;height:34px;flex:none;fill:#7a1f14;stroke:#f6e3b0;stroke-width:1.1;stroke-linejoin:round}
 .stat-btn{text-align:left;color:inherit;font:inherit;cursor:pointer}
 .stat-btn:hover{border-color:#d4a94f}
 .pc-hp-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -536,8 +567,30 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-grid{display:grid;grid-template-columns:1fr;gap:14px}
 @container (min-width:720px){.pc-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 /* bloques por característica (como la hoja oficial): 3 columnas en pantallas anchas */
-.pc-abils{column-width:250px;column-gap:10px}
-.pc-abils>.pc-abil{break-inside:avoid;margin-bottom:10px}
+/* dos columnas como la hoja oficial: FUE, DES, CON | INT, SAB, CAR (una sola en pantallas estrechas) */
+.pc-abils{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:10px;align-items:start}
+.pc-abils{align-items:stretch}
+.pc-abil-col{display:flex;flex-direction:column;gap:10px;min-width:0}
+/* el recuadro de competencias ocupa lo que le quede a su columna (sin huecos) */
+.pc-profs{min-height:0}
+.pc-abil.pc-pb{flex-direction:row;align-items:center;justify-content:space-between;gap:8px}
+.pc-pb b,.pc-pp b{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:26px;line-height:1}
+.pc-extra{gap:8px}
+/* el último recuadro de cada columna se estira lo que falte para igualarlas */
+.pc-abil-col>.pc-abil:last-child{flex:1 1 auto}
+.pc-pp{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pc-insp{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid #6b5440;border-radius:8px;background:transparent;color:inherit;font:inherit;font-weight:800;cursor:pointer;text-align:left}
+.pc-insp-box{width:22px;height:22px;border:2px solid #b49a6c;border-radius:4px;display:grid;place-items:center;color:#b07f22;font-size:16px;flex:none}
+.pc-insp.on{border-color:#b07f22;background:rgba(212,169,79,.18)}
+.pc-prof-input{padding:3px 8px;min-height:30px;font-size:14px;width:100%;box-sizing:border-box}
+.pc-profs dt label{cursor:pointer}
+.pc-profs dt{align-self:center}
+.pc-notes{display:flex;flex-direction:column;gap:6px;min-height:110px}
+.pc-notes textarea{flex:1;min-height:70px;resize:vertical}
+.pc-profs dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:14px}
+.pc-profs dt{font-weight:800;color:#b2a691;font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.pc-profs dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.paper .pc-profs dt{color:#7a6650}
 .pc-abil{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:8px;background:#31271d;border:1px solid #524031}
 .pc-abil-head{display:grid;grid-template-columns:1fr auto;grid-template-areas:'k k' 'mod score';align-items:center;gap:4px 8px}
 .pc-abil-mod{grid-area:mod;display:inline-flex;align-items:baseline;gap:6px;justify-self:start;padding:2px 10px;border-radius:8px;border:1px solid #6b5440;background:transparent;color:inherit;font:inherit;cursor:pointer}
@@ -570,6 +623,21 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .sp-tab.on .sp-tab-n{color:#7a1f14}
 .smite-pick{display:inline-flex;align-items:center;gap:6px;font-weight:700}
 /* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
+/* características a la izquierda y ataques y rasgos de clase a la derecha en pantallas anchas */
+.pc-split{display:flex;flex-direction:column;gap:14px;min-width:0}
+/* cada columna: su contenido (que se mide) y, al final de la más corta, las notas que rellenan */
+.pc-split-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.pc-split-in{min-width:0}
+.pc-split-col>.pc-notes{flex:1 1 auto}
+@container (min-width:1000px){
+  .pc-split{display:grid;grid-template-columns:minmax(440px,.9fr) minmax(0,1.1fr);align-items:start}
+  .pc-split .pc-abils{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto 1fr}
+  .pc-split .pc-duo{flex-direction:column;flex-wrap:nowrap}
+  .pc-split .pc-duo>.panel{flex:none}
+  .pc-split{align-items:stretch}
+  /* en la columna derecha los paneles con muchas tarjetas no ocupan «el 100 %» (sería de alto) */
+  .pc-split .pc-duo>.panel:has(.pc-attacks>.pc-attack:nth-child(3)),.pc-split .pc-duo>.panel:has(.pc-features>li:nth-child(3)){flex:none;order:0}
+}
 .pc-duo{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch}
 /* un panel que se queda solo en su fila crece hasta ocupar el ancho; los de muchas tarjetas, a todo el ancho y detrás */
 .pc-duo>.panel{flex:1 1 420px;min-width:0}
@@ -583,7 +651,10 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 /* rasgos en columnas para no dejar filas vacías; el que se abre ocupa todo el ancho para leer su texto */
 /* tarjetas: misma altura en cada fila y la misma de partida en toda la hoja (las de acciones, la de las armas) */
 :root{--card-act:84px}
-.pc-features.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));align-items:stretch;gap:6px;--card-h:58px}
+/* tarjetas en filas que se llenan: las de la última fila se reparten el ancho que sobra (sin huecos) */
+.pc-features.grid{display:flex;flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:6px;--card-h:58px}
+.pc-features.grid>li{flex:1 1 230px;min-width:0;display:flex;flex-direction:column}
+.pc-features.grid>li>*{flex:1}
 .pc-features.grid.acts{--card-h:var(--card-act)}
 /* todas las tarjetas con la misma altura de partida; al abrir una, solo esa crece hacia abajo con su texto */
 .pc-features.grid>li>details,.pc-features.grid>li>.card{min-height:var(--card-h);box-sizing:border-box}
@@ -662,6 +733,13 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .stat,.paper .pc-abil,.paper .pc-skill,.paper .pc-features .card,.paper .pc-features details,.paper .pc-attack,.paper .sub,.paper .ce-multi{background:#ecdfc4;border-color:#b39c74;color:#2b2118}
 .paper .stat-v,.paper .pc-attack-n,.paper .pc-abil-mod b{color:#2b2118}
 .paper .pc-abil-mod,.paper .pc-abil-score{border-color:#b39c74;background:#f1e6cc}
+.paper .pc-insp{border-color:#b39c74;background:#f1e6cc}
+.paper .pc-insp.on{background:#f3dfae;border-color:#b07f22}
+.paper .stat-note{color:#7a6650}
+.paper .stat-hp-side{border-color:#b39c74}
+.paper .stat-xp{color:#7a6650}
+.paper .stat.stat-init{background:linear-gradient(180deg,#e8c062,#c99a3a);border-color:#9c7426;color:#2b1d0e}
+.paper .stat-init .stat-v,.paper .stat-init .stat-k{color:#2b1d0e}
 .paper .pc-abil-mod-k,.paper .pc-abil-s{color:#7a6650}
 .paper .pc-skill.pc-save{border-bottom:2px solid #b39c74}
 .paper .stat-tmp{color:#2c5f8a}
@@ -743,8 +821,7 @@ b.card-title{flex-basis:100%;font-size:16px}
 .app-header{position:relative}
 .app-header .toast{position:absolute;left:0;right:0;margin:0 auto;width:max-content;top:calc(100% + 8px);z-index:30;max-width:min(460px,90vw);box-shadow:0 8px 22px rgba(0,0,0,.4)}
 /* ficha: las seis casillas en una fila; en una hoja estrecha, en dos filas de tres */
-.pc-stats{grid-template-columns:repeat(6,minmax(0,1fr))}
-@container (max-width:720px){.pc-stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+
 /* visita guiada: todo oscuro salvo el elemento del paso, y el globo con la explicación */
 .tour{position:fixed;inset:0;z-index:80}
 .tour-dim{position:fixed;inset:0;background:rgba(10,7,5,.68)}

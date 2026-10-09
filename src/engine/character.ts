@@ -98,6 +98,8 @@ export interface Character {
   hpRolls?: Record<string, number>;
   /** Multiclase: dados de golpe gastados por tipo de dado («10»: 2). Con una sola clase basta hdSpent. */
   hdUsed?: Record<string, number>;
+  /** Puntos de experiencia (opcional: muchas mesas suben por hitos). */
+  xp?: number;
   /** Solo en memoria: nivel total del personaje cuando se calcula una de sus clases por separado (asClass). */
   lvTotal?: number;
 }

@@ -260,6 +260,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
     return multiHd ? Math.max(0, n - (c.hdUsed?.[die] || 0)) : Math.max(0, d.level - c.hdSpent);
   };
   const hdText = d.hitDice.map((x) => hdLeft(x.die) + '/' + x.n + ' d' + x.die).join(' · ');
+  const hdMaxText = d.hitDice.map((x) => x.n + 'd' + x.die).join(' + ');
+  const hdSpentAll = d.hitDice.reduce((a, x) => a + x.n - hdLeft(x.die), 0);
   const spendHd = (die = d.hdDie) => {
     if (hdLeft(die) <= 0) return;
     r('dado de golpe', 'free', '1d' + die + sgn(d.mods.con), {
@@ -337,6 +339,37 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const smiteShort = smiteSpell ? smiteSpell.n.replace(/^castigo\s+/i, '').replace(/^\p{Ll}/u, (m) => m.toUpperCase()) : '';
   // Castigo arcano (invocación): 1d8 de fuerza más 1d8 por nivel del espacio de pacto
   const eldDice = hasInvocation(c, 'Castigo arcano') && d.pact && pactLeft > 0 ? d.pact.lv + 1 + 'd8' : '';
+  // competencias con armaduras y armas de su clase (la primera; con multiclase, las de las demás son menos)
+  const pcls = data?.classes.find((x) => x.id === c.classId);
+  const ARMOR_N: Record<string, string> = { lgt: 'ligeras', med: 'intermedias', hvy: 'pesadas', shl: 'escudos' };
+  const WEAPON_N: Record<string, string> = { sim: 'sencillas', mar: 'marciales' };
+  const profText = {
+    armor: (pcls?.armor || []).map((k) => ARMOR_N[k] || k).join(', '),
+    weapons: (pcls?.weapons || []).map((k) => WEAPON_N[k] || data?.weapons.find((w) => w.base === k)?.n || k).join(', '),
+  };
+  // las notas rellenan la columna más corta (en pantallas estrechas, tras las características)
+  const splitRef = useRef<HTMLDivElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const [notesSide, setNotesSide] = useState<'left' | 'right'>('left');
+  useEffect(() => {
+    const l = leftRef.current, rr = rightRef.current, sp = splitRef.current;
+    if (!l || !rr || !sp || typeof ResizeObserver !== 'function') return;
+    const place = () => {
+      const twoCols = getComputedStyle(sp).display === 'grid';
+      setNotesSide(twoCols && rr.offsetHeight < l.offsetHeight ? 'right' : 'left');
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(l); ro.observe(rr); ro.observe(sp);
+    return () => ro.disconnect();
+  }, []);
+  const notesPanel = (
+    <section className="panel pc-notes" aria-label="Notas">
+      <label className="eyebrow" htmlFor="pc-notes">Notas</label>
+      <textarea id="pc-notes" className="input" value={c.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Equipo, objetivos, vínculos, lo que pasó la última sesión…" />
+    </section>
+  );
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
 
   return (
@@ -349,7 +382,6 @@ export default function CharacterSheet({ c }: { c: Character }) {
             {d.resist.length > 0 && <span className="small pc-resist">Resistencias: {d.resist.map((x) => x.type + ' (' + x.why + ')').join(' · ')}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className={c.inspiration ? 'chip on' : 'chip'} aria-pressed={c.inspiration} onClick={() => set({ inspiration: !c.inspiration })}>Inspiración heroica</button>
             {data && <button className="btn small primary" onClick={() => setLeveling(true)}>Subir de nivel</button>}
             <button className="btn small" data-tour="edit" onClick={() => setEditing(true)}>Editar hoja</button>
           </div>
@@ -363,16 +395,43 @@ export default function CharacterSheet({ c }: { c: Character }) {
         )}
         {restSpells && data && <RestSpells c={c} data={data} onClose={() => setRestSpells(false)} />}
         {leveling && data && <LevelUp c={c} data={data} lib={lib} onClose={() => setLeveling(false)} onDone={(prev) => { setLeveling(false); setUndoLevel(prev); }} />}
+        {/* franja como la de la hoja oficial: nivel y PX, CA, PG, dados de golpe, salvaciones contra la muerte, iniciativa y velocidad */}
         <div className="pc-stats">
-          <div className="stat" title={d.acNote}><span className="stat-k">CA</span><span className="stat-v">{d.ac}</span><span className="muted small">{d.acNote}</span>
-            {/* embrazar o soltar el escudo en mitad del combate (+2, más su bonificador mágico) */}
-            <button className={c.shield ? 'chip on stat-chip' : 'chip stat-chip'} aria-pressed={c.shield} title={c.shield ? 'Soltar el escudo' : 'Embrazar un escudo: +' + (2 + (c.shieldBonus || 0)) + ' a la CA'} onClick={() => set({ shield: !c.shield })}>Escudo +{2 + (c.shieldBonus || 0)}</button></div>
-          <div className="stat"><span className="stat-k">PG</span><span className="stat-v">{c.hp}<span className="stat-of"> / {d.hpMax}</span></span>{c.temp > 0 && <span className="stat-tmp">+{c.temp} temporales</span>}
-            <span className="hpbar"><span className={'hpfill ' + (hpPct <= 25 ? 'low' : hpPct <= 50 ? 'mid' : '')} style={{ width: hpPct + '%' }} /></span></div>
-          <button className="stat stat-btn" onClick={() => r('iniciativa', 'init', d20(d.init), d.initAdv ? { adv: d.initAdv } : {})} title={'Tirar iniciativa' + (d.initAdv ? ' con ventaja (' + d.initAdv + ')' : '')}><span className="stat-k">Iniciativa{d.initAdv && <span className="adv-mark">V</span>}</span><span className="stat-v">{fmt(d.init)}</span></button>
-          <div className="stat"><span className="stat-k">Velocidad</span><span className="stat-v">{d.speed}<span className="stat-of"> pies</span></span></div>
-          <div className="stat"><span className="stat-k">Competencia</span><span className="stat-v">{fmt(d.pb)}</span></div>
-          <div className="stat"><span className="stat-k">Percepción pasiva</span><span className="stat-v">{d.pp}</span></div>
+          <div className="stat stat-lv"><span className="stat-k">Nivel</span><span className="stat-v">{d.level}</span>
+            <label className="stat-xp"><span>PX</span><input className="input" type="number" min={0} inputMode="numeric" aria-label="Puntos de experiencia" value={c.xp ?? ''} placeholder="0" onChange={(e) => set({ xp: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value, 10) || 0) })} /></label></div>
+          {/* CA con forma de escudo; debajo, «Escudo» con su casilla (embrazarlo o soltarlo en mitad del combate). De qué sale la CA, al pasar el ratón */}
+          <div className="stat stat-ac" title={'CA: ' + d.acNote}><span className="stat-k">CA</span><span className="stat-v">{d.ac}</span>
+            <label className="stat-shield" title={c.shield ? 'Soltar el escudo' : 'Embrazar un escudo: +' + (2 + (c.shieldBonus || 0)) + ' a la CA'}>
+              <span className="stat-note">Escudo</span>
+              <input type="checkbox" checked={c.shield} aria-label={'Escudo +' + (2 + (c.shieldBonus || 0))} onChange={(e) => set({ shield: e.target.checked })} />
+            </label></div>
+          <div className="stat stat-hp">
+            <span className="stat-k">PG</span>
+            <div className="stat-hp-row">
+              <span className="stat-hp-cur"><span className="stat-v">{c.hp}</span><span className="stat-note">actuales</span></span>
+              <span className="stat-hp-side">
+                <span><b className={c.temp > 0 ? 'stat-tmp' : ''}>{c.temp}</b> <span className="stat-note">temp.</span></span>
+                <span><b className="stat-max">{d.hpMax}</b> <span className="stat-note">máx.</span></span>
+              </span>
+            </div>
+            <span className="hpbar"><span className={'hpfill ' + (hpPct <= 25 ? 'low' : hpPct <= 50 ? 'mid' : '')} style={{ width: hpPct + '%' }} /></span>
+          </div>
+          <div className="stat stat-hd"><span className="stat-k">Dados de golpe</span>
+            <span className="stat-hd-row"><span className="stat-v">{hdSpentAll}</span><span className="stat-note">gastados de {hdMaxText}</span></span>
+            {/* gastar uno cura (un dado más la Constitución): en descansos cortos */}
+            <span className="stat-hd-btns">{d.hitDice.map((x) => <button key={x.die} className="btn small" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} title={'Gastar un d' + x.die + ' y curarte (descanso corto)'} onClick={() => spendHd(x.die)}>{multiHd ? 'd' + x.die : 'Usar uno'}</button>)}</span>
+          </div>
+          <div className={c.hp === 0 ? 'stat stat-death on' : 'stat stat-death'}><span className="stat-k">Salv. contra la muerte</span>
+            <span className="death-row"><span className="stat-note">Éxitos</span><span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.s ? 'pip ok' : 'pip off'} />)}</span></span>
+            <span className="death-row"><span className="stat-note">Fallos</span><span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.f ? 'pip bad' : 'pip off'} />)}</span></span>
+            <button className="btn small gold" disabled={c.hp > 0} title={c.hp > 0 ? 'Solo a 0 PG' : 'Tirar una salvación contra la muerte'} onClick={deathSave}>Tirar</button>
+          </div>
+          {/* la iniciativa se tira pulsándola: botón dorado con su d20, como los de ataque */}
+          <button className="stat stat-init" onClick={() => r('iniciativa', 'init', d20(d.init), d.initAdv ? { adv: d.initAdv } : {})} title={'Tirar iniciativa' + (d.initAdv ? ' con ventaja (' + d.initAdv + ')' : '')}>
+            <svg className="init-die" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 21 7v10l-9 5-9-5V7z" /><path d="M12 2 6.5 12 12 22M12 2l5.5 10L12 22M3 7l3.5 5L3 17M21 7l-3.5 5 3.5 5M6.5 12h11" fill="none" /></svg>
+            <span className="init-txt"><span className="stat-k">Iniciativa{d.initAdv && <span className="adv-mark">V</span>}</span><span className="stat-v">{fmt(d.init)}</span><span className="init-hint">Tirar</span></span>
+          </button>
+          <div className="stat stat-sm"><span className="stat-k">Velocidad</span><span className="stat-v">{d.speed}<span className="stat-of"> pies</span></span></div>
         </div>
         <div className="pc-hp-row" data-tour="hp">
           <input className="input" type="number" min={0} inputMode="numeric" aria-label="Cantidad de PG" placeholder="PG" value={amount} onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') damage(); }} />
@@ -383,7 +442,6 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <button className="btn primary" onClick={damage} title={resisted ? 'Resistencia (' + resisted.why + '): recibes la mitad' : undefined}>Daño{resisted ? ' (mitad)' : ''}</button>
           <button className="btn heal" onClick={heal}>Curación</button>
           <button className="btn temp" onClick={giveTemp}>PG temporales</button>
-          <span className="muted small">Dados de golpe: {hdText}</span>
           {conc && <button className="chip on pc-conc" title="Te concentras en este conjuro. Pulsa para dejar de concentrarte." onClick={() => set({ conds: withoutConc(c.conds) })}>Concentración: {conc} ✕</button>}
         </div>
         {concCheck && conc && (
@@ -396,24 +454,20 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </div>
           </InfoDialog>
         )}
-        {c.hp === 0 && (
-          <div className="sub" style={{ borderColor: '#c0513c' }}>
-            <div className="panel-head"><strong className="pc-death-t">Salvaciones contra la muerte</strong>
-              <span className="res-row">
-                <span className="res">Éxitos <span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.s ? 'pip ok' : 'pip off'} />)}</span></span>
-                <span className="res">Fallos <span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.f ? 'pip bad' : 'pip off'} />)}</span></span>
-              </span>
-            </div>
-            <button className="btn small gold" style={{ alignSelf: 'flex-start' }} onClick={deathSave}>Tirar salvación</button>
-          </div>
-        )}
       </div>
 
+      {/* características a la izquierda (como la hoja oficial); ataques y rasgos de clase a la derecha */}
+      <div className="pc-split" ref={splitRef}>
+      <div className="pc-split-col">
+      <div className="pc-split-in" ref={leftRef}>
       {/* como en la hoja oficial: cada característica con su modificador (prueba), su puntuación, su salvación y sus habilidades */}
       <section className="panel" aria-label="Características" data-tour="rolls">
         <h3 className="eyebrow">Características, salvaciones y habilidades</h3>
         <div className="pc-abils">
-          {ABILS.map((a) => (
+          {[ABILS.slice(0, 3), ABILS.slice(3)].map((col, ci) => <div key={ci} className="pc-abil-col">
+            {/* como en la hoja oficial: el bonificador por competencia arriba de la primera columna */}
+            {ci === 0 && <div className="pc-abil pc-pb"><span className="pc-abil-k">Bonificador por competencia</span><b>{fmt(d.pb)}</b></div>}
+            {col.map((a) => (
             <div key={a} className="pc-abil">
               <div className="pc-abil-head">
                 <span className="pc-abil-k">{ABIL_N[a]} <span className="pc-abil-s">{ABIL_S[a]}</span></span>
@@ -444,11 +498,37 @@ export default function CharacterSheet({ c }: { c: Character }) {
               </ul>
             </div>
           ))}
+            {/* bajo la Constitución: Inspiración heroica y Percepción pasiva */}
+            {ci === 0 && (
+              <div className="pc-abil pc-extra">
+                <button className={c.inspiration ? 'pc-insp on' : 'pc-insp'} aria-pressed={c.inspiration} title="Ventaja en una tirada d20 (se gasta al usarla)" onClick={() => set({ inspiration: !c.inspiration })}>
+                  <span className="pc-insp-box">{c.inspiration ? '★' : ''}</span><span>Inspiración heroica</span>
+                </button>
+                <div className="pc-pp"><span className="pc-abil-k">Percepción pasiva</span><b>{d.pp}</b></div>
+              </div>
+            )}
+            {/* competencias con equipo, herramientas e idiomas */}
+            {ci === 0 && (
+            <div className="pc-abil pc-profs">
+              <span className="pc-abil-k">Competencias</span>
+              <dl>
+                <dt>Armaduras</dt><dd>{profText.armor || 'ninguna'}</dd>
+                <dt>Armas</dt><dd>{profText.weapons || 'ninguna'}</dd>
+                <dt><label htmlFor="pc-tools">Herramientas</label></dt><dd><input id="pc-tools" className="input pc-prof-input" value={c.tools} placeholder="—" onChange={(e) => set({ tools: e.target.value })} /></dd>
+                <dt><label htmlFor="pc-langs">Idiomas</label></dt><dd><input id="pc-langs" className="input pc-prof-input" value={c.langs} placeholder="—" onChange={(e) => set({ langs: e.target.value })} /></dd>
+              </dl>
+            </div>
+            )}
+          </div>)}
         </div>
       </section>
 
       {/* ataques y paneles de rasgos con pocas tarjetas, uno al lado del otro (con muchas tarjetas, a todo el ancho) */}
-      <div className="pc-duo">
+      </div>
+      {notesSide === 'left' && notesPanel}
+      </div>
+      <div className="pc-split-col">
+      <div className="pc-duo pc-split-in" ref={rightRef}>
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
@@ -544,6 +624,49 @@ export default function CharacterSheet({ c }: { c: Character }) {
           </ul>
         </section>
       )}
+      {/* estados y descansos, al final de la columna derecha (junto a PG y ataques) */}
+      <section className="panel" aria-label="Estados y descansos">
+        <Picker title="Estados" summary={[...c.conds, c.exh ? 'Agotamiento ' + c.exh : ''].filter(Boolean).join(', ')}>
+          <div className="chips">
+            {CONDITIONS.map(([k]) => <button key={k} className={c.conds.includes(k) ? 'chip on' : 'chip'} aria-pressed={c.conds.includes(k)} onClick={() => set({ conds: c.conds.includes(k) ? c.conds.filter((x) => x !== k) : [...c.conds, k] })}>{k}</button>)}
+          </div>
+          <span className="res">Agotamiento
+            <span className="stepper">
+              <button className="step" aria-label="Reducir agotamiento" onClick={() => set({ exh: Math.max(0, c.exh - 1) })}>−</button>
+              <span className="qty">{c.exh}</span>
+              <button className="step" aria-label="Aumentar agotamiento" onClick={() => set({ exh: Math.min(6, c.exh + 1) })}>+</button>
+            </span>
+          </span>
+        </Picker>
+        {withoutConc(c.conds).length > 0 && <ul className="rem">{withoutConc(c.conds).map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
+        <div className="pc-rest">
+          <button className="btn small" onClick={() => setResting(!resting)} aria-expanded={resting}>Descanso corto</button>
+          <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); if (data && restSwapClasses(c).length && c.spells.length) setRestSpells(true); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>
+        </div>
+        {resting && (
+          <div className="sub">
+            <span className="small">Gasta dados de golpe para curarte ({fmt(d.mods.con)} cada uno). Te quedan {hdText}.</span>
+            <div className="rollrow">
+              {d.hitDice.map((x) => (
+                <button key={x.die} className="rollbtn" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} onClick={() => spendHd(x.die)}>{multiHd ? 'Gastar un d' + x.die : 'Gastar un dado de golpe'}</button>
+              ))}
+              <button className="btn small primary" onClick={() => {
+                const res = views.flatMap(({ v }) => choiceResources(v, data, lib));
+                // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)
+                const one = new Set([...res.filter((r) => r.now === 'sr1').map((r) => r.key), 'Furia', 'Forma salvaje', 'Segundo aliento', 'Canalizar Divinidad', 'Canalización divina']);
+                const all = [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
+                const rested = shortRest(c, all);
+                // los que recuperan uno en descanso corto (dados psiónicos, Canalizar divinidad)
+                one.forEach((k) => { if (rested.uses[k]) rested.uses[k] -= 1; });
+                replace(rested); setResting(false);
+              }}>Terminar descanso corto</button>
+            </div>
+          </div>
+        )}
+      </section>
+      </div>
+      {notesSide === 'right' && notesPanel}
+      </div>
       </div>
 
       {(d.spell || spellList.length > 0) && (
@@ -625,53 +748,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </ul>
       </section>
 
-      <section className="panel" aria-label="Estados y descansos">
-        <Picker title="Estados" summary={[...c.conds, c.exh ? 'Agotamiento ' + c.exh : ''].filter(Boolean).join(', ')}>
-          <div className="chips">
-            {CONDITIONS.map(([k]) => <button key={k} className={c.conds.includes(k) ? 'chip on' : 'chip'} aria-pressed={c.conds.includes(k)} onClick={() => set({ conds: c.conds.includes(k) ? c.conds.filter((x) => x !== k) : [...c.conds, k] })}>{k}</button>)}
-          </div>
-          <span className="res">Agotamiento
-            <span className="stepper">
-              <button className="step" aria-label="Reducir agotamiento" onClick={() => set({ exh: Math.max(0, c.exh - 1) })}>−</button>
-              <span className="qty">{c.exh}</span>
-              <button className="step" aria-label="Aumentar agotamiento" onClick={() => set({ exh: Math.min(6, c.exh + 1) })}>+</button>
-            </span>
-          </span>
-        </Picker>
-        {withoutConc(c.conds).length > 0 && <ul className="rem">{withoutConc(c.conds).map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
-        <div className="pc-rest">
-          <button className="btn small" onClick={() => setResting(!resting)} aria-expanded={resting}>Descanso corto</button>
-          <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); if (data && restSwapClasses(c).length && c.spells.length) setRestSpells(true); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>
-        </div>
-        {resting && (
-          <div className="sub">
-            <span className="small">Gasta dados de golpe para curarte ({fmt(d.mods.con)} cada uno). Te quedan {hdText}.</span>
-            <div className="rollrow">
-              {d.hitDice.map((x) => (
-                <button key={x.die} className="rollbtn" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} onClick={() => spendHd(x.die)}>{multiHd ? 'Gastar un d' + x.die : 'Gastar un dado de golpe'}</button>
-              ))}
-              <button className="btn small primary" onClick={() => {
-                const res = views.flatMap(({ v }) => choiceResources(v, data, lib));
-                // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)
-                const one = new Set([...res.filter((r) => r.now === 'sr1').map((r) => r.key), 'Furia', 'Forma salvaje', 'Segundo aliento', 'Canalizar Divinidad', 'Canalización divina']);
-                const all = [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
-                const rested = shortRest(c, all);
-                // los que recuperan uno en descanso corto (dados psiónicos, Canalizar divinidad)
-                one.forEach((k) => { if (rested.uses[k]) rested.uses[k] -= 1; });
-                replace(rested); setResting(false);
-              }}>Terminar descanso corto</button>
-            </div>
-          </div>
-        )}
-      </section>
 
-      <section className="panel" aria-label="Notas">
-        <div className="row2">
-          <div className="field"><label htmlFor="pc-langs">Idiomas</label><input id="pc-langs" className="input" value={c.langs} onChange={(e) => set({ langs: e.target.value })} /></div>
-          <div className="field"><label htmlFor="pc-tools">Herramientas</label><input id="pc-tools" className="input" value={c.tools} onChange={(e) => set({ tools: e.target.value })} /></div>
-        </div>
-        <div className="field"><label htmlFor="pc-notes">Notas</label><textarea id="pc-notes" className="input" rows={4} value={c.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Equipo, objetivos, vínculos, lo que pasó la última sesión…" /></div>
-      </section>
     </div>
   );
 }

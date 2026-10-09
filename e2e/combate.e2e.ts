@@ -404,7 +404,8 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   await expect(sheet.getByRole('heading', { name: 'Brakka' })).toBeVisible();
   await expect(sheet).toContainText('Enano · Guerrero 3 (Campeón) · Soldado');
   await expect(sheet.locator('.stat', { hasText: 'CA' }).first()).toContainText('18');
-  await expect(sheet.locator('.stat', { hasText: 'PG' }).first()).toContainText('28 / 28');
+  await expect(sheet.locator('.stat-hp .stat-v')).toHaveText('28');
+  await expect(sheet.locator('.stat-hp .stat-max')).toHaveText('28');
   await sheet.getByRole('button', { name: 'Ataque +4' }).click();
   await expect(page.locator('.plaque-label')).toContainText('Brakka · Espada larga: ataque', { timeout: 15000 });
   await expect(sheet.getByRole('button', { name: /Daño 1d8\+2 cortante/ })).toBeVisible();
@@ -415,13 +416,15 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   // PG: daño y curación
   await sheet.getByLabel('Cantidad de PG').fill('7');
   await sheet.getByRole('button', { name: 'Daño', exact: true }).click();
-  await expect(sheet.locator('.stat', { hasText: 'PG' }).first()).toContainText('21 / 28');
+  await expect(sheet.locator('.stat-hp .stat-v')).toHaveText('21');
+  await expect(sheet.locator('.stat-hp .stat-max')).toHaveText('28');
 
   // se guarda en el dispositivo
   await page.waitForTimeout(400);
   await page.reload();
   await expect(page.locator('.pc').getByRole('heading', { name: 'Brakka' })).toBeVisible();
-  await expect(page.locator('.pc .stat', { hasText: 'PG' }).first()).toContainText('21 / 28');
+  await expect(page.locator('.pc .stat-hp .stat-v')).toHaveText('21');
+  await expect(page.locator('.pc .stat-hp .stat-max')).toHaveText('28');
 });
 
 test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase y dote propia', async ({ page }) => {
@@ -564,7 +567,7 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const fiend = page.locator('section[aria-label="Patrón infernal"]');
   await fiend.getByRole('button', { name: 'Ganar 17 PG temporales' }).click();
-  await expect(page.locator('.stat-tmp')).toContainText('+17');
+  await expect(page.locator('.stat-tmp')).toContainText('17');
   await expect(fiend.locator('.card', { hasText: 'Arrojar a través del Infierno' })).toContainText(/CD \d+ Carisma/);
   const luck = fiend.locator('.card', { hasText: 'Suerte propia del Oscuro' });
   for (let i = 0; i < 3; i++) await luck.getByRole('button', { name: 'Tirar 1d10' }).click();
@@ -993,12 +996,15 @@ test('subir de nivel en el editor sube también los PG actuales', async ({ page 
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Pícaro' });
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  const hp = page.locator('.pc-stats .stat', { hasText: 'PG' }).locator('.stat-v');
-  await expect(hp).toHaveText('10 / 10'); // d8 + CON 14
+  const hp = page.locator('.pc-stats .stat-hp .stat-v');
+  const hpMax = page.locator('.pc-stats .stat-hp .stat-max');
+  await expect(hp).toHaveText('10'); // d8 + CON 14
+  await expect(hpMax).toHaveText('10');
   await page.getByRole('button', { name: 'Editar hoja' }).click();
   await page.getByLabel('Nivel', { exact: true }).fill('5');
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(hp).toHaveText('38 / 38');
+  await expect(hp).toHaveText('38');
+  await expect(hpMax).toHaveText('38');
 });
 
 test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ page }) => {
@@ -1015,8 +1021,8 @@ test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ p
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.locator('.pc-head')).toContainText('Paladín 5');
   await expect(page.locator('.pc-head')).toContainText('Brujo 3');
-  await expect(page.locator('.pc-stats .stat', { hasText: 'Competencia' })).toContainText('+3');
-  await expect(page.locator('.pc-hp-row')).toContainText('5/5 d10 · 3/3 d8');
+  await expect(page.locator('.pc-pb')).toContainText('+3');
+  await expect(page.locator('.pc-stats')).toContainText('5d10 + 3d8');
   const sp = page.locator('section[aria-label="Conjuros"]');
   await expect(sp).toContainText('(Paladín)');
   await expect(sp).toContainText('(Brujo)');
@@ -1055,7 +1061,7 @@ test('multiclase: los paneles de acciones de cada clase', async ({ page }) => {
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.getByRole('region', { name: 'Rasgos de clase' })).toContainText('Segundo aliento');
   await expect(page.getByRole('button', { name: /^Furia \+2/ })).toBeVisible();
-  await expect(page.locator('.pc-stats .stat', { hasText: 'CA' })).toContainText('Defensa sin armadura');
+  await expect(page.locator('.pc-stats .stat-ac')).toHaveAttribute('title', /Defensa sin armadura/);
 });
 
 test('Furia: estado guardado, resistencias, ventaja en Fuerza y daño recibido a la mitad', async ({ page }) => {
@@ -1072,12 +1078,12 @@ test('Furia: estado guardado, resistencias, ventaja en Fuerza y daño recibido a
   // sigue en Furia tras recargar
   await page.reload();
   await expect(page.locator('.pc-resist')).toContainText('perforante (Furia)');
-  const hp = page.locator('.pc-stats .stat', { hasText: 'PG' }).locator('.stat-v');
-  const before = parseInt((await hp.textContent())!.split('/')[0], 10);
+  const hp = page.locator('.pc-stats .stat-hp .stat-v');
+  const before = parseInt((await hp.textContent())!, 10);
   await page.getByLabel('Tipo de daño recibido').selectOption('cortante');
   await page.getByLabel('Cantidad de PG').fill('10');
   await page.getByRole('button', { name: 'Daño (mitad)' }).click();
-  await expect(hp).toContainText(String(before - 5) + ' /');
+  await expect(hp).toHaveText(String(before - 5));
   await page.getByRole('button', { name: /^Furia \+2/ }).click();
   await expect(page.locator('.pc-resist')).toHaveCount(0);
 });
@@ -1157,8 +1163,8 @@ test('subir de nivel: PG tirados, mejora de característica, conjuros nuevos, mu
   await page.getByLabel('Nivel', { exact: true }).fill('3');
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  const hp = page.locator('.pc-stats .stat', { hasText: 'PG' }).locator('.stat-v');
-  const hpBefore = parseInt((await hp.textContent())!.split('/')[1], 10);
+  const hp = page.locator('.pc-stats .stat-hp .stat-max');
+  const hpBefore = parseInt((await hp.textContent())!, 10);
   await page.getByRole('button', { name: 'Subir de nivel' }).click();
   const dlg = page.getByRole('dialog', { name: 'Subir a nivel 4' });
   await expect(dlg).toContainText('Guerrero 3 → 4');
@@ -1169,7 +1175,7 @@ test('subir de nivel: PG tirados, mejora de característica, conjuros nuevos, mu
   await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 4' }).click();
   await expect(page.locator('.pc-head')).toContainText('Guerrero 4');
   await expect(page.locator('.pc-abil', { hasText: 'FUE' })).toContainText('17');
-  const hpAfter = parseInt((await hp.textContent())!.split('/')[1], 10);
+  const hpAfter = parseInt((await hp.textContent())!, 10);
   expect(hpAfter).toBeGreaterThan(hpBefore);
   // deshacer la subida
   await page.getByRole('button', { name: 'Deshacer la subida' }).click();
@@ -1237,9 +1243,9 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const ac = page.locator('.pc-stats .stat', { hasText: 'CA' }).first();
   const acBefore = Number(await ac.locator('.stat-v').textContent());
-  await ac.getByRole('button', { name: 'Escudo +2' }).click();
+  await ac.getByRole('checkbox', { name: 'Escudo +2' }).click();
   await expect(ac.locator('.stat-v')).toHaveText(String(acBefore + 2));
-  await ac.getByRole('button', { name: 'Escudo +2' }).click();
+  await ac.getByRole('checkbox', { name: 'Escudo +2' }).click();
   await expect(ac.locator('.stat-v')).toHaveText(String(acBefore));
 
   const atk = page.locator('section[aria-label="Ataques"]');
@@ -1269,7 +1275,7 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await page.getByLabel(/^Buscar conjuro/).fill('descarga sobrenatural');
   await page.locator('.ce-spell-results .chip').first().click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(page.locator('.pc-stats .stat', { hasText: 'CA' }).first()).toContainText('Armadura de sombras');
+  await expect(page.locator('.pc-stats .stat-ac')).toHaveAttribute('title', /Armadura de sombras/);
   const blast = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Descarga sobrenatural' });
   await expect(blast.getByRole('button', { name: /^Daño 1d10\+\d fuerza/ })).toBeVisible();
   await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: '+ Arcano 4d8' })).toBeVisible();
@@ -1490,7 +1496,7 @@ test('subir de nivel con PG fijados a mano, habilidades por característica y co
   await page.locator('#ov-hpMax').fill('30');
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const hpStat = page.locator('.pc-stats .stat', { hasText: 'PG' }).first();
-  await expect(hpStat).toContainText('/ 30');
+  await expect(hpStat.locator('.stat-max')).toHaveText('30');
 
   // habilidades dentro de su característica
   const str = page.locator('.pc-abil', { hasText: 'FUE' });
@@ -1501,8 +1507,8 @@ test('subir de nivel con PG fijados a mano, habilidades por característica y co
   // subir de nivel: el máximo fijado a mano sube lo que se gana
   await page.getByRole('button', { name: 'Subir de nivel' }).click();
   await page.getByRole('button', { name: /^Confirmar: subir a nivel 3/ }).click();
-  await expect(hpStat).not.toContainText('/ 30');
-  const max = Number((await hpStat.locator('.stat-of').textContent())!.replace(/\D/g, ''));
+  await expect(hpStat.locator('.stat-max')).not.toHaveText('30');
+  const max = Number((await hpStat.locator('.stat-max').textContent())!.replace(/\D/g, ''));
   expect(max).toBeGreaterThan(30);
 
   // concentración: Marca del cazador desde Ataques, daño y salvación
@@ -1536,7 +1542,7 @@ test('subir de nivel: la vista previa de PG cuenta la Dureza enana y coincide co
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const hpStat = page.locator('.pc-stats .stat', { hasText: 'PG' }).first();
-  const maxNow = Number((await hpStat.locator('.stat-of').textContent())!.replace(/\D/g, ''));
+  const maxNow = Number((await hpStat.locator('.stat-max').textContent())!.replace(/\D/g, ''));
   await page.getByRole('button', { name: 'Subir de nivel' }).click();
   const dlg = page.getByRole('dialog', { name: 'Subir a nivel 2' });
   const m = /PG máximos: (\d+) → (\d+)/.exec((await dlg.textContent()) || '');
@@ -1545,5 +1551,5 @@ test('subir de nivel: la vista previa de PG cuenta la Dureza enana y coincide co
   const con = Number((await page.locator('.pc-abil').filter({ has: page.locator('.pc-abil-s', { hasText: /^CON$/ }) }).locator('.pc-abil-mod b').textContent())!.replace('−', '-'));
   expect(Number(m![2]) - maxNow).toBe(6 + con + 1);
   await dlg.getByRole('button', { name: /^Confirmar: subir a nivel 2/ }).click();
-  await expect(hpStat.locator('.stat-of')).toContainText(m![2]);
+  await expect(hpStat.locator('.stat-max')).toContainText(m![2]);
 });
