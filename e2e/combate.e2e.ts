@@ -1572,3 +1572,16 @@ test('salvaciones contra la muerte: los círculos se marcan y desmarcan a mano',
   await box.getByRole('button', { name: 'Éxitos: 3' }).click();
   await expect(box.locator('.pip.ok')).toHaveCount(3);
 });
+
+test('PX: muestra los del siguiente nivel y resalta «Subir de nivel» al alcanzarlos', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Tomás');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const lv = page.locator('.stat-lv');
+  await expect(lv).toContainText('sig.: 300');
+  await expect(page.getByRole('button', { name: 'Subir de nivel', exact: true })).toBeVisible();
+  await page.getByLabel('Puntos de experiencia').fill('300');
+  await expect(page.getByRole('button', { name: '¡Subir de nivel!' })).toBeVisible();
+});

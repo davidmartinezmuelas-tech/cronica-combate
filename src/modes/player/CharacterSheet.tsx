@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
-import { CONDITIONS, DMG_TYPES } from '../../data/constants';
+import { CONDITIONS, DMG_TYPES, XP_LEVELS } from '../../data/constants';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
 import { asClass, classEntries, classLevel, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character, type Derived } from '../../engine/character';
 import { fmt, sgn, type RollPart } from '../../engine/dice';
@@ -372,6 +372,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <textarea id="pc-notes" className="input" value={c.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Equipo, objetivos, vínculos, lo que pasó la última sesión…" />
     </section>
   );
+  // PX para el siguiente nivel; al alcanzarlos se resalta «Subir de nivel» (subir es a mano: hay que elegir)
+  const xpNext = d.level < 20 ? XP_LEVELS[d.level] : null;
+  const xpReady = xpNext != null && (c.xp || 0) >= xpNext;
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
 
   return (
@@ -384,7 +387,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             {d.resist.length > 0 && <span className="small pc-resist">Resistencias: {d.resist.map((x) => x.type + ' (' + x.why + ')').join(' · ')}</span>}
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {data && <button className="btn small primary" onClick={() => setLeveling(true)}>Subir de nivel</button>}
+            {data && <button className={xpReady ? 'btn small primary lvl-ready' : 'btn small primary'} title={xpReady ? 'Tienes PX para el nivel ' + (d.level + 1) : undefined} onClick={() => setLeveling(true)}>{xpReady ? '¡Subir de nivel!' : 'Subir de nivel'}</button>}
             <button className="btn small" data-tour="edit" onClick={() => setEditing(true)}>Editar hoja</button>
           </div>
         </div>
@@ -400,7 +403,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
         {/* franja como la de la hoja oficial: nivel y PX, CA, PG, dados de golpe, salvaciones contra la muerte, iniciativa y velocidad */}
         <div className="pc-stats">
           <div className="stat stat-lv"><span className="stat-k">Nivel</span><span className="stat-v">{d.level}</span>
-            <label className="stat-xp"><span>PX</span><input className="input" type="number" min={0} inputMode="numeric" aria-label="Puntos de experiencia" value={c.xp ?? ''} placeholder="0" onChange={(e) => set({ xp: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value, 10) || 0) })} /></label></div>
+            <label className="stat-xp"><span>PX</span><input className="input" type="number" min={0} inputMode="numeric" aria-label="Puntos de experiencia" value={c.xp ?? ''} placeholder="0" onChange={(e) => set({ xp: e.target.value === '' ? undefined : Math.max(0, parseInt(e.target.value, 10) || 0) })} /></label>
+            {xpNext != null && <span className={xpReady ? 'stat-note stat-xp-next on' : 'stat-note stat-xp-next'}>sig.: {xpNext.toLocaleString('es-ES')}</span>}</div>
           {/* CA con forma de escudo; debajo, «Escudo» con su casilla (embrazarlo o soltarlo en mitad del combate). De qué sale la CA, al pasar el ratón */}
           <div className="stat stat-ac" title={'CA: ' + d.acNote}><span className="stat-k">CA</span><span className="stat-v">{d.ac}</span>
             <label className="stat-shield" title={c.shield ? 'Soltar el escudo' : 'Embrazar un escudo: +' + (2 + (c.shieldBonus || 0)) + ' a la CA'}>
