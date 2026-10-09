@@ -241,6 +241,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const heal = () => { if (amt > 0) { set({ hp: Math.min(d.hpMax, c.hp + amt), death: { s: 0, f: 0 } }); setAmount(''); } };
   const giveTemp = () => { if (amt > 0) { set({ temp: Math.max(c.temp, amt) }); setAmount(''); } };
 
+  // pulsar un círculo marca hasta él; pulsar el último marcado lo desmarca
+  const markDeath = (k: 's' | 'f', j: number) => set({ death: { ...c.death, [k]: c.death[k] === j + 1 ? j : j + 1 } });
   const deathSave = () => r('salvación contra la muerte', 'free', '1d20', {
     after: (total) => {
       const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
@@ -422,8 +424,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="stat-hd-btns">{d.hitDice.map((x) => <button key={x.die} className="btn small" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} title={'Gastar un d' + x.die + ' y curarte (descanso corto)'} onClick={() => spendHd(x.die)}>{multiHd ? 'd' + x.die : 'Usar uno'}</button>)}</span>
           </div>
           <div className={c.hp === 0 ? 'stat stat-death on' : 'stat stat-death'}><span className="stat-k">Salv. contra la muerte</span>
-            <span className="death-row"><span className="stat-note">Éxitos</span><span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.s ? 'pip ok' : 'pip off'} />)}</span></span>
-            <span className="death-row"><span className="stat-note">Fallos</span><span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < c.death.f ? 'pip bad' : 'pip off'} />)}</span></span>
+            {/* se marcan a mano: un golpe estando a 0 PG es un fallo (dos si es crítico) */}
+            <span className="death-row"><span className="stat-note">Éxitos</span><span className="pips">{[0, 1, 2].map((j) => <button key={j} className={j < c.death.s ? 'pip ok' : 'pip off'} aria-label={'Éxitos: ' + (j + 1)} aria-pressed={j < c.death.s} onClick={() => markDeath('s', j)} />)}</span></span>
+            <span className="death-row"><span className="stat-note">Fallos</span><span className="pips">{[0, 1, 2].map((j) => <button key={j} className={j < c.death.f ? 'pip bad' : 'pip off'} aria-label={'Fallos: ' + (j + 1)} aria-pressed={j < c.death.f} onClick={() => markDeath('f', j)} />)}</span></span>
             <button className="btn small gold" disabled={c.hp > 0} title={c.hp > 0 ? 'Solo a 0 PG' : 'Tirar una salvación contra la muerte'} onClick={deathSave}>Tirar</button>
           </div>
           {/* la iniciativa se tira pulsándola: botón dorado con su d20, como los de ataque */}

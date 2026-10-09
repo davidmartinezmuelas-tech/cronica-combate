@@ -1553,3 +1553,22 @@ test('subir de nivel: la vista previa de PG cuenta la Dureza enana y coincide co
   await dlg.getByRole('button', { name: /^Confirmar: subir a nivel 2/ }).click();
   await expect(hpStat.locator('.stat-max')).toContainText(m![2]);
 });
+
+test('salvaciones contra la muerte: los círculos se marcan y desmarcan a mano', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Bruna');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const box = page.locator('.stat-death');
+  // un golpe estando en el suelo: marcar un fallo; con crítico, el segundo
+  await box.getByRole('button', { name: 'Fallos: 1' }).click();
+  await expect(box.locator('.pip.bad')).toHaveCount(1);
+  await box.getByRole('button', { name: 'Fallos: 2' }).click();
+  await expect(box.locator('.pip.bad')).toHaveCount(2);
+  // pulsar el último marcado lo quita
+  await box.getByRole('button', { name: 'Fallos: 2' }).click();
+  await expect(box.locator('.pip.bad')).toHaveCount(1);
+  await box.getByRole('button', { name: 'Éxitos: 3' }).click();
+  await expect(box.locator('.pip.ok')).toHaveCount(3);
+});
