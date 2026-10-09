@@ -52,9 +52,10 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
       <div className="panel-head">
         <h3 className="eyebrow">{kit.title}</h3>
         {res && (
-          <span className="rollrow">
-            <span className="muted small">{res.n}: {left} de {max}{die ? ' (' + die + ')' : ''}{resPer === 'sr1' ? ' · uno vuelve en descanso corto, todos en largo' : ' · vuelven en descanso ' + per(resPer)}</span>
+          // los contadores junto al título (cuándo se recuperan, al pasar el ratón)
+          <span className="rollrow res-head" title={res.n + (resPer === 'sr1' ? ': uno vuelve en descanso corto, todos en largo' : ': vuelven en descanso ' + per(resPer))}>
             <Pips max={max} used={used} label={res.n} onSet={(v) => set({ uses: { ...c.uses, [res.key]: Math.max(0, Math.min(max, v)) } })} />
+            <span className="muted small">{norm(res.n).includes(norm(kit.title)) ? '' : res.n + ': '}{left} de {max}{die ? ' (' + die + ')' : ''}</span>
           </span>
         )}
       </div>

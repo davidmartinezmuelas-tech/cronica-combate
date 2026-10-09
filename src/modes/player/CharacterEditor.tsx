@@ -106,7 +106,10 @@ export default function CharacterEditor({ c }: { c: Character }) {
   // Caballero arcano y Embaucador arcano: lista de mago
   const subCaster = subclassCaster(c);
   const listCls = subCaster && !cls?.spells.length ? data.classes.find((x) => x.id === subCaster.list) : cls;
-  const classList = new Set([...(listCls?.spells || []), ...spellIdx.list.filter((s) => listCls && s.classes?.includes(listCls.id)).map((s) => s.id)]);
+  // multiclase: también las listas de sus otras clases lanzadoras
+  const listClasses = [listCls, ...(c.multi || []).map((e) => data.classes.find((x) => x.id === e.classId)).filter((x) => x?.caster && x.spells.length)]
+    .filter((x, i, a): x is NonNullable<typeof x> => !!x && a.findIndex((y) => y?.id === x.id) === i);
+  const classList = new Set(listClasses.flatMap((k) => [...k.spells, ...spellIdx.list.filter((s) => s.classes?.includes(k.id)).map((s) => s.id)]));
   const known = c.spells.map((k) => spellIdx.get(k)).filter(Boolean);
   const cantripsHave = known.filter((s) => !s!.l).length;
   const useClassList = !allSpells && classList.size > 0;
@@ -324,7 +327,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
             </div>
           )}
           {subSpellNames.length > 0 && <p className="muted small" style={{ margin: 0 }}>Por tu subclase siempre tienes preparados (se añaden solos a la hoja): {subSpellNames.join(', ')}.</p>}
-          <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + listCls!.n : ''}</label>
+          <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + listClasses.map((k) => k.n).join(' y ') : ''}</label>
             <input id="ce-spq" className="input" value={spellQ} onChange={(e) => setSpellQ(e.target.value)} placeholder="Castigo divino, Bola de fuego, Curar heridas…" /></div>
           <div className="rollrow">
             {classList.size > 0 && <label className="check"><input type="checkbox" checked={allSpells} onChange={(e) => setAllSpells(e.target.checked)} />Mostrar conjuros de otras clases</label>}

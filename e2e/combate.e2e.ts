@@ -700,7 +700,7 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   // bardo del Saber, nivel 5, Carisma 16: 3 usos de d8; Fuente de inspiración: el descanso corto los recupera todos
   await make('Lira', 'Bardo', '5', 'Colegio del Saber', ['cha', '16']);
   const bard = page.locator('section[aria-label="Inspiración bárdica"]');
-  await expect(bard).toContainText('Inspiración bárdica: 3 de 3 (d8)');
+  await expect(bard.locator('.res-head')).toHaveText('3 de 3 (d8)');
   await bard.locator('.card', { hasText: 'Palabras hirientes' }).getByRole('button', { name: 'Tirar d8' }).click();
   await bard.getByRole('button', { name: 'Dar un dado a un aliado' }).click();
   await expect(bard).toContainText('1 de 3');
@@ -710,7 +710,7 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   // clérigo de la Vida, nivel 6, Sabiduría 16: 3 usos; el descanso corto recupera uno
   await make('Ilsa', 'Clérigo', '6', 'Dominio de la Vida', ['wis', '16']);
   const cleric = page.locator('section[aria-label="Canalizar divinidad"]');
-  await expect(cleric).toContainText('Usos de Canalizar divinidad: 3 de 3');
+  await expect(cleric.locator('.res-head')).toHaveText('3 de 3');
   await expect(cleric.locator('.card', { hasText: 'Preservar vida' })).toContainText('reparte 30 PG');
   await cleric.locator('.card', { hasText: 'Chispa' }).getByRole('button', { name: 'Curar 1d8+3' }).click();
   await cleric.locator('.card', { hasText: 'Preservar vida' }).getByRole('button', { name: 'Usar en otros (gasta un uso)' }).click();
@@ -721,7 +721,7 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   // paladín de devoción, nivel 3, Carisma 16: Arma sagrada +3
   await make('Aldo', 'Paladín', '3', 'Juramento de devoción', ['cha', '16']);
   const pal = page.locator('section[aria-label="Canalización divina"]');
-  await expect(pal).toContainText('Usos de Canalización divina: 2 de 2');
+  await expect(pal.locator('.res-head')).toHaveText('2 de 2');
   await expect(pal.locator('.card', { hasText: 'Arma sagrada' })).toContainText('+3 al ataque');
 });
 
@@ -1245,16 +1245,14 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   const atk = page.locator('section[aria-label="Ataques"]');
   // Castigo del paladín: gratis una vez; luego con espacios de nivel 1 o 2
   const pick = atk.getByLabel('Espacio del castigo divino');
-  await expect(pick.locator('option')).toHaveText(['Gratis (nivel 1) · 2d8', 'Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
+  await expect(pick.locator('option')).toHaveText(['Gratis · 2d8', 'Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
   const sword = atk.locator('.pc-attack', { hasText: 'Espada larga' });
-  await sword.getByRole('button', { name: 'Daño + castigo divino +2d8' }).click();
-  await expect(page.locator('.plaque-label')).toContainText('castigo divino gratis');
+  await sword.getByRole('button', { name: '+ Divino 2d8' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('(castigo divino)');
   await expect(pick.locator('option')).toHaveText(['Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
   await pick.selectOption({ label: 'Nivel 2 · 3d8' });
-  await sword.getByRole('button', { name: 'Daño + castigo divino +3d8' }).click();
-  await expect(page.locator('.plaque-label')).toContainText('castigo divino nivel 2');
-  // también en «Al acertar», y Castigo del paladín con su círculo gastado
-  await expect(atk.locator('.pc-onhit')).toContainText('Castigo Divino');
+  await sword.getByRole('button', { name: '+ Divino 3d8' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('(castigo divino)');
 
   // brujo 5: invocaciones con requisitos y sus efectos
   await make('Nera', 'Brujo', '5', 'Patrón infernal');
@@ -1274,6 +1272,77 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await expect(page.locator('.pc-stats .stat', { hasText: 'CA' }).first()).toContainText('Armadura de sombras');
   const blast = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Descarga sobrenatural' });
   await expect(blast.getByRole('button', { name: /^Daño 1d10\+\d fuerza/ })).toBeVisible();
-  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: 'Daño + castigo arcano +4d8' })).toBeVisible();
+  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: '+ Arcano 4d8' })).toBeVisible();
   await expect(page.locator('.pc-features .card', { hasText: 'Ráfaga agónica' }).first()).toBeVisible();
+});
+
+test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con la piedra) y pestañas de conjuros', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Brom');
+  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Enano' });
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Añadir otra clase (multiclase)' }).click();
+  await page.getByLabel('Otra clase').selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel en ella').fill('2');
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  for (const q of ['descarga sobrenatural', 'maleficio', 'bendición']) {
+    await page.getByLabel(/^Buscar conjuro/).fill(q);
+    await page.locator('.ce-spell-results .chip').first().click();
+  }
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+
+  const uses = page.locator('section[aria-label="Rasgos con usos"]');
+  await expect(uses.locator('.card', { hasText: 'Afinidad con la piedra' })).toBeVisible();
+  const cunning = uses.locator('.card', { hasText: 'Astucia mágica' });
+  await expect(cunning.getByRole('button', { name: 'Usar (no has gastado espacios de pacto)' })).toBeDisabled();
+  // gasta los dos espacios de pacto y la Astucia mágica recupera uno (la mitad, redondeando arriba)
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  const pact = sp.getByRole('group', { name: /^Espacios de pacto/ });
+  for (let i = 0; i < 2; i++) await pact.getByRole('button', { name: 'Gastar uno' }).first().click();
+  await expect(pact).toHaveAttribute('aria-label', 'Espacios de pacto: 0 de 2 disponibles');
+  await cunning.getByRole('button', { name: 'Usar: recupera 1 espacio de pacto' }).click();
+  await expect(cunning.getByRole('button', { name: /^Usar/ })).toBeDisabled();
+  await expect(pact).toHaveAttribute('aria-label', 'Espacios de pacto: 1 de 2 disponibles');
+  // los rasgos con usos no se repiten en «Rasgos y dotes»
+  await expect(page.locator('section[aria-label="Rasgos y dotes"] .card', { hasText: 'Astucia mágica' })).toHaveCount(0);
+
+  // Maleficio en el golpe del arma (y no en una sección aparte)
+  const sword = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' });
+  await sword.getByRole('button', { name: '+ Maleficio 1d6' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('maleficio');
+  // pestañas: por clase y por nivel
+  await sp.getByRole('tab', { name: 'Brujo' }).click();
+  await expect(sp.locator('.card', { hasText: 'Maleficio' })).toBeVisible();
+  await expect(sp.locator('.card', { hasText: 'Bendición' })).toHaveCount(0);
+  await sp.getByRole('tab', { name: /^Trucos/ }).click();
+  await expect(sp.locator('.card', { hasText: 'Descarga sobrenatural' })).toBeVisible();
+  await expect(sp.locator('.card', { hasText: 'Maleficio' })).toHaveCount(0);
+  await sp.getByRole('tab', { name: 'Todas las clases' }).click();
+  await sp.getByRole('tab', { name: /^Todos/ }).click();
+  await expect(sp.locator('.card', { hasText: 'Bendición' })).toBeVisible();
+});
+
+test('paladín y brujo: los dos castigos a la vez desde el arma', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Vael');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Añadir otra clase (multiclase)' }).click();
+  await page.getByLabel('Otra clase').selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel en ella').fill('5');
+  const inv = page.locator('details.picker', { hasText: 'Invocaciones arcanas' });
+  await inv.locator(':scope > summary').click();
+  for (const n of ['Pacto de la hoja', 'Castigo arcano']) await inv.getByRole('button', { name: n, exact: true }).click();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sword = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' });
+  await sword.getByRole('button', { name: '+ Ambos castigos' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('(castigo divino, castigo arcano)');
 });

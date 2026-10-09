@@ -77,6 +77,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const views = useMemo(() => classEntries(c).map((e, i): { v: Character; dv: Derived } => ({ v: i === 0 ? c : asClass(c, e), dv: { ...d, cls: data?.classes.find((x) => x.id === e.classId) } })), [c, d, data]);
   // los usos que ya tienen sus círculos en un panel de acciones no se repiten en «Rasgos y dotes»
   const panelKeys = useMemo(() => new Set(views.flatMap(({ v }) => [...classPanelKeys(v, data), ...actionPanelKeys(v, data, lib)])), [views, data, lib]);
+  // rasgos con usos que se gastan desde su propia tarjeta (Astucia mágica, Afinidad con la piedra, Arma de aliento…);
+  // Furia y Castigo del paladín se usan desde «Ataques»
+  const usable = features.filter((f) => f.max && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));
+  const usableKeys = new Set(usable.map((f) => f.key));
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
   // subir de nivel: el asistente y, tras confirmar, la hoja de antes para poder deshacerlo
@@ -91,12 +95,14 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // de clase: Furia y Marca del cazador duran; Golpe brutal, Ataque furtivo y Golpe divino/primordial, una vez
   const [reckless, setReckless] = useState(false); // Ataque temerario (ventaja en los ataques con Fuerza este turno)
   const [dmgType, setDmgType] = useState(''); // tipo del daño que recibe (para sus resistencias)
-  const [mark, setMark] = useState(false);
   const [sneak, setSneak] = useState(false);
   const [brutal, setBrutal] = useState(false);
   const [strike, setStrike] = useState(false);
   // castigos en el golpe del arma (su daño va en la misma tirada: en un crítico también se doblan sus dados)
   const [smitePick, setSmitePick] = useState('');
+  // pestañas de conjuros: por nivel y, con varias clases lanzadoras, por clase
+  const [spLv, setSpLv] = useState('all');
+  const [spCls, setSpCls] = useState('all');
 
   const sp = data?.species.find((x) => x.id === c.speciesId);
   const bg = data?.backgrounds.find((x) => x.id === c.backgroundId) || lib.backgrounds.find((x) => x.id === c.backgroundId);
@@ -129,7 +135,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     else set({ conds: c.conds.filter((k) => k !== 'Furia') });
   };
   type Hit = { melee: boolean; str: boolean; finesse: boolean };
-  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, with_: { smite?: boolean; eld?: boolean } = {}) => {
+  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, with_: { smite?: boolean; eld?: boolean; mark?: boolean; hex?: boolean } = {}) => {
     const melee = hit.melee;
     const piercing = parts[0]?.type === 'perforante';
     const ps: RollPart[] = parts.map((p, i) => (i === 0 ? { ...p, ...(savage ? { best2: true } : {}), ...(pierce && piercing ? { rerollLow: true } : {}) } : p));
@@ -144,7 +150,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (frenzy && hit.str && rageDmg) ps.push({ expr: rageDmg + 'd6', type });
     if (brutal && hit.str && brutalDice) ps.push({ expr: brutalDice, type });
     if (sneak && hit.finesse && sneakDice) ps.push({ expr: sneakDice, type });
-    if (mark && markDie) ps.push({ expr: markDie, type: 'fuerza' });
+    // Marca del cazador y Maleficio: su daño en cada impacto, en la misma tirada que el arma
+    if (with_.mark && markExpr) ps.push({ expr: markExpr, type: 'fuerza' });
+    if (with_.hex && hexExpr) ps.push({ expr: hexExpr, type: 'necrótico' });
     if (strike && strikeDice) ps.push({ expr: strikeDice, type: blessed ? 'radiante' : 'elemental' });
     // Castigo divino y Castigo arcano: con armas cuerpo a cuerpo (y ataques sin armas), gastan su espacio al tirar
     const useSmite = !!with_.smite && melee && !!smiteOpt;
@@ -153,8 +161,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (useEld) ps.push({ expr: eldDice, type: 'fuerza' });
     const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : '', pierce && piercing ? 'perforador' : '',
       rage && hit.str && rageDmg ? 'furia' : '', frenzy && hit.str && rageDmg ? 'frenesí: solo al primer objetivo del turno' : '', brutal && hit.str && brutalDice ? 'golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'ataque furtivo' : '',
-      mark && markDie ? 'marca del cazador' : '', strike && strikeDice ? strikeName.toLowerCase() : '',
-      useSmite ? 'castigo divino ' + smiteOpt!.label.toLowerCase() : '', useEld ? 'castigo arcano' : ''].filter(Boolean);
+      with_.mark && markExpr ? 'marca del cazador' : '', with_.hex && hexExpr ? 'maleficio' : '', strike && strikeDice ? strikeName.toLowerCase() : '',
+      useSmite ? 'castigo divino' : '', useEld ? 'castigo arcano' : ''].filter(Boolean);
     roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps, critBonus });
     if (savage) setSavage(false);
     if (charge && melee) setCharge(false);
@@ -224,29 +232,37 @@ export default function CharacterSheet({ c }: { c: Character }) {
 
   const skillsSorted = Object.entries(d.skills).sort((a, b) => (data?.skills[a[0]] || a[0]).localeCompare(data?.skills[b[0]] || b[0], 'es'));
   // los de la subclase (siempre preparados) se suman solos a los que ha elegido
-  const subSpells = views.flatMap(({ v, dv }) => subclassSpells(v, dv.cls, subclassText(v, dv.cls, lib.subclasses), spellIdx.list)).filter((x, i, a) => !c.spells.includes(x.id) && a.findIndex((y) => y.id === x.id) === i);
+  const subSpells = views.flatMap(({ v, dv }) => subclassSpells(v, dv.cls, subclassText(v, dv.cls, lib.subclasses), spellIdx.list).map((x) => ({ ...x, cls: v.classId }))).filter((x, i, a) => !c.spells.includes(x.id) && a.findIndex((y) => y.id === x.id) === i);
   // elegidos por la subclase (Descubrimientos mágicos, conjuros gratis de la escuela del mago)
-  const picked = views.flatMap(({ v }) => choiceSpells(v)).filter((x) => !c.spells.includes(x.id) && !subSpells.some((y) => y.id === x.id));
+  const picked = views.flatMap(({ v }) => choiceSpells(v).map((x) => ({ ...x, cls: v.classId }))).filter((x) => !c.spells.includes(x.id) && !subSpells.some((y) => y.id === x.id));
   // Castigo del paladín (paladín 2): Castigo divino siempre preparado
   const smite = classLevel(c, 'paladin') >= 2 ? spellIdx.list.find((x) => x.en === 'Divine Smite') : undefined;
-  const classSpells = smite && !c.spells.includes(smite.id) && !subSpells.some((y) => y.id === smite.id) ? [{ k: smite.id, s: smite, sub: 'Paladín · siempre preparado' }] : [];
+  const classSpells = smite && !c.spells.includes(smite.id) && !subSpells.some((y) => y.id === smite.id) ? [{ k: smite.id, s: smite, sub: 'Paladín · siempre preparado', cls: ['paladin'] }] : [];
+  // clases a las que pertenece cada conjuro elegido (para las pestañas por clase): las que lo tienen en su lista
+  const casterIds = classEntries(c).map((e) => e.classId).filter((id) => data?.classes.find((x) => x.id === id)?.caster);
+  const clsOf = (id: string, sp?: { classes?: string[] }) => casterIds.filter((k) => data?.classes.find((x) => x.id === k)?.spells.includes(id) || sp?.classes?.includes(k));
   const spellList = [
-    ...c.spells.map((k) => ({ k, s: spellIdx.get(k), sub: '' })),
+    ...c.spells.map((k) => ({ k, s: spellIdx.get(k), sub: '', cls: clsOf(k, spellIdx.get(k)) })),
     ...classSpells,
-    ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: 'Subclase · siempre preparado' })),
-    ...picked.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: x.prepared ? 'Subclase · siempre preparado' : 'Subclase · en tu libro de conjuros' })),
+    ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: 'Subclase · siempre preparado', cls: [x.cls] })),
+    ...picked.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: x.prepared ? 'Subclase · siempre preparado' : 'Subclase · en tu libro de conjuros', cls: [x.cls] })),
   ].filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
-  // conjuros que se lanzan al acertar con un arma (castigos, Maleficio, Marca del cazador): también en «Ataques»
-  const ON_HIT = ['Divine Smite', 'Searing Smite', 'Shining Smite', 'Ensnaring Strike', 'Thunderous Smite', 'Wrathful Smite', 'Blinding Smite', 'Staggering Smite', 'Banishing Smite', 'Hex', "Hunter's Mark"];
-  const onHit = spellList.filter((x) => ON_HIT.includes(x.s!.en || '') || /^(castigo|golpe) (divino|abrasador|apresador|brillante|atronador|colérico|cegador|asombroso|desterrador)\b|^maleficio$|^marca del cazador$/i.test(x.s!.n));
+  const spLevels = [...new Set(spellList.map((x) => x.s!.l || 0))].sort((a, b) => a - b);
+  const spClasses = casterIds.filter((k) => spellList.some((x) => x.cls.includes(k)));
+  const lvTab = spLv !== 'all' && spLevels.includes(+spLv) ? spLv : 'all';
+  const clsTab = spCls !== 'all' && spClasses.includes(spCls) ? spCls : 'all';
+  const spellShown = spellList.filter((x) => (lvTab === 'all' || (x.s!.l || 0) === +lvTab) && (clsTab === 'all' || x.cls.includes(clsTab)));
   const freeSmite = features.find((f) => f.key === 'Castigo del paladín' && f.max);
+  // Marca del cazador (explorador: su dado; si no, la del conjuro, 1d6) y Maleficio, si los tiene
+  const markExpr = markDie || (spellList.some((x) => x.s!.en === "Hunter's Mark") ? '1d6' : '');
+  const hexExpr = spellList.some((x) => x.s!.en === 'Hex') ? '1d6' : '';
   // Castigo divino en el arma: gratis (Castigo del paladín), con un espacio de cualquier nivel o con uno de pacto
   const hasSmite = spellList.some((x) => x.s!.en === 'Divine Smite');
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;
   const smiteOpts = !hasSmite ? [] : [
-    ...(freeSmite && (c.uses[freeSmite.key] || 0) < freeSmite.max! ? [{ key: 'free', lv: 1, label: 'Gratis (nivel 1)' }] : []),
+    ...(freeSmite && (c.uses[freeSmite.key] || 0) < freeSmite.max! ? [{ key: 'free', lv: 1, label: 'Gratis' }] : []),
     ...d.slots.map((n, i) => ({ key: String(i + 1), lv: i + 1, label: 'Nivel ' + (i + 1), left: n - (c.slotsUsed[i] || 0) })).filter((o) => o.left > 0),
-    ...(d.pact && pactLeft > 0 ? [{ key: 'p', lv: d.pact.lv, label: 'Pacto (nivel ' + d.pact.lv + ')' }] : []),
+    ...(d.pact && pactLeft > 0 ? [{ key: 'p', lv: d.pact.lv, label: 'Pacto' }] : []),
   ].map((o) => ({ ...o, dice: o.lv + 1 + 'd8' }));
   const smiteOpt = smiteOpts.find((o) => o.key === smitePick) || smiteOpts[0];
   // Castigo arcano (invocación): 1d8 de fuerza más 1d8 por nivel del espacio de pacto
@@ -348,17 +364,16 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
-          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!markDie || !!strikeDice || hasSmite) && (
+          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!strikeDice || hasSmite) && (
             <span className="rollrow">
               {d.fx.savage && <button className={savage ? 'chip on' : 'chip'} aria-pressed={savage} title="Una vez por turno: el próximo daño con arma tira sus dados dos veces y usa el mejor" onClick={() => setSavage(!savage)}>Atacante salvaje</button>}
               {rageDmg > 0 && <button className={rage ? 'chip on' : 'chip'} aria-pressed={rage} title={'Mientras dure: +' + rageDmg + ' al daño de los ataques con Fuerza; resistencia a contundente, cortante y perforante. Entrar gasta un uso de Furia.'} onClick={toggleRage}>Furia +{rageDmg}</button>}
               {classLevel(c, 'barbarian') >= 2 && <button className={reckless ? 'chip on' : 'chip'} aria-pressed={reckless} title={'Este turno: ventaja en tus ataques con Fuerza (y los ataques contra ti también la tienen)' + (frenzy ? '. Con Furia: Frenesí, ' + rageDmg + 'd6 más al primer objetivo que aciertes' : '')} onClick={() => setReckless(!reckless)}>Ataque temerario</button>}
               {brutalDice && <button className={brutal ? 'chip on' : 'chip'} aria-pressed={brutal} title="Renuncias a la ventaja en un ataque con Fuerza: si acierta, este daño extra" onClick={() => setBrutal(!brutal)}>Golpe brutal +{brutalDice}</button>}
               {sneakDice && <button className={sneak ? 'chip on' : 'chip'} aria-pressed={sneak} title="Una vez por turno, con un arma sutil o a distancia, si tienes ventaja o un aliado junto al objetivo" onClick={() => setSneak(!sneak)}>Ataque furtivo +{sneakDice}</button>}
-              {markDie && <button className={mark ? 'chip on' : 'chip'} aria-pressed={mark} title="Mientras el objetivo tenga tu Marca del cazador: este daño de fuerza en cada impacto" onClick={() => setMark(!mark)}>Marca del cazador +{markDie}</button>}
               {strikeDice && <button className={strike ? 'chip on' : 'chip'} aria-pressed={strike} title={'Una vez por turno al impactar con un arma: ' + (blessed ? 'radiante o necrótico' : 'frío, fuego, relámpago o trueno')} onClick={() => setStrike(!strike)}>{strikeName} +{strikeDice}</button>}
               {hasSmite && (smiteOpt ? (
-                <label className="smite-pick small" title="Espacio que gasta «Daño + castigo» en tus armas cuerpo a cuerpo">Castigo divino
+                <label className="smite-pick small" title="Espacio que gasta «+ Divino» en tus armas cuerpo a cuerpo">Castigo divino
                   <select className="input pc-slot-pick" aria-label="Espacio del castigo divino" value={smiteOpt.key} onChange={(e) => setSmitePick(e.target.value)}>{smiteOpts.map((o) => <option key={o.key} value={o.key}>{o.label} · {o.dice}</option>)}</select>
                 </label>
               ) : <span className="muted small">Castigo divino: sin espacios</span>)}
@@ -379,8 +394,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Daño {partsLabel(parts)}</button>
-              {w.kind === 'melee' && smiteOpt && <button className="rollbtn dmg smite" title="Castigo divino en el mismo golpe: su daño radiante va en la tirada del arma (en un crítico también se dobla) y gasta el espacio elegido arriba. +1d8 contra infernales y muertos vivientes." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true })}>Daño + castigo divino +{smiteOpt.dice}</button>}
-              {w.kind === 'melee' && eldDice && <button className="rollbtn dmg smite" title="Castigo arcano (con tu arma de pacto, una vez por turno): 1d8 de fuerza más 1d8 por nivel del espacio de pacto, en la misma tirada; gasta un espacio de pacto. Si es Enorme o menor, puedes derribarlo." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { eld: true })}>Daño + castigo arcano +{eldDice}</button>}
+              {w.kind === 'melee' && smiteOpt && <button className="rollbtn dmg smite" title="Castigo divino en el mismo golpe: su daño radiante va en la tirada del arma (en un crítico también se dobla) y gasta el espacio elegido arriba. +1d8 contra infernales y muertos vivientes." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true })}>+ Divino {smiteOpt.dice}</button>}
+              {markExpr && <button className="rollbtn dmg smite" title="Mientras el objetivo tenga tu Marca del cazador: su daño de fuerza en la misma tirada" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' }, { mark: true })}>+ Marca {markExpr}</button>}
+              {hexExpr && <button className="rollbtn dmg smite" title="Mientras el objetivo tenga tu Maleficio: 1d6 necrótico en la misma tirada" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' }, { hex: true })}>+ Maleficio {hexExpr}</button>}
+              {w.kind === 'melee' && smiteOpt && eldDice && (smiteOpt.key !== 'p' || pactLeft >= 2) && <button className="rollbtn dmg smite" title="Castigo divino y Castigo arcano en el mismo golpe: los dos daños en la tirada del arma (en un crítico se doblan todos); gasta el espacio elegido arriba y uno de pacto" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true, eld: true })}>+ Ambos castigos</button>}
+              {w.kind === 'melee' && eldDice && <button className="rollbtn dmg smite" title="Castigo arcano (con tu arma de pacto, una vez por turno): 1d8 de fuerza más 1d8 por nivel del espacio de pacto, en la misma tirada; gasta un espacio de pacto. Si es Enorme o menor, puedes derribarlo." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { eld: true })}>+ Arcano {eldDice}</button>}
               {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse })}>A dos manos {partsLabel(verParts)}</button>}
               {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño lanzada', throwParts, { melee: false, str: abil === 'str', finesse: true })}>Lanzada {partsLabel(throwParts)}</button>}
               {offParts.length > 0 && <button className="rollbtn dmg" title="Ataque extra de la propiedad «ligera» (acción adicional); el ataque se tira con «Ataque»" onClick={() => dmgRoll(w.name + ': ataque extra', offParts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Acción adicional {partsLabel(offParts)}</button>}
@@ -394,30 +412,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20(d.unarmed!.atk), { critOn: d.critOn, ...(reckless && uaHit.str ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(d.unarmed.atk)}{reckless && uaHit.str && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit)}>Daño {partsLabel(d.unarmed.parts)}</button>
-              {smiteOpt && <button className="rollbtn dmg smite" title="Castigo divino en el mismo golpe (también con ataques sin armas)" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, { smite: true })}>Daño + castigo divino +{smiteOpt.dice}</button>}
+              {smiteOpt && <button className="rollbtn dmg smite" title="Castigo divino en el mismo golpe (también con ataques sin armas)" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, { smite: true })}>+ Divino {smiteOpt.dice}</button>}
               {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, uaHit)}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
               {d.unarmed.grapple && <button className="rollbtn dmg" title="Al principio de tu turno, a una criatura que tengas agarrada" onClick={() => roll({ label: who + ' · daño a la criatura agarrada', kind: 'damage', who, by: null, parts: [{ expr: d.unarmed!.grapple, type: 'contundente' }] })}>Agarrada {d.unarmed.grapple} contundente</button>}
             </span>
           </div>
         )}
         </div>
-        {onHit.length > 0 && (
-          <div className="pc-onhit">
-            <span className="eyebrow">Al acertar</span>
-            {onHit.map(({ k, s: sp }) => (
-              <div key={k} className="pc-attack">
-                <span className="pc-attack-n">{sp!.n}<span className="muted small">{[sp!.ct, sp!.l ? 'nivel ' + sp!.l : 'truco', sp!.c ? 'concentración' : ''].filter(Boolean).join(' · ')}</span></span>
-                <SpellRolls c={c} d={d} s={sp!} set={set} />
-                {sp!.en === 'Divine Smite' && freeSmite && (
-                  <span className="rollrow">
-                    <Pips max={freeSmite.max!} used={Math.min(freeSmite.max!, c.uses[freeSmite.key] || 0)} label="Castigo del paladín" onSet={(v) => set({ uses: { ...c.uses, [freeSmite.key]: Math.max(0, Math.min(freeSmite.max!, v)) } })} />
-                    <button className="btn small" disabled={(c.uses[freeSmite.key] || 0) >= freeSmite.max!} title="Castigo del paladín: sin gastar espacio, una vez por descanso largo" onClick={() => set({ uses: { ...c.uses, [freeSmite.key]: (c.uses[freeSmite.key] || 0) + 1 } })}>Lanzar gratis</button>
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
       </section>
 
       {views.map(({ v, dv }, i) => (
@@ -427,6 +428,34 @@ export default function CharacterSheet({ c }: { c: Character }) {
         </Fragment>
       ))}
       <FeatPanel c={c} d={d} set={set} />
+      {usable.length > 0 && (
+        <section className="panel" aria-label="Rasgos con usos">
+          <h3 className="eyebrow">Rasgos con usos</h3>
+          <ul className="pc-features grid acts">
+            {usable.map((f) => {
+              const used = Math.min(f.max!, c.uses[f.key] || 0);
+              const spend = (patch: Partial<Character> = {}) => set({ ...patch, uses: { ...c.uses, [f.key]: used + 1 } });
+              // Astucia mágica (brujo): recupera la mitad de los espacios de pacto (redondeando arriba); con Maestro arcano, todos
+              const cunning = f.key === 'Astucia mágica' && d.pact ? Math.min(c.pactUsed, classLevel(c, 'warlock') >= 20 ? d.pact.n : Math.ceil(d.pact.n / 2)) : null;
+              return (
+                <li key={f.key}>
+                  <Card name={f.n} head={<>
+                    <span className="muted small">{f.src} · {f.per === 'sr' ? 'descanso corto o largo' : 'descanso largo'}</span>
+                    <span className="rollrow">
+                      <Pips max={f.max!} used={used} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />
+                      {cunning != null
+                        ? <button className="btn small" disabled={used >= f.max! || cunning <= 0} title="Recupera espacios de pacto gastados" onClick={() => spend({ pactUsed: c.pactUsed - cunning })}>{cunning > 0 ? 'Usar: recupera ' + cunning + (cunning === 1 ? ' espacio de pacto' : ' espacios de pacto') : 'Usar (no has gastado espacios de pacto)'}</button>
+                        : <button className="btn small" disabled={used >= f.max!} onClick={() => spend()}>Usar (gasta un uso)</button>}
+                    </span>
+                  </>}>
+                    {f.d && <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((t, i) => (i % 2 ? <b key={i}>{t}</b> : plainText(t)))}</p>}
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
       </div>
 
       {(d.spell || spellList.length > 0) && (
@@ -452,9 +481,26 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </div>
           )}
           {d.pact && <div className="pc-slots"><span className="res">Magia de pacto (nivel {d.pact.lv})<Pips max={d.pact.n} used={Math.min(d.pact.n, c.pactUsed)} label="Espacios de pacto" onSet={(v) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) })} /></span></div>}
-          {!spellList.length ? <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p> : (
+          {spellList.length > 0 && (spLevels.length > 1 || spClasses.length > 1) && (
+            <div className="sp-tabs-wrap">
+              {spClasses.length > 1 && (
+                <div className="sp-tabs" role="tablist" aria-label="Conjuros por clase">
+                  {['all', ...spClasses].map((k) => <button key={k} role="tab" aria-selected={clsTab === k} className={clsTab === k ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpCls(k)}>{k === 'all' ? 'Todas las clases' : data?.classes.find((x) => x.id === k)?.n || k}</button>)}
+                </div>
+              )}
+              {spLevels.length > 1 && (
+                <div className="sp-tabs" role="tablist" aria-label="Conjuros por nivel">
+                  {['all', ...spLevels.map(String)].map((l) => {
+                    const n = l === 'all' ? spellList.length : spellList.filter((x) => (x.s!.l || 0) === +l).length;
+                    return <button key={l} role="tab" aria-selected={lvTab === l} className={lvTab === l ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpLv(l)}>{l === 'all' ? 'Todos' : l === '0' ? 'Trucos' : 'Nivel ' + l}<span className="sp-tab-n">{n}</span></button>;
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          {!spellList.length ? <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p> : !spellShown.length ? <p className="muted small" style={{ margin: 0 }}>Ningún conjuro de este nivel en esta clase.</p> : (
             <ul className="pc-features grid acts">
-              {spellList.map(({ k, s, sub }) => (
+              {spellShown.map(({ k, s, sub }) => (
                 <li key={k}>
                   {/* el texto completo se abre en una ventana: en la tarjeta solo el nombre, sus datos y las tiradas */}
                   <Card name={s!.n}
@@ -477,7 +523,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
         <ul className="pc-features grid">
-          {features.map((f) => (
+          {features.filter((f) => !usableKeys.has(f.key)).map((f) => (
             <li key={f.src + f.key}>
               <Card name={f.n} head={<>
                 <span className="muted small">{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</span>

@@ -537,8 +537,14 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-attack{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:6px 10px;border:1px solid #524031;border-radius:6px;background:#31271d;min-height:var(--card-act);box-sizing:border-box}
 /* cada arma en su tarjeta, varias por fila */
 .pc-attacks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:stretch;gap:6px}
-.pc-onhit{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:stretch;gap:6px;margin-top:10px}
-.pc-onhit>.eyebrow{grid-column:1/-1}
+/* pestañas de conjuros (por clase y por nivel) dentro del pergamino */
+.sp-tabs-wrap{display:flex;flex-direction:column;gap:6px}
+.sp-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #b39c74}
+.sp-tab{border:1px solid #b39c74;border-bottom:0;border-radius:6px 6px 0 0;background:#d8c59f;color:#5a4632;font:inherit;font-weight:700;font-size:13px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;position:relative;top:1px}
+.sp-tab:hover{background:#e7d8b8}
+.sp-tab.on{background:#f1e6cc;color:#7a1f14;border-color:#a0865c}
+.sp-tab-n{font-size:11px;font-weight:800;color:#8a7458}
+.sp-tab.on .sp-tab-n{color:#7a1f14}
 .smite-pick{display:inline-flex;align-items:center;gap:6px;font-weight:700}
 /* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
 .pc-duo{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch}
