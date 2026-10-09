@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
-import { asClass, derive, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
+import { asClass, classEntries, derive, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
+import { assignSpells, casterPreps } from '../../engine/spellPrep';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
@@ -28,6 +29,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const [confirmDel, setConfirmDel] = useState(false);
   const [weaponPick, setWeaponPick] = useState('');
   const [spellQ, setSpellQ] = useState('');
+  const [spCls, setSpCls] = useState('');
+  const [spLv, setSpLv] = useState('');
   const [allSpells, setAllSpells] = useState(false);
   // conjuro para una clase que no lanza: se pide confirmación una vez (luego ya no se pregunta en esta edición)
   const [askSpell, setAskSpell] = useState<{ id: string; n: string } | null>(null);
@@ -102,30 +105,29 @@ export default function CharacterEditor({ c }: { c: Character }) {
   };
   const setWeapon = (id: string, patch: Partial<CharWeapon>) => set({ weapons: c.weapons.map((w) => (w.id === id ? { ...w, ...patch } : w)) });
 
-  // conjuros: los de su lista de clase (o todos si se pide o la clase no es del SRD)
-  // Caballero arcano y Embaucador arcano: lista de mago
+  // conjuros: cada clase lanzadora prepara los suyos, de su lista y hasta el nivel que esa clase puede lanzar
+  // (multiclase 2024); con «otras clases» se busca en todos
   const subCaster = subclassCaster(c);
-  const listCls = subCaster && !cls?.spells.length ? data.classes.find((x) => x.id === subCaster.list) : cls;
-  // multiclase: también las listas de sus otras clases lanzadoras
-  const listClasses = [listCls, ...(c.multi || []).map((e) => data.classes.find((x) => x.id === e.classId)).filter((x) => x?.caster && x.spells.length)]
-    .filter((x, i, a): x is NonNullable<typeof x> => !!x && a.findIndex((y) => y?.id === x.id) === i);
-  const classList = new Set(listClasses.flatMap((k) => [...k.spells, ...spellIdx.list.filter((s) => s.classes?.includes(k.id)).map((s) => s.id)]));
-  const known = c.spells.map((k) => spellIdx.get(k)).filter(Boolean);
-  const cantripsHave = known.filter((s) => !s!.l).length;
-  const useClassList = !allSpells && classList.size > 0;
-  // nivel de conjuro más alto que ya puede lanzar (espacios normales o de pacto); con la lista de su clase no se ofrecen los de más nivel
-  const maxLv = Math.max(d.slots.length, d.pact?.lv || 0);
-  // cuántos trucos y conjuros preparados le tocan a su nivel (tablas del SRD; el Caballero/Embaucador arcano, los suyos)
-  const tableAt = (k: string) => { const v = cls ? Number(d.scale(cls.id + '.' + k)) : NaN; return Number.isFinite(v) && v > 0 ? v : null; };
-  const cantripsMax = subCaster && !cls?.spells.length ? subCaster.cantrips : tableAt('cantrips-known');
-  const preparedMax = subCaster && !cls?.spells.length ? subCaster.prepared : tableAt('max-prepared');
+  const preps = casterPreps(c, data, spellIdx.list);
+  const lvOf = (id: string) => spellIdx.get(id)?.l || 0;
+  // los que se tienen preparados sin contar: los de la subclase y Castigo divino del paladín
+  const always = new Set([
+    ...classEntries(c).flatMap((e) => { const v = asClass(c, e); const k = data.classes.find((x) => x.id === e.classId); return subclassSpells(v, k, subclassText(v, k, lib.subclasses), spellIdx.list).map((x) => x.id); }),
+    ...(classEntries(c).some((e) => e.classId === 'paladin' && e.level >= 2) ? spellIdx.list.filter((x) => x.en === 'Divine Smite').map((x) => x.id) : []),
+  ]);
+  const assigned = assignSpells(c.spells, preps, lvOf, always);
+  const useClassList = !allSpells && preps.length > 0;
+  // ¿la puede preparar alguna de sus clases? (trucos solo las que tienen; conjuros hasta su nivel)
+  const canTake = (sp: { id: string; l?: number }, only?: string) => preps.some((pr) => (!only || pr.id === only) && pr.list.has(sp.id) && ((sp.l || 0) === 0 ? pr.cantrips != null : (sp.l || 0) <= pr.maxLv));
+  const tabPrep = preps.find((pr) => pr.id === spCls) || (preps.length === 1 ? preps[0] : null);
+  const tabLevels = [...new Set((tabPrep ? [tabPrep] : preps).flatMap((pr) => [...(pr.cantrips != null ? [0] : []), ...Array.from({ length: pr.maxLv }, (_, i) => i + 1)]))].sort((a, b) => a - b);
+  const lvTab = tabLevels.includes(+spLv) ? +spLv : tabLevels[0] ?? 0;
   const spellResults = spellIdx.list
-    .filter((s) => !c.spells.includes(s.id) && (!useClassList || (classList.has(s.id) && (s.l || 0) <= maxLv)))
-    .filter((s) => { const q = norm(spellQ); return q.length >= 2 ? norm(s.n).includes(q) || norm(s.en).includes(q) : !q && useClassList; })
+    .filter((sp) => !c.spells.includes(sp.id) && (!useClassList || canTake(sp, tabPrep?.id)))
+    .filter((sp) => { const q = norm(spellQ); return q.length >= 2 ? norm(sp.n).includes(q) || norm(sp.en).includes(q) : !q && useClassList && (sp.l || 0) === lvTab; })
     .sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es'))
-    .slice(0, useClassList && !spellQ ? 60 : 16);
+    .slice(0, useClassList && !spellQ ? 80 : 16);
 
-  const subSpellNames = subclassSpells(c, cls, subclassText(c, cls, lib.subclasses), spellIdx.list).map((x) => spellIdx.get(x.id)?.n || '').filter(Boolean);
   const featGroups = FEAT_CATS.filter(([cat]) => cat !== 'other' && (cat !== 'fighting-style' || STYLE_CLASSES.includes(c.classId) || c.feats.some((f) => allFeats.find((x) => x.n === f)?.cat === cat)) && (cat !== 'epic-boon' || c.level >= 19));
   const toggleFeat = (f: { n: string }) => set({ feats: c.feats.includes(f.n) ? c.feats.filter((x) => x !== f.n) : [...c.feats, f.n] });
   const saveCustomFeat = () => {
@@ -319,20 +321,44 @@ export default function CharacterEditor({ c }: { c: Character }) {
         <fieldset className="fs">
           <legend>Conjuros</legend>
           {subCaster && !cls?.spells.length && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: conjuros de mago. Lanzas con Inteligencia.</p>}
-          {(cantripsMax != null || preparedMax != null) && (
+          {preps.length > 0 && (
             <div className="spell-counts">
-              {cantripsMax != null && <span className={cantripsHave > cantripsMax ? 'chip vuln' : cantripsHave === cantripsMax ? 'chip on' : 'chip'}>Trucos {cantripsHave} de {cantripsMax}</span>}
-              {preparedMax != null && <span className={known.length - cantripsHave > preparedMax ? 'chip vuln' : known.length - cantripsHave === preparedMax ? 'chip on' : 'chip'}>Conjuros preparados {known.length - cantripsHave} de {preparedMax}</span>}
-              {maxLv > 0 && <span className="muted small">Puedes elegir conjuros hasta el nivel {maxLv}.</span>}
+              {preps.map((pr) => {
+                const b = assigned.byClass[pr.id];
+                const chip = (have: number, max: number) => (have > max ? 'chip vuln' : have === max ? 'chip on' : 'chip');
+                return (
+                  <span key={pr.id} className="spell-count-row">
+                    {preps.length > 1 && <b className="small">{pr.n} {pr.level}</b>}
+                    {pr.cantrips != null && <span className={chip(b.cantrips.length, pr.cantrips)}>Trucos {b.cantrips.length} de {pr.cantrips}</span>}
+                    {pr.prepared != null && <span className={chip(b.spells.length, pr.prepared)}>Conjuros preparados {b.spells.length} de {pr.prepared}</span>}
+                    {pr.maxLv > 0 && <span className="muted small">hasta el nivel {pr.maxLv}</span>}
+                  </span>
+                );
+              })}
+              {assigned.other.length > 0 && <span className="muted small">Fuera de tus listas (no cuentan): {assigned.other.map((k) => spellIdx.get(k)?.n || k).join(', ')}.</span>}
             </div>
           )}
-          {subSpellNames.length > 0 && <p className="muted small" style={{ margin: 0 }}>Por tu subclase siempre tienes preparados (se añaden solos a la hoja): {subSpellNames.join(', ')}.</p>}
-          <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + listClasses.map((k) => k.n).join(' y ') : ''}</label>
+          {always.size > 0 && <p className="muted small" style={{ margin: 0 }}>Siempre preparados, sin contar (se añaden solos a la hoja): {[...always].map((k) => spellIdx.get(k)?.n || '').filter(Boolean).join(', ')}.</p>}
+          <div className="field"><label htmlFor="ce-spq">Buscar conjuro{useClassList ? ' de la lista de ' + preps.map((k) => data.classes.find((x) => x.id === k.id)?.n || k.n).filter((x, i, a) => a.indexOf(x) === i).join(' y ') : ''}</label>
             <input id="ce-spq" className="input" value={spellQ} onChange={(e) => setSpellQ(e.target.value)} placeholder="Castigo divino, Bola de fuego, Curar heridas…" /></div>
           <div className="rollrow">
-            {classList.size > 0 && <label className="check"><input type="checkbox" checked={allSpells} onChange={(e) => setAllSpells(e.target.checked)} />Mostrar conjuros de otras clases</label>}
+            {preps.length > 0 && <label className="check"><input type="checkbox" checked={allSpells} onChange={(e) => setAllSpells(e.target.checked)} />Mostrar conjuros de otras clases</label>}
             {!spellIdx.loaded && <span className="muted small">Cargando conjuros…</span>}
           </div>
+          {useClassList && !spellQ && (
+            <div className="sp-tabs-wrap">
+              {preps.length > 1 && (
+                <div className="sp-tabs" role="tablist" aria-label="Elegir conjuros por clase">
+                  {[{ id: '', n: 'Todas' }, ...preps].map((pr) => <button key={pr.id} type="button" role="tab" aria-selected={(tabPrep?.id || '') === pr.id} className={(tabPrep?.id || '') === pr.id ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpCls(pr.id)}>{pr.n}</button>)}
+                </div>
+              )}
+              {tabLevels.length > 1 && (
+                <div className="sp-tabs" role="tablist" aria-label="Elegir conjuros por nivel">
+                  {tabLevels.map((l) => <button key={l} type="button" role="tab" aria-selected={lvTab === l} className={lvTab === l ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpLv(String(l))}>{l === 0 ? 'Trucos' : 'Nivel ' + l}</button>)}
+                </div>
+              )}
+            </div>
+          )}
           {spellResults.length > 0 && (
             <div className="chips ce-spell-results">{spellResults.map((s) => <button key={s.id} className="chip" onClick={() => {
               if (cls && !d.spell && !nonCasterOk) { setAskSpell({ id: s.id, n: s.n }); return; }

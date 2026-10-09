@@ -540,7 +540,7 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   await page.getByRole('button', { name: 'Editar hoja' }).click();
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Brujo' });
   await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Patrón infernal' });
-  await expect(page.getByText('Por tu subclase siempre tienes preparados', { exact: false })).toContainText('Manos ardientes');
+  await expect(page.getByText('Siempre preparados, sin contar', { exact: false })).toContainText('Manos ardientes');
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(sheet.locator('.card', { hasText: 'Manos ardientes' })).toContainText('Subclase · siempre preparado');
   await page.getByRole('button', { name: 'Editar hoja' }).click();
@@ -1142,7 +1142,7 @@ test('características: compra de puntos, tirar 4d6 y repartir; conjuros hasta e
   await expect(page.locator('select#ce-ab-int')).toBeVisible(); // ya se reparten con desplegables
   // conjuros: un mago 3 solo ve los de su lista hasta nivel 2, y su cuenta
   await expect(page.locator('.spell-counts')).toContainText('Trucos 0 de 3');
-  await expect(page.locator('.spell-counts')).toContainText('Puedes elegir conjuros hasta el nivel 2');
+  await expect(page.locator('.spell-counts')).toContainText('hasta el nivel 2');
   await page.getByLabel(/^Buscar conjuro/).fill('bola de fuego');
   await expect(page.locator('.ce-spell-results .chip', { hasText: 'Bola de fuego' })).toHaveCount(0);
   await page.getByLabel(/^Buscar conjuro/).fill('proyectil');
@@ -1371,4 +1371,40 @@ test('en la hoja del jugador la ventaja de la mesa de dados se queda puesta', as
     await expect(page.locator('.plaque-label')).toContainText('ataque');
     await expect(adv).toHaveAttribute('aria-pressed', 'true');
   }
+});
+
+test('multiclase: cada clase prepara sus conjuros, hasta su nivel, y se eligen por pestañas', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Sera');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Añadir otra clase (multiclase)' }).click();
+  await page.getByLabel('Otra clase').selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel en ella').fill('5');
+  const counts = page.locator('.spell-counts');
+  const pal = counts.locator('.spell-count-row', { hasText: 'Paladín 3' });
+  const war = counts.locator('.spell-count-row', { hasText: 'Brujo 5' });
+  await expect(pal).toContainText('Conjuros preparados 0 de 4');
+  await expect(pal).toContainText('hasta el nivel 1');
+  await expect(war).toContainText('Trucos 0 de 3');
+  await expect(war).toContainText('Conjuros preparados 0 de 6');
+  await expect(war).toContainText('hasta el nivel 3');
+  // Aura de vitalidad es de nivel 3 de paladín: un paladín 3 no la puede preparar
+  await page.getByLabel(/^Buscar conjuro/).fill('aura de vitalidad');
+  await expect(page.locator('.ce-spell-results .chip')).toHaveCount(0);
+  // Castigo divino (siempre preparado por Castigo del paladín) no cuenta; Bendición cuenta para el paladín
+  for (const q of ['castigo divino', 'bendición']) {
+    await page.getByLabel(/^Buscar conjuro/).fill(q);
+    await page.locator('.ce-spell-results .chip').first().click();
+  }
+  await expect(pal).toContainText('Conjuros preparados 1 de 4');
+  // por pestañas: brujo, trucos
+  await page.getByRole('tab', { name: 'Brujo' }).click();
+  await page.getByRole('tab', { name: 'Trucos' }).click();
+  await page.locator('.ce-spell-results .chip', { hasText: 'Descarga sobrenatural' }).click();
+  await expect(war).toContainText('Trucos 1 de 3');
+  await page.getByRole('tab', { name: 'Nivel 3' }).click();
+  await expect(page.locator('.ce-spell-results .chip', { hasText: /Contrahechizo/ })).toBeVisible();
 });
