@@ -1,10 +1,10 @@
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { CONDITIONS, DMG_TYPES } from '../../data/constants';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
 import { asClass, classEntries, classLevel, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character, type Derived } from '../../engine/character';
 import { fmt, sgn, type RollPart } from '../../engine/dice';
 import { norm } from '../../engine/util';
-import Card from '../../shared/Card';
+import Card, { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import Pips from '../../shared/Pips';
 import { useLibrary, type LibraryData } from '../../store/library';
@@ -13,6 +13,7 @@ import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
 import { hasInvocation, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { assignSpells, casterPreps } from '../../engine/spellPrep';
+import { concDc, concOf, withConc, withoutConc } from '../../engine/concentration';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
 import { plainText, useSpells } from './spells';
@@ -116,6 +117,38 @@ export default function CharacterSheet({ c }: { c: Character }) {
     roll({ label: who + ' · ' + label, kind, who, parts: [{ expr }], self: { conds: c.conds, exh: c.exh }, ...extra });
   const d20 = (b: number) => '1d20' + sgn(b);
   const set = (patch: Partial<Character>) => update(c.id, patch);
+  // concentración: al bajar los PG (daño desde la hoja o desde la sala del máster) se pide la salvación
+  const conc = concOf(c.conds);
+  const [concCheck, setConcCheck] = useState<{ dmg: number; dc: number } | null>(null);
+  const prevHp = useRef({ id: c.id, total: c.hp + c.temp });
+  useEffect(() => {
+    const now = c.hp + c.temp;
+    const prev = prevHp.current;
+    prevHp.current = { id: c.id, total: now };
+    if (prev.id !== c.id || now >= prev.total || !conc) return;
+    // a 0 PG se cae inconsciente: la concentración termina sin tirada
+    if (c.hp === 0) { update(c.id, { conds: withoutConc(c.conds) }); return; }
+    const dmg = prev.total - now;
+    setConcCheck((x) => ({ dmg: (x?.dmg || 0) + dmg, dc: concDc(Math.max(dmg, x?.dmg || 0)) }));
+  }, [c.id, c.hp, c.temp]); // eslint-disable-line react-hooks/exhaustive-deps
+  // al perder la concentración se apagan las etiquetas de ese conjuro en «Ataques»
+  useEffect(() => { setBuffs((bs) => bs.filter((k) => { const b = hitBuffs.find((x) => x.key === k); return !b?.conc || b.n === conc; })); }, [conc]); // eslint-disable-line react-hooks/exhaustive-deps
+  const warCaster = c.feats.some((f) => /lanzador de guerra|war caster/i.test(f));
+  const concSave = () => {
+    if (!concCheck) return;
+    const { dc } = concCheck;
+    const spell = conc;
+    r('salvación de concentración (CD ' + dc + ')', 'save', d20(d.saves.con.bonus), {
+      ...(warCaster ? { adv: 'Lanzador de guerra' } : d.saves.con.adv ? { adv: d.saves.con.adv } : {}),
+      after: (total) => {
+        setConcCheck(null);
+        if (total >= dc) return { resultNote: 'Mantienes la concentración en ' + spell + '.' };
+        const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+        update(c.id, { conds: withoutConc(cur.conds) });
+        return { resultNote: 'Pierdes la concentración en ' + spell + '.' };
+      },
+    });
+  };
 
   // característica que subió Don del ataque imparable (Fuerza o Destreza)
   const boonAbil: 'str' | 'dex' = c.choices?.['feat.irresistible']?.[0] === 'dex' ? 'dex' : c.choices?.['feat.irresistible']?.[0] === 'str' ? 'str' : c.abil.dex > c.abil.str ? 'dex' : 'str';
@@ -188,6 +221,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         else { const u = cur.slotsUsed.slice(); u[smiteOpt!.lv - 1] = (u[smiteOpt!.lv - 1] || 0) + 1; patch.slotsUsed = u; }
       }
       if (useEld) pact += 1;
+      if (useSmite && smiteSpell!.c) patch.conds = withConc(cur.conds, smiteSpell!.n);
       if (pact !== cur.pactUsed) patch.pactUsed = pact;
       update(c.id, patch);
     }
@@ -271,13 +305,19 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // (los del SRD por su nombre en inglés; los del libro del usuario, por el nombre en español)
   const has = (en: string, es: RegExp) => spellList.some((x) => x.s!.en === en || es.test(norm(x.s!.n)));
   const hitBuffs = [
-    ...(markDie || has("Hunter's Mark", /^marca del cazador$/) ? [{ key: 'mark', n: 'Marca del cazador', dmg: markDie || '1d6', type: 'fuerza', atk: 0, why: 'su daño de fuerza en cada golpe al objetivo marcado' }] : []),
-    ...(has('Hex', /^maleficio$/) ? [{ key: 'hex', n: 'Maleficio', dmg: '1d6', type: 'necrótico', atk: 0, why: '1d6 necrótico en cada golpe al objetivo maldito' }] : []),
-    ...(has('Divine Favor', /^favor divino$/) ? [{ key: 'favor', n: 'Favor divino', dmg: '1d4', type: 'radiante', atk: 0, why: '1d4 radiante en cada golpe con arma (1 minuto)' }] : []),
-    ...(has("Crusader's Mantle", /^manto del cruzado$/) ? [{ key: 'mantle', n: 'Manto del cruzado', dmg: '1d4', type: 'radiante', atk: 0, why: '1d4 radiante en cada golpe con arma (concentración)' }] : []),
-    ...(has('Elemental Weapon', /^arma elemental$/) ? [{ key: 'elemental', n: 'Arma elemental', dmg: '1d4', type: '', atk: 1, why: '+1 al ataque y 1d4 del tipo elegido con el arma encantada (a nivel 3)' }] : []),
-    ...(has('Magic Weapon', /^arma magica$/) ? [{ key: 'magic', n: 'Arma mágica', dmg: '1', type: '', atk: 1, why: '+1 al ataque y al daño con el arma encantada (a nivel 2)' }] : []),
+    ...(markDie || has("Hunter's Mark", /^marca del cazador$/) ? [{ key: 'mark', n: 'Marca del cazador', dmg: markDie || '1d6', type: 'fuerza', atk: 0, conc: true, why: 'su daño de fuerza en cada golpe al objetivo marcado' }] : []),
+    ...(has('Hex', /^maleficio$/) ? [{ key: 'hex', n: 'Maleficio', dmg: '1d6', type: 'necrótico', atk: 0, conc: true, why: '1d6 necrótico en cada golpe al objetivo maldito' }] : []),
+    ...(has('Divine Favor', /^favor divino$/) ? [{ key: 'favor', n: 'Favor divino', dmg: '1d4', type: 'radiante', atk: 0, conc: false, why: '1d4 radiante en cada golpe con arma (1 minuto)' }] : []),
+    ...(has("Crusader's Mantle", /^manto del cruzado$/) ? [{ key: 'mantle', n: 'Manto del cruzado', dmg: '1d4', type: 'radiante', atk: 0, conc: true, why: '1d4 radiante en cada golpe con arma (concentración)' }] : []),
+    ...(has('Elemental Weapon', /^arma elemental$/) ? [{ key: 'elemental', n: 'Arma elemental', dmg: '1d4', type: '', atk: 1, conc: true, why: '+1 al ataque y 1d4 del tipo elegido con el arma encantada (a nivel 3)' }] : []),
+    ...(has('Magic Weapon', /^arma magica$/) ? [{ key: 'magic', n: 'Arma mágica', dmg: '1', type: '', atk: 1, conc: false, why: '+1 al ataque y al daño con el arma encantada (a nivel 2)' }] : []),
   ];
+  const toggleBuff = (b: (typeof hitBuffs)[number]) => {
+    const on = buffs.includes(b.key);
+    setBuffs(on ? buffs.filter((x) => x !== b.key) : [...buffs, b.key]);
+    if (b.conc && !on) set({ conds: withConc(c.conds, b.n) });
+    if (b.conc && on && concOf(c.conds) === b.n) set({ conds: withoutConc(c.conds) });
+  };
   const buffAtk = hitBuffs.filter((b) => buffs.includes(b.key)).reduce((a, b) => a + b.atk, 0);
   // castigos: se lanzan al acertar y su daño va en la misma tirada que el arma (Castigo divino, abrasador, brillante…)
   const SMITES = ['Divine Smite', 'Searing Smite', 'Shining Smite', 'Thunderous Smite', 'Wrathful Smite', 'Blinding Smite', 'Staggering Smite', 'Banishing Smite'];
@@ -344,7 +384,18 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <button className="btn heal" onClick={heal}>Curación</button>
           <button className="btn temp" onClick={giveTemp}>PG temporales</button>
           <span className="muted small">Dados de golpe: {hdText}</span>
+          {conc && <button className="chip on pc-conc" title="Te concentras en este conjuro. Pulsa para dejar de concentrarte." onClick={() => set({ conds: withoutConc(c.conds) })}>Concentración: {conc} ✕</button>}
         </div>
+        {concCheck && conc && (
+          <InfoDialog title="Salvación de concentración" onClose={() => setConcCheck(null)}>
+            <p style={{ marginTop: 0 }}>Has recibido {concCheck.dmg} de daño mientras te concentras en <b>{conc}</b>. Tira una salvación de Constitución con <b>CD {concCheck.dc}</b>{warCaster ? ' (con ventaja por Lanzador de guerra)' : ''}: si fallas, el conjuro termina.</p>
+            <div className="rollrow">
+              <button className="btn primary" onClick={concSave}>Tirar salvación {fmt(d.saves.con.bonus)}</button>
+              <button className="btn" onClick={() => setConcCheck(null)}>Mantener sin tirar</button>
+              <button className="btn ghost" onClick={() => { set({ conds: withoutConc(c.conds) }); setConcCheck(null); }}>Perder la concentración</button>
+            </div>
+          </InfoDialog>
+        )}
         {c.hp === 0 && (
           <div className="sub" style={{ borderColor: '#c0513c' }}>
             <div className="panel-head"><strong className="pc-death-t">Salvaciones contra la muerte</strong>
@@ -358,36 +409,43 @@ export default function CharacterSheet({ c }: { c: Character }) {
         )}
       </div>
 
-      <div className="pc-grid" data-tour="rolls">
-        <section className="panel" aria-label="Características">
-          <h3 className="eyebrow">Características y salvaciones</h3>
-          <div className="pc-abils">
-            {ABILS.map((a) => (
-              <div key={a} className="pc-abil">
-                <span className="pc-abil-k">{ABIL_S[a]} <b>{d.abil[a]}</b></span>
-                <button className="btn small" title={'Prueba de ' + ABIL_N[a] + (d.checks[a].adv ? ' con ventaja (' + d.checks[a].adv + ')' : '')} onClick={() => r('prueba de ' + ABIL_N[a], 'check', d20(d.checks[a].bonus), d.checks[a].adv ? { adv: d.checks[a].adv } : {})}>Prueba {fmt(d.checks[a].bonus)}{d.checks[a].adv && <span className="adv-mark">V</span>}</button>
-                <button className={d.saves[a].prof ? 'btn small prof' : 'btn small ghost'} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].why ? ' · ' + d.saves[a].why : '') + (d.saves[a].adv ? ' · ventaja (' + d.saves[a].adv + ')' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20(d.saves[a].bonus), d.saves[a].adv ? { adv: d.saves[a].adv } : {})}>Salv {fmt(d.saves[a].bonus)}{d.saves[a].adv && <span className="adv-mark">V</span>}</button>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel" aria-label="Habilidades">
-          <h3 className="eyebrow">Habilidades</h3>
-          <ul className="pc-skills">
-            {skillsSorted.map(([k, s]) => (
-              <li key={k}>
-                <button className="pc-skill" onClick={() => r(data?.skills[k] || k, 'check', d20(s.bonus), { ...(s.adv ? { adv: s.adv } : {}), ...(s.min10 ? { parts: [{ expr: d20(s.bonus), minD20: 10 }] } : {}) })} title={'Tirar ' + (data?.skills[k] || k) + (s.adv ? ' con ventaja (' + s.adv + ')' : '') + (s.min10 ? ' · Talento fiable: el d20 cuenta como 10 como mínimo' : '')}>
-                  <span className={s.exp ? 'dot exp' : s.prof ? 'dot on' : 'dot'} aria-label={s.exp ? 'Pericia' : s.prof ? 'Competente' : 'Sin competencia'} />
-                  <span className="pc-skill-n">{data?.skills[k] || k} <span className="muted small">{ABIL_S[s.abil]}</span></span>
-                  {s.adv && <span className="adv-mark" title={s.adv}>V</span>}
-                  <b>{fmt(s.bonus)}</b>
+      {/* como en la hoja oficial: cada característica con su modificador (prueba), su puntuación, su salvación y sus habilidades */}
+      <section className="panel" aria-label="Características" data-tour="rolls">
+        <h3 className="eyebrow">Características, salvaciones y habilidades</h3>
+        <div className="pc-abils">
+          {ABILS.map((a) => (
+            <div key={a} className="pc-abil">
+              <div className="pc-abil-head">
+                <span className="pc-abil-k">{ABIL_N[a]} <span className="pc-abil-s">{ABIL_S[a]}</span></span>
+                <button className="pc-abil-mod" title={'Prueba de ' + ABIL_N[a] + (d.checks[a].adv ? ' con ventaja (' + d.checks[a].adv + ')' : '')} onClick={() => r('prueba de ' + ABIL_N[a], 'check', d20(d.checks[a].bonus), d.checks[a].adv ? { adv: d.checks[a].adv } : {})}>
+                  <span className="pc-abil-mod-k">Prueba</span> <b>{fmt(d.checks[a].bonus)}</b>{d.checks[a].adv && <span className="adv-mark">V</span>}
                 </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
+                <span className="pc-abil-score" title="Puntuación">{d.abil[a]}</span>
+              </div>
+              <ul className="pc-skills">
+                <li>
+                  <button className="pc-skill pc-save" aria-label={'Salvación de ' + ABIL_N[a] + ' ' + fmt(d.saves[a].bonus) + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].adv ? ' V' : '')} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].why ? ' · ' + d.saves[a].why : '') + (d.saves[a].adv ? ' · ventaja (' + d.saves[a].adv + ')' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20(d.saves[a].bonus), d.saves[a].adv ? { adv: d.saves[a].adv } : {})}>
+                    <span className={d.saves[a].prof ? 'dot on' : 'dot'} aria-label={d.saves[a].prof ? 'Competente' : 'Sin competencia'} />
+                    <span className="pc-skill-n">Salvación</span>
+                    {d.saves[a].adv && <span className="adv-mark">V</span>}
+                    <b>{fmt(d.saves[a].bonus)}</b>
+                  </button>
+                </li>
+                {skillsSorted.filter(([, sk]) => sk.abil === a).map(([k, sk]) => (
+                  <li key={k}>
+                    <button className="pc-skill" onClick={() => r(data?.skills[k] || k, 'check', d20(sk.bonus), { ...(sk.adv ? { adv: sk.adv } : {}), ...(sk.min10 ? { parts: [{ expr: d20(sk.bonus), minD20: 10 }] } : {}) })} title={'Tirar ' + (data?.skills[k] || k) + (sk.adv ? ' con ventaja (' + sk.adv + ')' : '') + (sk.min10 ? ' · Talento fiable: el d20 cuenta como 10 como mínimo' : '')}>
+                      <span className={sk.exp ? 'dot exp' : sk.prof ? 'dot on' : 'dot'} aria-label={sk.exp ? 'Pericia' : sk.prof ? 'Competente' : 'Sin competencia'} />
+                      <span className="pc-skill-n">{data?.skills[k] || k}</span>
+                      {sk.adv && <span className="adv-mark" title={sk.adv}>V</span>}
+                      <b>{fmt(sk.bonus)}</b>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {/* ataques y paneles de rasgos con pocas tarjetas, uno al lado del otro (con muchas tarjetas, a todo el ancho) */}
       <div className="pc-duo">
@@ -401,7 +459,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               {classLevel(c, 'barbarian') >= 2 && <button className={reckless ? 'chip on' : 'chip'} aria-pressed={reckless} title={'Este turno: ventaja en tus ataques con Fuerza (y los ataques contra ti también la tienen)' + (frenzy ? '. Con Furia: Frenesí, ' + rageDmg + 'd6 más al primer objetivo que aciertes' : '')} onClick={() => setReckless(!reckless)}>Ataque temerario</button>}
               {brutalDice && <button className={brutal ? 'chip on' : 'chip'} aria-pressed={brutal} title="Renuncias a la ventaja en un ataque con Fuerza: si acierta, este daño extra" onClick={() => setBrutal(!brutal)}>Golpe brutal +{brutalDice}</button>}
               {sneakDice && <button className={sneak ? 'chip on' : 'chip'} aria-pressed={sneak} title="Una vez por turno, con un arma sutil o a distancia, si tienes ventaja o un aliado junto al objetivo" onClick={() => setSneak(!sneak)}>Ataque furtivo +{sneakDice}</button>}
-              {hitBuffs.map((b) => { const on = buffs.includes(b.key); return <button key={b.key} className={on ? 'chip on' : 'chip'} aria-pressed={on} title={'Mientras dure: ' + b.why} onClick={() => setBuffs(on ? buffs.filter((x) => x !== b.key) : [...buffs, b.key])}>{b.n} +{b.atk && !/d/.test(b.dmg) ? b.atk : b.dmg}</button>; })}
+              {hitBuffs.map((b) => { const on = buffs.includes(b.key); return <button key={b.key} className={on ? 'chip on' : 'chip'} aria-pressed={on} title={'Mientras dure: ' + b.why} onClick={() => toggleBuff(b)}>{b.n} +{b.atk && !/d/.test(b.dmg) ? b.atk : b.dmg}</button>; })}
               {strikeDice && <button className={strike ? 'chip on' : 'chip'} aria-pressed={strike} title={'Una vez por turno al impactar con un arma: ' + (blessed ? 'radiante o necrótico' : 'frío, fuego, relámpago o trueno')} onClick={() => setStrike(!strike)}>{strikeName} +{strikeDice}</button>}
               {hasSmite && (smiteOpt ? (
                 <label className="smite-pick small" title="Castigo y espacio que gasta su botón en tus armas cuerpo a cuerpo">{smiteSpells.length > 1 ? 'Castigo' : smiteSpell!.n}
@@ -580,7 +638,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </span>
           </span>
         </Picker>
-        {c.conds.length > 0 && <ul className="rem">{c.conds.map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
+        {withoutConc(c.conds).length > 0 && <ul className="rem">{withoutConc(c.conds).map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
         <div className="pc-rest">
           <button className="btn small" onClick={() => setResting(!resting)} aria-expanded={resting}>Descanso corto</button>
           <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); if (data && restSwapClasses(c).length && c.spells.length) setRestSpells(true); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>

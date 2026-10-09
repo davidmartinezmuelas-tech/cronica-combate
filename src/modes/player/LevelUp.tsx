@@ -55,7 +55,10 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const con = after.mods.con;
   const die = cls?.hd || 8;
   const avg = Math.floor(die / 2) + 1;
-  const hpGain = Math.max(1, (hp.mode === 'roll' && hp.roll != null ? hp.roll : avg) + con);
+  // lo que suben los PG máximos con todas las reglas (dado o media + Constitución, Duro, Dureza enana…), sin el ajuste a mano
+  const free = (x: Character) => ({ ...x, ov: { ...x.ov, hpMax: undefined } });
+  const withRoll = hp.mode === 'roll' && hp.roll != null ? { ...next, hpRolls: { ...(next.hpRolls || {}), [classId + ':' + newLv]: hp.roll } } : next;
+  const hpGain = Math.max(0, derive(free(withRoll), data).hpMax - derive(free(c), data).hpMax);
   const newFeatures: ClassFeature[] = (cls?.f || []).filter((f) => f.lv === newLv);
   const subName = cur?.subclass || sub;
   const subSrd = cls?.sub && norm(subName) === norm(cls.sub.n) ? cls.sub : null;
@@ -111,9 +114,11 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
     if (picks.length) n = { ...n, spells: [...n.spells, ...picks.filter((id) => !n.spells.includes(id))] };
     if (growing.length) n = { ...n, choices };
     n = { ...n, spells: applySwap(n.spells, swap, []) };
-    // los PG actuales suben lo mismo que el máximo
-    const gain = derive(n, data).hpMax - before.hpMax;
-    n = { ...n, hp: Math.max(1, c.hp + Math.max(0, gain)), updatedAt: Date.now() };
+    // lo que sube el máximo (calculado sin el ajuste a mano); si los PG máximos estaban fijados a mano (hoja importada),
+    // el ajuste sube lo mismo. Los PG actuales suben también eso
+    const gain = Math.max(0, derive(free(n), data).hpMax - derive(free(c), data).hpMax);
+    if (c.ov.hpMax != null) n = { ...n, ov: { ...n.ov, hpMax: c.ov.hpMax + gain } };
+    n = { ...n, hp: Math.max(1, c.hp + gain), updatedAt: Date.now() };
     usePlayer.getState().replace(n);
     onDone(c);
   };

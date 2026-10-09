@@ -535,11 +535,22 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-hp-row .input{width:90px}
 .pc-grid{display:grid;grid-template-columns:1fr;gap:14px}
 @container (min-width:720px){.pc-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
-.pc-abils{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex:1;grid-auto-rows:1fr}
-.pc-abil{display:grid;grid-template-columns:1fr 1fr;align-content:center;gap:6px;padding:8px;border-radius:8px;background:#31271d;border:1px solid #524031}
-.pc-abil-k{grid-column:1/-1;font-weight:800;color:#d4a94f;letter-spacing:.06em}
-.pc-abil-k b{color:#f3e6c8;font-size:18px;margin-left:4px}
-.pc-skills{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(max(165px,calc(50% - 4px)),1fr));gap:4px}
+/* bloques por característica (como la hoja oficial): 3 columnas en pantallas anchas */
+.pc-abils{column-width:250px;column-gap:10px}
+.pc-abils>.pc-abil{break-inside:avoid;margin-bottom:10px}
+.pc-abil{display:flex;flex-direction:column;gap:6px;padding:8px;border-radius:8px;background:#31271d;border:1px solid #524031}
+.pc-abil-head{display:grid;grid-template-columns:1fr auto;grid-template-areas:'k k' 'mod score';align-items:center;gap:4px 8px}
+.pc-abil-mod{grid-area:mod;display:inline-flex;align-items:baseline;gap:6px;justify-self:start;padding:2px 10px;border-radius:8px;border:1px solid #6b5440;background:transparent;color:inherit;font:inherit;cursor:pointer}
+.pc-abil-mod:hover{border-color:#d4a94f}
+.pc-abil-mod b{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:28px;line-height:1}
+.pc-abil-mod-k{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#b2a691}
+.pc-abil-score{grid-area:score;min-width:40px;text-align:center;font-weight:800;font-size:16px;padding:3px 8px;border:1px solid #6b5440;border-radius:6px}
+.pc-abil-s{font-size:11px;color:#b2a691;margin-left:4px}
+.pc-abil-k{grid-area:k;font-weight:800;color:#d4a94f;letter-spacing:.06em;text-transform:uppercase;font-size:13px}
+
+.pc-skills{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
+.pc-skill.pc-save{font-weight:800}
+.pc-abil .pc-skill{min-height:30px;padding:4px 8px}
 .pc-skill{display:flex;align-items:center;gap:8px;width:100%;padding:6px 10px;border-radius:6px;border:1px solid #524031;background:#31271d;color:#efe3cb;font:inherit;text-align:left;min-height:36px;cursor:pointer}
 .pc-skill:hover{border-color:#d4a94f}
 .pc-skill-n{flex:1;min-width:0}
@@ -649,7 +660,10 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper label,.paper .check,.paper .res{color:#3b2f24}
 .paper .fs{border-color:#b39c74}
 .paper .stat,.paper .pc-abil,.paper .pc-skill,.paper .pc-features .card,.paper .pc-features details,.paper .pc-attack,.paper .sub,.paper .ce-multi{background:#ecdfc4;border-color:#b39c74;color:#2b2118}
-.paper .stat-v,.paper .pc-attack-n,.paper .pc-abil-k b{color:#2b2118}
+.paper .stat-v,.paper .pc-attack-n,.paper .pc-abil-mod b{color:#2b2118}
+.paper .pc-abil-mod,.paper .pc-abil-score{border-color:#b39c74;background:#f1e6cc}
+.paper .pc-abil-mod-k,.paper .pc-abil-s{color:#7a6650}
+.paper .pc-skill.pc-save{border-bottom:2px solid #b39c74}
 .paper .stat-tmp{color:#2c5f8a}
 .paper .pc-abil-k{color:#8a2a1c}
 .paper .pc-text{color:#3b2f24}

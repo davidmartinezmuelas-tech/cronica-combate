@@ -1471,3 +1471,79 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   await atk.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo Divino' });
   await expect(sword.getByRole('button', { name: /^\+ Divino 2d8$/ })).toBeVisible();
 });
+
+test('subir de nivel con PG fijados a mano, habilidades por característica y concentración', async ({ page }) => {
+  test.slow(); // varios pasos con tiradas y ventanas
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Tamsin');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
+  await page.getByLabel('Nivel', { exact: true }).fill('2');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  for (const q of ['marca del cazador', 'detectar magia']) {
+    await page.getByLabel(/^Buscar conjuro/).fill(q);
+    await page.locator('.ce-spell-results .chip').first().click();
+  }
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  // PG máximos fijados a mano (como al importar la hoja en PDF)
+  await page.locator('#ov-hpMax').fill('30');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const hpStat = page.locator('.pc-stats .stat', { hasText: 'PG' }).first();
+  await expect(hpStat).toContainText('/ 30');
+
+  // habilidades dentro de su característica
+  const str = page.locator('.pc-abil', { hasText: 'FUE' });
+  await expect(str.locator('.pc-skill', { hasText: 'Atletismo' })).toBeVisible();
+  await expect(str.getByRole('button', { name: /^Salvación de Fuerza/ })).toBeVisible();
+  await expect(page.locator('.pc-abil', { hasText: 'DES' }).locator('.pc-skill', { hasText: 'Sigilo' })).toBeVisible();
+
+  // subir de nivel: el máximo fijado a mano sube lo que se gana
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  await page.getByRole('button', { name: /^Confirmar: subir a nivel 3/ }).click();
+  await expect(hpStat).not.toContainText('/ 30');
+  const max = Number((await hpStat.locator('.stat-of').textContent())!.replace(/\D/g, ''));
+  expect(max).toBeGreaterThan(30);
+
+  // concentración: Marca del cazador desde Ataques, daño y salvación
+  await page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ }).click();
+  await expect(page.locator('.pc-conc')).toHaveText('Concentración: Marca del cazador ✕');
+  await page.getByLabel('Cantidad de PG').fill('6');
+  await page.getByRole('button', { name: 'Daño', exact: true }).click();
+  const dlg = page.getByRole('dialog', { name: 'Salvación de concentración' });
+  await expect(dlg).toContainText('CD 10');
+  await dlg.getByRole('button', { name: /^Tirar salvación/ }).click();
+  await expect(page.locator('.plaque-note')).toContainText('concentración en Marca del cazador', { timeout: 15000 });
+  await expect(dlg).toHaveCount(0);
+  // (la tirada puede salir bien o mal): se apaga la marca si sigue activa, y sin concentración no hay indicador
+  const mark = page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ });
+  if ((await mark.getAttribute('aria-pressed')) === 'true') await mark.click();
+  await expect(page.locator('.pc-conc')).toHaveCount(0);
+  // lanzar un conjuro de concentración la empieza; activar la marca la cambia
+  const detect = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Detectar magia' });
+  await detect.getByRole('button', { name: /^Lanzar/ }).click();
+  await expect(page.locator('.pc-conc')).toHaveText('Concentración: Detectar magia ✕');
+  await mark.click();
+  await expect(page.locator('.pc-conc')).toHaveText('Concentración: Marca del cazador ✕');
+});
+
+test('subir de nivel: la vista previa de PG cuenta la Dureza enana y coincide con la hoja', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Dorn');
+  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Enano' });
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const hpStat = page.locator('.pc-stats .stat', { hasText: 'PG' }).first();
+  const maxNow = Number((await hpStat.locator('.stat-of').textContent())!.replace(/\D/g, ''));
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Subir a nivel 2' });
+  const m = /PG máximos: (\d+) → (\d+)/.exec((await dlg.textContent()) || '');
+  expect(Number(m![1])).toBe(maxNow);
+  // guerrero d10: media 6 + Constitución + 1 de la Dureza enana
+  const con = Number((await page.locator('.pc-abil').filter({ has: page.locator('.pc-abil-s', { hasText: /^CON$/ }) }).locator('.pc-abil-mod b').textContent())!.replace('−', '-'));
+  expect(Number(m![2]) - maxNow).toBe(6 + con + 1);
+  await dlg.getByRole('button', { name: /^Confirmar: subir a nivel 2/ }).click();
+  await expect(hpStat.locator('.stat-of')).toContainText(m![2]);
+});

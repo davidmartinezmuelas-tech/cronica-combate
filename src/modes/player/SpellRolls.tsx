@@ -5,6 +5,7 @@ import { fmt } from '../../engine/dice';
 import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { hasInvocation } from '../../engine/subclassChoices';
+import { withConc } from '../../engine/concentration';
 import { useRoom } from '../../store/room';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
@@ -47,8 +48,10 @@ export default function SpellRolls({ c, d, s, set }: { c: Character; d: Derived;
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;
   const slotLeft = lv && !usePact ? (d.slots[lv - 1] || 0) - (c.slotsUsed[lv - 1] || 0) : 0;
   const spendSlot = () => {
-    if (usePact) { set({ pactUsed: c.pactUsed + 1 }); return; }
-    const u = c.slotsUsed.slice(); u[lv - 1] = (u[lv - 1] || 0) + 1; set({ slotsUsed: u });
+    // un conjuro de concentración la empieza (y termina la de otro)
+    const conc = s.c ? { conds: withConc(c.conds, s.n) } : {};
+    if (usePact) { set({ pactUsed: c.pactUsed + 1, ...conc }); return; }
+    const u = c.slotsUsed.slice(); u[lv - 1] = (u[lv - 1] || 0) + 1; set({ slotsUsed: u, ...conc });
   };
   const healAfter = (total: number) => {
     const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
