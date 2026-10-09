@@ -3,7 +3,7 @@ import { ABILS, type Abil } from '../../data/player';
 import type { LibBackground } from '../../engine/bookImport';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
-import { readBook, type BookResult } from '../../store/bookReader';
+import { NO_TEXT, NO_TEXT_HELP, readBook, type BookResult } from '../../store/bookReader';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
@@ -60,7 +60,9 @@ export default function LibraryPanel() {
         setFound({ ...f, backgrounds: [...f.backgrounds.filter(incomplete), ...f.backgrounds.filter((b) => !incomplete(b))] });
       }
     } catch (e) {
-      if ((e as Error).message !== 'cancelado') setMsg('No se pudo leer el PDF (' + (e as Error).message + ').');
+      const m = (e as Error).message;
+      if (m === NO_TEXT) setMsg(NO_TEXT_HELP);
+      else if (m !== 'cancelado') setMsg('No se pudo leer el PDF (' + m + ').');
     }
     setProgress(null);
     if (pdfRef.current) pdfRef.current.value = '';

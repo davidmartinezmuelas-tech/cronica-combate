@@ -1,8 +1,9 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Monster } from '../../data/types';
 import { fmt } from '../../engine/dice';
 import { rankBy } from '../../engine/search';
-import { crNum, nfmt } from '../../engine/util';
+import { crNum, nfmt, norm } from '../../engine/util';
+import { NO_TEXT, NO_TEXT_HELP, readMonsterBook } from '../../store/bookReader';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store/useStore';
 
@@ -20,6 +21,7 @@ function Beast({ m }: { m: Monster }) {
         <span className="beast-name">
           {m.n}
           {m.custom && <span className="tag">Propio</span>}
+          {m.id.startsWith('mm-') && <span className="tag book">Manual</span>}
           {m.lg && <span className="tag leg">Legendario</span>}
           {m.lair && <span className="tag lair">Guarida</span>}
         </span>
@@ -44,28 +46,85 @@ function Beast({ m }: { m: Monster }) {
   );
 }
 
+/**
+ * Importar el Manual de Monstruos 2024 del usuario: se lee su PDF en el navegador y las criaturas se guardan solo en
+ * este dispositivo (no van a la cuenta ni a las copias).
+ */
+function BookImport() {
+  const count = useStore((s) => s.book.length);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cancel = useRef({ cancelled: false });
+  const [progress, setProgress] = useState<[number, number] | null>(null);
+  const [msg, setMsg] = useState<{ t: string; ok?: boolean } | null>(null);
+  const [sure, setSure] = useState(false);
+  const run = async (f: File | undefined) => {
+    if (!f) return;
+    setMsg(null);
+    cancel.current = { cancelled: false };
+    try {
+      const r = await readMonsterBook(f, useStore.getState().spells, (p, t) => setProgress([p, t]), cancel.current);
+      if (!r.monsters.length) setMsg({ t: 'No se ha encontrado ninguna ficha de monstruo. El importador está hecho para el Manual de Monstruos 2024 en español.' });
+      else {
+        useStore.getState().setBook(r.monsters);
+        setMsg({ ok: true, t: r.monsters.length + ' criaturas añadidas al bestiario. Si el PDF era un escaneo, revisa las fichas antes de usarlas: el reconocimiento de texto puede dejar algún error.' });
+      }
+    } catch (e) {
+      const m = (e as Error).message;
+      if (m === NO_TEXT) setMsg({ t: NO_TEXT_HELP });
+      else if (m !== 'cancelado') setMsg({ t: 'No se pudo leer el PDF (' + m + ').' });
+    }
+    setProgress(null);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+  return (
+    <details className="sub add-opts book-import" open={!!progress || !!msg || undefined}>
+      <summary>
+        <span className="eyebrow">Manual de Monstruos 2024</span>
+        <span className="muted small">{count ? count + ' criaturas importadas' : 'importa tu PDF'}</span>
+      </summary>
+      <p className="muted small" style={{ margin: 0 }}>Si tienes el Manual de Monstruos 2024 en español en PDF, impórtalo para tener todas sus criaturas. Se lee en este navegador y se guarda solo en este dispositivo: no se sube a ningún sitio ni a tu cuenta.</p>
+      <div className="rollrow">
+        <button className="btn small primary" disabled={!!progress} onClick={() => fileRef.current?.click()}>{count ? 'Volver a importar (PDF)' : 'Importar mi Manual de Monstruos (PDF)'}</button>
+        {count > 0 && <button className="btn small ghost" onClick={() => { if (sure) { useStore.getState().setBook([]); setSure(false); setMsg({ ok: true, t: 'Criaturas del Manual quitadas del bestiario.' }); } else setSure(true); }}>{sure ? '¿Seguro? Quitar' : 'Quitar del bestiario'}</button>}
+      </div>
+      <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual de Monstruos" onChange={(e) => void run(e.target.files?.[0])} />
+      {progress && (
+        <div className="sub" role="status">
+          <span className="small">Leyendo el libro: página {progress[0]} de {progress[1]}…</span>
+          <span className="hpbar"><span className="hpfill" style={{ width: Math.round((progress[0] / progress[1]) * 100) + '%' }} /></span>
+          <button className="btn small ghost" style={{ alignSelf: 'flex-start' }} onClick={() => { cancel.current.cancelled = true; }}>Cancelar</button>
+        </div>
+      )}
+      {msg && <p className={msg.ok ? 'small' : 'warn'} role="status" style={{ margin: 0 }}>{msg.t}</p>}
+    </details>
+  );
+}
+
 export default function BestiaryPanel() {
-  const s = useStore(useShallow((st) => ({ srd: st.srd, custom: st.custom, search: st.search, fType: st.fType, fCr: st.fCr, fLeg: st.fLeg, fMine: st.fMine, bLimit: st.bLimit, loaded: st.loaded, loadError: st.loadError, types: st.types, hpMode: st.hpMode, shareInit: st.shareInit, addLair: st.addLair })));
+  const s = useStore(useShallow((st) => ({ srd: st.srd, custom: st.custom, book: st.book, fBook: st.fBook, search: st.search, fType: st.fType, fCr: st.fCr, fLeg: st.fLeg, fMine: st.fMine, bLimit: st.bLimit, loaded: st.loaded, loadError: st.loadError, types: st.types, hpMode: st.hpMode, shareInit: st.shareInit, addLair: st.addLair })));
   const { set, newForge } = useStore.getState();
-  const pool = useMemo(() => {
+  const { pool, total } = useMemo(() => {
     const r = CR_RANGES[s.fCr];
-    const filtered = s.custom.concat(s.srd).filter((m) =>
+    // la versión del Manual de Monstruos sustituye a la del SRD con el mismo nombre
+    const inBook = new Set(s.book.map((m) => norm(m.n)));
+    const all = s.custom.concat(s.book, inBook.size ? s.srd.filter((m) => !inBook.has(norm(m.n))) : s.srd);
+    const filtered = all.filter((m) =>
       (!s.fType || m.t.split(' (')[0] === s.fType) &&
       (!r || (crNum(m.cr) >= r[0] && crNum(m.cr) <= r[1])) &&
-      (!s.fLeg || !!m.lg) && (!s.fMine || !!m.custom));
+      (!s.fLeg || !!m.lg) && (!s.fMine || !!m.custom) && (!s.fBook || m.id.startsWith('mm-')));
     // «goblin» muestra antes al Goblin que al Capitán hobgoblin
-    return rankBy(filtered, s.search, (m) => [m.n, m.en]);
-  }, [s.custom, s.srd, s.search, s.fType, s.fCr, s.fLeg, s.fMine]);
+    return { pool: rankBy(filtered, s.search, (m) => [m.n, m.en]), total: all.length };
+  }, [s.custom, s.book, s.srd, s.search, s.fType, s.fCr, s.fLeg, s.fMine, s.fBook]);
   const shown = pool.slice(0, s.bLimit);
   // la ficha de la derecha sigue a la búsqueda: si la criatura abierta ya no está en la lista, se abre la primera
   useEffect(() => {
     const { viewId } = useStore.getState();
     if (pool.length && !pool.some((m) => m.id === viewId)) set({ viewId: pool[0].id, spellOpen: null });
   }, [pool, set]);
-  const filtering = !!(s.search.trim() || s.fType || s.fCr !== 'all' || s.fLeg || s.fMine);
+  const filtering = !!(s.search.trim() || s.fType || s.fCr !== 'all' || s.fLeg || s.fMine || s.fBook);
   return (
     <div className="panel bestiary-panel">
-      <div className="panel-head"><h2>Bestiario</h2><span className="muted small">{s.custom.length + s.srd.length} criaturas</span></div>
+      <div className="panel-head"><h2>Bestiario</h2><span className="muted small">{total} criaturas</span></div>
       {!s.loaded && <p className="muted" style={{ margin: 0 }}>Cargando el bestiario…</p>}
       {s.loadError && <p className="warn">{s.loadError}</p>}
       <div className="field"><label htmlFor="search">Buscar (español o inglés)</label>
@@ -84,6 +143,7 @@ export default function BestiaryPanel() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0 14px' }}>
         <label className="check"><input type="checkbox" checked={s.fLeg} onChange={(e) => set({ fLeg: e.target.checked, bLimit: 50 })} />Legendarios</label>
         <label className="check"><input type="checkbox" checked={s.fMine} onChange={(e) => set({ fMine: e.target.checked, bLimit: 50 })} />Mis criaturas</label>
+        {s.book.length > 0 && <label className="check"><input type="checkbox" checked={s.fBook} onChange={(e) => set({ fBook: e.target.checked, bLimit: 50 })} />Manual de Monstruos</label>}
       </div>
       <details className="sub add-opts">
         <summary>
@@ -107,6 +167,7 @@ export default function BestiaryPanel() {
       {pool.length > s.bLimit && <button className="btn" onClick={() => set({ bLimit: s.bLimit + 50 })}>Mostrar más ({pool.length - s.bLimit} restantes)</button>}
       {s.loaded && !pool.length && <p className="muted" style={{ margin: 0 }}>Ninguna criatura coincide con los filtros.</p>}
       <button className="btn" onClick={newForge}>Forjar un monstruo nuevo</button>
+      <BookImport />
     </div>
   );
 }

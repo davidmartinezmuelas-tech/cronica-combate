@@ -143,7 +143,7 @@ export default function CenterPanel() {
   const isCombat = tab === 'combat';
   let sheet: { m: NonNullable<typeof viewM>; label: string; c: typeof sel } | null = null;
   if (isCombat && sel && sel.kind === 'monster' && selM) sheet = { m: selM, label: 'Hoja de ' + sel.name, c: sel };
-  else if (tab === 'bestiary' && viewM) sheet = { m: viewM, label: viewM.custom ? 'Bestiario · creación propia' : 'Bestiario · SRD 5.2.1', c: null };
+  else if (tab === 'bestiary' && viewM) sheet = { m: viewM, label: viewM.custom ? 'Bestiario · creación propia' : viewM.id.startsWith('mm-') ? 'Bestiario · tu Manual de Monstruos' : 'Bestiario · SRD 5.2.1', c: null };
   else if (tab === 'forge' && forgeM) sheet = { m: forgeM, label: 'Vista previa en vivo', c: null };
 
   const hasCtrl = (isCombat && !started) || tab === 'group' || (isCombat && (hasActive || !!sel));

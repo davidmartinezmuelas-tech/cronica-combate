@@ -1,8 +1,12 @@
-import type { SrdData } from '../../data/types';
+import type { Monster, SrdData } from '../../data/types';
+import { loadBookMonsters } from '../bookMonsters';
 import type { Kit } from '../kit';
 import { loadSaved, requestPersistence } from '../persist';
 import { prunePdfs } from '../pdfs';
 import type { CoreSlice, GetState, SetState } from '../state';
+
+/** Tipos de criatura para el filtro del bestiario («dragón (cromático)» cuenta como «dragón»). */
+export const typesOf = (list: Monster[]) => Array.from(new Set(list.map((m) => m.t.split(' (')[0]))).sort((a, b) => a.localeCompare(b, 'es'));
 
 export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }: Kit): CoreSlice {
   let toastT: ReturnType<typeof setTimeout> | undefined;
@@ -19,13 +23,14 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
       void requestPersistence().then((persistent) => set({ persistent }));
       // hojas de personaje que ya no usa ningún jugador (quitadas o sustituidas en sesiones anteriores)
       if (ok) void prunePdfs(new Set(data.roster.map((r) => r.pdf?.id).filter((x): x is string => !!x)));
+      // criaturas del Manual de Monstruos del usuario, si lo importó en este dispositivo
+      void loadBookMonsters().then((book) => { if (book.length) set({ book, types: typesOf([...get().srd, ...book]) }); });
       try {
         const res = await fetch(import.meta.env.BASE_URL + 'data/srd52_es.json');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const d = (await res.json()) as SrdData;
         const srd = d.m.slice().sort((a, b) => a.n.localeCompare(b.n, 'es'));
-        const types = Array.from(new Set(srd.map((m) => m.t.split(' (')[0]))).sort((a, b) => a.localeCompare(b, 'es'));
-        set({ srd, spells: d.sp, types, loaded: true, viewId: get().viewId || srd[0]?.id || null });
+        set({ srd, spells: d.sp, types: typesOf([...srd, ...get().book]), loaded: true, viewId: get().viewId || srd[0]?.id || null });
       } catch (e) {
         set({ loaded: true, loadError: 'No se pudo cargar el bestiario SRD (' + (e as Error).message + '). Tus criaturas propias siguen disponibles.' });
       }
@@ -33,7 +38,7 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
 
     set: (patch) => set(patch),
     // el SRD manda: una criatura propia importada con un id del SRD no puede suplantarla
-    monById: (id) => (id ? get().srd.find((m) => m.id === id) || get().custom.find((m) => m.id === id) : undefined),
+    monById: (id) => (id ? get().srd.find((m) => m.id === id) || get().custom.find((m) => m.id === id) || get().book.find((m) => m.id === id) : undefined),
 
     showToast(msg) {
       set({ toast: msg });

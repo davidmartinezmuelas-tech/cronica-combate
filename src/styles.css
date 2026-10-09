@@ -112,6 +112,8 @@ button.pip::after{content:'';position:absolute;inset:-6px;border-radius:50%}
 .tag{font-family:'Alegreya Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#181411;background:#d4a94f;border-radius:4px;padding:1px 6px}
 .tag.leg{background:#9b2c22;color:#fbf1dc}
 .tag.lair{background:#35503d;color:#e5f2e2}
+.tag.book{background:#4a3a5e;color:#eadff5}
+.book-import{margin-top:2px}
 .eyebrow{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#b2a691}
 .abil-edit{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border-radius:8px;background:#31271d;border:1px solid #524031}
 .abil-edit label{font-weight:800;color:#d4a94f;letter-spacing:.06em}

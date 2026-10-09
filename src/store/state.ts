@@ -136,6 +136,10 @@ export interface BestiarySlice {
   fCr: string;
   fLeg: boolean;
   fMine: boolean;
+  /** Criaturas del Manual de Monstruos del usuario (solo en este dispositivo). */
+  book: Monster[];
+  fBook: boolean;
+  setBook: (list: Monster[]) => void;
   viewId: string | null;
   qty: Record<string, number>;
   hpMode: 'avg' | 'roll';
