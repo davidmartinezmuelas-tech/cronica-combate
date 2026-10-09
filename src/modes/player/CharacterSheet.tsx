@@ -13,6 +13,7 @@ import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
 import { hasInvocation, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { assignSpells, casterPreps } from '../../engine/spellPrep';
+import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
 import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
@@ -102,8 +103,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // castigos en el golpe del arma (su daño va en la misma tirada: en un crítico también se doblan sus dados)
   const [smitePick, setSmitePick] = useState('');
   // Marca del cazador y Maleficio duran: mientras estén activos, su daño va en cada tirada de daño con arma
-  const [mark, setMark] = useState(false);
-  const [hex, setHex] = useState(false);
+  const [smiteSel, setSmiteSel] = useState('');
+  const [buffs, setBuffs] = useState<string[]>([]); // conjuros activos que suman en cada golpe (Marca, Maleficio, Favor divino…)
   // pestañas de conjuros: por nivel y, con varias clases lanzadoras, por clase
   const [spLv, setSpLv] = useState('all');
   const [spCls, setSpCls] = useState('all');
@@ -155,18 +156,19 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (brutal && hit.str && brutalDice) ps.push({ expr: brutalDice, type });
     if (sneak && hit.finesse && sneakDice) ps.push({ expr: sneakDice, type });
     // Marca del cazador y Maleficio: su daño en cada impacto, en la misma tirada que el arma
-    if (mark && markExpr) ps.push({ expr: markExpr, type: 'fuerza' });
-    if (hex && hexExpr) ps.push({ expr: hexExpr, type: 'necrótico' });
+    const type0 = parts[0]?.type || '';
+    const onBuffs = hitBuffs.filter((b) => buffs.includes(b.key));
+    for (const b of onBuffs) if (b.dmg) ps.push({ expr: b.dmg, type: b.type || type0 });
     if (strike && strikeDice) ps.push({ expr: strikeDice, type: blessed ? 'radiante' : 'elemental' });
     // Castigo divino y Castigo arcano: con armas cuerpo a cuerpo (y ataques sin armas), gastan su espacio al tirar
     const useSmite = !!with_.smite && melee && !!smiteOpt;
     const useEld = !!with_.eld && melee && !!eldDice;
-    if (useSmite) ps.push({ expr: smiteOpt!.dice, type: 'radiante' });
+    if (useSmite) ps.push({ expr: smiteOpt!.dice, type: smiteOpt!.type });
     if (useEld) ps.push({ expr: eldDice, type: 'fuerza' });
     const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : '', pierce && piercing ? 'perforador' : '',
       rage && hit.str && rageDmg ? 'furia' : '', frenzy && hit.str && rageDmg ? 'frenesí: solo al primer objetivo del turno' : '', brutal && hit.str && brutalDice ? 'golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'ataque furtivo' : '',
-      mark && markExpr ? 'marca del cazador' : '', hex && hexExpr ? 'maleficio' : '', strike && strikeDice ? strikeName.toLowerCase() : '',
-      useSmite ? 'castigo divino' : '', useEld ? 'castigo arcano' : ''].filter(Boolean);
+      ...onBuffs.map((b) => b.n.toLowerCase()), strike && strikeDice ? strikeName.toLowerCase() : '',
+      useSmite ? smiteSpell!.n.toLowerCase() : '', useEld ? 'castigo arcano' : ''].filter(Boolean);
     roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps, critBonus });
     if (savage) setSavage(false);
     if (charge && melee) setCharge(false);
@@ -263,18 +265,34 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const lvTab = spLv !== 'all' && spLevels.includes(+spLv) ? spLv : 'all';
   const spellShown = spellList.filter((x) => (lvTab === 'all' || (x.s!.l || 0) === +lvTab) && (clsTab === 'all' || x.cls.includes(clsTab)));
   const freeSmite = features.find((f) => f.key === 'Castigo del paladín' && f.max);
-  // Marca del cazador (explorador: su dado; si no, la del conjuro, 1d6) y Maleficio, si los tiene
-  const markExpr = markDie || (spellList.some((x) => x.s!.en === "Hunter's Mark") ? '1d6' : '');
-  const hexExpr = spellList.some((x) => x.s!.en === 'Hex') ? '1d6' : '';
-  // Castigo divino en el arma: gratis (Castigo del paladín), con un espacio de cualquier nivel o con uno de pacto
-  const hasSmite = spellList.some((x) => x.s!.en === 'Divine Smite');
+  // conjuros que, mientras duran, suman en cada golpe con arma: se activan como etiquetas en «Ataques»
+  // (los del SRD por su nombre en inglés; los del libro del usuario, por el nombre en español)
+  const has = (en: string, es: RegExp) => spellList.some((x) => x.s!.en === en || es.test(norm(x.s!.n)));
+  const hitBuffs = [
+    ...(markDie || has("Hunter's Mark", /^marca del cazador$/) ? [{ key: 'mark', n: 'Marca del cazador', dmg: markDie || '1d6', type: 'fuerza', atk: 0, why: 'su daño de fuerza en cada golpe al objetivo marcado' }] : []),
+    ...(has('Hex', /^maleficio$/) ? [{ key: 'hex', n: 'Maleficio', dmg: '1d6', type: 'necrótico', atk: 0, why: '1d6 necrótico en cada golpe al objetivo maldito' }] : []),
+    ...(has('Divine Favor', /^favor divino$/) ? [{ key: 'favor', n: 'Favor divino', dmg: '1d4', type: 'radiante', atk: 0, why: '1d4 radiante en cada golpe con arma (1 minuto)' }] : []),
+    ...(has("Crusader's Mantle", /^manto del cruzado$/) ? [{ key: 'mantle', n: 'Manto del cruzado', dmg: '1d4', type: 'radiante', atk: 0, why: '1d4 radiante en cada golpe con arma (concentración)' }] : []),
+    ...(has('Elemental Weapon', /^arma elemental$/) ? [{ key: 'elemental', n: 'Arma elemental', dmg: '1d4', type: '', atk: 1, why: '+1 al ataque y 1d4 del tipo elegido con el arma encantada (a nivel 3)' }] : []),
+    ...(has('Magic Weapon', /^arma magica$/) ? [{ key: 'magic', n: 'Arma mágica', dmg: '1', type: '', atk: 1, why: '+1 al ataque y al daño con el arma encantada (a nivel 2)' }] : []),
+  ];
+  const buffAtk = hitBuffs.filter((b) => buffs.includes(b.key)).reduce((a, b) => a + b.atk, 0);
+  // castigos: se lanzan al acertar y su daño va en la misma tirada que el arma (Castigo divino, abrasador, brillante…)
+  const SMITES = ['Divine Smite', 'Searing Smite', 'Shining Smite', 'Thunderous Smite', 'Wrathful Smite', 'Blinding Smite', 'Staggering Smite', 'Banishing Smite'];
+  const smiteSpells = spellList.filter((x) => (SMITES.includes(x.s!.en || '') || /^castigo (divino|abrasador|brillante|atronador|colerico|furioso|cegador|asombroso|desterrador|aturdidor)$/.test(norm(x.s!.n))) && spellRoll(x.s!.t)?.damage).map((x) => x.s!);
+  const smiteSpell = smiteSpells.find((x) => x.id === smiteSel) || smiteSpells.find((x) => x.en === 'Divine Smite') || smiteSpells[0];
+  const hasSmite = !!smiteSpell;
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;
-  const smiteOpts = !hasSmite ? [] : [
-    ...(freeSmite && (c.uses[freeSmite.key] || 0) < freeSmite.max! ? [{ key: 'free', lv: 1, label: 'Gratis' }] : []),
-    ...d.slots.map((n, i) => ({ key: String(i + 1), lv: i + 1, label: 'Nivel ' + (i + 1), left: n - (c.slotsUsed[i] || 0) })).filter((o) => o.left > 0),
-    ...(d.pact && pactLeft > 0 ? [{ key: 'p', lv: d.pact.lv, label: 'Pacto' }] : []),
-  ].map((o) => ({ ...o, dice: o.lv + 1 + 'd8' }));
+  const smiteBase = smiteSpell?.l || 1;
+  const smiteRoll = smiteSpell ? spellRoll(smiteSpell.t) : null;
+  // espacios: gratis (Castigo del paladín, solo el divino), normales desde su nivel o de pacto
+  const smiteOpts = !smiteSpell || !smiteRoll ? [] : [
+    ...(smiteSpell.en === 'Divine Smite' && freeSmite && (c.uses[freeSmite.key] || 0) < freeSmite.max! ? [{ key: 'free', lv: 1, label: 'Gratis' }] : []),
+    ...d.slots.map((n, i) => ({ key: String(i + 1), lv: i + 1, label: 'Nivel ' + (i + 1), left: n - (c.slotsUsed[i] || 0) })).filter((o) => o.left > 0 && o.lv >= smiteBase),
+    ...(d.pact && pactLeft > 0 && d.pact.lv >= smiteBase ? [{ key: 'p', lv: d.pact.lv, label: 'Pacto' }] : []),
+  ].map((o) => { const dm = spellCast(smiteRoll, smiteBase, o.lv, d.level, 0, false).dmg; return { ...o, dice: dm?.expr || '', type: dm?.type || 'radiante' }; });
   const smiteOpt = smiteOpts.find((o) => o.key === smitePick) || smiteOpts[0];
+  const smiteShort = smiteSpell ? smiteSpell.n.replace(/^castigo\s+/i, '').replace(/^\p{Ll}/u, (m) => m.toUpperCase()) : '';
   // Castigo arcano (invocación): 1d8 de fuerza más 1d8 por nivel del espacio de pacto
   const eldDice = hasInvocation(c, 'Castigo arcano') && d.pact && pactLeft > 0 ? d.pact.lv + 1 + 'd8' : '';
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
@@ -374,21 +392,21 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
-          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!strikeDice || hasSmite || !!markExpr || !!hexExpr) && (
+          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!strikeDice || hasSmite || hitBuffs.length > 0) && (
             <span className="rollrow">
               {d.fx.savage && <button className={savage ? 'chip on' : 'chip'} aria-pressed={savage} title="Una vez por turno: el próximo daño con arma tira sus dados dos veces y usa el mejor" onClick={() => setSavage(!savage)}>Atacante salvaje</button>}
               {rageDmg > 0 && <button className={rage ? 'chip on' : 'chip'} aria-pressed={rage} title={'Mientras dure: +' + rageDmg + ' al daño de los ataques con Fuerza; resistencia a contundente, cortante y perforante. Entrar gasta un uso de Furia.'} onClick={toggleRage}>Furia +{rageDmg}</button>}
               {classLevel(c, 'barbarian') >= 2 && <button className={reckless ? 'chip on' : 'chip'} aria-pressed={reckless} title={'Este turno: ventaja en tus ataques con Fuerza (y los ataques contra ti también la tienen)' + (frenzy ? '. Con Furia: Frenesí, ' + rageDmg + 'd6 más al primer objetivo que aciertes' : '')} onClick={() => setReckless(!reckless)}>Ataque temerario</button>}
               {brutalDice && <button className={brutal ? 'chip on' : 'chip'} aria-pressed={brutal} title="Renuncias a la ventaja en un ataque con Fuerza: si acierta, este daño extra" onClick={() => setBrutal(!brutal)}>Golpe brutal +{brutalDice}</button>}
               {sneakDice && <button className={sneak ? 'chip on' : 'chip'} aria-pressed={sneak} title="Una vez por turno, con un arma sutil o a distancia, si tienes ventaja o un aliado junto al objetivo" onClick={() => setSneak(!sneak)}>Ataque furtivo +{sneakDice}</button>}
-              {markExpr && <button className={mark ? 'chip on' : 'chip'} aria-pressed={mark} title="Mientras el objetivo tenga tu Marca del cazador: su daño de fuerza en cada tirada de daño con arma" onClick={() => setMark(!mark)}>Marca del cazador +{markExpr}</button>}
-              {hexExpr && <button className={hex ? 'chip on' : 'chip'} aria-pressed={hex} title="Mientras el objetivo tenga tu Maleficio: 1d6 necrótico en cada tirada de daño con arma" onClick={() => setHex(!hex)}>Maleficio +{hexExpr}</button>}
+              {hitBuffs.map((b) => { const on = buffs.includes(b.key); return <button key={b.key} className={on ? 'chip on' : 'chip'} aria-pressed={on} title={'Mientras dure: ' + b.why} onClick={() => setBuffs(on ? buffs.filter((x) => x !== b.key) : [...buffs, b.key])}>{b.n} +{b.atk && !/d/.test(b.dmg) ? b.atk : b.dmg}</button>; })}
               {strikeDice && <button className={strike ? 'chip on' : 'chip'} aria-pressed={strike} title={'Una vez por turno al impactar con un arma: ' + (blessed ? 'radiante o necrótico' : 'frío, fuego, relámpago o trueno')} onClick={() => setStrike(!strike)}>{strikeName} +{strikeDice}</button>}
               {hasSmite && (smiteOpt ? (
-                <label className="smite-pick small" title="Espacio que gasta «+ Divino» en tus armas cuerpo a cuerpo">Castigo divino
-                  <select className="input pc-slot-pick" aria-label="Espacio del castigo divino" value={smiteOpt.key} onChange={(e) => setSmitePick(e.target.value)}>{smiteOpts.map((o) => <option key={o.key} value={o.key}>{o.label} · {o.dice}</option>)}</select>
+                <label className="smite-pick small" title="Castigo y espacio que gasta su botón en tus armas cuerpo a cuerpo">{smiteSpells.length > 1 ? 'Castigo' : smiteSpell!.n}
+                  {smiteSpells.length > 1 && <select className="input pc-slot-pick" aria-label="Castigo" value={smiteSpell!.id} onChange={(e) => { setSmiteSel(e.target.value); setSmitePick(''); }}>{smiteSpells.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}</select>}
+                  <select className="input pc-slot-pick" aria-label="Espacio del castigo" value={smiteOpt.key} onChange={(e) => setSmitePick(e.target.value)}>{smiteOpts.map((o) => <option key={o.key} value={o.key}>{o.label} · {o.dice}</option>)}</select>
                 </label>
-              ) : <span className="muted small">Castigo divino: sin espacios</span>)}
+              ) : <span className="muted small">{smiteSpell!.n}: sin espacios</span>)}
               {d.fx.piercer && <button className={pierce ? 'chip on' : 'chip'} aria-pressed={pierce} title="Una vez por turno: el próximo daño perforante repite su dado más bajo si no llega a la mitad" onClick={() => setPierce(!pierce)}>Perforador</button>}
               {d.fx.charge && <button className={charge ? 'chip on' : 'chip'} aria-pressed={charge} title={'Tras moverte 3 m en línea recta: el próximo daño cuerpo a cuerpo suma ' + d.fx.charge} onClick={() => setCharge(!charge)}>Carga +{d.fx.charge}</button>}
             </span>
@@ -404,10 +422,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
               )}
             </span>
             <span className="rollrow">
-              <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
+              <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk + buffAtk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk + buffAtk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Daño {partsLabel(parts)}</button>
-              {w.kind === 'melee' && smiteOpt && <button className="rollbtn dmg smite" title="Castigo divino en el mismo golpe: su daño radiante va en la tirada del arma (en un crítico también se dobla) y gasta el espacio elegido arriba. +1d8 contra infernales y muertos vivientes." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true })}>+ Divino {smiteOpt.dice}</button>}
-              {w.kind === 'melee' && smiteOpt && eldDice && (smiteOpt.key !== 'p' || pactLeft >= 2) && <button className="rollbtn dmg smite" title="Castigo divino y Castigo arcano en el mismo golpe: los dos daños en la tirada del arma (en un crítico se doblan todos); gasta el espacio elegido arriba y uno de pacto" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true, eld: true })}>+ Ambos castigos</button>}
+              {w.kind === 'melee' && smiteOpt && <button className="rollbtn dmg smite" title={smiteSpell!.n + ' en el mismo golpe: su daño va en la tirada del arma (en un crítico también se dobla) y gasta el espacio elegido arriba.' + (smiteSpell!.en === 'Divine Smite' ? ' +1d8 contra infernales y muertos vivientes.' : '')} onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true })}>+ {smiteShort} {smiteOpt.dice}</button>}
+              {w.kind === 'melee' && smiteOpt && eldDice && (smiteOpt.key !== 'p' || pactLeft >= 2) && <button className="rollbtn dmg smite" title={smiteSpell!.n + ' y Castigo arcano en el mismo golpe: los dos daños en la tirada del arma (en un crítico se doblan todos); gasta el espacio elegido arriba y uno de pacto'} onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true, eld: true })}>+ Ambos castigos</button>}
               {w.kind === 'melee' && eldDice && <button className="rollbtn dmg smite" title="Castigo arcano (con tu arma de pacto, una vez por turno): 1d8 de fuerza más 1d8 por nivel del espacio de pacto, en la misma tirada; gasta un espacio de pacto. Si es Enorme o menor, puedes derribarlo." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { eld: true })}>+ Arcano {eldDice}</button>}
               {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse })}>A dos manos {partsLabel(verParts)}</button>}
               {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño lanzada', throwParts, { melee: false, str: abil === 'str', finesse: true })}>Lanzada {partsLabel(throwParts)}</button>}
@@ -422,7 +440,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20(d.unarmed!.atk), { critOn: d.critOn, ...(reckless && uaHit.str ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(d.unarmed.atk)}{reckless && uaHit.str && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit)}>Daño {partsLabel(d.unarmed.parts)}</button>
-              {smiteOpt && <button className="rollbtn dmg smite" title="Castigo divino en el mismo golpe (también con ataques sin armas)" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, { smite: true })}>+ Divino {smiteOpt.dice}</button>}
+              {smiteOpt && <button className="rollbtn dmg smite" title={smiteSpell!.n + ' en el mismo golpe (también con ataques sin armas)'} onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, { smite: true })}>+ {smiteShort} {smiteOpt.dice}</button>}
               {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, uaHit)}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
               {d.unarmed.grapple && <button className="rollbtn dmg" title="Al principio de tu turno, a una criatura que tengas agarrada" onClick={() => roll({ label: who + ' · daño a la criatura agarrada', kind: 'damage', who, by: null, parts: [{ expr: d.unarmed!.grapple, type: 'contundente' }] })}>Agarrada {d.unarmed.grapple} contundente</button>}
             </span>

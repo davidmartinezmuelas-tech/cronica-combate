@@ -1244,7 +1244,7 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
 
   const atk = page.locator('section[aria-label="Ataques"]');
   // Castigo del paladín: gratis una vez; luego con espacios de nivel 1 o 2
-  const pick = atk.getByLabel('Espacio del castigo divino');
+  const pick = atk.getByLabel('Espacio del castigo');
   await expect(pick.locator('option')).toHaveText(['Gratis · 2d8', 'Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
   const sword = atk.locator('.pc-attack', { hasText: 'Espada larga' });
   await sword.getByRole('button', { name: '+ Divino 2d8' }).click();
@@ -1427,4 +1427,39 @@ test('multiclase: cada clase prepara sus conjuros, hasta su nivel, y se eligen p
   await page.getByRole('button', { name: 'Editar hoja' }).click();
   await page.getByRole('tab', { name: 'Nivel 3' }).click();
   await expect(page.locator('.ce-spell-results .chip', { hasText: /Contrahechizo/ })).toBeVisible();
+});
+
+test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen junto al arma', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ilda');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  for (const q of ['favor divino', 'castigo abrasador', 'arma mágica']) {
+    await page.getByLabel(/^Buscar conjuro/).fill(q);
+    await page.locator('.ce-spell-results .chip').first().click();
+  }
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const atk = page.locator('section[aria-label="Ataques"]');
+  const sword = atk.locator('.pc-attack', { hasText: 'Espada larga' });
+  // Favor divino: etiqueta que se queda activa y suma 1d4 radiante en cada golpe
+  const favor = atk.getByRole('button', { name: 'Favor divino +1d4' });
+  await favor.click();
+  await sword.getByRole('button', { name: /^Daño 1d8/ }).click();
+  await expect(page.locator('.plaque-label')).toContainText('favor divino');
+  await expect(favor).toHaveAttribute('aria-pressed', 'true');
+  // Arma mágica: +1 al ataque mientras dura
+  const atkBtn = sword.getByRole('button', { name: /^Ataque/ });
+  const before = Number((await atkBtn.textContent())!.replace(/[^\d-]/g, ''));
+  await atk.getByRole('button', { name: 'Arma mágica +1' }).click();
+  await expect(atkBtn).toHaveText('Ataque +' + (before + 1));
+  // castigos: se elige cuál y con qué espacio
+  await atk.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo abrasador' });
+  await sword.getByRole('button', { name: '+ Abrasador 1d6' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('castigo abrasador');
+  await atk.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo Divino' });
+  await expect(sword.getByRole('button', { name: /^\+ Divino 2d8$/ })).toBeVisible();
 });
