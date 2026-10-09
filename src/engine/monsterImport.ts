@@ -43,12 +43,15 @@ const isTypeLine = (t: string) => /^[A-ZÁÉÍÓÚ]/.test(t) && !!parseTypeLine(
 /** Título de ficha: en mayúsculas, aunque el OCR lea alguna en minúscula («ARPíA», «Oso PARDO»). */
 const isName = (t: string) => {
   const letters = t.replace(/[^\p{L}]/gu, '');
-  return letters.length >= 2 && t.split(/\s+/).length <= 7 && !/[.:;]$/.test(t) && letters.replace(/[^\p{Lu}]/gu, '').length / letters.length >= 0.6;
+  // (sin comas ni rayas: «—FEIL JENKINS, ERUDITO DE KIRWAK» es la firma de una cita)
+  return letters.length >= 2 && t.split(/\s+/).length <= 7 && !/[.:;]$/.test(t) && !/,/.test(t) && !/^[—-]/.test(t) && letters.replace(/[^\p{Lu}]/gu, '').length / letters.length >= 0.6;
 };
 
 /** Arreglos del OCR que no cambian el sentido. */
 export function cleanOcr(t: string): string {
   return t
+    // restos del borde de la página al principio de la línea («| », «- », «' »)
+    .replace(/^[|'‘’`´"•·_=~-]+\s+/, '').replace(/^[|'‘’`´"•·_=~]+(?=\p{L})/u, '')
     .replace(/\bEI\b/g, 'El').replace(/\beI\b/g, 'el').replace(/\baI\b/g, 'al').replace(/\bdeI\b/g, 'del')
     .replace(/(\d)\s*[Il|]\s*d[ií]a\b/g, '$1/día').replace(/\b[Il]\s*\/?\s*d[ií]a\b/g, '1/día').replace(/\/dia\b/g, '/día')
     .replace(/[—–]/g, '-')
@@ -137,16 +140,29 @@ const isFooter = (t: string) => /^\d{1,3}\s+[A-ZÁÉÍÓÚÑ ,'-]+$/.test(t) || 
 
 const LABEL = /(?:^|\s)(CA|Iniciativa|P[GCc]|pc|pg|Velocidad|Habilidades|Vulnerabilidades|Resistencias|Inmunidades|Equipo|Sentidos|Idiomas|VD)\s*[:;]/g;
 
+/** Abreviatura de característica aunque el OCR la estropee («Fue», «DEs», «Sam», «Sas», «Coni»). */
+const abilOf = (tok: string): number => {
+  const w = norm(tok).replace(/[^a-z0-9]/g, '');
+  if (w === 'de') return 1;
+  if (w.length < 3 || w.length > 4) return -1;
+  const k = w.slice(0, 3).replace(/^sa[msr8]$/, 'sab').replace(/^ca[rn]$/, 'car').replace(/^co[nm]$/, 'con').replace(/^[il1]nt$/, 'int');
+  return ['fue', 'des', 'con', 'int', 'sab', 'car'].indexOf(k);
+};
+/** ¿Es una fila de la tabla de características? */
+export const isAbilityRow = (t: string) => t.split(/\s+/).filter((w) => abilOf(w) >= 0).length >= 2 && /\d/.test(t);
+
 /** Fila de la tabla de características: «FUE 21 +5 +5 DES 9 -1 +3 CON 15 +2 +6». */
 export function abilityRow(t: string, ab: (number | null)[], sv: (number | null)[]) {
-  const toks = t.replace(/[−–—]/g, '-').split(/\s+/);
+  // «Coni15» -> «Con 15»; guiones de huecos ilegibles fuera
+  const toks = t.replace(/[−–—]/g, '-').replace(/\b([A-Za-z]{3})[il1|]?(\d{1,2})\b/g, (all, a: string, n: string) => (abilOf(a) >= 0 ? a + ' ' + n : all)).split(/\s+/);
   for (let i = 0; i < toks.length; i++) {
-    const k = ABIL.indexOf(toks[i].toUpperCase().replace(/[^A-Z]/g, ''));
-    if (k < 0) continue;
+    const k = abilOf(toks[i]);
+    if (k < 0 || !/[A-Za-z]/.test(toks[i])) continue;
     const nums: string[] = [];
     for (let j = i + 1; j < toks.length && nums.length < 3; j++) {
-      if (ABIL.includes(toks[j].toUpperCase().replace(/[^A-Z]/g, ''))) break;
-      const v = toks[j].replace(/[^\d+-]/g, '');
+      if (abilOf(toks[j]) >= 0 && /[A-Za-z]/.test(toks[j])) break;
+      // «+|», «+l», «-Z», «—]»: 1 y 2 mal leídos
+      const v = toks[j].replace(/^([+-])[|lI\]!]$/, '$11').replace(/^([+-])Z$/, '$12').replace(/[^\d+-]/g, '');
       if (/^[+-]?\d{1,2}$/.test(v)) nums.push(v);
     }
     let score: number | null = null;
@@ -161,9 +177,10 @@ export function abilityRow(t: string, ab: (number | null)[], sv: (number | null)
     if (score == null && signed.length) score = 10 + 2 * signed[0];
     if (score != null) ab[k] = score;
     const mod = score != null ? modOf(score) : null;
-    // con dos números con signo, el segundo es la salvación; con uno, si no es el modificador, es la salvación
-    const save = signed.length >= 2 ? signed[1] : signed.length === 1 && mod != null && signed[0] !== mod ? signed[0] : mod;
-    if (save != null && (mod == null || Math.abs(save - mod) <= 12)) sv[k] = save;
+    // la salvación es el último número que puede serlo (nunca menor que el modificador); si no hay, el modificador
+    const valid = signed.filter((v) => mod == null || (v >= mod && v - mod <= 12));
+    const save = valid.length ? valid[valid.length - 1] : mod;
+    if (save != null) sv[k] = save;
   }
 }
 
@@ -187,16 +204,19 @@ function build(d: Draft, spells: Record<string, Spell>): Monster | null {
   const ab: (number | null)[] = [null, null, null, null, null, null];
   const sv: (number | null)[] = [null, null, null, null, null, null];
   let key = '';
+  // la tabla de características puede venir partida en varias líneas («Des 18» / «+4 47 Con 14 +2 +2»): se junta
+  let table = '';
   for (const raw of d.head) {
     const t = raw.trim();
     // VD sin la etiqueta: «16 (15 000 px o 18 000 en la guarida; BC +5)»
     if (/^\d{1,2}(?:\/\d)?\s*\(\s*[\d .]+\s*px/i.test(t) && !f.vd) { f.vd = t; key = 'vd'; continue; }
     // PG sin la etiqueta: «54 (12d8)»
     if (!f.pg && /^\d+\s*[(C{]\s*\d*\s*[dI]/.test(t)) { f.pg = t; key = ''; continue; }
-    if (/\b(FUE|DES|CON|INT|SAB|CAR)\b\s+[+-]?\d/i.test(t)) { abilityRow(t, ab, sv); key = ''; }
     const marks = [...t.matchAll(LABEL)];
+    const abilTok = t.split(/\s+/).some((w) => abilOf(w) >= 0 && /[A-Za-z]{2}/.test(w));
+    if (!marks.length && (abilTok && /\d/.test(t) || (table && /^[+\-—|\d]/.test(t)))) { table += ' ' + t; key = ''; continue; }
     if (!marks.length) {
-      if (key && !/^(MO[DO0]|SA[LI]V)/i.test(t) && !/\b(FUE|DES|CON|INT|SAB|CAR)\b/.test(t)) f[key] += ' ' + t;
+      if (key && !/^(MO[DO0]|SA[LI]V)/i.test(t)) f[key] += ' ' + t;
       continue;
     }
     marks.forEach((m, i) => {
@@ -207,6 +227,7 @@ function build(d: Draft, spells: Record<string, Spell>): Monster | null {
       key = k;
     });
   }
+  abilityRow(table, ab, sv);
   // «CX 16», «C4: 16»: la CA es lo primero de la cabecera
   const acTxt = f.ca || /^C\S{0,2}\s*[:;]?\s*(\d{1,2})\b/.exec(d.head[0] || '')?.[1] || '';
   const ac = parseInt(acTxt.replace(/[^\d].*$/, ''), 10) || 10;
@@ -351,16 +372,32 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
   // `paused`: tras la ficha viene ambientación (o la ficha sigue en otra columna tras ella): se ignora hasta el
   // siguiente apartado de la ficha; `colBreak`: la línea anterior era la última de su columna
   let paused = false, colBreak = false;
+  let entry = '';
+  const used = new Set<string>();
   const flush = () => { if (cur) { const m = build(cur, spells); if (m) out.push(m); } cur = null; paused = false; };
   const kept = lines.map((l) => ({ ...l, t: cleanOcr(l.t) })).filter((l) => l.t && !isFooter(l.t));
   const L = kept.map((l) => l.t);
   for (let i = 0; i < L.length; i++) {
     const t = L[i];
     if (i > 0 && (kept[i].col !== kept[i - 1].col || kept[i].y > kept[i - 1].y)) colBreak = true;
-    if (/^H[áa]bitat:/i.test(t)) { hab = habitatOf(t); habOpen = !/Tesoro:/i.test(t); continue; }
+    if (/^H[áa]bitat:/i.test(t)) {
+      hab = habitatOf(t); habOpen = !/Tesoro:/i.test(t);
+      // título de la entrada («ANKHEG» / «Insecto depredador excavador» / «Hábitat: …»)
+      entry = [L[i - 2], L[i - 1]].find((x) => x && isCaps(x) && isName(x)) || '';
+      continue;
+    }
     if (habOpen) { habOpen = false; if (/^\(|^[a-zá-ú]/.test(t)) { hab = habitatOf('Hábitat: ' + L[i - 1].replace(/^H[áa]bitat:\s*/i, '') + ' ' + t); continue; } }
     const type = isTypeLine(t) ? parseTypeLine(t) : null;
-    if (type && i > 0 && (isName(L[i - 1]) || /^\(tipo \d\)$/i.test(L[i - 1]))) {
+    const titled = i > 0 && (isName(L[i - 1]) || /^\(tipo \d\)$/i.test(L[i - 1]));
+    // el OCR no leyó el título de la ficha: se usa el de la entrada si ninguna otra ficha lo ha usado
+    if (type && !titled && entry && !used.has(norm(entry))) {
+      flush();
+      used.add(norm(entry));
+      cur = { name: titleCase(entry), type, head: [], secs: {}, sec: null, hab };
+      colBreak = false;
+      continue;
+    }
+    if (type && titled) {
       flush();
       // nombre en una o dos líneas («DRAGÓN» / «AZUL ADULTO»)
       let name = L[i - 1];
@@ -371,6 +408,7 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
       // («OGROS» / «OGRO»), así que solo se juntan si la de abajo no es un nombre completo
       if (isName(before) && !/[,.;:]/.test(before) && before.split(' ').length <= 3 && !sectionOf(before) && (/\b(dragon|de|del|cria)$/.test(norm(before)) || /^(joven|adult[oa]|ancian[oa]|cria)$/.test(norm(name)))) name = before + ' ' + name;
       cur = { name: titleCase(name), type, head: [], secs: {}, sec: null, hab };
+      used.add(norm(name));
       colBreak = false;
       continue;
     }
