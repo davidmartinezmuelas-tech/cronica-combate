@@ -1310,10 +1310,16 @@ test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con 
   // los rasgos con usos no se repiten en «Rasgos y dotes»
   await expect(page.locator('section[aria-label="Rasgos y dotes"] .card', { hasText: 'Astucia mágica' })).toHaveCount(0);
 
-  // Maleficio en el golpe del arma (y no en una sección aparte)
+  // Maleficio: etiqueta que se queda activa y suma su daño a cada golpe
   const sword = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' });
-  await sword.getByRole('button', { name: '+ Maleficio 1d6' }).click();
-  await expect(page.locator('.plaque-label')).toContainText('maleficio');
+  const hexChip = page.locator('section[aria-label="Ataques"]').getByRole('button', { name: 'Maleficio +1d6' });
+  await hexChip.click();
+  for (let i = 0; i < 2; i++) {
+    await sword.getByRole('button', { name: /^Daño 1d8/ }).click();
+    await expect(page.locator('.plaque-label')).toContainText('maleficio');
+  }
+  await expect(hexChip).toHaveAttribute('aria-pressed', 'true'); // dura: no se apaga al tirar
+  await hexChip.click();
   // pestañas: por clase y por nivel
   await sp.getByRole('tab', { name: 'Brujo' }).click();
   await expect(sp.locator('.card', { hasText: 'Maleficio' })).toBeVisible();

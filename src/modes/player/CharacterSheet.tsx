@@ -100,6 +100,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const [strike, setStrike] = useState(false);
   // castigos en el golpe del arma (su daño va en la misma tirada: en un crítico también se doblan sus dados)
   const [smitePick, setSmitePick] = useState('');
+  // Marca del cazador y Maleficio duran: mientras estén activos, su daño va en cada tirada de daño con arma
+  const [mark, setMark] = useState(false);
+  const [hex, setHex] = useState(false);
   // pestañas de conjuros: por nivel y, con varias clases lanzadoras, por clase
   const [spLv, setSpLv] = useState('all');
   const [spCls, setSpCls] = useState('all');
@@ -135,7 +138,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     else set({ conds: c.conds.filter((k) => k !== 'Furia') });
   };
   type Hit = { melee: boolean; str: boolean; finesse: boolean };
-  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, with_: { smite?: boolean; eld?: boolean; mark?: boolean; hex?: boolean } = {}) => {
+  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, with_: { smite?: boolean; eld?: boolean } = {}) => {
     const melee = hit.melee;
     const piercing = parts[0]?.type === 'perforante';
     const ps: RollPart[] = parts.map((p, i) => (i === 0 ? { ...p, ...(savage ? { best2: true } : {}), ...(pierce && piercing ? { rerollLow: true } : {}) } : p));
@@ -151,8 +154,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (brutal && hit.str && brutalDice) ps.push({ expr: brutalDice, type });
     if (sneak && hit.finesse && sneakDice) ps.push({ expr: sneakDice, type });
     // Marca del cazador y Maleficio: su daño en cada impacto, en la misma tirada que el arma
-    if (with_.mark && markExpr) ps.push({ expr: markExpr, type: 'fuerza' });
-    if (with_.hex && hexExpr) ps.push({ expr: hexExpr, type: 'necrótico' });
+    if (mark && markExpr) ps.push({ expr: markExpr, type: 'fuerza' });
+    if (hex && hexExpr) ps.push({ expr: hexExpr, type: 'necrótico' });
     if (strike && strikeDice) ps.push({ expr: strikeDice, type: blessed ? 'radiante' : 'elemental' });
     // Castigo divino y Castigo arcano: con armas cuerpo a cuerpo (y ataques sin armas), gastan su espacio al tirar
     const useSmite = !!with_.smite && melee && !!smiteOpt;
@@ -161,7 +164,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (useEld) ps.push({ expr: eldDice, type: 'fuerza' });
     const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : '', pierce && piercing ? 'perforador' : '',
       rage && hit.str && rageDmg ? 'furia' : '', frenzy && hit.str && rageDmg ? 'frenesí: solo al primer objetivo del turno' : '', brutal && hit.str && brutalDice ? 'golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'ataque furtivo' : '',
-      with_.mark && markExpr ? 'marca del cazador' : '', with_.hex && hexExpr ? 'maleficio' : '', strike && strikeDice ? strikeName.toLowerCase() : '',
+      mark && markExpr ? 'marca del cazador' : '', hex && hexExpr ? 'maleficio' : '', strike && strikeDice ? strikeName.toLowerCase() : '',
       useSmite ? 'castigo divino' : '', useEld ? 'castigo arcano' : ''].filter(Boolean);
     roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps, critBonus });
     if (savage) setSavage(false);
@@ -364,13 +367,15 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
-          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!strikeDice || hasSmite) && (
+          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!strikeDice || hasSmite || !!markExpr || !!hexExpr) && (
             <span className="rollrow">
               {d.fx.savage && <button className={savage ? 'chip on' : 'chip'} aria-pressed={savage} title="Una vez por turno: el próximo daño con arma tira sus dados dos veces y usa el mejor" onClick={() => setSavage(!savage)}>Atacante salvaje</button>}
               {rageDmg > 0 && <button className={rage ? 'chip on' : 'chip'} aria-pressed={rage} title={'Mientras dure: +' + rageDmg + ' al daño de los ataques con Fuerza; resistencia a contundente, cortante y perforante. Entrar gasta un uso de Furia.'} onClick={toggleRage}>Furia +{rageDmg}</button>}
               {classLevel(c, 'barbarian') >= 2 && <button className={reckless ? 'chip on' : 'chip'} aria-pressed={reckless} title={'Este turno: ventaja en tus ataques con Fuerza (y los ataques contra ti también la tienen)' + (frenzy ? '. Con Furia: Frenesí, ' + rageDmg + 'd6 más al primer objetivo que aciertes' : '')} onClick={() => setReckless(!reckless)}>Ataque temerario</button>}
               {brutalDice && <button className={brutal ? 'chip on' : 'chip'} aria-pressed={brutal} title="Renuncias a la ventaja en un ataque con Fuerza: si acierta, este daño extra" onClick={() => setBrutal(!brutal)}>Golpe brutal +{brutalDice}</button>}
               {sneakDice && <button className={sneak ? 'chip on' : 'chip'} aria-pressed={sneak} title="Una vez por turno, con un arma sutil o a distancia, si tienes ventaja o un aliado junto al objetivo" onClick={() => setSneak(!sneak)}>Ataque furtivo +{sneakDice}</button>}
+              {markExpr && <button className={mark ? 'chip on' : 'chip'} aria-pressed={mark} title="Mientras el objetivo tenga tu Marca del cazador: su daño de fuerza en cada tirada de daño con arma" onClick={() => setMark(!mark)}>Marca del cazador +{markExpr}</button>}
+              {hexExpr && <button className={hex ? 'chip on' : 'chip'} aria-pressed={hex} title="Mientras el objetivo tenga tu Maleficio: 1d6 necrótico en cada tirada de daño con arma" onClick={() => setHex(!hex)}>Maleficio +{hexExpr}</button>}
               {strikeDice && <button className={strike ? 'chip on' : 'chip'} aria-pressed={strike} title={'Una vez por turno al impactar con un arma: ' + (blessed ? 'radiante o necrótico' : 'frío, fuego, relámpago o trueno')} onClick={() => setStrike(!strike)}>{strikeName} +{strikeDice}</button>}
               {hasSmite && (smiteOpt ? (
                 <label className="smite-pick small" title="Espacio que gasta «+ Divino» en tus armas cuerpo a cuerpo">Castigo divino
@@ -395,8 +400,6 @@ export default function CharacterSheet({ c }: { c: Character }) {
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Daño {partsLabel(parts)}</button>
               {w.kind === 'melee' && smiteOpt && <button className="rollbtn dmg smite" title="Castigo divino en el mismo golpe: su daño radiante va en la tirada del arma (en un crítico también se dobla) y gasta el espacio elegido arriba. +1d8 contra infernales y muertos vivientes." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true })}>+ Divino {smiteOpt.dice}</button>}
-              {markExpr && <button className="rollbtn dmg smite" title="Mientras el objetivo tenga tu Marca del cazador: su daño de fuerza en la misma tirada" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' }, { mark: true })}>+ Marca {markExpr}</button>}
-              {hexExpr && <button className="rollbtn dmg smite" title="Mientras el objetivo tenga tu Maleficio: 1d6 necrótico en la misma tirada" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' }, { hex: true })}>+ Maleficio {hexExpr}</button>}
               {w.kind === 'melee' && smiteOpt && eldDice && (smiteOpt.key !== 'p' || pactLeft >= 2) && <button className="rollbtn dmg smite" title="Castigo divino y Castigo arcano en el mismo golpe: los dos daños en la tirada del arma (en un crítico se doblan todos); gasta el espacio elegido arriba y uno de pacto" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true, eld: true })}>+ Ambos castigos</button>}
               {w.kind === 'melee' && eldDice && <button className="rollbtn dmg smite" title="Castigo arcano (con tu arma de pacto, una vez por turno): 1d8 de fuerza más 1d8 por nivel del espacio de pacto, en la misma tirada; gasta un espacio de pacto. Si es Enorme o menor, puedes derribarlo." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { eld: true })}>+ Arcano {eldDice}</button>}
               {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse })}>A dos manos {partsLabel(verParts)}</button>}
