@@ -1,3 +1,4 @@
+import { modeFromLocation } from '../../app/mode';
 import type { Combatant, RollResult } from '../../data/types';
 import { rollModifiers, type LogDraft } from '../../engine/combat';
 import { combineAdv, rollParts, type AdvMode } from '../../engine/dice';
@@ -33,7 +34,9 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const after: Partial<State> = {};
       if (spec.kind === 'attack' && spec.who) after.critFor = critHit ? { who: spec.who } : s.critFor?.who === spec.who ? null : s.critFor;
       if (spec.kind === 'damage' && crit) after.critFor = null;
-      if (out.usedAdv && manual !== 'normal') after.adv = 'normal';
+      // en la mesa del máster la ventaja vale para una tirada; en la hoja del jugador se queda puesta hasta quitarla
+      // (Voto de enemistad, estar oculto…)
+      if (out.usedAdv && manual !== 'normal' && modeFromLocation(window.location.hash) !== 'player') after.adv = 'normal';
       set({ exprError: false });
       const totalStr = mods.autoFail ? 'Falla' : String(out.total);
       animate(out.dice, () => {

@@ -1346,3 +1346,23 @@ test('paladín y brujo: los dos castigos a la vez desde el arma', async ({ page 
   await sword.getByRole('button', { name: '+ Ambos castigos' }).click();
   await expect(page.locator('.plaque-label')).toContainText('(castigo divino, castigo arcano)');
 });
+
+test('en la hoja del jugador la ventaja de la mesa de dados se queda puesta', async ({ page }) => {
+  test.skip(test.info().project.name !== 'escritorio');
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Edda');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const adv = page.getByRole('button', { name: 'Ventaja', exact: true });
+  await adv.click();
+  const atk = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).getByRole('button', { name: /^Ataque/ });
+  for (let i = 0; i < 2; i++) {
+    await atk.click();
+    await expect(page.locator('.plaque-label')).toContainText('ataque');
+    await expect(adv).toHaveAttribute('aria-pressed', 'true');
+  }
+});
