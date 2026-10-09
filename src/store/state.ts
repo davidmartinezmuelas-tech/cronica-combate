@@ -22,6 +22,7 @@ export interface RollSpec {
   critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
   effect?: SaveEffect; // daño de un efecto con salvación (objetivos, salvaciones, mitad y estados)
   heal?: boolean; // es una curación
+  tags?: string[]; // extras que se ven como etiquetas en el resultado (Atacante salvaje, Castigo divino…)
   critBonus?: RollPart[]; // daño que solo se suma si este daño es de un crítico (Perforador, Don del ataque imparable)
   after?: (total: number, nat: number | null) => Partial<State> & { resultNote?: string; extraLog?: LogDraft[] };
 }

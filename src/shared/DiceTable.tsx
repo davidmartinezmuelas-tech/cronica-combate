@@ -1,3 +1,4 @@
+import type { RollResult } from '../data/types';
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../store/useStore';
 import Die, { DieShape } from './Die';
@@ -66,6 +67,16 @@ function Targets() {
 }
 
 /** Mesa de dados. `targets`: ofrecer aplicar el daño a los combatientes (solo en la mesa del máster). */
+/** Junta las partes del mismo origen y tipo (el arma y su modificador, por ejemplo). */
+function mergeRows(rows: NonNullable<RollResult['rows']>) {
+  const out: NonNullable<RollResult['rows']> = [];
+  for (const r of rows) {
+    const same = out.find((x) => x.src === r.src && x.type === r.type);
+    if (same) { same.sub += r.sub; same.dice = [same.dice, r.dice].filter(Boolean).join(' · '); } else out.push({ ...r });
+  }
+  return out;
+}
+
 export default function DiceTable({ targets = true }: { targets?: boolean }) {
   const dice = useStore((s) => s.dice);
   const rolling = useStore((s) => s.rolling);
@@ -98,6 +109,7 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
   }, [fx, fxKey]);
   const legend = done && result!.isDmg && (result!.parts.length > 1 || moreDice > 0) ? result!.parts : [];
   const rollFree = () => roll({ label: 'Tirada libre · ' + expr, kind: 'free', parts: [{ expr }] });
+  const tagsShown = (result?.tags || []).filter((t) => !result?.rows?.some((r) => r.src === t));
   return (
     <div className={'panel dice-' + theme}>
       <div className="panel-head">
@@ -139,10 +151,32 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
               <div className="plaque-total"><CountUp value={result.total} /></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0 }}>
                 <span className="plaque-label">{result.label}</span>
-                <span className="plaque-detail">{result.detail}</span>
+                {/* etiquetas: lo que no tiene su propia fila (Atacante salvaje, Perforador…) y el crítico */}
+                {(result.crit || tagsShown.length > 0) && (
+                  <span className="plaque-tags">
+                    {result.crit && <span className="chip-tag crit">Crítico</span>}
+                    {tagsShown.map((t) => <span key={t} className="chip-tag">{t}</span>)}
+                  </span>
+                )}
+                {!result.rows && <span className="plaque-detail">{result.detail}</span>}
                 {result.note && <span className="plaque-note">{result.note}</span>}
               </div>
             </div>
+            {/* daño por partes: de dónde sale cada uno, cuánto y de qué tipo; los dados, plegados */}
+            {result.rows && (
+              <>
+                <ul className="plaque-rows">
+                  {mergeRows(result.rows).map((r, i) => (
+                    <li key={i}>
+                      <span className="pr-src">{r.src || 'Daño'}<span className="pr-dice">{r.dice}</span></span>
+                      <b className="pr-sub">{r.sub}</b>
+                      <span className="pr-type" data-dt={r.type || undefined}><i />{r.type || 'sin tipo'}</span>
+                    </li>
+                  ))}
+                </ul>
+                <details className="plaque-more"><summary>Ver dados</summary><span className="plaque-detail">{result.detail}</span></details>
+              </>
+            )}
             {targets && (result.effect ? <EffectTargets key={result.label + '|' + result.total + '|' + (log[0]?.id || '')} /> : <Targets />)}
             {!targets && <SendToTable key={'s|' + result.label + '|' + result.total + '|' + (log[0]?.id || '')} />}
           </div>

@@ -41,8 +41,10 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const totalStr = mods.autoFail ? 'Falla' : String(out.total);
       animate(out.dice, () => {
         const patch: Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] } = {
-          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.heal ? { heal: true } : {}) },
-          logEntry: { label: spec.label, total: totalStr, detail: out.detail },
+          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.heal ? { heal: true } : {}),
+            ...(spec.kind === 'damage' && out.rows.length > 1 ? { rows: out.rows } : {}), ...(spec.tags?.length ? { tags: spec.tags } : {}) },
+          // en el historial, los extras entre paréntesis
+          logEntry: { label: spec.label + (spec.tags?.length ? ' (' + spec.tags.join(', ') + ')' : ''), total: totalStr, detail: out.detail },
           ...after,
         };
         if (spec.kind === 'damage') patch.dmgTargets = {};

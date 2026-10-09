@@ -632,7 +632,7 @@ test('dotes con botones: atacante salvaje, ataque extra con arma ligera, sin arm
   await expect(short.getByRole('button', { name: /^Acción adicional 1d6\+\d perforante$/ })).toBeVisible();
   await atk.getByRole('button', { name: 'Atacante salvaje' }).click();
   await short.getByRole('button', { name: /^Daño / }).click();
-  await expect(page.locator('.plaque-label')).toContainText('(atacante salvaje)');
+  await expect(page.locator('.plaque-tags')).toContainText('Atacante salvaje');
   await expect(atk.getByRole('button', { name: 'Atacante salvaje' })).toHaveAttribute('aria-pressed', 'false');
   await expect(atk.locator('.pc-attack', { hasText: 'Ataque sin armas' })).toContainText('repite los 1');
 
@@ -792,14 +792,14 @@ test('rasgos de clase en la hoja: Ataque furtivo, Furia, Segundo aliento, Imposi
   await make('Sombra', 'Pícaro', '5', 'Estoque (1d8 perforante)');
   await atk.getByRole('button', { name: 'Ataque furtivo +3d6' }).click();
   await atk.locator('.pc-attack', { hasText: 'Estoque' }).getByRole('button', { name: /^Daño/ }).click();
-  await expect(page.locator('.plaque-label')).toContainText('(ataque furtivo)');
+  await expect(page.locator('.plaque-rows')).toContainText('Ataque furtivo');
   await expect(atk.getByRole('button', { name: 'Ataque furtivo +3d6' })).toHaveAttribute('aria-pressed', 'false');
 
   // bárbaro 9: entrar en Furia gasta un uso y suma +3 hasta que se apaga
   await make('Ruk', 'Bárbaro', '9', 'Hacha a dos manos (1d12 cortante)');
   await atk.getByRole('button', { name: 'Furia +3' }).click();
   await atk.locator('.pc-attack', { hasText: 'Hacha a dos manos' }).getByRole('button', { name: /^Daño/ }).click();
-  await expect(page.locator('.plaque-label')).toContainText('(furia)');
+  await expect(page.locator('.plaque-rows')).toContainText('Furia');
   await expect(atk.getByRole('button', { name: 'Furia +3' })).toHaveAttribute('aria-pressed', 'true');
 
   // guerrero 3 Campeón: Segundo aliento cura solo
@@ -1248,11 +1248,11 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await expect(pick.locator('option')).toHaveText(['Gratis · 2d8', 'Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
   const sword = atk.locator('.pc-attack', { hasText: 'Espada larga' });
   await sword.getByRole('button', { name: '+ Divino 2d8' }).click();
-  await expect(page.locator('.plaque-label')).toContainText('(castigo divino)');
+  await expect(page.locator('.plaque-rows')).toContainText('Castigo Divino');
   await expect(pick.locator('option')).toHaveText(['Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
   await pick.selectOption({ label: 'Nivel 2 · 3d8' });
   await sword.getByRole('button', { name: '+ Divino 3d8' }).click();
-  await expect(page.locator('.plaque-label')).toContainText('(castigo divino)');
+  await expect(page.locator('.plaque-rows')).toContainText('Castigo Divino');
 
   // brujo 5: invocaciones con requisitos y sus efectos
   await make('Nera', 'Brujo', '5', 'Patrón infernal');
@@ -1316,7 +1316,7 @@ test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con 
   await hexChip.click();
   for (let i = 0; i < 2; i++) {
     await sword.getByRole('button', { name: /^Daño 1d8/ }).click();
-    await expect(page.locator('.plaque-label')).toContainText('maleficio');
+    await expect(page.locator('.plaque-rows')).toContainText('Maleficio');
   }
   await expect(hexChip).toHaveAttribute('aria-pressed', 'true'); // dura: no se apaga al tirar
   await hexChip.click();
@@ -1350,7 +1350,15 @@ test('paladín y brujo: los dos castigos a la vez desde el arma', async ({ page 
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sword = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' });
   await sword.getByRole('button', { name: '+ Ambos castigos' }).click();
-  await expect(page.locator('.plaque-label')).toContainText('(castigo divino, castigo arcano)');
+  await expect(page.locator('.plaque-rows')).toHaveText(/Castigo Divino.*Castigo arcano/);
+  // una fila por fuente: el arma, el castigo divino y el arcano
+  const rows = page.locator('.plaque-rows li');
+  await expect(rows).toHaveCount(3);
+  await expect(rows.nth(0)).toContainText('Espada larga');
+  await expect(rows.nth(1)).toContainText('Castigo Divino');
+  await expect(rows.nth(2)).toContainText('Castigo arcano');
+  await page.locator('.plaque-more summary').click();
+  await expect(page.locator('.plaque-more .plaque-detail')).toBeVisible();
 });
 
 test('en la hoja del jugador la ventaja de la mesa de dados se queda puesta', async ({ page }) => {
@@ -1449,7 +1457,7 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   const favor = atk.getByRole('button', { name: 'Favor divino +1d4' });
   await favor.click();
   await sword.getByRole('button', { name: /^Daño 1d8/ }).click();
-  await expect(page.locator('.plaque-label')).toContainText('favor divino');
+  await expect(page.locator('.plaque-rows')).toContainText('Favor divino');
   await expect(favor).toHaveAttribute('aria-pressed', 'true');
   // Arma mágica: +1 al ataque mientras dura
   const atkBtn = sword.getByRole('button', { name: /^Ataque/ });
@@ -1459,7 +1467,7 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   // castigos: se elige cuál y con qué espacio
   await atk.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo abrasador' });
   await sword.getByRole('button', { name: '+ Abrasador 1d6' }).click();
-  await expect(page.locator('.plaque-label')).toContainText('castigo abrasador');
+  await expect(page.locator('.plaque-rows')).toContainText('Castigo abrasador');
   await atk.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo Divino' });
   await expect(sword.getByRole('button', { name: /^\+ Divino 2d8$/ })).toBeVisible();
 });

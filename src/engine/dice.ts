@@ -80,6 +80,7 @@ export interface RollPart {
   best2?: boolean; // en daño, los dados se tiran dos veces y cuenta la mejor (Atacante salvaje)
   rerollLow?: boolean; // en daño, se repite el dado más bajo si no llega a la mitad (Perforador)
   noDouble?: boolean; // en un crítico no se duplican sus dados (daño extra que ya es «del crítico»)
+  src?: string; // de dónde sale (arma, Furia, Castigo divino…): una fila del resultado
 }
 
 export interface PhysicalDie {
@@ -96,7 +97,11 @@ export interface RollOutcome {
   detail: string;
   byType: { type: string; amt: number }[];
   usedAdv: boolean;
+  rows: RollRow[]; // cada parte con su origen, sus dados y lo que suma
 }
+
+/** Una parte de la tirada en el resultado: de dónde sale, sus dados, cuánto suma y su tipo de daño. */
+export interface RollRow { src: string; type: string; sub: number; dice: string }
 
 /**
  * Tira las partes de una fórmula. Ventaja/desventaja solo se aplica a un d20 suelto en tiradas que no son de daño.
@@ -110,6 +115,7 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
   let nat: number | null = null;
   let usedAdv = false;
   const detail: string[] = [];
+  const rows: RollRow[] = [];
   const byType = new Map<string, number>();
   for (const part of parts) {
     // una parte puede ser solo un número (daño fijo, p. ej. el de Don del ataque imparable)
@@ -175,10 +181,12 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
     total += sub;
     if (opts.kind === 'damage') byType.set(part.type || '', (byType.get(part.type || '') || 0) + sub);
     detail.push(segs.join(' ') + (part.type ? ' ' + part.type : '') + (parts.length > 1 ? ' = ' + sub : ''));
+    rows.push({ src: part.src || '', type: part.type || '', sub, dice: segs.join(' ') });
   }
   if (opts.flat) {
     total += opts.flat;
     detail.push(fmt(opts.flat) + ' agotamiento');
+    rows.push({ src: 'Agotamiento', type: '', sub: opts.flat, dice: '' });
   }
   return {
     total,
@@ -187,6 +195,7 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
     detail: detail.join(' · ') + (opts.doubleDice ? ' · crítico: dados x2' : ''),
     byType: Array.from(byType.entries()).map(([type, amt]) => ({ type, amt })),
     usedAdv,
+    rows,
   };
 }
 

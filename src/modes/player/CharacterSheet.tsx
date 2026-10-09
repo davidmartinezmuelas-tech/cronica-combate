@@ -143,33 +143,35 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const dmgRoll = (label: string, parts: RollPart[], hit: Hit, with_: { smite?: boolean; eld?: boolean } = {}) => {
     const melee = hit.melee;
     const piercing = parts[0]?.type === 'perforante';
-    const ps: RollPart[] = parts.map((p, i) => (i === 0 ? { ...p, ...(savage ? { best2: true } : {}), ...(pierce && piercing ? { rerollLow: true } : {}) } : p));
-    if (charge && melee && d.fx.charge) ps.push({ expr: d.fx.charge, type: parts[0]?.type });
+    // cada parte con su origen: el arma y lo que se le suma (una fila por fuente en el resultado)
+    const weapon = label.replace(/:.*$/, '');
+    const ps: RollPart[] = parts.map((p, i) => ({ ...p, src: weapon, ...(i === 0 && savage ? { best2: true } : {}), ...(i === 0 && pierce && piercing ? { rerollLow: true } : {}) }));
+    if (charge && melee && d.fx.charge) ps.push({ expr: d.fx.charge, type: parts[0]?.type, src: 'Carga' });
     // solo si el daño es de un crítico: un dado más del arma (Perforador) y la puntuación aumentada (Don del ataque imparable)
     const critBonus: RollPart[] = [];
     const die = /\d*d(\d+)/.exec(parts[0]?.expr || '');
-    if (d.fx.piercer && piercing && die) critBonus.push({ expr: '1d' + die[1], type: 'perforante', noDouble: true });
-    if (d.fx.critScore && parts[0]) critBonus.push({ expr: String(c.abil[boonAbil]), type: parts[0].type, noDouble: true });
+    if (d.fx.piercer && piercing && die) critBonus.push({ expr: '1d' + die[1], type: 'perforante', noDouble: true, src: 'Perforador' });
+    if (d.fx.critScore && parts[0]) critBonus.push({ expr: String(c.abil[boonAbil]), type: parts[0].type, noDouble: true, src: 'Ataque imparable' });
     const type = parts[0]?.type || '';
-    if (rage && hit.str && rageDmg) ps.push({ expr: String(rageDmg), type });
-    if (frenzy && hit.str && rageDmg) ps.push({ expr: rageDmg + 'd6', type });
-    if (brutal && hit.str && brutalDice) ps.push({ expr: brutalDice, type });
-    if (sneak && hit.finesse && sneakDice) ps.push({ expr: sneakDice, type });
-    // Marca del cazador y Maleficio: su daño en cada impacto, en la misma tirada que el arma
-    const type0 = parts[0]?.type || '';
+    if (rage && hit.str && rageDmg) ps.push({ expr: String(rageDmg), type, src: 'Furia' });
+    if (frenzy && hit.str && rageDmg) ps.push({ expr: rageDmg + 'd6', type, src: 'Frenesí' });
+    if (brutal && hit.str && brutalDice) ps.push({ expr: brutalDice, type, src: 'Golpe brutal' });
+    if (sneak && hit.finesse && sneakDice) ps.push({ expr: sneakDice, type, src: 'Ataque furtivo' });
+    // conjuros activos (Marca del cazador, Maleficio, Favor divino…): su daño en cada impacto, en la misma tirada
     const onBuffs = hitBuffs.filter((b) => buffs.includes(b.key));
-    for (const b of onBuffs) if (b.dmg) ps.push({ expr: b.dmg, type: b.type || type0 });
-    if (strike && strikeDice) ps.push({ expr: strikeDice, type: blessed ? 'radiante' : 'elemental' });
-    // Castigo divino y Castigo arcano: con armas cuerpo a cuerpo (y ataques sin armas), gastan su espacio al tirar
+    for (const b of onBuffs) if (b.dmg) ps.push({ expr: b.dmg, type: b.type || type, src: b.n });
+    if (strike && strikeDice) ps.push({ expr: strikeDice, type: blessed ? 'radiante' : 'elemental', src: strikeName });
+    // castigos: con armas cuerpo a cuerpo (y ataques sin armas), gastan su espacio al tirar
     const useSmite = !!with_.smite && melee && !!smiteOpt;
     const useEld = !!with_.eld && melee && !!eldDice;
-    if (useSmite) ps.push({ expr: smiteOpt!.dice, type: smiteOpt!.type });
-    if (useEld) ps.push({ expr: eldDice, type: 'fuerza' });
-    const extra = [savage ? 'atacante salvaje' : '', charge && melee ? 'carga' : '', pierce && piercing ? 'perforador' : '',
-      rage && hit.str && rageDmg ? 'furia' : '', frenzy && hit.str && rageDmg ? 'frenesí: solo al primer objetivo del turno' : '', brutal && hit.str && brutalDice ? 'golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'ataque furtivo' : '',
-      ...onBuffs.map((b) => b.n.toLowerCase()), strike && strikeDice ? strikeName.toLowerCase() : '',
-      useSmite ? smiteSpell!.n.toLowerCase() : '', useEld ? 'castigo arcano' : ''].filter(Boolean);
-    roll({ label: who + ' · ' + label + (extra.length ? ' (' + extra.join(', ') + ')' : ''), kind: 'damage', who, by: null, parts: ps, critBonus });
+    if (useSmite) ps.push({ expr: smiteOpt!.dice, type: smiteOpt!.type, src: smiteSpell!.n });
+    if (useEld) ps.push({ expr: eldDice, type: 'fuerza', src: 'Castigo arcano' });
+    // los extras, como etiquetas del resultado
+    const tags = [savage ? 'Atacante salvaje' : '', charge && melee ? 'Carga' : '', pierce && piercing ? 'Perforador' : '',
+      rage && hit.str && rageDmg ? 'Furia' : '', frenzy && hit.str && rageDmg ? 'Frenesí (solo al primer objetivo)' : '', brutal && hit.str && brutalDice ? 'Golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'Ataque furtivo' : '',
+      ...onBuffs.map((b) => b.n), strike && strikeDice ? strikeName : '',
+      useSmite ? smiteSpell!.n : '', useEld ? 'Castigo arcano' : ''].filter(Boolean);
+    roll({ label: who + ' · ' + label, kind: 'damage', who, by: null, parts: ps, critBonus, tags });
     if (savage) setSavage(false);
     if (charge && melee) setCharge(false);
     if (pierce && piercing) setPierce(false);

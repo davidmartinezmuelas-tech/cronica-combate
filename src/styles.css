@@ -226,6 +226,18 @@ button.pip::after{content:'';position:absolute;inset:-6px;border-radius:50%}
 .plaque-label{font-weight:800;color:#f3e6c8;font-size:15px;overflow-wrap:anywhere}
 .plaque-detail{color:#b2a691;font-size:14px;word-break:break-word}
 .plaque-note{color:#e8c062;font-weight:700;font-size:14px}
+/* resultado con varias partes de daño */
+.plaque-tags{display:flex;flex-wrap:wrap;gap:4px}
+.plaque-tags .chip-tag.crit{background:#7a1f14;color:#fbecc8}
+.plaque-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;border-top:1px solid #4b3d30;padding-top:6px}
+.plaque-rows li{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(90px,auto);align-items:center;gap:10px;font-size:14px}
+.pr-src{display:flex;flex-direction:column;min-width:0;color:#efe3cb;font-weight:700}
+.pr-dice{color:#8f826d;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr-sub{font-size:18px;color:#f3e6c8;text-align:right;font-feature-settings:'lnum' 1}
+.pr-type{display:inline-flex;align-items:center;gap:5px;color:#c6bba6;font-size:13px}
+.pr-type i{width:9px;height:9px;border-radius:50%;background:var(--die-b,#b2a691);box-shadow:0 0 0 1px rgba(255,255,255,.3)}
+.plaque-more summary{cursor:pointer;color:#b2a691;font-size:13px}
+.plaque-more[open] summary{margin-bottom:4px}
 .plaque.fumble .plaque-note{color:#e06b55}
 .targets{display:flex;flex-direction:column;gap:8px;border-top:1px solid #524031;padding-top:10px}
 .log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
