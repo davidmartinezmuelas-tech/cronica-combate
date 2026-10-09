@@ -10,7 +10,8 @@ import { norm } from './util';
  */
 
 export interface TextItem { str: string; x: number; y: number; w?: number }
-export interface Line { t: string; col: number; y: number }
+/** `p`: página del libro (1, 2…), cuando se sabe. */
+export interface Line { t: string; col: number; y: number; p?: number }
 
 export interface LibFeat { id: string; n: string; cat: 'origin' | 'general' | 'fighting-style' | 'epic-boon'; req: string; d: string }
 export interface LibBackground { id: string; n: string; abil: Abil[]; skills: string[]; tool: string; feat: string; equip: string; d: string }

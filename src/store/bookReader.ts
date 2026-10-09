@@ -20,7 +20,7 @@ export const NO_TEXT_HELP = 'Este PDF son imágenes escaneadas y no tiene texto 
  * Lee las páginas de un PDF en el navegador (no se envía a ningún sitio). `onPage` recibe los ítems de texto de
  * cada página. Si las primeras páginas no tienen texto, es un escaneo sin OCR: se para con el error `NO_TEXT`.
  */
-async function readPages(file: Blob, onPage: (items: TextItem[], width: number) => void, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<number> {
+async function readPages(file: Blob, onPage: (items: TextItem[], width: number, page: number) => void, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<number> {
   const pdfjs = await import('pdfjs-dist');
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
@@ -37,7 +37,7 @@ async function readPages(file: Blob, onPage: (items: TextItem[], width: number) 
       chars += items.reduce((a, it) => a + it.str.trim().length, 0);
       // un libro con texto tiene miles de letras en sus primeras páginas; uno escaneado, ninguna
       if (i === Math.min(12, doc.numPages) && chars < 200) throw new Error(NO_TEXT);
-      onPage(items, page.getViewport({ scale: 1 }).width);
+      onPage(items, page.getViewport({ scale: 1 }).width, i);
       page.cleanup();
     }
     return doc.numPages;
@@ -64,6 +64,6 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
 /** Lee el PDF del Manual de Monstruos del usuario en su navegador y extrae las fichas de monstruo. */
 export async function readMonsterBook(file: Blob, spells: Record<string, Spell>, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<{ monsters: Monster[]; pages: number }> {
   const lines: Line[] = [];
-  const n = await readPages(file, (items, width) => { lines.push(...pageLines(items, width)); }, onProgress, signal);
+  const n = await readPages(file, (items, width, p) => { lines.push(...pageLines(items, width).map((l) => ({ ...l, p }))); }, onProgress, signal);
   return { monsters: parseMonsters(lines, spells), pages: n };
 }

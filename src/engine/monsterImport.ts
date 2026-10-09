@@ -196,7 +196,7 @@ const splitList = (s: string) => {
   return out.flatMap((x) => x.split(/\s+y\s+/)).map((x) => x.trim().replace(/[.,]$/, '')).filter(Boolean);
 };
 
-interface Draft { name: string; type: { t: string; sz: string; al: string }; head: string[]; secs: Partial<Record<SectionKey, string[][]>>; sec: SectionKey | null; hab: string[]; la?: number }
+interface Draft { name: string; type: { t: string; sz: string; al: string }; head: string[]; secs: Partial<Record<SectionKey, string[][]>>; sec: SectionKey | null; hab: string[]; la?: number; src?: Monster['src'] }
 
 /** Monta el monstruo a partir de las líneas de su cabecera y de sus apartados. */
 function build(d: Draft, spells: Record<string, Spell>): Monster | null {
@@ -230,7 +230,8 @@ function build(d: Draft, spells: Record<string, Spell>): Monster | null {
   abilityRow(table, ab, sv);
   // «CX 16», «C4: 16»: la CA es lo primero de la cabecera
   const acTxt = f.ca || /^C\S{0,2}\s*[:;]?\s*(\d{1,2})\b/.exec(d.head[0] || '')?.[1] || '';
-  const ac = parseInt(acTxt.replace(/[^\d].*$/, ''), 10) || 10;
+  const acN = parseInt(acTxt.replace(/[^\d].*$/, ''), 10);
+  const ac = acN || 10;
   // «190 (20d10 + 80)»; sin la media («(18d8)») se calcula; sin los dados («26 + 4)») se queda la media
   const hpM = /(\d[\d ]*)?\s*[(C{]\s*([^)]*)\)?/.exec(f.pg || '');
   const hpN = parseInt(hpM?.[1]?.replace(/\s/g, '') || /^\s*(\d+)/.exec(f.pg || '')?.[1] || '', 10);
@@ -278,6 +279,20 @@ function build(d: Draft, spells: Record<string, Spell>): Monster | null {
     if (feats.length) m[sec] = feats;
   }
   if (m.lg) m.la = d.la || 3;
+  if (d.src) m.src = d.src;
+  // lo que no se pudo leer, para completarlo con el SRD o revisarlo
+  const chk: string[] = [];
+  if (!acN) chk.push('ca');
+  if (isNaN(hpN) || !hd) chk.push('pg');
+  ab.forEach((v, i) => { if (v == null) chk.push('ab:' + i); });
+  for (const sec of ['tr', 'ac_', 'ba', 're', 'lg'] as SectionKey[]) {
+    (m[sec] || []).forEach((ft, i) => {
+      if (ft.sp) return;
+      if (/Tirada de ataque/.test(ft.d) && !ft.dmg) chk.push('f:' + sec + ':' + i + ':dmg');
+      if (/Tirada de salvaci[oó]n/.test(ft.d) && !ft.dc) chk.push('f:' + sec + ':' + i + ':dc');
+    });
+  }
+  if (chk.length) m.chk = chk;
   return m;
 }
 
@@ -377,6 +392,7 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
   const flush = () => { if (cur) { const m = build(cur, spells); if (m) out.push(m); } cur = null; paused = false; };
   const kept = lines.map((l) => ({ ...l, t: cleanOcr(l.t) })).filter((l) => l.t && !isFooter(l.t));
   const L = kept.map((l) => l.t);
+  const srcOf = (i: number): Monster['src'] => (kept[i]?.p ? { p: kept[i].p!, y: Math.round(kept[i].y), col: kept[i].col } : undefined);
   for (let i = 0; i < L.length; i++) {
     const t = L[i];
     if (i > 0 && (kept[i].col !== kept[i - 1].col || kept[i].y > kept[i - 1].y)) colBreak = true;
@@ -393,7 +409,7 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
     if (type && !titled && entry && !used.has(norm(entry))) {
       flush();
       used.add(norm(entry));
-      cur = { name: titleCase(entry), type, head: [], secs: {}, sec: null, hab };
+      cur = { name: titleCase(entry), type, head: [], secs: {}, sec: null, hab, src: srcOf(i) };
       colBreak = false;
       continue;
     }
@@ -407,7 +423,7 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
       // nombre partido en dos líneas («DRAGÓN» / «AZUL ADULTO»); la línea de arriba suele ser el título del grupo
       // («OGROS» / «OGRO»), así que solo se juntan si la de abajo no es un nombre completo
       if (isName(before) && !/[,.;:]/.test(before) && before.split(' ').length <= 3 && !sectionOf(before) && (/\b(dragon|de|del|cria)$/.test(norm(before)) || /^(joven|adult[oa]|ancian[oa]|cria)$/.test(norm(name)))) name = before + ' ' + name;
-      cur = { name: titleCase(name), type, head: [], secs: {}, sec: null, hab };
+      cur = { name: titleCase(name), type, head: [], secs: {}, sec: null, hab, src: srcOf(i - 1) };
       used.add(norm(name));
       colBreak = false;
       continue;
@@ -454,4 +470,54 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
   // el mismo nombre dos veces (OCR repetido): se queda la primera
   const seen = new Set<string>();
   return out.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
+}
+
+/**
+ * Completa con el SRD lo que el OCR no pudo leer de las criaturas que también están en él (mismo nombre): CA, PG,
+ * características y salvaciones, y el daño o la CD de los rasgos con el mismo nombre. Lo demás (texto, metros) se
+ * queda como en el libro. Devuelve cuántas criaturas se han completado.
+ */
+export function completeFromSrd(list: Monster[], srd: Monster[]): number {
+  const byName = new Map(srd.map((m) => [norm(m.n), m]));
+  const base = (t: string) => norm(t).split(/[ (]/)[0];
+  /**
+   * La traducción del SRD no siempre usa el nombre del libro («Diablo barbudo» / «Diablo barbado»): si no coincide,
+   * la criatura del SRD con el mismo VD, tamaño y tipo cuyas cifras leídas (características, CA, PG) más se parecen,
+   * siempre que coincidan al menos 4 y no haya empate.
+   */
+  const byStats = (m: Monster): Monster | undefined => {
+    const known = (i: number) => !m.chk?.includes('ab:' + i);
+    const score = (s: Monster) => m.ab.filter((v, i) => known(i) && v === s.ab[i]).length + (!m.chk?.includes('ca') && m.ac === s.ac ? 1 : 0) + (!m.chk?.includes('pg') && m.hp === s.hp ? 1 : 0);
+    const cands = srd.filter((s) => s.cr === m.cr && norm(s.sz) === norm(m.sz) && base(s.t) === base(m.t)).map((s) => ({ s, k: score(s) })).sort((a, b) => b.k - a.k);
+    return cands[0] && cands[0].k >= 4 && (!cands[1] || cands[1].k < cands[0].k) ? cands[0].s : undefined;
+  };
+  let n = 0;
+  for (const m of list) {
+    if (!m.chk?.length) continue;
+    const s = byName.get(norm(m.n)) || byStats(m);
+    if (!s) continue;
+    const left: string[] = [];
+    for (const c of m.chk) {
+      if (c === 'ca') m.ac = s.ac;
+      else if (c === 'pg') { m.hp = s.hp; m.hd = s.hd; }
+      else if (c.startsWith('ab:')) { const i = +c.slice(3); m.ab[i] = s.ab[i]; m.sv[i] = s.sv[i]; }
+      else if (c.startsWith('f:')) {
+        const [, sec, idx, what] = c.split(':') as [string, SectionKey, string, 'dmg' | 'dc'];
+        const ft = m[sec]?.[+idx];
+        // el rasgo del SRD con el mismo nombre; si la traducción lo llama distinto, el ataque con el mismo bonificador
+        // o, si no, el que ocupa el mismo puesto entre los ataques (o las salvaciones) del apartado
+        const pool = (s[sec] || []).filter((x) => (what === 'dmg' ? x.atk != null && x.dmg : x.dc));
+        const mine = (m[sec] || []).filter((x) => /Tirada de (ataque|salvaci)/.test(x.d) && (what === 'dmg' ? /Tirada de ataque/.test(x.d) : /Tirada de salvaci/.test(x.d)));
+        const sf = ft && ((s[sec] || []).find((x) => norm(x.n) === norm(ft.n.replace(/\s*\(.*\)$/, '')))
+          || (what === 'dmg' && ft.atk != null ? pool.filter((x) => x.atk === ft.atk) : []).find((_, __, a) => a.length === 1)
+          || (pool.length === mine.length ? pool[mine.indexOf(ft)] : undefined));
+        if (ft && sf && what === 'dmg' && sf.dmg) { ft.dmg = sf.dmg; if (sf.atk != null) ft.atk = sf.atk; }
+        else if (ft && sf && what === 'dc' && sf.dc) { ft.dc = sf.dc; if (sf.half) ft.half = 1; if (sf.dmg && !ft.dmg) ft.dmg = sf.dmg; }
+        else left.push(c);
+      } else left.push(c);
+    }
+    if (left.length < m.chk.length) n++;
+    if (left.length) m.chk = left; else delete m.chk;
+  }
+  return n;
 }

@@ -3,7 +3,9 @@ import type { Monster } from '../../data/types';
 import { fmt } from '../../engine/dice';
 import { rankBy } from '../../engine/search';
 import { crNum, nfmt, norm } from '../../engine/util';
+import { completeFromSrd } from '../../engine/monsterImport';
 import { NO_TEXT, NO_TEXT_HELP, readMonsterBook } from '../../store/bookReader';
+import BookReview from './BookReview';
 import { useShallow } from 'zustand/react/shallow';
 import { useStore } from '../../store/useStore';
 
@@ -22,6 +24,7 @@ function Beast({ m }: { m: Monster }) {
           {m.n}
           {m.custom && <span className="tag">Propio</span>}
           {m.id.startsWith('mm-') && <span className="tag book">Manual</span>}
+          {!!m.chk?.length && <span className="tag check">Revisar</span>}
           {m.lg && <span className="tag leg">Legendario</span>}
           {m.lair && <span className="tag lair">Guarida</span>}
         </span>
@@ -52,7 +55,12 @@ function Beast({ m }: { m: Monster }) {
  */
 function BookImport() {
   const count = useStore((s) => s.book.length);
+  const pending = useStore((s) => s.book.filter((m) => m.chk?.length).length);
   const fileRef = useRef<HTMLInputElement>(null);
+  const reviewRef = useRef<HTMLInputElement>(null);
+  // el PDF elegido se queda en memoria mientras la página esté abierta, para ver sus páginas al revisar
+  const [book, setBookFile] = useState<File | null>(null);
+  const [review, setReview] = useState(false);
   const cancel = useRef({ cancelled: false });
   const [progress, setProgress] = useState<[number, number] | null>(null);
   const [msg, setMsg] = useState<{ t: string; ok?: boolean } | null>(null);
@@ -62,11 +70,16 @@ function BookImport() {
     setMsg(null);
     cancel.current = { cancelled: false };
     try {
-      const r = await readMonsterBook(f, useStore.getState().spells, (p, t) => setProgress([p, t]), cancel.current);
+      const st = useStore.getState();
+      const r = await readMonsterBook(f, st.spells, (p, t) => setProgress([p, t]), cancel.current);
       if (!r.monsters.length) setMsg({ t: 'No se ha encontrado ninguna ficha de monstruo. El importador está hecho para el Manual de Monstruos 2024 en español.' });
       else {
-        useStore.getState().setBook(r.monsters);
-        setMsg({ ok: true, t: r.monsters.length + ' criaturas añadidas al bestiario. Si el PDF era un escaneo, revisa las fichas antes de usarlas: el reconocimiento de texto puede dejar algún error.' });
+        // lo que el OCR no pudo leer se completa con el SRD si la criatura está en él
+        const fixed = completeFromSrd(r.monsters, st.srd);
+        const left = r.monsters.filter((m) => m.chk?.length).length;
+        st.setBook(r.monsters);
+        setBookFile(f);
+        setMsg({ ok: true, t: r.monsters.length + ' criaturas añadidas al bestiario.' + (fixed ? ' A ' + fixed + ' les faltaba algún dato y se ha completado con el SRD.' : '') + (left ? ' ' + left + ' tienen datos que no se pudieron leer: revísalas con la página delante.' : '') });
       }
     } catch (e) {
       const m = (e as Error).message;
@@ -85,9 +98,12 @@ function BookImport() {
       <p className="muted small" style={{ margin: 0 }}>Si tienes el Manual de Monstruos 2024 en español en PDF, impórtalo para tener todas sus criaturas. Se lee en este navegador y se guarda solo en este dispositivo: no se sube a ningún sitio ni a tu cuenta.</p>
       <div className="rollrow">
         <button className="btn small primary" disabled={!!progress} onClick={() => fileRef.current?.click()}>{count ? 'Volver a importar (PDF)' : 'Importar mi Manual de Monstruos (PDF)'}</button>
+        {pending > 0 && <button className="btn small" disabled={!!progress} onClick={() => setReview(true)}>Revisar {pending === 1 ? '1 ficha' : pending + ' fichas'}</button>}
         {count > 0 && <button className="btn small ghost" onClick={() => { if (sure) { useStore.getState().setBook([]); setSure(false); setMsg({ ok: true, t: 'Criaturas del Manual quitadas del bestiario.' }); } else setSure(true); }}>{sure ? '¿Seguro? Quitar' : 'Quitar del bestiario'}</button>}
       </div>
       <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual de Monstruos" onChange={(e) => void run(e.target.files?.[0])} />
+      <input ref={reviewRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual para revisar" onChange={(e) => { const f = e.target.files?.[0]; if (f) setBookFile(f); e.target.value = ''; }} />
+      {review && <BookReview file={book} onPickFile={() => reviewRef.current?.click()} onClose={() => setReview(false)} />}
       {progress && (
         <div className="sub" role="status">
           <span className="small">Leyendo el libro: página {progress[0]} de {progress[1]}…</span>

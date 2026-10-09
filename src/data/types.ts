@@ -62,6 +62,10 @@ export interface Monster {
   ba?: Feature[];
   re?: Feature[];
   lg?: Feature[];
+  /** Criaturas del Manual de Monstruos del usuario: dónde está en su PDF (página, altura del título, columna). */
+  src?: { p: number; y: number; col: number };
+  /** Datos que el OCR no pudo leer y faltan por revisar: 'ca', 'pg', 'ab:N', 'f:sección:N:dmg|dc'. */
+  chk?: string[];
 }
 
 export interface Spell {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Line } from '../engine/bookImport';
-import { abilityRow, cleanOcr, damageIn, fixDice, parseMonsters, parseTypeLine } from '../engine/monsterImport';
+import type { Monster } from '../data/types';
+import { abilityRow, cleanOcr, completeFromSrd, damageIn, fixDice, parseMonsters, parseTypeLine } from '../engine/monsterImport';
 
 // Criaturas inventadas con el formato de las fichas 2024 en español (y errores típicos de OCR)
 const lines = (col: number, ts: string[], y0 = 800): Line[] => ts.map((t, i) => ({ t, col, y: y0 - i * 12 }));
@@ -124,5 +125,28 @@ describe('importar el Manual de Monstruos', () => {
     const [m] = parseMonsters(ls);
     expect(m.ac_?.[0].d).not.toContain('cuevas');
     expect(m.ba?.map((f) => f.n)).toEqual(['Rodar']);
+  });
+
+  it('marca lo que no pudo leer y lo completa con el SRD (por nombre o por cifras)', () => {
+    // sin CA, sin la Sabiduría y con un ataque sin daño legible
+    const block = GOLEM.map((t) => t.replace('CA: 14 ', '').replace('SAB 10 +0 +0 ', '').replace('(Id 12 + 4) de daño contundente más 3 (Id6) de', 'de daño ilegible').replace('daño contundente si el objetivo está derribado.', 'más cosas.'));
+    const [m] = parseMonsters(block.map((t, i) => ({ t, col: 0, y: 800 - i * 12, p: 7 })));
+    expect(m.src).toEqual({ p: 7, y: 800, col: 0 });
+    expect(m.chk).toEqual(['ca', 'ab:4', 'f:ac_:1:dmg']);
+    const srd = { ...m, id: 'cheese-golem', n: 'Gólem quesero', ac: 15, ab: [18, 12, 15, 3, 11, 1], sv: [4, 1, 5, -4, 0, -5], ac_: [{ n: 'Golpe', d: '', atk: 6, dmg: [['2d6+4', 'contundente']] }] } as Monster;
+    delete srd.chk;
+    // el nombre no coincide, pero el VD, el tamaño, el tipo y las cifras sí
+    expect(completeFromSrd([m], [srd])).toBe(1);
+    expect(m.ac).toBe(15);
+    expect(m.ab[4]).toBe(11);
+    expect(m.ac_?.[1].dmg).toEqual([['2d6+4', 'contundente']]);
+    expect(m.chk).toBeUndefined();
+  });
+
+  it('no completa con una criatura del SRD que no se le parece', () => {
+    const [m] = parseMonsters(lines(0, GOLEM.map((t) => t.replace('CA: 14 ', ''))));
+    const other = { ...m, id: 'x', n: 'Otra cosa', ab: [8, 8, 8, 8, 8, 8], hp: 99 } as Monster;
+    expect(completeFromSrd([m], [other])).toBe(0);
+    expect(m.chk).toEqual(['ca']);
   });
 });
