@@ -1405,6 +1405,14 @@ test('multiclase: cada clase prepara sus conjuros, hasta su nivel, y se eligen p
   await page.getByRole('tab', { name: 'Trucos' }).click();
   await page.locator('.ce-spell-results .chip', { hasText: 'Descarga sobrenatural' }).click();
   await expect(war).toContainText('Trucos 1 de 3');
+  // los elegidos siguen las pestañas
+  const chosen = page.locator('.ce-chosen');
+  await expect(chosen.locator('.chip')).toHaveText(['Descarga sobrenatural ✕']);
+  await page.getByRole('tab', { name: 'Paladín' }).click();
+  await expect(chosen.locator('.chip', { hasText: 'Bendición' })).toBeVisible();
+  await expect(chosen.locator('.chip', { hasText: 'Castigo Divino' })).toContainText('ya preparado');
+  await expect(chosen.locator('.chip', { hasText: 'Descarga sobrenatural' })).toHaveCount(0);
+  await page.getByRole('tab', { name: 'Brujo' }).click();
   await page.getByRole('tab', { name: 'Nivel 3' }).click();
   await expect(page.locator('.ce-spell-results .chip', { hasText: /Contrahechizo/ })).toBeVisible();
 });

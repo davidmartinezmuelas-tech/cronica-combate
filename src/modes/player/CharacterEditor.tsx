@@ -122,6 +122,9 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const tabPrep = preps.find((pr) => pr.id === spCls) || (preps.length === 1 ? preps[0] : null);
   const tabLevels = [...new Set((tabPrep ? [tabPrep] : preps).flatMap((pr) => [...(pr.cantrips != null ? [0] : []), ...Array.from({ length: pr.maxLv }, (_, i) => i + 1)]))].sort((a, b) => a - b);
   const lvTab = tabLevels.includes(+spLv) ? +spLv : tabLevels[0] ?? 0;
+  // los elegidos siguen las mismas pestañas (clase y nivel) que la lista para elegir
+  const tabbed = useClassList && !spellQ && (preps.length > 1 || tabLevels.length > 1);
+  const chosen = !tabbed ? c.spells : c.spells.filter((k) => lvOf(k) === lvTab && (!tabPrep || [...(assigned.byClass[tabPrep.id]?.cantrips || []), ...(assigned.byClass[tabPrep.id]?.spells || [])].includes(k) || (always.has(k) && tabPrep.list.has(k))));
   const spellResults = spellIdx.list
     .filter((sp) => !c.spells.includes(sp.id) && (!useClassList || canTake(sp, tabPrep?.id)))
     .filter((sp) => { const q = norm(spellQ); return q.length >= 2 ? norm(sp.n).includes(q) || norm(sp.en).includes(q) : !q && useClassList && (sp.l || 0) === lvTab; })
@@ -375,7 +378,12 @@ export default function CharacterEditor({ c }: { c: Character }) {
             </InfoDialog>
           )}
           {c.spells.length > 0 && (
-            <div className="chips">{c.spells.map((k) => <button key={k} className="chip on" title="Quitar" onClick={() => set({ spells: c.spells.filter((x) => x !== k) })}>{spellIdx.get(k)?.n || k} ✕</button>)}</div>
+            <div className="ce-chosen">
+              <span className="eyebrow">Elegidos{tabbed ? ' · ' + (tabPrep ? tabPrep.n : 'todas las clases') + ' · ' + (lvTab === 0 ? 'trucos' : 'nivel ' + lvTab) : ''} ({chosen.length})</span>
+              {chosen.length > 0
+                ? <div className="chips">{chosen.map((k) => <button key={k} className="chip on" title="Quitar" onClick={() => set({ spells: c.spells.filter((x) => x !== k) })}>{spellIdx.get(k)?.n || k}{always.has(k) && <span className="chip-tag">ya preparado</span>} ✕</button>)}</div>
+                : <span className="muted small">Ninguno en esta pestaña.</span>}
+            </div>
           )}
         </fieldset>
 

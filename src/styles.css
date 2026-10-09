@@ -841,6 +841,7 @@ b.card-title{flex-basis:100%;font-size:16px}
 .phone-note{display:none}
 @media (max-width:820px){.phone-note{display:flex;align-items:center;gap:10px;margin:10px 12px 0;padding:8px 12px;border:1px solid #5a86a8;border-radius:8px;background:#2c4a64;color:#eef5fa;font-size:13px}.phone-note .btn{flex:none}}
 .spell-counts{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}.spell-counts .chip{cursor:default}
+.ce-chosen{display:flex;flex-direction:column;gap:6px;margin-top:4px}
 .spell-count-row{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
 /* editor: métodos para generar características */
 .abil-methods{display:flex;flex-direction:column;gap:10px}
