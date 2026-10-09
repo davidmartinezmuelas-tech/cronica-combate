@@ -1414,5 +1414,17 @@ test('multiclase: cada clase prepara sus conjuros, hasta su nivel, y se eligen p
   await expect(chosen.locator('.chip', { hasText: 'Descarga sobrenatural' })).toHaveCount(0);
   await page.getByRole('tab', { name: 'Brujo' }).click();
   await page.getByRole('tab', { name: 'Nivel 3' }).click();
+  await page.locator('.ce-spell-results .chip', { hasText: 'Disipar magia' }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // en la hoja: Disipar magia es del brujo (el paladín 3 no llega a nivel 3) y Castigo divino, siempre preparado
+  const sheetSp = page.locator('section[aria-label="Conjuros"]');
+  await sheetSp.getByRole('tab', { name: 'Paladín' }).click();
+  await expect(sheetSp.locator('.card', { hasText: 'Disipar magia' })).toHaveCount(0);
+  await expect(sheetSp.locator('.card', { hasText: 'Castigo Divino' })).toContainText('Paladín · siempre preparado');
+  await expect(sheetSp.getByRole('tab', { name: /^Nivel 3/ })).toHaveCount(0);
+  await sheetSp.getByRole('tab', { name: 'Brujo' }).click();
+  await expect(sheetSp.locator('.card', { hasText: 'Disipar magia' })).toBeVisible();
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByRole('tab', { name: 'Nivel 3' }).click();
   await expect(page.locator('.ce-spell-results .chip', { hasText: /Contrahechizo/ })).toBeVisible();
 });

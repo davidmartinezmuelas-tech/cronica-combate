@@ -12,6 +12,7 @@ import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
 import { hasInvocation, subclassSpells, subclassText } from '../../engine/subclassChoices';
+import { assignSpells, casterPreps } from '../../engine/spellPrep';
 import { featureUses } from '../../engine/featureUses';
 import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
@@ -242,18 +243,24 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const smite = classLevel(c, 'paladin') >= 2 ? spellIdx.list.find((x) => x.en === 'Divine Smite') : undefined;
   const classSpells = smite && !c.spells.includes(smite.id) && !subSpells.some((y) => y.id === smite.id) ? [{ k: smite.id, s: smite, sub: 'Paladín · siempre preparado', cls: ['paladin'] }] : [];
   // clases a las que pertenece cada conjuro elegido (para las pestañas por clase): las que lo tienen en su lista
-  const casterIds = classEntries(c).map((e) => e.classId).filter((id) => data?.classes.find((x) => x.id === id)?.caster);
-  const clsOf = (id: string, sp?: { classes?: string[] }) => casterIds.filter((k) => data?.classes.find((x) => x.id === k)?.spells.includes(id) || sp?.classes?.includes(k));
+  // cada conjuro elegido va a la clase que lo prepara (su lista y su nivel máximo), como en «Editar hoja»
+  const preps = data ? casterPreps(c, data, spellIdx.list) : [];
+  const casterIds = preps.map((pr) => pr.id);
+  const alwaysIds = new Set([...subSpells.map((x) => x.id), ...(smite ? [smite.id] : [])]);
+  const assigned = assignSpells(c.spells, preps, (id) => spellIdx.get(id)?.l || 0, alwaysIds);
+  const clsOf = (id: string) => Object.entries(assigned.byClass).filter(([, b]) => b.cantrips.includes(id) || b.spells.includes(id)).map(([k]) => k);
   const spellList = [
-    ...c.spells.map((k) => ({ k, s: spellIdx.get(k), sub: '', cls: clsOf(k, spellIdx.get(k)) })),
+    // elegido a mano pero siempre preparado (Castigo divino del paladín): se muestra como tal
+    ...c.spells.map((k) => (smite && k === smite.id ? { k, s: spellIdx.get(k), sub: 'Paladín · siempre preparado', cls: ['paladin'] } : { k, s: spellIdx.get(k), sub: '', cls: clsOf(k) })),
     ...classSpells,
     ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: 'Subclase · siempre preparado', cls: [x.cls] })),
     ...picked.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: x.prepared ? 'Subclase · siempre preparado' : 'Subclase · en tu libro de conjuros', cls: [x.cls] })),
   ].filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
-  const spLevels = [...new Set(spellList.map((x) => x.s!.l || 0))].sort((a, b) => a - b);
   const spClasses = casterIds.filter((k) => spellList.some((x) => x.cls.includes(k)));
-  const lvTab = spLv !== 'all' && spLevels.includes(+spLv) ? spLv : 'all';
   const clsTab = spCls !== 'all' && spClasses.includes(spCls) ? spCls : 'all';
+  // niveles de la clase elegida (o de todas)
+  const spLevels = [...new Set(spellList.filter((x) => clsTab === 'all' || x.cls.includes(clsTab)).map((x) => x.s!.l || 0))].sort((a, b) => a - b);
+  const lvTab = spLv !== 'all' && spLevels.includes(+spLv) ? spLv : 'all';
   const spellShown = spellList.filter((x) => (lvTab === 'all' || (x.s!.l || 0) === +lvTab) && (clsTab === 'all' || x.cls.includes(clsTab)));
   const freeSmite = features.find((f) => f.key === 'Castigo del paladín' && f.max);
   // Marca del cazador (explorador: su dado; si no, la del conjuro, 1d6) y Maleficio, si los tiene
@@ -494,7 +501,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
               {spLevels.length > 1 && (
                 <div className="sp-tabs" role="tablist" aria-label="Conjuros por nivel">
                   {['all', ...spLevels.map(String)].map((l) => {
-                    const n = l === 'all' ? spellList.length : spellList.filter((x) => (x.s!.l || 0) === +l).length;
+                    const inCls = spellList.filter((x) => clsTab === 'all' || x.cls.includes(clsTab));
+                    const n = l === 'all' ? inCls.length : inCls.filter((x) => (x.s!.l || 0) === +l).length;
                     return <button key={l} role="tab" aria-selected={lvTab === l} className={lvTab === l ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpLv(l)}>{l === 'all' ? 'Todos' : l === '0' ? 'Trucos' : 'Nivel ' + l}<span className="sp-tab-n">{n}</span></button>;
                   })}
                 </div>
