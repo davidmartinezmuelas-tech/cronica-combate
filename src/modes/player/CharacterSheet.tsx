@@ -18,6 +18,7 @@ import FeatPanel from './FeatPanel';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import SpellRolls from './SpellRolls';
 import LevelUp from './LevelUp';
+import RestSpells, { restSwapClasses } from './RestSpells';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
@@ -73,6 +74,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const [resting, setResting] = useState(false);
   // subir de nivel: el asistente y, tras confirmar, la hoja de antes para poder deshacerlo
   const [leveling, setLeveling] = useState(false);
+  const [restSpells, setRestSpells] = useState(false); // tras un descanso largo: cambiar conjuros (según la clase)
   const [undoLevel, setUndoLevel] = useState<Character | null>(null);
   const [confirmLong, setConfirmLong] = useState(false);
   // Atacante salvaje y carga: se aplican al próximo daño y se apagan
@@ -226,6 +228,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <button className="btn small ghost" onClick={() => setUndoLevel(null)}>Cerrar</button>
           </div>
         )}
+        {restSpells && data && <RestSpells c={c} data={data} onClose={() => setRestSpells(false)} />}
         {leveling && data && <LevelUp c={c} data={data} lib={lib} onClose={() => setLeveling(false)} onDone={(prev) => { setLeveling(false); setUndoLevel(prev); }} />}
         <div className="pc-stats">
           <div className="stat" title={d.acNote}><span className="stat-k">CA</span><span className="stat-v">{d.ac}</span><span className="muted small">{d.acNote}</span></div>
@@ -429,7 +432,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         {c.conds.length > 0 && <ul className="rem">{c.conds.map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
         <div className="pc-rest">
           <button className="btn small" onClick={() => setResting(!resting)} aria-expanded={resting}>Descanso corto</button>
-          <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>
+          <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); if (data && restSwapClasses(c).length && c.spells.length) setRestSpells(true); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>
         </div>
         {resting && (
           <div className="sub">

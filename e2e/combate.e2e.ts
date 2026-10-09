@@ -1099,10 +1099,10 @@ test('visita guiada: se abre desde el «?», avanza, señala y se puede saltar',
   await page.getByRole('button', { name: 'Ayuda' }).click();
   await page.getByRole('menuitem', { name: 'Repetir la visita guiada' }).click();
   const tour = page.getByRole('dialog', { name: 'Visita guiada' });
-  await expect(tour).toContainText('Paso 1 de 7');
+  await expect(tour).toContainText('Paso 1 de 8');
   await expect(tour).toContainText('Tus personajes');
   await tour.getByRole('button', { name: 'Siguiente' }).click();
-  await expect(tour).toContainText('Paso 2 de 7');
+  await expect(tour).toContainText('Paso 2 de 8');
   await tour.getByRole('button', { name: 'Saltar visita' }).click();
   await expect(tour).toHaveCount(0);
   // máster: también con los atajos de teclado en el mismo menú
@@ -1197,14 +1197,22 @@ test('subir de nivel: elecciones de clase o subclase y cambiar un conjuro', asyn
   // Golpes benditos (clérigo 7): se elige aquí
   await expect(dlg).toContainText('Golpes benditos: 1 más');
   await dlg.getByLabel('Golpes benditos').selectOption('Golpe divino');
-  // cambiar Curar heridas por otro conjuro de nivel
-  await dlg.getByLabel('Conjuro que cambias').selectOption({ label: 'Escudo de fe (nivel 1)' });
-  const newSpell = await dlg.getByLabel('Conjuro nuevo').locator('option').nth(1).textContent();
-  await dlg.getByLabel('Conjuro nuevo').selectOption({ index: 1 });
+  // el clérigo cambia un truco al subir; sus conjuros, tras un descanso largo
+  await expect(dlg.getByLabel('Conjuro que cambias')).toHaveCount(0);
+  await expect(dlg).toContainText('tras un descanso largo');
   await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 7' }).click();
   await expect(page.locator('.pc-head')).toContainText('Clérigo 7');
+  // descanso largo: quitar Escudo de fe y preparar otro
+  const rest = page.getByRole('region', { name: 'Estados y descansos' });
+  await rest.getByRole('button', { name: 'Descanso largo' }).click();
+  await rest.getByRole('button', { name: '¿Seguro? Descanso largo' }).click();
+  const rd = page.getByRole('dialog', { name: 'Conjuros tras el descanso largo' });
+  await rd.getByRole('button', { name: /^Escudo de fe/ }).click();
+  const added = (await rd.locator('.swap-add .chip').first().textContent())!.replace(/^\+ /, '').replace(/ \d$/, '');
+  await rd.locator('.swap-add .chip').first().click();
+  await rd.getByRole('button', { name: 'Guardar cambios' }).click();
   const sp = page.locator('section[aria-label="Conjuros"]');
   await expect(sp.locator('.card', { hasText: 'Escudo de fe' })).toHaveCount(0);
-  await expect(sp).toContainText(newSpell!.replace(/ \(.*\)$/, ''));
+  await expect(sp).toContainText(added);
   await expect(page.getByRole('button', { name: /^Golpe divino/ })).toBeVisible();
 });

@@ -1,13 +1,14 @@
 import type { TourStep } from './Tour';
 
-/** Visita del modo jugador. `goSheet` abre la pestaña de la hoja. */
-export const playerTour = (goSheet: () => void): TourStep[] => [
+/** Visita del modo jugador. `goSheet` abre la pestaña de la hoja y `goLibrary` la de la biblioteca. */
+export const playerTour = (goSheet: () => void, goLibrary: () => void): TourStep[] => [
   { target: '[data-tour="pc-tabs"]', before: goSheet, title: 'Tus personajes', text: 'Cada personaje es una pestaña. Crea uno nuevo paso a paso o importa tu hoja en PDF rellenable: la app reconoce clase, características, armas, conjuros y dotes.' },
   { target: '[data-tour="edit"]', title: 'Editar la hoja', text: 'Aquí eliges especie, clase (y multiclase), subclase, armas, conjuros y dotes. Todo lo que se puede calcular (CA, PG, salvaciones, ataques) se calcula solo.' },
   { target: '[data-tour="rolls"]', title: 'Pulsa para tirar', text: 'Pruebas, salvaciones, habilidades, iniciativa y ataques se tiran pulsándolos, con tus bonificadores. Una «V» verde indica ventaja por un rasgo (Furia, Sentir el peligro…).' },
   { target: '[data-tour="traits"]', title: 'Rasgos, dotes y conjuros', text: 'Pulsa el nombre de cualquier rasgo o conjuro para leer su texto completo. Los círculos llevan la cuenta de sus usos; los descansos los recuperan.' },
   { target: '[data-tour="hp"]', title: 'Daño y curación', text: 'Escribe los PG y pulsa Daño, Curación o PG temporales. Si eliges el tipo de daño, tus resistencias lo reducen a la mitad solas.' },
-  { target: '[data-tour="table"]', title: 'Mesa de dados y sala', text: 'Aquí caen tus tiradas. Con el código de tu máster entras en su sala: ve tus tiradas y tus PG, y el daño que te ponga llega a tu hoja.' },
+  { target: '[data-tour="library"]', before: goLibrary, title: 'Tu Manual del Jugador 2024', text: 'El SRD trae una subclase por clase y cuatro trasfondos. Si tienes el Manual del Jugador 2024 en PDF, impórtalo aquí y tendrás todas sus subclases, trasfondos, dotes y conjuros al crear y subir de nivel. Se lee en tu navegador y se queda solo en tu dispositivo.' },
+  { target: '[data-tour="table"]', before: goSheet, title: 'Mesa de dados y sala', text: 'Aquí caen tus tiradas. Con el código de tu máster entras en su sala: ve tus tiradas y tus PG, y el daño que te ponga llega a tu hoja.' },
   { target: '[data-tour="header-end"]', title: 'Cuenta y ayuda', text: 'Con una cuenta tus personajes se guardan en la nube y los tienes en todos tus dispositivos. Este «?» repite la visita cuando quieras. Al final de la hoja puedes guardar una copia de seguridad.' },
 ];
 

@@ -200,3 +200,16 @@ export function subclassSpells(c: Pick<Character, 'classId' | 'subclass' | 'leve
   }
   return out.filter((o) => o.at <= c.level);
 }
+
+/**
+ * Cuándo puede cambiar sus conjuros cada clase (texto del SRD 2024): trucos, uno al subir de nivel (o tras un descanso
+ * largo el mago); conjuros, uno al subir de nivel (bardo, hechicero, brujo), todos tras un descanso largo (clérigo,
+ * druida, mago) o uno tras un descanso largo (paladín, explorador).
+ */
+export function spellSwapRules(classId: string): { cantrip: 'level' | 'rest' | null; spells: { when: 'level' | 'rest'; all: boolean } | null } {
+  const cantrip = ['bard', 'cleric', 'druid', 'sorcerer', 'warlock'].includes(classId) ? 'level' : classId === 'wizard' ? 'rest' : null;
+  const spells = ['bard', 'sorcerer', 'warlock'].includes(classId) ? { when: 'level' as const, all: false }
+    : ['cleric', 'druid', 'wizard'].includes(classId) ? { when: 'rest' as const, all: true }
+      : ['paladin', 'ranger'].includes(classId) ? { when: 'rest' as const, all: false } : null;
+  return { cantrip, spells };
+}

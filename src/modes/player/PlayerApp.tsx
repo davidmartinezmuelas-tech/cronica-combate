@@ -71,7 +71,7 @@ export default function PlayerApp() {
           </>
         )}
       </main>
-      {tour && <Tour steps={playerTour(() => setTab('sheet'))} storeKey="jugador" onClose={() => setTour(false)} />}
+      {tour && <Tour steps={playerTour(() => setTab('sheet'), () => setTab('library'))} storeKey="jugador" onClose={() => setTour(false)} />}
     </div>
   );
 }

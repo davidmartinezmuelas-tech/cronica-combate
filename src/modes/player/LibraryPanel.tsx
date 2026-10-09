@@ -90,7 +90,7 @@ export default function LibraryPanel() {
   const total = lib.feats.length + lib.backgrounds.length + lib.spells.length + lib.subclasses.length;
   return (
     <div className="pc">
-      <div className="panel">
+      <div data-tour="library" className="panel">
         <div className="panel-head"><h2>Tu biblioteca</h2><span className="muted small">{lib.source || 'vacía'}</span></div>
         <p className="muted small" style={{ margin: 0 }}>Aquí puedes añadir las dotes, los trasfondos y los conjuros de tu Manual del Jugador 2024 que no están en el SRD. Se leen de tu PDF dentro de este navegador y se guardan solo en este dispositivo: no se suben a ningún sitio ni forman parte de la app. Si exportas el archivo para tu grupo, que sea para quien tenga el libro.</p>
         <div className="pc-stats lib-stats">

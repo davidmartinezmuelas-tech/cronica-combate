@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
 import { asClass, classEntries, derive, totalLevel, type Character, type ClassEntry } from '../../engine/character';
-import { activeChoices, choiceCount } from '../../engine/subclassChoices';
+import { activeChoices, choiceCount, spellSwapRules } from '../../engine/subclassChoices';
 import { fmt } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import { InfoDialog } from '../../shared/Card';
@@ -10,6 +10,7 @@ import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import { plainText, useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
+import SpellSwap, { applySwap, emptySwap, type SwapState } from './SpellSwap';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 
@@ -41,7 +42,7 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const [picks, setPicks] = useState<string[]>([]);
   // elecciones de subclase (maniobras, invocaciones…) hechas aquí y un conjuro cambiado por otro (opcional)
   const [choices, setChoices] = useState<Record<string, string[]>>(() => c.choices || {});
-  const [swap, setSwap] = useState<{ out: string; in: string }>({ out: '', in: '' });
+  const [swap, setSwap] = useState<SwapState>(emptySwap);
   const total = totalLevel(c);
   if (total >= 20) return <InfoDialog title="Subir de nivel" onClose={onClose}><p style={{ margin: 0 }}>Ya estás en el nivel 20, el máximo.</p></InfoDialog>;
 
@@ -83,8 +84,11 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
     .filter((s) => classSpells.has(s.id) && !c.spells.includes(s.id) && (s.l || 0) <= maxAfter && (s.l ? wantSpells : newCantrips > 0))
     .sort((a, b) => (a.l ? 1 : 0) - (b.l ? 1 : 0) || (b.l || 0) - (a.l || 0) || a.n.localeCompare(b.n, 'es'));
   const known = c.spells.map((id) => spellIdx.get(id)).filter((x): x is NonNullable<typeof x> => !!x && classSpells.has(x.id));
-  const outIsCantrip = !spellIdx.get(swap.out)?.l;
-  const swapTo = swap.out ? spellIdx.list.filter((x) => classSpells.has(x.id) && !c.spells.includes(x.id) && !picks.includes(x.id) && (outIsCantrip ? !x.l : !!x.l && x.l <= maxAfter)).sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es')) : [];
+  // qué puede cambiar esta clase al subir (las que cambian tras un descanso largo lo hacen al descansar)
+  const rules = spellSwapRules(classId);
+  const swapPool = spellIdx.list.filter((x) => classSpells.has(x.id) && !c.spells.includes(x.id) && !picks.includes(x.id) && (x.l || 0) <= maxAfter).sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es'));
+  const canCantrip = rules.cantrip === 'level';
+  const canSpell = rules.spells?.when === 'level';
   const pickedCantrips = picks.filter((id) => !spellIdx.get(id)?.l).length;
   const pickedSpells = picks.length - pickedCantrips;
   const feats = [...data.feats.filter((f) => f.cat === 'general'), ...lib.feats.filter((f) => f.cat === 'general' && !data.feats.some((x) => norm(x.n) === norm(f.n)))];
@@ -106,7 +110,7 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
     if (hp.mode === 'roll' && hp.roll != null) n = { ...n, hpRolls: { ...(n.hpRolls || {}), [classId + ':' + newLv]: hp.roll } };
     if (picks.length) n = { ...n, spells: [...n.spells, ...picks.filter((id) => !n.spells.includes(id))] };
     if (growing.length) n = { ...n, choices };
-    if (swap.out && swap.in) n = { ...n, spells: [...n.spells.filter((id) => id !== swap.out), ...(n.spells.includes(swap.in) ? [] : [swap.in])] };
+    n = { ...n, spells: applySwap(n.spells, swap, []) };
     // los PG actuales suben lo mismo que el máximo
     const gain = derive(n, data).hpMax - before.hpMax;
     n = { ...n, hp: Math.max(1, c.hp + Math.max(0, gain)), updatedAt: Date.now() };
@@ -223,20 +227,12 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
           </section>
         )}
 
-        {known.length > 0 && (
+        {known.length > 0 && (canCantrip || canSpell || rules.spells?.when === 'rest' || rules.cantrip === 'rest') && (
           <section className="lvl-step">
-            <h3 className="eyebrow">Cambiar un conjuro (opcional)</h3>
-            <p className="muted small" style={{ margin: 0 }}>Al subir de nivel puedes cambiar uno de tus conjuros por otro de tu lista del mismo tipo (truco por truco).</p>
-            <div className="row2">
-              <select className="input" aria-label="Conjuro que cambias" value={swap.out} onChange={(e) => setSwap({ out: e.target.value, in: '' })}>
-                <option value="">No cambiar ninguno</option>
-                {known.map((x) => <option key={x.id} value={x.id}>{x.n} ({x.l ? 'nivel ' + x.l : 'truco'})</option>)}
-              </select>
-              <select className="input" aria-label="Conjuro nuevo" value={swap.in} disabled={!swap.out} onChange={(e) => setSwap({ ...swap, in: e.target.value })}>
-                <option value="">Por…</option>
-                {swapTo.map((x) => <option key={x.id} value={x.id}>{x.n} ({x.l ? 'nivel ' + x.l : 'truco'})</option>)}
-              </select>
-            </div>
+            <h3 className="eyebrow">Cambiar conjuros (opcional)</h3>
+            {(canCantrip || canSpell) && <p className="muted small" style={{ margin: 0 }}>Al ganar un nivel de {cls?.n.toLowerCase()} puedes cambiar {[canCantrip ? 'un truco' : '', canSpell ? 'un conjuro' : ''].filter(Boolean).join(' y ')} por otro de tu lista.</p>}
+            {(canCantrip || canSpell) && <SpellSwap cls={cls} known={known} pool={swapPool} cantrip={canCantrip} spells={canSpell ? 'one' : null} preparedMax={null} state={swap} setState={setSwap} />}
+            {(rules.spells?.when === 'rest' || rules.cantrip === 'rest') && <p className="muted small" style={{ margin: 0 }}>{cls?.n} cambia {rules.spells?.all ? 'todos sus conjuros preparados' : rules.spells ? 'un conjuro' : ''}{rules.cantrip === 'rest' ? (rules.spells ? ' y un truco' : 'un truco') : ''} tras un descanso largo: te lo ofreceré al descansar.</p>}
           </section>
         )}
 
