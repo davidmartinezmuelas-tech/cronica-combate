@@ -35,7 +35,10 @@ export interface Snapshot {
 /** Carga, interfaz general, historial y deshacer. */
 export interface CoreSlice {
   tab: Tab;
+  /** El bestiario SRD ya está cargado (o falló). */
   loaded: boolean;
+  /** Lo guardado en el dispositivo ya se ha leído: desde aquí se puede guardar (no depende del SRD). */
+  hydrated: boolean;
   loadError: string;
   srd: Monster[];
   spells: Record<string, Spell>;
@@ -169,7 +172,8 @@ export interface GroupSlice {
   updatePc: (id: string, patch: Partial<RosterEntry>, label?: string) => void;
   attachPdf: (id: string, file: File) => Promise<string>; // devuelve el error, o '' si ha ido bien
   removePdf: (id: string) => void;
-  exportData: () => Promise<string>;
+  /** `book`: incluir las criaturas del Manual de Monstruos del usuario. */
+  exportData: (opts?: { book?: boolean }) => Promise<string>;
   importText: (text: string) => Promise<void>;
 }
 

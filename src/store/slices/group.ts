@@ -43,7 +43,7 @@ export function createGroupSlice(set: SetState, get: GetState): GroupSlice {
       get().updatePc(id, { pdf: null }, 'quitar hoja de personaje');
     },
 
-    async exportData() {
+    async exportData(opts) {
       const s = savedSlice(get());
       const pdfs: Record<string, string> = {};
       for (const r of s.roster) {
@@ -51,16 +51,18 @@ export function createGroupSlice(set: SetState, get: GetState): GroupSlice {
         const b = await getPdf(r.pdf.id);
         if (b) pdfs[r.pdf.id] = await blobToBase64(b);
       }
-      return JSON.stringify(buildExport(s, pdfs), null, 1);
+      return JSON.stringify(buildExport(s, pdfs, opts?.book ? get().book : undefined), null, 1);
     },
     async importText(text) {
-      const r = mergeImport(text, savedSlice(get()));
+      const r = mergeImport(text, { ...savedSlice(get()), book: get().book });
       if (!r.ok) { set({ ioMsg: r.message }); return; }
       let saved = 0;
       for (const [pid, data] of Object.entries(r.pdfs || {})) {
         try { await putPdf(pid, base64ToBlob(data)); saved++; } catch { /* sin espacio: el jugador queda sin hoja */ }
       }
       get().snap('importar');
+      // las criaturas del Manual van a su almacén del dispositivo (no a las criaturas propias ni a la cuenta)
+      if (r.book) get().setBook(r.book);
       set({ roster: r.roster!, custom: r.custom!, encounters: r.encounters!, ...(r.combat || {}), ioMsg: r.message + (saved ? ' Con ' + saved + (saved === 1 ? ' hoja' : ' hojas') + ' de personaje.' : '') });
     },
   };

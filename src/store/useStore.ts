@@ -37,7 +37,7 @@ const changed = (a: SavedState, b: SavedState | null) => !b || (Object.keys(a) a
 export async function saveNow() {
   clearTimeout(saveT);
   const s = useStore.getState();
-  if (!s.loaded) return;
+  if (!s.hydrated) return;
   const slice = savedSlice(s);
   if (!changed(slice, lastSaved)) return;
   lastSaved = slice;
@@ -47,7 +47,10 @@ export async function saveNow() {
 
 export function startAutosave() {
   const unsub = useStore.subscribe((s, prev) => {
-    if (!s.loaded) return;
+    // antes de leer lo guardado no se escribe nada (se pisaría); el SRD no hace falta: lo que se cambie mientras
+    // se descarga también se guarda
+    if (!s.hydrated) return;
+    if (!prev.hydrated) { lastSaved = savedSlice(s); return; }
     if (s.custom !== prev.custom || s.roster !== prev.roster || s.combatants !== prev.combatants || s.round !== prev.round || s.activeId !== prev.activeId ||
       s.started !== prev.started || s.log !== prev.log || s.diceTheme !== prev.diceTheme || s.turnEvents !== prev.turnEvents || s.encounters !== prev.encounters || s.dice3d !== prev.dice3d) {
       clearTimeout(saveT);

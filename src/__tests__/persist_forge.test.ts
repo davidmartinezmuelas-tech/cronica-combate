@@ -112,6 +112,17 @@ describe('guardado e importación', () => {
     expect(r.roster).toHaveLength(1);
     expect(r.combat?.combatants).toHaveLength(1);
   });
+  it('las criaturas del Manual van en la copia solo si se piden y sustituyen a las del mismo id', () => {
+    const mk = (id: string, n: string) => ({ id, n, sz: 'Grande', t: 'autómata', al: 'neutral', ac: 14, hp: 45, hd: '6d10+12', ini: 1, spd: '9 m', ab: [18, 12, 15, 3, 10, 1], sv: [4, 1, 2, -4, 0, -5], vul: [], res: [], imm: [], ci: [], pp: 10, cr: '3', xp: 700, pb: 2 });
+    const cur = emptySaved();
+    expect(buildExport(cur).book).toBeUndefined();
+    const file = buildExport(cur, undefined, [mk('mm-golem', 'Gólem revisado'), { bad: 1 } as never, mk('no-mm', 'Intruso')]);
+    const r = mergeImport(JSON.stringify(file), { ...cur, book: [mk('mm-golem', 'Gólem sin revisar'), mk('mm-otro', 'Otro')] as never });
+    expect(r.book!.map((m) => m.n)).toEqual(['Otro', 'Gólem revisado']);
+    expect(r.custom).toEqual([]);
+    expect(r.message).toMatch(/1 criaturas de tu Manual/);
+    expect(mergeImport(JSON.stringify(buildExport(cur)), cur).book).toBeUndefined();
+  });
   it('rechaza archivos que no son copias', () => {
     expect(mergeImport('no json', emptySaved()).ok).toBe(false);
     expect(mergeImport('{"a":1}', emptySaved()).ok).toBe(false);

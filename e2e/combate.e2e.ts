@@ -241,6 +241,8 @@ test('fichas del grupo: los datos de una hoja rellenable se copian solo tras con
 });
 
 test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en la copia)', async ({ page }) => {
+  // dibuja el PDF tres veces, recarga y descarga la copia: con muchas pruebas a la vez necesita más de 30 s
+  test.slow();
   await open(page);
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
   await page.getByLabel('Personaje').fill('Jimena');

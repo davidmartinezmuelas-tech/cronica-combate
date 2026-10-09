@@ -182,11 +182,12 @@ export interface ExportFile {
   encounters: Encounter[];
   combat: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
   pdfs?: Record<string, string>; // hojas de personaje: id -> PDF en base64
+  book?: Monster[]; // criaturas del Manual de Monstruos del usuario (solo si pidió incluirlas)
 }
 
-export function buildExport(s: SavedState, pdfs?: Record<string, string>): ExportFile {
+export function buildExport(s: SavedState, pdfs?: Record<string, string>, book?: Monster[]): ExportFile {
   return {
-    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters, ...(pdfs && Object.keys(pdfs).length ? { pdfs } : {}),
+    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters, ...(pdfs && Object.keys(pdfs).length ? { pdfs } : {}), ...(book?.length ? { book } : {}),
     combat: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents },
   };
 }
@@ -199,15 +200,16 @@ export interface ImportResult {
   encounters?: Encounter[];
   combat?: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
   pdfs?: Record<string, string>; // hojas que trae la copia para los jugadores importados
+  book?: Monster[]; // criaturas del Manual de la copia, ya fusionadas con las que había
 }
 
 /** Fusiona una copia con los datos actuales; descarta registros dañados. */
-export function mergeImport(text: string, current: SavedState): ImportResult {
+export function mergeImport(text: string, current: SavedState & { book?: Monster[] }): ImportResult {
   let d: unknown;
   try { d = JSON.parse(text); } catch { return { ok: false, message: 'El archivo no es una copia válida.' }; }
   if (!d || typeof d !== 'object') return { ok: false, message: 'El archivo no es una copia válida.' };
   const x = d as Record<string, unknown>;
-  if (!Array.isArray(x.roster) && !Array.isArray(x.custom) && !Array.isArray(x.encounters)) return { ok: false, message: 'No parece una copia de Crónica de Combate.' };
+  if (!Array.isArray(x.roster) && !Array.isArray(x.custom) && !Array.isArray(x.encounters) && !Array.isArray(x.book)) return { ok: false, message: 'No parece una copia de Crónica de Combate.' };
   const inR = (Array.isArray(x.roster) ? x.roster : []).map(normRoster);
   const goodR = inR.filter((r): r is RosterEntry => !!r);
   const inM = (Array.isArray(x.custom) ? x.custom : []).map(normMonster);
@@ -238,8 +240,13 @@ export function mergeImport(text: string, current: SavedState): ImportResult {
   const pdfs: Record<string, string> = {};
   for (const [k, v] of Object.entries(rawPdfs)) if (pdfIds.has(k) && typeof v === 'string' && v.startsWith('JVBERi')) pdfs[k] = v;
   goodR.forEach((r) => { if (r.pdf && !pdfs[r.pdf.id] && !current.roster.some((c) => c.pdf?.id === r.pdf!.id)) r.pdf = null; });
+  // criaturas del Manual: solo fichas con la forma de las importadas («mm-…»); sustituyen a las del mismo id
+  const inB = Array.isArray(x.book) ? x.book : [];
+  const goodB = inB.filter((m): m is Monster => !!m && typeof m === 'object' && typeof (m as Monster).id === 'string' && (m as Monster).id.startsWith('mm-') && typeof (m as Monster).n === 'string' && Array.isArray((m as Monster).ab) && (m as Monster).ab.length === 6 && Array.isArray((m as Monster).sv));
+  const bIds = new Set(goodB.map((m) => m.id));
+  const book = goodB.length ? (current.book || []).filter((m) => !bIds.has(m.id)).concat(goodB) : undefined;
   return {
-    ok: true, roster, custom, encounters, combat, pdfs,
-    message: 'Importado: ' + goodR.length + ' jugadores, ' + goodM.length + ' criaturas y ' + goodE.length + ' encuentros, fusionados con los tuyos' + extra + '.' + (bad ? ' Se han descartado ' + bad + ' registros dañados.' : ''),
+    ok: true, roster, custom, encounters, combat, pdfs, book,
+    message: 'Importado: ' + goodR.length + ' jugadores, ' + goodM.length + ' criaturas y ' + goodE.length + ' encuentros' + (goodB.length ? ', y ' + goodB.length + ' criaturas de tu Manual de Monstruos' : '') + ', fusionados con los tuyos' + extra + '.' + (bad + inB.length - goodB.length ? ' Se han descartado ' + (bad + inB.length - goodB.length) + ' registros dañados.' : ''),
   };
 }
