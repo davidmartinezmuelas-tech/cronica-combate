@@ -87,6 +87,7 @@ input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:#d4a94f}
 .stat-v{font-family:'Alegreya',Georgia,serif;font-weight:600;font-variant-numeric:lining-nums;font-feature-settings:'lnum' 1;font-size:32px;line-height:1;color:#f3e6c8}
 .stat-of{font-size:20px;color:#b2a691}
 .stat-tmp{font-family:'Alegreya Sans',sans-serif;font-size:14px;font-weight:800;color:#9cc4e4}
+.stat-chip{align-self:flex-start;padding:2px 8px;font-size:12px}
 .stat-input{font-family:'Alegreya',Georgia,serif;font-weight:600;font-feature-settings:'lnum' 1;font-size:24px;padding:2px 8px;min-height:36px;background:transparent;border-color:#524031}
 .def-note{margin:0;font-size:14px;color:#c6bba6}
 .res-row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
@@ -536,6 +537,9 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-attack{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:6px 10px;border:1px solid #524031;border-radius:6px;background:#31271d;min-height:var(--card-act);box-sizing:border-box}
 /* cada arma en su tarjeta, varias por fila */
 .pc-attacks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:stretch;gap:6px}
+.pc-onhit{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:stretch;gap:6px;margin-top:10px}
+.pc-onhit>.eyebrow{grid-column:1/-1}
+.smite-pick{display:inline-flex;align-items:center;gap:6px;font-weight:700}
 /* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
 .pc-duo{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch}
 /* un panel que se queda solo en su fila crece hasta ocupar el ancho; los de muchas tarjetas, a todo el ancho y detrás */

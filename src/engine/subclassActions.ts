@@ -145,6 +145,18 @@ export const KITS: SubclassKit[] = [
     ],
   },
   {
+    id: 'archfey', cls: 'warlock', subs: ['Patrón feérico', 'Patrón archifeérico', 'Archfey Patron'], title: 'Pasos feéricos',
+    res: { key: 'Pasos feéricos', n: 'Paso brumoso sin espacio', per: 'lr', count: { abil: 'cha' }, die: {}, dc: ['cha'] },
+    actions: [
+      { n: ['Pasos feéricos', 'Steps of the Fey'], lv: 3, roll: { kind: 'spend', label: 'Lanzar paso brumoso gratis' }, note: 'Acción adicional. Al lanzarlo puedes elegir uno de sus efectos.' },
+      { n: ['Paso refrescante', 'Refreshing Step'], lv: 3, roll: { kind: 'roll', expr: '1d10' }, note: 'PG temporales para ti o una criatura que veas a 3 m.' },
+      { n: ['Paso burlón', 'Taunting Step'], lv: 3, roll: { kind: 'info' }, save: { abil: 'wis', dc: 'spell' }, note: 'Las criaturas a 1,5 m del espacio que dejas: si fallan, desventaja al atacar a otros que no seas tú.' },
+      { n: ['Escape brumoso', 'Misty Escape'], lv: 6, roll: { kind: 'spend', label: 'Paso brumoso como reacción' }, note: 'Como reacción al recibir daño.' },
+      { n: ['Paso aterrador', 'Dreadful Step'], lv: 6, roll: { kind: 'roll', expr: '2d10', type: 'psíquico' }, save: { abil: 'wis', dc: 'spell' } },
+      { n: ['Paso desvanecedor', 'Disappearing Step'], lv: 6, roll: { kind: 'info' }, note: 'Invisible hasta el principio de tu siguiente turno o hasta que ataques, hagas daño o lances un conjuro.' },
+    ],
+  },
+  {
     id: 'fiend', cls: 'warlock', subs: ['Patrón infernal', 'Fiend Patron'], title: 'Patrón infernal',
     actions: [
       { n: ['Bendición del oscuro'], lv: 3, roll: { kind: 'temp', plus: 'cha' }, note: 'Al reducir a 0 PG a un enemigo (o si otro lo hace a 3 m de ti).' },

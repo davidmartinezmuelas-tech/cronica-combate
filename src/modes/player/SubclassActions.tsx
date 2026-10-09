@@ -21,6 +21,8 @@ export function choiceResources(c: Character, data: PlayerData | null, lib: Libr
 export function actionPanelKeys(c: Character, data: PlayerData | null, lib: LibraryData): string[] {
   return [
     ...activeKits(c).flatMap((k) => (k.kit.res ? [k.kit.res.key] : [])),
+    // los rasgos que ya tienen su tarjeta con usos en el panel (Venganza ardiente, Pasos feéricos…)
+    ...activeKits(c).flatMap((k) => k.actions.flatMap((a) => a.n)),
     ...resolveChoices(c, data, lib).filter((r) => r.def.res && r.picked.length).map((r) => r.def.res!.key),
   ];
 }

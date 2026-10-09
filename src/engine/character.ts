@@ -272,6 +272,11 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     ac = 10 + mods.dex + mods.cha;
     acNote = 'Resiliencia dracónica';
   }
+  // Armadura de sombras (invocación de brujo): Armadura de mago a voluntad, 13 + Destreza sin armadura
+  if (!worn && (c.choices?.['warlock.invocations'] || []).some((x) => norm(x) === 'armadura de sombras') && 13 + mods.dex > ac) {
+    ac = 13 + mods.dex;
+    acNote = 'Armadura de mago (Armadura de sombras)';
+  }
   if (c.shield) { ac += 2 + (c.shieldBonus || 0); acNote += ' y escudo' + (c.shieldBonus ? ' +' + c.shieldBonus : ''); }
 
   const hdDie = cls?.hd || 8;

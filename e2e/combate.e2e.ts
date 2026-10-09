@@ -1218,3 +1218,62 @@ test('subir de nivel: elecciones de clase o subclase y cambiar un conjuro', asyn
   await expect(sp).toContainText(added);
   await expect(page.getByRole('button', { name: /^Golpe divino/ })).toBeVisible();
 });
+
+test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  const make = async (name: string, cls: string, lv: string, sub: string) => {
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    await page.getByLabel('Nombre del personaje').fill(name);
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
+    await page.getByLabel('Nivel', { exact: true }).fill(lv);
+    await page.getByLabel(/^Subclase/).selectOption({ label: sub });
+    await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  };
+
+  // paladín 5 con espada larga: escudo en mitad del combate y Castigo divino en el golpe
+  await make('Aldo', 'Paladín', '5', 'Juramento de devoción');
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const ac = page.locator('.pc-stats .stat', { hasText: 'CA' }).first();
+  const acBefore = Number(await ac.locator('.stat-v').textContent());
+  await ac.getByRole('button', { name: 'Escudo +2' }).click();
+  await expect(ac.locator('.stat-v')).toHaveText(String(acBefore + 2));
+  await ac.getByRole('button', { name: 'Escudo +2' }).click();
+  await expect(ac.locator('.stat-v')).toHaveText(String(acBefore));
+
+  const atk = page.locator('section[aria-label="Ataques"]');
+  // Castigo del paladín: gratis una vez; luego con espacios de nivel 1 o 2
+  const pick = atk.getByLabel('Espacio del castigo divino');
+  await expect(pick.locator('option')).toHaveText(['Gratis (nivel 1) · 2d8', 'Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
+  const sword = atk.locator('.pc-attack', { hasText: 'Espada larga' });
+  await sword.getByRole('button', { name: 'Daño + castigo divino +2d8' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('castigo divino gratis');
+  await expect(pick.locator('option')).toHaveText(['Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
+  await pick.selectOption({ label: 'Nivel 2 · 3d8' });
+  await sword.getByRole('button', { name: 'Daño + castigo divino +3d8' }).click();
+  await expect(page.locator('.plaque-label')).toContainText('castigo divino nivel 2');
+  // también en «Al acertar», y Castigo del paladín con su círculo gastado
+  await expect(atk.locator('.pc-onhit')).toContainText('Castigo Divino');
+
+  // brujo 5: invocaciones con requisitos y sus efectos
+  await make('Nera', 'Brujo', '5', 'Patrón infernal');
+  const inv = page.locator('details.picker', { hasText: 'Invocaciones arcanas' });
+  await inv.locator(':scope > summary').click();
+  await expect(inv.getByRole('button', { name: 'Hoja sedienta', exact: true })).toHaveCount(0);
+  await inv.getByRole('button', { name: 'Pacto de la hoja', exact: true }).click();
+  await expect(inv.getByRole('button', { name: 'Hoja sedienta', exact: true })).toBeVisible();
+  await expect(inv.getByRole('button', { name: 'Hoja devoradora', exact: true })).toHaveCount(0); // nivel 12
+  for (const n of ['Ráfaga agónica', 'Armadura de sombras', 'Castigo arcano']) await inv.getByRole('button', { name: n, exact: true }).click();
+  await expect(inv.locator(':scope > summary')).toContainText('(4 de 5)');
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByLabel(/^Buscar conjuro/).fill('descarga sobrenatural');
+  await page.locator('.ce-spell-results .chip').first().click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.locator('.pc-stats .stat', { hasText: 'CA' }).first()).toContainText('Armadura de sombras');
+  const blast = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Descarga sobrenatural' });
+  await expect(blast.getByRole('button', { name: /^Daño 1d10\+\d fuerza/ })).toBeVisible();
+  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: 'Daño + castigo arcano +4d8' })).toBeVisible();
+  await expect(page.locator('.pc-features .card', { hasText: 'Ráfaga agónica' }).first()).toBeVisible();
+});

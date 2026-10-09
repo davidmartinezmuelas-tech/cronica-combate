@@ -103,7 +103,11 @@ export interface PlayerData {
   feats: FeatData[];
   weapons: WeaponData[];
   armor: ArmorData[];
+  /** Opciones de invocaciones sobrenaturales del brujo (SRD): nivel de brujo mínimo, invocación que exigen, si se repiten. */
+  invocations?: InvocationData[];
 }
+
+export interface InvocationData { id: string; n: string; en: string; lv: number; d: string; req?: string; need?: string; rep?: 1 }
 
 /** Característica de cada habilidad (reglas 2024). */
 export const SKILL_ABIL: Record<string, Abil> = {

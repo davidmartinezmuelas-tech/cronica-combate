@@ -4,6 +4,7 @@ import type { Character, Derived } from '../../engine/character';
 import { fmt } from '../../engine/dice';
 import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
+import { hasInvocation } from '../../engine/subclassChoices';
 import { useRoom } from '../../store/room';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
@@ -35,10 +36,12 @@ export default function SpellRolls({ c, d, s, set }: { c: Character; d: Derived;
   const mod = caster ? d.mods[caster.abil] : 0;
   // Lanzamiento de conjuros potente (clérigo o druida de nivel 7): + Sabiduría al daño de sus trucos
   const potent = base === 0 && [c.choices?.['cleric.blessed']?.[0], c.choices?.['druid.fury']?.[0]].includes('Lanzamiento de conjuros potente');
+  // Ráfaga agónica (invocación de brujo): + Carisma al daño de sus trucos de brujo
+  const agonizing = base === 0 && hasInvocation(c, 'Ráfaga agónica') && !!data?.classes.find((k) => k.id === 'warlock')?.spells.includes(s.id);
   // sin tirada (Escudo, Detectar magia…): solo «Lanzar»
   const none = { attack: null, save: null, half: false, damage: null, heal: null, count: 1, cantrip: null, upDice: '', upCount: false } as const;
   const rr = r || none;
-  const cast = spellCast(rr, base, lv, d.level, mod, potent);
+  const cast = spellCast(rr, base, lv, d.level, agonizing ? d.mods.cha : mod, potent || agonizing);
   const label = (what: string) => who + ' · ' + s.n + (lv > base ? ' (nivel ' + lv + ')' : '') + ': ' + what;
   // espacio que gasta «Lanzar»
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;

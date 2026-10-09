@@ -134,6 +134,40 @@ def traits(adv, kind):
     return grants, choices
 
 
+# requisitos de las invocaciones (además del nivel de brujo)
+REQ_ES = {
+    'Warlock Cantrip That Deals Damage': 'un truco de brujo que haga daño',
+    'Warlock Cantrip That Deals Damage via an Attack': 'un truco de brujo que haga daño con una tirada de ataque',
+    'Pact of the Blade Invocation': 'la invocación Pacto de la hoja',
+}
+
+
+def build_invocations(packs, tr):
+    """Opciones de invocaciones sobrenaturales del brujo: nombre, nivel de brujo mínimo, requisito, si se repite y texto."""
+    out = []
+    for p in sorted(glob.glob(os.path.join(packs, 'classes24', 'warlock', 'eldritch-invocation-options', '*.yml'))):
+        if os.path.basename(p).startswith('_'):
+            continue
+        d = load(p)
+        s = d['system']
+        desc = es(tr, d, 'd')
+        if not desc.strip():
+            continue  # «Libro de las sombras» es parte de Pacto del tomo, sin texto propio
+        pre = s.get('prerequisites') or {}
+        row = {'id': s.get('identifier') or re.sub(r'[^a-z0-9]+', '-', d['name'].lower()).strip('-'), 'n': es(tr, d), 'en': d['name'], 'lv': pre.get('level') or 1, 'd': desc}
+        if s.get('requirements'):
+            row['req'] = REQ_ES.get(s['requirements'], s['requirements'])
+        if pre.get('repeatable'):
+            row['rep'] = 1
+        # «Requisito: Brujo de nivel 5+, invocación Pacto de la hoja»: la invocación que hace falta tener
+        need = re.search(r'Requisito:[^\n]*invocaci[oó]n ([^\n,.]+)', desc)
+        if need:
+            row['need'] = need.group(1).strip()
+        out.append(row)
+    out.sort(key=lambda r: (r['lv'], r['n']))
+    return out
+
+
 def build_classes(packs, tr, items):
     out = []
     for p in sorted(glob.glob(os.path.join(packs, 'classes24', '*', '*.yml'))):
@@ -292,6 +326,7 @@ def main(tr_dir, packs, out_path):
         'feats': feats,
         'weapons': build_weapons(packs, tr_eq),
         'armor': build_armor(packs, tr_eq),
+        'invocations': build_invocations(packs, tr_cls),
     }
     json.dump(data, open(out_path, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
     print({k: len(v) for k, v in data.items() if isinstance(v, list)}, os.path.getsize(out_path) // 1024, 'KB')

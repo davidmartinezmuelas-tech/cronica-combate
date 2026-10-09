@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { PlayerData } from '../../data/player';
 import type { Character } from '../../engine/character';
-import { activeChoices, choiceCount, choiceOptions, spellOptions, subclassText, type ChoiceDef, type ChoiceOption } from '../../engine/subclassChoices';
+import { activeChoices, choiceCount, choiceOptions, invocationOptions, spellOptions, subclassText, type ChoiceDef, type ChoiceOption } from '../../engine/subclassChoices';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import type { LibraryData } from '../../store/library';
@@ -21,8 +21,10 @@ export function resolveChoices(c: Character, data: PlayerData | null, lib: Libra
   const src = subclassText(c, cls, lib.subclasses);
   return activeChoices(c).map((def) => {
     const n = choiceCount(def, c.level);
-    const options = 'spells' in def.from ? spellOptions(def.from.spells, c.level, data, spells) : choiceOptions(def, src, data, cls);
-    return { def, n, options, picked: (c.choices?.[def.id] || []).slice(0, n) };
+    const picked = (c.choices?.[def.id] || []).slice(0, n);
+    const all = 'spells' in def.from ? spellOptions(def.from.spells, c.level, data, spells) : choiceOptions(def, src, data, cls);
+    const options = 'invocations' in def.from ? invocationOptions(all, data, c.level, picked) : all;
+    return { def, n, options, picked };
   });
 }
 
@@ -35,7 +37,7 @@ export function choiceSpells(c: Character): { id: string; prepared: boolean }[] 
 export function choiceRows(rs: ResolvedChoice[]): { key: string; n: string; d: string; src: string }[] {
   return rs.flatMap(({ def, options, picked }) => {
     if (!picked.length || 'spells' in def.from) return [];
-    if ('section' in def.from || 'feature' in def.from) {
+    if ('section' in def.from || 'feature' in def.from || 'invocations' in def.from) {
       return picked.map((p) => ({ key: def.id + ':' + p, n: p, d: options.find((o) => o.n === p)?.d || '', src: def.label }));
     }
     const names = picked.map((p) => { const o = options.find((x) => x.n === p); return o ? shown(def, o) : p; });

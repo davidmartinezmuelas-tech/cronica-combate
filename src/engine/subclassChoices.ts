@@ -18,6 +18,7 @@ export type ChoiceFrom =
   | { feature: string[] } // las opciones que describe un rasgo de la subclase («**Nombre.** texto»)
   | { section: string } // un apartado de opciones del libro («Opciones de maniobras»)
   | { text: true } // texto libre
+  | { invocations: true } // invocaciones sobrenaturales del brujo (SRD), con su nivel y la invocación que exigen
   | { spells: { classes: string[]; school?: string; minLevel: number } }; // conjuros de esas listas (y escuela), hasta el nivel que puede lanzar
 
 export interface ChoiceDef {
@@ -53,6 +54,7 @@ export const CHOICES: ChoiceDef[] = [
   { id: 'lore.discoveries', cls: 'bard', subs: ['Colegio del conocimiento', 'Colegio del Saber', 'College of Lore'], label: 'Descubrimientos mágicos', at: { 6: 2 }, prepared: true, from: { spells: { classes: ['cleric', 'druid', 'wizard'], minLevel: 0 } } },
   { id: 'cleric.blessed', cls: 'cleric', subs: [], label: 'Golpes benditos', at: { 7: 1 }, from: { list: ['Golpe divino', 'Lanzamiento de conjuros potente'] } },
   { id: 'druid.fury', cls: 'druid', subs: [], label: 'Furia elemental', at: { 7: 1 }, from: { list: ['Golpe primordial', 'Lanzamiento de conjuros potente'] } },
+  { id: 'warlock.invocations', cls: 'warlock', subs: [], label: 'Invocaciones arcanas', at: { 1: 1, 2: 3, 5: 5, 7: 6, 9: 7, 12: 8, 15: 9, 18: 10 }, from: { invocations: true } },
   { id: 'fiend.resistance', cls: 'warlock', subs: ['Patrón infernal', 'Fiend Patron'], label: 'Resistencia infernal', at: { 10: 1 }, rest: 'sr', from: { list: DAMAGE.filter((t) => t !== 'fuerza') } },
 ];
 
@@ -112,6 +114,7 @@ export function optionItems(text: string): ChoiceOption[] {
 export function choiceOptions(def: ChoiceDef, src: SubclassText | null, data: PlayerData | null, cls: ClassData | undefined): ChoiceOption[] {
   const f = def.from;
   if ('list' in f) return f.list.map((n) => ({ n, d: '' }));
+  if ('invocations' in f) return (data?.invocations || []).map((i) => ({ n: i.n, d: (i.lv > 1 || i.req || i.need ? 'Requisito: brujo de nivel ' + i.lv + (i.req ? ', ' + i.req : '') + (i.need && !i.req ? ', invocación ' + i.need : '') + '. ' : '') + i.d.replace(/^Requisito:[^\n]*\n+/, '') }));
   if ('skills' in f) {
     const keys = f.skills === 'class' && cls && !cls.skills.pool.includes('*') ? cls.skills.pool : Object.keys(data?.skills || {});
     return keys.map((k) => ({ n: k, d: data?.skills[k] || k })).sort((a, b) => a.d.localeCompare(b.d, 'es'));
@@ -126,6 +129,23 @@ export function choiceOptions(def: ChoiceDef, src: SubclassText | null, data: Pl
   }
   return [];
 }
+
+/**
+ * Invocaciones que puede elegir a su nivel de brujo: las de su nivel o menos y, si exigen otra invocación (Hoja
+ * sedienta exige Pacto de la hoja), solo si ya la tiene. Las ya elegidas se quedan aunque dejen de cumplirse.
+ */
+export function invocationOptions(options: ChoiceOption[], data: PlayerData | null, level: number, picked: string[]): ChoiceOption[] {
+  const byName = new Map((data?.invocations || []).map((i) => [i.n, i]));
+  return options.filter((o) => {
+    if (picked.includes(o.n)) return true;
+    const i = byName.get(o.n);
+    return !!i && i.lv <= level && (!i.need || picked.some((p) => norm(p) === norm(i.need!)));
+  });
+}
+
+/** Invocaciones elegidas por el brujo (a su nivel de brujo). */
+export const invocationsOf = (c: Pick<Character, 'choices'>) => c.choices?.['warlock.invocations'] || [];
+export const hasInvocation = (c: Pick<Character, 'choices'>, name: string) => invocationsOf(c).some((x) => norm(x) === norm(name));
 
 /** Nivel de conjuro más alto que puede lanzar un lanzador completo de ese nivel. */
 export const fullCasterMaxSpell = (level: number) => Math.min(9, Math.ceil(Math.max(1, level) / 2));
