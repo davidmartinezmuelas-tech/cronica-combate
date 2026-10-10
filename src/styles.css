@@ -1017,3 +1017,19 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .lvl-feats details{background:#ecdfc4;border-color:#b39c74}
 .paper .lvl-new{color:#8a5a0e}
 .spell-swap{display:flex;flex-direction:column;gap:8px}.swap-add{max-height:200px;overflow-y:auto}
+
+/* hoja en pergamino: tres tonos (panel > bloque más oscuro > filas claras) y un color por grupo en su franja y su título */
+.paper .pc-abil{background:#d8c49b;border-color:#a88c5e}
+.paper .pc-abil .pc-skill,.paper .pc-block .card,.paper .pc-abil-mod,.paper .pc-abil-score,.paper .pc-insp,.paper .pc-abil .input{background:#f6efe0;border-color:#c2ab80}
+.paper .pc-abil .pc-skill.pc-save{background:#fbf6ea;border-bottom-color:#a88c5e}
+.paper .pc-block .sp-row.open{background:#fffaf0;border-color:#a0865c}
+.paper .pc-abil[data-abil],.paper .pc-block{--grp:#8a2a1c;box-shadow:inset 4px 0 0 var(--grp)}
+.paper .pc-abil[data-abil] .pc-abil-k,.paper .pc-block .pc-abil-k{color:var(--grp)}
+.paper .pc-abil[data-abil=str]{--grp:#9b2c22}
+.paper .pc-abil[data-abil=dex]{--grp:#3f6b34}
+.paper .pc-abil[data-abil=con]{--grp:#a8611c}
+.paper .pc-abil[data-abil=int]{--grp:#2c5a85}
+.paper .pc-abil[data-abil=wis]{--grp:#2f6f6a}
+.paper .pc-abil[data-abil=cha]{--grp:#6d3a7a}
+.paper .pc-block-sp{--grp:#5a4a8a}
+.paper .pc-block-ft{--grp:#8a5a0e}

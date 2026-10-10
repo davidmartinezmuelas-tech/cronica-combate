@@ -464,7 +464,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   );
   // un bloque de conjuros (un nivel) y uno de rasgos (un origen); y su rejilla de columnas
   const spellBlock = ({ key, title, first, l, list }: (typeof spParts)[number]) => (
-    <div key={key} className="pc-abil pc-block" role="group" aria-label={l ? 'Conjuros de nivel ' + l : 'Trucos'}>
+    <div key={key} className="pc-abil pc-block pc-block-sp" role="group" aria-label={l ? 'Conjuros de nivel ' + l : 'Trucos'}>
       <div className="pc-block-head">
         <span className="pc-abil-k">{title}</span>
         {first && l > 0 && (d.slots[l - 1] || 0) > 0 && <Pips max={d.slots[l - 1]} used={Math.min(d.slots[l - 1], c.slotsUsed[l - 1] || 0)} label={'Espacios de nivel ' + l} onSet={(v) => { const u = c.slotsUsed.slice(); u[l - 1] = Math.max(0, Math.min(d.slots[l - 1], v)); set({ slotsUsed: u }); }} />}
@@ -499,7 +499,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     </div>
   );
   const featBlock = ({ key, title, list }: (typeof ftParts)[number]) => (
-    <div key={key} className="pc-abil pc-block" role="group" aria-label={title}>
+    <div key={key} className="pc-abil pc-block pc-block-ft" role="group" aria-label={title}>
       <span className="pc-abil-k">{title}</span>
       <ul className="pc-features ft-list">
         {list.map((f) => {
@@ -630,7 +630,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             {/* como en la hoja oficial: el bonificador por competencia arriba de la primera columna */}
             {ci === 0 && <div className="pc-abil pc-pb"><span className="pc-abil-k">Bonificador por competencia</span><b>{fmt(d.pb)}</b></div>}
             {col.map((a) => (
-            <div key={a} className="pc-abil">
+            <div key={a} className="pc-abil" data-abil={a}>
               <div className="pc-abil-head">
                 <span className="pc-abil-k">{ABIL_N[a]} <span className="pc-abil-s">{ABIL_S[a]}</span></span>
                 <button className="pc-abil-mod" title={'Prueba de ' + ABIL_N[a] + (d.checks[a].adv ? ' con ventaja (' + d.checks[a].adv + ')' : '')} onClick={() => r('prueba de ' + ABIL_N[a], 'check', d20(d.checks[a].bonus), d.checks[a].adv ? { adv: d.checks[a].adv } : {})}>
