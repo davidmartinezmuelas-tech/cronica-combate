@@ -190,6 +190,9 @@ button.pip::after{content:'';position:absolute;inset:-6px;border-radius:50%}
 .dc-chip{font-family:'Alegreya Sans',sans-serif;font-weight:800;font-size:13px;color:#423427;background:#e2cfa5;border-radius:6px;padding:6px 10px}
 .rc{font-family:'Alegreya Sans',sans-serif;font-weight:800;font-size:13px;border-radius:6px;padding:6px 10px;min-height:36px;border:1px solid #2f5a2a;background:#dbe8cf;color:#1f3d1b}
 .rc.spent{border-color:#7a1f14;background:#f0d2c8;color:#7a1f14}
+button.sb-tag-roll{background:#f0d2c8;cursor:pointer;line-height:inherit}
+button.sb-tag-roll:hover:not(:disabled){background:#7a1f14;color:#f6e3b0}
+button.sb-tag-roll:disabled{background:transparent;cursor:default;opacity:.75}
 .sp-group{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:4px 0}
 .sp-label{font-family:'Alegreya Sans',sans-serif;font-weight:800;font-size:13px;color:#7a1f14;min-width:92px}
 .spell{font-family:'Alegreya',Georgia,serif;font-style:italic;font-size:15px;border:1px solid #c0b093;background:#f8f0dc;color:#423427;border-radius:6px;padding:3px 9px;min-height:32px;display:inline-flex;align-items:center;gap:6px}

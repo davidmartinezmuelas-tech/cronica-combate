@@ -61,6 +61,8 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
     combatants: [], round: 1, activeId: null, started: false, turnEvents: [],
     selId: null, concPrompts: [], surprised: false, initAsk: null, tourOpen: false, amount: '', dmgType: '', condRounds: '', condAt: 'start', condBy: '', initDraft: null,
 
+    rechargeRoll(id, key, name, min) { rollRecharge(id, [{ key, name, min }]); },
+
     patchC(id, patch, label) {
       get().snap(label || 'cambio en combatiente');
       set({ combatants: get().combatants.map((c) => (c.id === id ? { ...c, ...(typeof patch === 'function' ? patch(c) : patch) } : c)) });

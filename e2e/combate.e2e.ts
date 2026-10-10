@@ -1615,3 +1615,16 @@ test('copia de seguridad desde la cabecera, en cualquier pestaña', async ({ pag
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
   await expect(page.locator('.group-panel').getByRole('button', { name: 'Descargar copia' })).toHaveCount(0);
 });
+
+test('recarga: la etiqueta tira el d6 cuando la habilidad está gastada', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'ankheg', 'Ankheg', 1);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.locator('.init-row', { hasText: 'Ankheg' }).first().click();
+  const tag = page.locator('.statblock').getByRole('button', { name: 'Recarga 6' });
+  await expect(tag).toBeDisabled();
+  await page.locator('.statblock').getByRole('button', { name: 'Disponible' }).click();
+  await expect(tag).toBeEnabled();
+  await tag.click();
+  await expect(page.locator('.plaque-label')).toContainText('Recarga · Ankheg', { timeout: 15000 });
+});

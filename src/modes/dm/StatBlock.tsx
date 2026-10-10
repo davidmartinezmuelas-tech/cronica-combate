@@ -48,7 +48,7 @@ function SpellList({ f, c, who }: { f: Feature; c: Combatant | null; who: string
 }
 
 function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKey; f: Feature; i: number; who: string }) {
-  const { roll, setSpent, setUsed, useLeg, useLR } = useStore.getState();
+  const { roll, setSpent, setUsed, useLeg, useLR, rechargeRoll } = useStore.getState();
   const key = sec + i;
   let tag = '';
   if (f.rc) tag = f.rc === 6 ? 'Recarga 6' : 'Recarga ' + f.rc + '–6';
@@ -64,7 +64,10 @@ function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKe
   return (
     <div className="sb-action">
       <p className="sb-desc">
-        <strong><em>{f.n}</em></strong>{tag && <span className="sb-tag">{tag}</span>}{f.en && <span className="en-note">texto original en inglés</span>}. {f.d}
+        <strong><em>{f.n}</em></strong>{tag && (c && f.rc
+          // en combate, la etiqueta de recarga tira el d6 (solo si está gastada)
+          ? <button className="sb-tag sb-tag-roll" disabled={!spent} title={spent ? 'Tirar 1d6: con ' + f.rc + ' o más se recarga' : 'Disponible: no hace falta recargar'} onClick={() => rechargeRoll(c.id, key, f.n, f.rc!)}>{tag}</button>
+          : <span className="sb-tag">{tag}</span>)}{f.en && <span className="en-note">texto original en inglés</span>}. {f.d}
       </p>
       {f.sp && <SpellList f={f} c={c} who={who} />}
       <div className="rollrow">

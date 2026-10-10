@@ -88,6 +88,8 @@ export interface CombatSlice {
   addAllPcs: () => void;
   addLairCombatant: () => void;
   removeCombatant: (id: string) => void;
+  /** Tira 1d6 para recargar una habilidad gastada («Recarga 5–6»): con `min` o más vuelve a estar disponible. */
+  rechargeRoll: (id: string, key: string, name: string, min: number) => void;
   startCombat: () => void;
   step: (dir: 1 | -1) => void;
   endCombat: () => void;
