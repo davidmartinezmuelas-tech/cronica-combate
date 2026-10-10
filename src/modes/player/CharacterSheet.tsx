@@ -48,17 +48,17 @@ function splitCols<T>(items: T[], weight: (x: T) => number, n: number): T[][] {
   return cols;
 }
 
-/** Trocea los grupos demasiado largos para una columna (siguen en la de al lado, «(cont.)») y los reparte en n columnas. */
-function blockCols<T>(groups: { title: string; list: T[] }[], n: number) {
-  const total = groups.reduce((a, g) => a + g.list.length, 0);
-  const max = Math.max(8, Math.ceil(total / n));
-  const parts = groups.flatMap((g) => {
+/** Trocea los grupos de más de `max` filas en trozos parecidos; los siguientes llevan «(cont.)» en el título. */
+function chunkGroups<G extends { title: string; list: unknown[] }>(groups: G[], max: number): (G & { key: string; first: boolean })[] {
+  return groups.flatMap((g) => {
     const pieces = Math.max(1, Math.ceil(g.list.length / max));
-    const size = Math.ceil(g.list.length / pieces);
-    return Array.from({ length: pieces }, (_, i) => ({ key: g.title + i, title: g.title + (i ? ' (cont.)' : ''), first: i === 0, list: g.list.slice(i * size, (i + 1) * size) }));
+    const size = Math.max(1, Math.ceil(g.list.length / pieces));
+    return Array.from({ length: pieces }, (_, i) => ({ ...g, key: g.title + i, title: g.title + (i ? ' (cont.)' : ''), first: i === 0, list: g.list.slice(i * size, (i + 1) * size) }));
   });
-  return splitCols(parts, (x) => 1.5 + x.list.length, n);
 }
+
+/** Peso (alto aproximado, en filas) de un bloque: su cabecera y una fila por elemento. */
+const blockW = (x: { list: unknown[] }) => 1.6 + x.list.length;
 
 /** Rasgos que tiene a su nivel: de clase, de subclase, de especie y dotes, con sus usos. */
 function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): FeatureRow[] {
@@ -151,12 +151,12 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const [spOpen, setSpOpen] = useState<string | null>(null);
   const [spText, setSpText] = useState<string | null>(null);
   // conjuros y rasgos van en bloques repartidos en columnas, según el ancho
-  const lowRef = useRef<HTMLElement>(null);
-  const [lowCols, setLowCols] = useState(1);
+  const lowRef = useRef<HTMLDivElement>(null);
+  const [lowW, setLowW] = useState(0);
   useEffect(() => {
     const el = lowRef.current;
     if (!el || typeof ResizeObserver !== 'function') return;
-    const ro = new ResizeObserver(() => { const w = el.clientWidth; setLowCols(w >= 900 ? 3 : w >= 600 ? 2 : 1); });
+    const ro = new ResizeObserver(() => setLowW(el.clientWidth));
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -356,6 +356,34 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const spBlocks = [...new Set([...spellShown.map((x) => x.s!.l || 0), ...d.slots.map((n, i) => (n > 0 ? i + 1 : -1)).filter((l) => l > 0)])]
     .sort((a, b) => a - b).map((l) => ({ l, title: l ? 'Nivel ' + l : 'Trucos', list: spellShown.filter((x) => (x.s!.l || 0) === l) }));
   const spTextOf = spText ? spellList.find((x) => x.k === spText) : undefined;
+  // abajo: conjuros a la izquierda y rasgos a la derecha. En dos columnas, si una es mucho más larga, sus últimos bloques
+  // siguen al final de la otra («Conjuros (cont.)» bajo los rasgos o «Rasgos y dotes (cont.)» bajo los conjuros) para que acaben a la par
+  const hasSpells = !!(d.spell || spellList.length > 0);
+  const twoLow = hasSpells && lowW >= 1000;
+  const lowN = twoLow ? 1 : lowW >= 900 ? 3 : lowW >= 600 ? 2 : 1;
+  // a todo el ancho, los grupos se trocean para llenar todas las columnas; en dos columnas, de 8 en 8
+  const chunkMax = (g: { list: unknown[] }[]) => (twoLow ? 8 : Math.max(4, Math.ceil(g.reduce((a, x) => a + x.list.length, 0) / lowN)));
+  const spParts = chunkGroups(spBlocks, chunkMax(spBlocks));
+  const ftParts = chunkGroups(featGroups, chunkMax(featGroups));
+  const sumW = (a: { list: unknown[] }[]) => a.reduce((x, b) => x + blockW(b), 0);
+  let spKeep = spParts.length;
+  let ftKeep = ftParts.length;
+  if (twoLow) {
+    const spHead = 2 + (d.casters.length > 1 ? 1.3 * d.casters.length : 0) + (d.pact ? 1 : 0) + (spClasses.length > 1 ? 1.2 : 0);
+    const ftHead = 1.2;
+    const base = Math.max(spHead + sumW(spParts), ftHead + sumW(ftParts));
+    let best = base;
+    let pick: [number, number] = [spKeep, ftKeep];
+    for (let k = 1; k < spParts.length; k++) {
+      const m = Math.max(spHead + sumW(spParts.slice(0, k)), ftHead + sumW(ftParts) + 1.4 + sumW(spParts.slice(k)));
+      if (m < best) { best = m; pick = [k, ftParts.length]; }
+    }
+    for (let k = 1; k < ftParts.length; k++) {
+      const m = Math.max(spHead + sumW(spParts) + 1.4 + sumW(ftParts.slice(k)), ftHead + sumW(ftParts.slice(0, k)));
+      if (m < best) { best = m; pick = [spParts.length, k]; }
+    }
+    if (base - best > 1.5) [spKeep, ftKeep] = pick;
+  }
   const freeSmite = features.find((f) => f.key === 'Castigo del paladín' && f.max);
   // conjuros que, mientras duran, suman en cada golpe con arma: se activan como etiquetas en «Ataques»
   // (los del SRD por su nombre en inglés; los del libro del usuario, por el nombre en español)
@@ -409,13 +437,23 @@ export default function CharacterSheet({ c }: { c: Character }) {
   useEffect(() => {
     const l = leftRef.current, rr = rightRef.current, sp = splitRef.current;
     if (!l || !rr || !sp || typeof ResizeObserver !== 'function') return;
+    // alto de su contenido (el último panel de la columna sin notas se estira hasta abajo: se mide hasta su último hijo)
+    const natural = (el: HTMLElement) => {
+      const last = el.lastElementChild as HTMLElement | null;
+      const inner = last?.lastElementChild as HTMLElement | null;
+      if (!last || !inner) return el.offsetHeight;
+      const cs = getComputedStyle(last);
+      return inner.getBoundingClientRect().bottom - el.getBoundingClientRect().top + parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
+    };
     const place = () => {
       const twoCols = getComputedStyle(sp).display === 'grid';
-      setNotesSide(twoCols && rr.offsetHeight < l.offsetHeight ? 'right' : 'left');
+      setNotesSide(twoCols && natural(rr) < natural(l) ? 'right' : 'left');
     };
     place();
     const ro = new ResizeObserver(place);
     ro.observe(l); ro.observe(rr); ro.observe(sp);
+    // también cada panel y su contenido: un panel estirado no cambia de alto aunque crezca lo de dentro
+    [l, rr].forEach((col) => [...col.children].forEach((pn) => { ro.observe(pn); if (pn.lastElementChild) ro.observe(pn.lastElementChild); }));
     return () => ro.disconnect();
   }, []);
   const notesPanel = (
@@ -423,6 +461,71 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <label className="eyebrow" htmlFor="pc-notes">Notas</label>
       <textarea id="pc-notes" className="input" value={c.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Equipo, objetivos, vínculos, lo que pasó la última sesión…" />
     </section>
+  );
+  // un bloque de conjuros (un nivel) y uno de rasgos (un origen); y su rejilla de columnas
+  const spellBlock = ({ key, title, first, l, list }: (typeof spParts)[number]) => (
+    <div key={key} className="pc-abil pc-block" role="group" aria-label={l ? 'Conjuros de nivel ' + l : 'Trucos'}>
+      <div className="pc-block-head">
+        <span className="pc-abil-k">{title}</span>
+        {first && l > 0 && (d.slots[l - 1] || 0) > 0 && <Pips max={d.slots[l - 1]} used={Math.min(d.slots[l - 1], c.slotsUsed[l - 1] || 0)} label={'Espacios de nivel ' + l} onSet={(v) => { const u = c.slotsUsed.slice(); u[l - 1] = Math.max(0, Math.min(d.slots[l - 1], v)); set({ slotsUsed: u }); }} />}
+      </div>
+      {!list.length ? <span className="muted small">Ningún conjuro de este nivel{clsTab !== 'all' ? ' en esta clase' : ''}.</span> : (
+        <ul className="pc-features sp-list">
+          {list.map(({ k, s, sub }) => {
+            const open = spOpen === k;
+            const tag = sub ? (/libro/.test(sub) ? 'libro' : 'siempre') : '';
+            return (
+              <li key={k} className={open ? 'card sp-row open' : 'card sp-row'}>
+                {/* plegado: nombre y marcas; al pulsarlo, sus tiradas y «Lanzar» */}
+                <button className="sp-row-head" aria-expanded={open} title={open ? 'Plegar' : 'Desplegar para usarlo'} onClick={() => setSpOpen(open ? null : k)}>
+                  <span className="sp-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                  <b>{s!.n}</b>
+                  {!!s!.c && <span className="sp-mark" title="Concentración">C</span>}
+                  {!!s!.rit && <span className="sp-mark" title="Ritual">R</span>}
+                  {tag && <span className="chip-tag" title={sub}>{tag}</span>}
+                </button>
+                {open && (
+                  <div className="sp-row-body">
+                    <span className="muted small sp-row-meta">{[s!.ct, s!.r, s!.du].filter(Boolean).join(' · ')}{sub ? ' · ' + sub : ''}</span>
+                    <SpellRolls c={c} d={d} s={s!} set={set} />
+                    <button className="btn small ghost" aria-haspopup="dialog" onClick={() => setSpText(k)}>Ver texto</button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+  const featBlock = ({ key, title, list }: (typeof ftParts)[number]) => (
+    <div key={key} className="pc-abil pc-block" role="group" aria-label={title}>
+      <span className="pc-abil-k">{title}</span>
+      <ul className="pc-features ft-list">
+        {list.map((f) => {
+          const lv = / (\d+)$/.exec(f.src)?.[1];
+          const up = upKeys(f);
+          return (
+            <li key={f.src + f.key}>
+              {/* una línea por rasgo: al pulsar el nombre se abre su texto */}
+              <Card name={f.n} head={<>
+                {lv && <span className="ft-lv" title={'Nivel ' + lv}>{lv}</span>}
+                {up && <span className="chip-tag" title="Se usa desde su panel, más arriba">arriba</span>}
+                {f.max != null && !up && <Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />}
+              </>}>
+                <p className="muted small" style={{ margin: 0 }}>{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</p>
+                {f.d && <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((x, i) => (i % 2 ? <b key={i}>{x}</b> : plainText(x)))}</p>}
+              </Card>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+  const blockGrid = <T extends { list: unknown[] }>(parts: T[], render: (p: T) => JSX.Element, n: number) => (
+    <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + n + ', minmax(0, 1fr))' }}>
+      {splitCols(parts, blockW, n).map((col, ci) => <div key={ci} className="pc-block-col">{col.map(render)}</div>)}
+    </div>
   );
   // PX para el siguiente nivel; al alcanzarlos se resalta «Subir de nivel» (subir es a mano: hay que elegir)
   const xpNext = d.level < 20 ? XP_LEVELS[d.level] : null;
@@ -729,8 +832,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
       </div>
 
       {/* abajo, en dos columnas como arriba: conjuros a la izquierda y rasgos a la derecha */}
-      <div className="pc-low">
-      {(d.spell || spellList.length > 0) && (
+      <div className="pc-low" ref={lowRef}>
+      {hasSpells && (
+        <div className="pc-low-col">
         <section className="panel" aria-label="Conjuros">
           <div className="panel-head">
             <h3 className="eyebrow">Conjuros</h3>
@@ -750,49 +854,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </div>
           )}
           {!spellList.length && <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p>}
-          {spBlocks.length > 0 && (
-            <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + lowCols + ', minmax(0, 1fr))' }}>
-              {blockCols(spBlocks, lowCols).map((col, ci) => (
-                <div key={ci} className="pc-block-col">
-                  {col.map(({ key, title, first, list }) => { const l = list.length ? list[0].s!.l || 0 : spBlocks.find((b) => b.title === title)?.l || 0; return (
-                    <div key={key} className="pc-abil pc-block" role="group" aria-label={l ? 'Conjuros de nivel ' + l : 'Trucos'}>
-                      <div className="pc-block-head">
-                        <span className="pc-abil-k">{title}</span>
-                        {first && l > 0 && (d.slots[l - 1] || 0) > 0 && <Pips max={d.slots[l - 1]} used={Math.min(d.slots[l - 1], c.slotsUsed[l - 1] || 0)} label={'Espacios de nivel ' + l} onSet={(v) => { const u = c.slotsUsed.slice(); u[l - 1] = Math.max(0, Math.min(d.slots[l - 1], v)); set({ slotsUsed: u }); }} />}
-                      </div>
-                      {!list.length ? <span className="muted small">Ningún conjuro de este nivel{clsTab !== 'all' ? ' en esta clase' : ''}.</span> : (
-                        <ul className="pc-features sp-list">
-                          {list.map(({ k, s, sub }) => {
-                            const open = spOpen === k;
-                            const tag = sub ? (/libro/.test(sub) ? 'libro' : 'siempre') : '';
-                            return (
-                              <li key={k} className={open ? 'card sp-row open' : 'card sp-row'}>
-                                {/* plegado: nombre y marcas; al pulsarlo, sus tiradas y «Lanzar» */}
-                                <button className="sp-row-head" aria-expanded={open} title={open ? 'Plegar' : 'Desplegar para usarlo'} onClick={() => setSpOpen(open ? null : k)}>
-                                  <span className="sp-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
-                                  <b>{s!.n}</b>
-                                  {!!s!.c && <span className="sp-mark" title="Concentración">C</span>}
-                                  {!!s!.rit && <span className="sp-mark" title="Ritual">R</span>}
-                                  {tag && <span className="chip-tag" title={sub}>{tag}</span>}
-                                </button>
-                                {open && (
-                                  <div className="sp-row-body">
-                                    <span className="muted small sp-row-meta">{[s!.ct, s!.r, s!.du].filter(Boolean).join(' · ')}{sub ? ' · ' + sub : ''}</span>
-                                    <SpellRolls c={c} d={d} s={s!} set={set} />
-                                    <button className="btn small ghost" aria-haspopup="dialog" onClick={() => setSpText(k)}>Ver texto</button>
-                                  </div>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  ); })}
-                </div>
-              ))}
-            </div>
-          )}
+          {spKeep > 0 && blockGrid(spParts.slice(0, spKeep), spellBlock, lowN)}
           {spTextOf && (
             <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
               <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
@@ -802,45 +864,29 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </InfoDialog>
           )}
         </section>
+        {ftKeep < ftParts.length && (
+          <section className="panel" aria-label="Rasgos y dotes (cont.)">
+            <h3 className="eyebrow">Rasgos y dotes (cont.)</h3>
+            {blockGrid(ftParts.slice(ftKeep), featBlock, lowN)}
+          </section>
+        )}
+        </div>
       )}
 
-      <section className="panel" aria-label="Rasgos y dotes" data-tour="traits" ref={lowRef}>
+      <div className="pc-low-col">
+      <section className="panel" aria-label="Rasgos y dotes" data-tour="traits">
         <h3 className="eyebrow">Rasgos y dotes</h3>
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
-        {featGroups.length > 0 && (
-          <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + lowCols + ', minmax(0, 1fr))' }}>
-            {blockCols(featGroups, lowCols).map((col, ci) => (
-              <div key={ci} className="pc-block-col">
-                {col.map(({ key, title, list }) => (
-                  <div key={key} className="pc-abil pc-block" role="group" aria-label={title}>
-                    <span className="pc-abil-k">{title}</span>
-                    <ul className="pc-features ft-list">
-                      {list.map((f) => {
-                        const lv = / (\d+)$/.exec(f.src)?.[1];
-                        const up = upKeys(f);
-                        return (
-                          <li key={f.src + f.key}>
-                            {/* una línea por rasgo: al pulsar el nombre se abre su texto */}
-                            <Card name={f.n} head={<>
-                              {lv && <span className="ft-lv" title={'Nivel ' + lv}>{lv}</span>}
-                              {up && <span className="chip-tag" title="Se usa desde su panel, más arriba">arriba</span>}
-                              {f.max != null && !up && <Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />}
-                            </>}>
-                              <p className="muted small" style={{ margin: 0 }}>{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</p>
-                              {f.d && <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((x, i) => (i % 2 ? <b key={i}>{x}</b> : plainText(x)))}</p>}
-                            </Card>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
+        {ftKeep > 0 && blockGrid(ftParts.slice(0, ftKeep), featBlock, lowN)}
       </section>
+      {spKeep < spParts.length && (
+        <section className="panel" aria-label="Conjuros (cont.)">
+          <h3 className="eyebrow">Conjuros (cont.)</h3>
+          {blockGrid(spParts.slice(spKeep), spellBlock, lowN)}
+        </section>
+      )}
+      </div>
       </div>
     </div>
   );
