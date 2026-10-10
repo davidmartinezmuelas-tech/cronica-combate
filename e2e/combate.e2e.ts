@@ -1038,8 +1038,10 @@ test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ p
   await expect(page.locator('.pc-pb')).toContainText('+3');
   await expect(page.locator('.pc-stats')).toContainText('5d10 + 3d8');
   const sp = page.locator('section[aria-label="Conjuros"]');
-  await expect(sp).toContainText('(Paladín)');
-  await expect(sp).toContainText('(Brujo)');
+  // paladín y brujo lanzan con Carisma: una sola línea de CD y ataque de conjuro
+  await expect(sp.getByRole('button', { name: /^Ataque de conjuro/ })).toHaveCount(1);
+  await expect(sp).toContainText('Carisma');
+  await expect(sp).not.toContainText('(Paladín)');
   await expect(sp).toContainText('Magia de pacto (nivel 2)');
   // rasgos de las dos clases
   const traits = page.locator('section[aria-label="Rasgos y dotes"]');

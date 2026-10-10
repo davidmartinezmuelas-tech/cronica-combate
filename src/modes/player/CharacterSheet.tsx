@@ -359,6 +359,16 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // abajo: conjuros a la izquierda y rasgos a la derecha. En dos columnas, si una es mucho más larga, sus últimos bloques
   // siguen al final de la otra («Conjuros (cont.)» bajo los rasgos o «Rasgos y dotes (cont.)» bajo los conjuros) para que acaben a la par
   const hasSpells = !!(d.spell || spellList.length > 0);
+  // CD y ataque de conjuro: una línea por cada combinación distinta (si las clases comparten característica, sale una sola)
+  const castLines = d.casters.length > 1
+    ? d.casters.reduce<{ key: string; dc: number; abil: Abil; atk: number; names: string[] }[]>((a, x) => {
+      const k = x.abil + x.dc + '/' + x.atk;
+      const g = a.find((y) => y.key === k);
+      if (g) g.names.push(x.n); else a.push({ key: k, dc: x.dc, abil: x.abil, atk: x.atk, names: [x.n] });
+      return a;
+    }, [])
+    : d.spell ? [{ key: '', dc: d.spell.dc, abil: d.spell.abil, atk: d.spell.atk, names: [] as string[] }] : [];
+  const castNamed = castLines.length > 1;
   const twoLow = hasSpells && lowW >= 1000;
   const lowN = twoLow ? 1 : lowW >= 900 ? 3 : lowW >= 600 ? 2 : 1;
   // a todo el ancho, los grupos se trocean para llenar todas las columnas; en dos columnas, de 8 en 8
@@ -369,7 +379,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   let spKeep = spParts.length;
   let ftKeep = ftParts.length;
   if (twoLow) {
-    const spHead = 2 + (d.casters.length > 1 ? 1.3 * d.casters.length : 0) + (d.pact ? 1 : 0) + (spClasses.length > 1 ? 1.2 : 0);
+    const spHead = 2 + (castNamed ? 1.3 * castLines.length : 0) + (d.pact ? 1 : 0) + (spClasses.length > 1 ? 1.2 : 0);
     const ftHead = 1.2;
     const base = Math.max(spHead + sumW(spParts), ftHead + sumW(ftParts));
     let best = base;
@@ -839,10 +849,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="panel-head">
             <h3 className="eyebrow">Conjuros</h3>
             {d.spell && <span className="rollrow">
-              {(d.casters.length > 1 ? d.casters : [{ ...d.spell, classId: '', n: '' }]).map((x) => (
-                <span key={x.classId} className="rollrow">
-                  <span className="muted small">CD {x.dc} · {ABIL_N[x.abil]}{x.n ? ' (' + x.n + ')' : ''}</span>
-                  <button className="rollbtn" onClick={() => r('ataque de conjuro' + (x.n ? ' de ' + x.n.toLowerCase() : ''), 'attack', d20(x.atk))}>Ataque de conjuro {fmt(x.atk)}</button>
+              {castLines.map((x) => (
+                <span key={x.key} className="rollrow">
+                  <span className="muted small">CD {x.dc} · {ABIL_N[x.abil]}{castNamed ? ' (' + x.names.join(', ') + ')' : ''}</span>
+                  <button className="rollbtn" onClick={() => r('ataque de conjuro' + (castNamed ? ' de ' + x.names.join(', ').toLowerCase() : ''), 'attack', d20(x.atk))}>Ataque de conjuro {fmt(x.atk)}</button>
                 </span>
               ))}
             </span>}
