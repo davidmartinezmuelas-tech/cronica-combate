@@ -143,6 +143,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const [strike, setStrike] = useState(false);
   // castigos en el golpe del arma (su daño va en la misma tirada: en un crítico también se doblan sus dados)
   const [smitePick, setSmitePick] = useState('');
+  // castigos preparados en cada arma (como Marca del cazador): se suman al siguiente daño cuerpo a cuerpo de esa arma y se gastan ahí
+  const [arm, setArm] = useState<Record<string, { smite?: boolean; eld?: boolean }>>({});
   // Marca del cazador y Maleficio duran: mientras estén activos, su daño va en cada tirada de daño con arma
   const [smiteSel, setSmiteSel] = useState('');
   const [buffs, setBuffs] = useState<string[]>([]); // conjuros activos que suman en cada golpe (Marca, Maleficio, Favor divino…)
@@ -224,8 +226,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
     else set({ conds: c.conds.filter((k) => k !== 'Furia') });
   };
   type Hit = { melee: boolean; str: boolean; finesse: boolean };
-  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, with_: { smite?: boolean; eld?: boolean } = {}) => {
+  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string) => {
     const melee = hit.melee;
+    const with_ = (armKey && melee && arm[armKey]) || {};
     const piercing = parts[0]?.type === 'perforante';
     // cada parte con su origen: el arma y lo que se le suma (una fila por fuente en el resultado)
     const weapon = label.replace(/:.*$/, '');
@@ -262,6 +265,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (brutal && hit.str) setBrutal(false);
     if (sneak && hit.finesse) setSneak(false);
     if (strike) setStrike(false);
+    if (armKey && (useSmite || useEld)) setArm((a) => ({ ...a, [armKey]: {} }));
     if (useSmite || useEld) {
       const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
       const patch: Partial<Character> = {};
@@ -276,6 +280,21 @@ export default function CharacterSheet({ c }: { c: Character }) {
       if (pact !== cur.pactUsed) patch.pactUsed = pact;
       update(c.id, patch);
     }
+  };
+  // castigos de un arma: se pulsan para dejarlos puestos (como Marca del cazador); el siguiente daño cuerpo a cuerpo con ella los suma y gasta
+  const smiteChips = (key: string, eldOk = true) => {
+    const a = arm[key] || {};
+    const both = (x: { smite?: boolean; eld?: boolean }) => !!x.smite && !!x.eld && smiteOpt?.key === 'p' && pactLeft < 2;
+    const tog = (k: 'smite' | 'eld') => setArm((m) => ({ ...m, [key]: { ...m[key], [k]: !m[key]?.[k] } }));
+    return <>
+      {smiteOpt && <button className={a.smite ? 'chip on' : 'chip'} aria-pressed={!!a.smite} disabled={!a.smite && both({ ...a, smite: true })} title={smiteSpell!.n + ': pulsa para dejarlo puesto; el siguiente daño con esta arma lo suma (en un crítico también se dobla) y gasta el espacio elegido arriba.' + (smiteSpell!.en === 'Divine Smite' ? ' +1d8 contra infernales y muertos vivientes.' : '')} onClick={() => tog('smite')}>{smiteShort} +{smiteOpt.dice}</button>}
+      {eldOk && eldDice && <button className={a.eld ? 'chip on' : 'chip'} aria-pressed={!!a.eld} disabled={!a.eld && both({ ...a, eld: true })} title="Castigo arcano (con tu arma de pacto, una vez por turno): pulsa para dejarlo puesto; el siguiente daño con esta arma suma 1d8 de fuerza más 1d8 por nivel del espacio de pacto y gasta un espacio de pacto. Si es Enorme o menor, puedes derribarlo." onClick={() => tog('eld')}>Arcano +{eldDice}</button>}
+    </>;
+  };
+  const armTag = (key: string) => {
+    const a = arm[key] || {};
+    const n = (a.smite && smiteOpt ? 1 : 0) + (a.eld && eldDice ? 1 : 0);
+    return n ? <span className="adv-mark" title="Con los castigos puestos">+{n}</span> : null;
   };
   const uaHit: Hit = { melee: true, str: !(classLevel(c, 'monk') && d.mods.dex > d.mods.str), finesse: false };
   const amt = parseInt(amount, 10);
@@ -735,14 +754,12 @@ export default function CharacterSheet({ c }: { c: Character }) {
             </span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk + buffAtk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk + buffAtk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
-              <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Daño {partsLabel(parts)}</button>
-              {w.kind === 'melee' && smiteOpt && <button className="rollbtn dmg smite" title={smiteSpell!.n + ' en el mismo golpe: su daño va en la tirada del arma (en un crítico también se dobla) y gasta el espacio elegido arriba.' + (smiteSpell!.en === 'Divine Smite' ? ' +1d8 contra infernales y muertos vivientes.' : '')} onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true })}>+ {smiteShort} {smiteOpt.dice}</button>}
-              {w.kind === 'melee' && smiteOpt && eldDice && (smiteOpt.key !== 'p' || pactLeft >= 2) && <button className="rollbtn dmg smite" title={smiteSpell!.n + ' y Castigo arcano en el mismo golpe: los dos daños en la tirada del arma (en un crítico se doblan todos); gasta el espacio elegido arriba y uno de pacto'} onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { smite: true, eld: true })}>+ Ambos castigos</button>}
-              {w.kind === 'melee' && eldDice && <button className="rollbtn dmg smite" title="Castigo arcano (con tu arma de pacto, una vez por turno): 1d8 de fuerza más 1d8 por nivel del espacio de pacto, en la misma tirada; gasta un espacio de pacto. Si es Enorme o menor, puedes derribarlo." onClick={() => dmgRoll(w.name + ': daño', parts, { melee: true, str: abil === 'str', finesse: w.finesse }, { eld: true })}>+ Arcano {eldDice}</button>}
-              {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse })}>A dos manos {partsLabel(verParts)}</button>}
+              <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' }, w.id)}>Daño {partsLabel(parts)}{armTag(w.id)}</button>
+              {w.kind === 'melee' && smiteChips(w.id)}
+              {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse }, w.id)}>A dos manos {partsLabel(verParts)}{armTag(w.id)}</button>}
               {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño lanzada', throwParts, { melee: false, str: abil === 'str', finesse: true })}>Lanzada {partsLabel(throwParts)}</button>}
               {offParts.length > 0 && <button className="rollbtn dmg" title="Ataque extra de la propiedad «ligera» (acción adicional); el ataque se tira con «Ataque»" onClick={() => dmgRoll(w.name + ': ataque extra', offParts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Acción adicional {partsLabel(offParts)}</button>}
-              {poleParts.length > 0 && <button className="rollbtn dmg" title="Maestro en armas de asta: ataque con el otro extremo (acción adicional)" onClick={() => dmgRoll(w.name + ': otro extremo', poleParts, { melee: true, str: abil === 'str', finesse: false })}>Otro extremo {partsLabel(poleParts)}</button>}
+              {poleParts.length > 0 && <button className="rollbtn dmg" title="Maestro en armas de asta: ataque con el otro extremo (acción adicional)" onClick={() => dmgRoll(w.name + ': otro extremo', poleParts, { melee: true, str: abil === 'str', finesse: false }, w.id)}>Otro extremo {partsLabel(poleParts)}</button>}
             </span>
           </div>
         ))}
@@ -751,9 +768,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="pc-attack-n">Ataque sin armas<span className="muted small">cuerpo a cuerpo</span><span className="pc-attack-feat small">{d.unarmed.notes.join(', ')}{d.unarmed.parts[0].reroll1 ? ' · repite los 1' : ''}</span></span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20(d.unarmed!.atk), { critOn: d.critOn, ...(reckless && uaHit.str ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(d.unarmed.atk)}{reckless && uaHit.str && <span className="adv-mark">V</span>}</button>
-              <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit)}>Daño {partsLabel(d.unarmed.parts)}</button>
-              {smiteOpt && <button className="rollbtn dmg smite" title={smiteSpell!.n + ' en el mismo golpe (también con ataques sin armas)'} onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, { smite: true })}>+ {smiteShort} {smiteOpt.dice}</button>}
-              {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, uaHit)}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
+              <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, 'ua')}>Daño {partsLabel(d.unarmed.parts)}{armTag('ua')}</button>
+              {smiteChips('ua', false)}
+              {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, uaHit, 'ua')}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
               {d.unarmed.grapple && <button className="rollbtn dmg" title="Al principio de tu turno, a una criatura que tengas agarrada" onClick={() => roll({ label: who + ' · daño a la criatura agarrada', kind: 'damage', who, by: null, parts: [{ expr: d.unarmed!.grapple, type: 'contundente' }] })}>Agarrada {d.unarmed.grapple} contundente</button>}
             </span>
           </div>
