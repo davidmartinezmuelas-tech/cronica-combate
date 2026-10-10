@@ -454,7 +454,7 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
   await expect(sheet.getByRole('button', { name: 'Daño 1d8+2 cortante + 1d6 fuego' })).toBeVisible();
   await expect(sheet.locator('.card', { hasText: 'Castigo Divino' })).toBeVisible();
-  await expect(sheet.locator('.card', { hasText: 'Protección' })).toContainText('Estilo de combate');
+  await expect(sheet.getByRole('group', { name: 'Estilo de combate' })).toContainText('Protección');
   // con otra subclase no salen los rasgos de la del SRD
   await expect(sheet.locator('.card', { hasText: 'Juramento de devoción' })).toHaveCount(0);
 });
@@ -486,9 +486,9 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sheet = page.locator('.pc');
   await expect(sheet).toContainText('Paladín 3 (Juramento del faro) · Farero');
-  await expect(sheet.locator('.card', { hasText: 'Luz guía' })).toContainText('Juramento del faro 3');
+  await expect(sheet.getByRole('group', { name: 'Juramento del faro' }).locator('.card', { hasText: 'Luz guía' })).toContainText('3');
   await expect(sheet.locator('.card', { hasText: 'Aura del faro' })).toHaveCount(0); // es de nivel 7
-  await expect(sheet.locator('.card', { hasText: 'Vigía nocturno' })).toContainText('Dote de origen');
+  await expect(sheet.getByRole('group', { name: 'Dote de origen' })).toContainText('Vigía nocturno');
   await expect(sheet.locator('.card', { hasText: 'Rayo de faro' })).toBeVisible();
 });
 
@@ -545,7 +545,9 @@ test('elecciones y conjuros de subclase: maniobras del libro, opción que cambia
   await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Patrón infernal' });
   await expect(page.getByText('Siempre preparados, sin contar', { exact: false })).toContainText('Manos ardientes');
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(sheet.locator('.card', { hasText: 'Manos ardientes' })).toContainText('Subclase · siempre preparado');
+  const burning = sheet.locator('.card', { hasText: 'Manos ardientes' });
+  await burning.getByRole('button', { name: /^Manos ardientes/ }).click();
+  await expect(burning).toContainText('Subclase · siempre preparado');
   await page.getByRole('button', { name: 'Editar hoja' }).click();
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
   await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Cazador' });
@@ -759,7 +761,10 @@ test('Preservar vida te cura a ti; conjuros de la escuela del mago; Caballero ar
   await pick.getByRole('button', { name: /Proyectil mágico/ }).click();
   await expect(pick.locator(':scope > summary')).toContainText('(1 de 2)');
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Proyectil mágico' })).toContainText('Subclase · en tu libro de conjuros');
+  const missile = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Proyectil mágico' });
+  await expect(missile).toContainText('libro');
+  await missile.getByRole('button', { name: /^Proyectil mágico/ }).click();
+  await expect(missile).toContainText('Subclase · en tu libro de conjuros');
 
   // Caballero arcano 7 (subclase escrita a mano): lista de mago, Inteligencia y espacios de nivel 1 y 2
   await make('Bren', 'Guerrero', '7', 'Otra (escríbela)', ['int', '14'], 'Caballero arcano');
@@ -840,6 +845,8 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sp = page.locator('section[aria-label="Conjuros"]');
   const fireball = sp.locator('.card', { hasText: 'Bola de fuego' });
+  // los conjuros van plegados: se despliegan al pulsarlos
+  await fireball.getByRole('button', { name: /^Bola de fuego/ }).click();
   await expect(fireball).toContainText('CD 13 Destreza · mitad si supera');
   await expect(fireball.getByRole('button', { name: 'Daño 8d6 fuego' })).toBeVisible();
   await fireball.getByLabel('Nivel de espacio para Bola de fuego').selectOption('4');
@@ -848,10 +855,15 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' }).click();
   await expect(fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' })).toBeDisabled(); // solo tenía uno
   const bolt = sp.locator('.card', { hasText: 'Descarga de fuego' });
+  await bolt.getByRole('button', { name: /^Descarga de fuego/ }).click();
   await expect(bolt.getByRole('button', { name: 'Ataque +5' })).toBeVisible();
   await expect(bolt.getByRole('button', { name: 'Daño 2d10 fuego' })).toBeVisible(); // nivel 5+: 2d10
-  // el texto completo, en una ventana al pulsar el nombre
-  await fireball.getByRole('button', { name: 'Bola de fuego' }).click();
+  // uno abierto a la vez: abrir la Descarga plegó la Bola de fuego
+  await expect(fireball.getByRole('button', { name: 'Ver texto' })).toHaveCount(0);
+  await fireball.getByRole('button', { name: /^Bola de fuego/ }).click();
+  await expect(bolt.getByRole('button', { name: 'Ver texto' })).toHaveCount(0);
+  // el texto completo, en una ventana con «Ver texto»
+  await fireball.getByRole('button', { name: 'Ver texto' }).click();
   const dlg = page.getByRole('dialog', { name: 'Bola de fuego' });
   await expect(dlg).toContainText('Nivel 3');
   await expect(dlg.getByRole('button', { name: /Daño \d+d6 fuego/ })).toBeVisible();
@@ -869,6 +881,7 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await page.getByLabel('Cantidad de PG').fill('5');
   await page.getByRole('button', { name: 'Daño', exact: true }).click();
   const cure = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Curar heridas' });
+  await cure.getByRole('button', { name: /^Curar heridas/ }).click();
   await expect(cure.getByRole('button', { name: 'Curar 2d8+2' })).toBeVisible();
   await cure.getByRole('button', { name: 'Curarme' }).click();
   await expect(page.locator('.plaque')).toContainText('Recuperas', { timeout: 10000 });
@@ -1030,7 +1043,7 @@ test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ p
   // rasgos de las dos clases
   const traits = page.locator('section[aria-label="Rasgos y dotes"]');
   await expect(traits.locator('.card', { hasText: 'Imposición de manos' })).toBeVisible();
-  await expect(traits.locator('.card', { hasText: 'Invocaciones sobrenaturales' }).or(traits.locator('.card', { hasText: 'Brujo 1' })).first()).toBeVisible();
+  await expect(traits.getByRole('group', { name: 'Brujo' })).toBeVisible();
 });
 
 test('multiclase: los paneles de acciones de cada clase', async ({ page }) => {
@@ -1277,6 +1290,7 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.locator('.pc-stats .stat-ac')).toHaveAttribute('title', /Armadura de sombras/);
   const blast = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Descarga sobrenatural' });
+  await blast.getByRole('button', { name: /^Descarga sobrenatural/ }).click();
   await expect(blast.getByRole('button', { name: /^Daño 1d10\+\d fuerza/ })).toBeVisible();
   await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: '+ Arcano 4d8' })).toBeVisible();
   await expect(page.locator('.pc-features .card', { hasText: 'Ráfaga agónica' }).first()).toBeVisible();
@@ -1326,15 +1340,13 @@ test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con 
   }
   await expect(hexChip).toHaveAttribute('aria-pressed', 'true'); // dura: no se apaga al tirar
   await hexChip.click();
-  // pestañas: por clase y por nivel
+  // pestañas por clase; dentro, un bloque por nivel
   await sp.getByRole('tab', { name: 'Brujo' }).click();
   await expect(sp.locator('.card', { hasText: 'Maleficio' })).toBeVisible();
   await expect(sp.locator('.card', { hasText: 'Bendición' })).toHaveCount(0);
-  await sp.getByRole('tab', { name: /^Trucos/ }).click();
-  await expect(sp.locator('.card', { hasText: 'Descarga sobrenatural' })).toBeVisible();
-  await expect(sp.locator('.card', { hasText: 'Maleficio' })).toHaveCount(0);
+  await expect(sp.getByRole('group', { name: 'Trucos' })).toContainText('Descarga sobrenatural');
+  await expect(sp.getByRole('group', { name: 'Trucos' })).not.toContainText('Maleficio');
   await sp.getByRole('tab', { name: 'Todas las clases' }).click();
-  await sp.getByRole('tab', { name: /^Todos/ }).click();
   await expect(sp.locator('.card', { hasText: 'Bendición' })).toBeVisible();
 });
 
@@ -1434,8 +1446,10 @@ test('multiclase: cada clase prepara sus conjuros, hasta su nivel, y se eligen p
   const sheetSp = page.locator('section[aria-label="Conjuros"]');
   await sheetSp.getByRole('tab', { name: 'Paladín' }).click();
   await expect(sheetSp.locator('.card', { hasText: 'Disipar magia' })).toHaveCount(0);
-  await expect(sheetSp.locator('.card', { hasText: 'Castigo Divino' })).toContainText('Paladín · siempre preparado');
-  await expect(sheetSp.getByRole('tab', { name: /^Nivel 3/ })).toHaveCount(0);
+  const smiteRow = sheetSp.locator('.card', { hasText: 'Castigo Divino' });
+  await smiteRow.getByRole('button', { name: /^Castigo Divino/ }).click();
+  await expect(smiteRow).toContainText('Paladín · siempre preparado');
+  await expect(sheetSp.getByRole('group', { name: 'Conjuros de nivel 3' })).toHaveCount(0);
   await sheetSp.getByRole('tab', { name: 'Brujo' }).click();
   await expect(sheetSp.locator('.card', { hasText: 'Disipar magia' })).toBeVisible();
   await page.getByRole('button', { name: 'Editar hoja' }).click();
@@ -1527,6 +1541,7 @@ test('subir de nivel con PG fijados a mano, habilidades por característica y co
   await expect(page.locator('.pc-conc')).toHaveCount(0);
   // lanzar un conjuro de concentración la empieza; activar la marca la cambia
   const detect = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Detectar magia' });
+  await detect.getByRole('button', { name: /^Detectar magia/ }).click();
   await detect.getByRole('button', { name: /^Lanzar/ }).click();
   await expect(page.locator('.pc-conc')).toHaveText('Concentración: Detectar magia ✕');
   await mark.click();

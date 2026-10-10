@@ -626,6 +626,24 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .sp-tab:hover{background:#e7d8b8}
 .sp-tab.on{background:#f1e6cc;color:#7a1f14;border-color:#a0865c}
 .sp-tab-n{font-size:11px;font-weight:800;color:#8a7458}
+/* conjuros y rasgos en bloques (por nivel / por origen) repartidos en columnas, como las características */
+.pc-blocks{display:grid;gap:10px;align-items:start}
+.pc-block-col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.pc-block{gap:6px}
+.pc-block-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.pc-block .pc-features{gap:4px}
+.pc-features .card.sp-row{display:block;padding:0;height:auto}
+.sp-row-head{display:flex;align-items:center;gap:6px;width:100%;min-height:32px;padding:4px 8px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.sp-row-head b{flex:1;min-width:0;font-size:15px}
+.sp-row-head:hover b,.sp-row-head:focus-visible b{text-decoration:underline;text-underline-offset:3px}
+.sp-caret{width:12px;flex:none;font-size:12px;color:#b2a691}
+.sp-mark{flex:none;font-size:10px;font-weight:800;line-height:1.3;padding:0 4px;border:1px solid currentColor;border-radius:3px;color:#b2a691}
+.sp-row.open{border-color:#d4a94f}
+.sp-row-body{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:0 8px 8px 26px}
+.sp-row-meta{flex-basis:100%}
+.ft-list .card{padding:4px 8px;gap:2px 8px;flex-wrap:nowrap;min-height:32px}
+.ft-list .card-title{flex:1 1 auto;flex-basis:auto;min-width:0;font-size:15px}
+.ft-lv{flex:none;font-size:11px;font-weight:800;color:#b2a691;min-width:18px;text-align:right}
 .sp-tab.on .sp-tab-n{color:#7a1f14}
 .smite-pick{display:inline-flex;align-items:center;gap:6px;font-weight:700}
 /* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
@@ -635,12 +653,16 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-split-col{display:flex;flex-direction:column;gap:14px;min-width:0}
 .pc-split-in{min-width:0}
 .pc-split-col>.pc-notes{flex:1 1 auto}
+.pc-low{display:flex;flex-direction:column;gap:14px;min-width:0}
+.pc-low>.panel{min-width:0}
 @container (min-width:1000px){
   .pc-split{display:grid;grid-template-columns:minmax(440px,.9fr) minmax(0,1.1fr);align-items:start}
   .pc-split .pc-abils{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto 1fr}
   .pc-split .pc-duo{flex-direction:column;flex-wrap:nowrap}
   .pc-split .pc-duo>.panel{flex:none}
   .pc-split{align-items:stretch}
+  .pc-low{display:grid;grid-template-columns:minmax(440px,.9fr) minmax(0,1.1fr);align-items:stretch}
+  .pc-low>.panel:only-child{grid-column:1/-1}
   /* en la columna derecha los paneles con muchas tarjetas no ocupan «el 100 %» (sería de alto) */
   .pc-split .pc-duo>.panel:has(.pc-attacks>.pc-attack:nth-child(3)),.pc-split .pc-duo>.panel:has(.pc-features>li:nth-child(3)){flex:none;order:0}
 }
@@ -758,6 +780,8 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .pc-skill:hover,.paper .stat-btn:hover{border-color:#b07f22}
 .paper .card-title:hover b,.paper .card-title:focus-visible b{color:#8a2a1c}
 .paper .chip-tag{background:rgba(122,31,20,.1);color:#7a1f14}
+.paper .sp-caret,.paper .sp-mark,.paper .ft-lv{color:#7a6650}
+.paper .sp-row.open{border-color:#a0865c;background:#f3e8cf}
 .paper .input{background:#f2e8d3;border-color:#b39c74;color:#2b2118}
 .paper .input::placeholder{color:#9a8b74}
 .paper input[type=checkbox],.paper input[type=radio]{color-scheme:light;accent-color:#b07f22}

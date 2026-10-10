@@ -30,6 +30,36 @@ const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 
 
 interface FeatureRow { key: string; n: string; d: string; src: string; max: number | null; per: string }
 
+/** Reparte bloques en columnas seguidas (se leen de arriba abajo) con alturas lo más parecidas posible, según su peso. */
+function splitCols<T>(items: T[], weight: (x: T) => number, n: number): T[][] {
+  const k = Math.max(1, Math.min(n, items.length));
+  const pre = [0];
+  items.forEach((x) => pre.push(pre[pre.length - 1] + weight(x)));
+  // best[j][i]: la columna más alta al repartir los i primeros en j columnas; cut, dónde empieza la última
+  const best = Array.from({ length: k + 1 }, () => Array<number>(items.length + 1).fill(Infinity));
+  const cut = Array.from({ length: k + 1 }, () => Array<number>(items.length + 1).fill(0));
+  best[0][0] = 0;
+  for (let j = 1; j <= k; j++) for (let i = j; i <= items.length; i++) for (let q = j - 1; q < i; q++) {
+    const v = Math.max(best[j - 1][q], pre[i] - pre[q]);
+    if (v < best[j][i]) { best[j][i] = v; cut[j][i] = q; }
+  }
+  const cols: T[][] = [];
+  for (let j = k, i = items.length; j > 0; j--) { const q = cut[j][i]; cols.unshift(items.slice(q, i)); i = q; }
+  return cols;
+}
+
+/** Trocea los grupos demasiado largos para una columna (siguen en la de al lado, «(cont.)») y los reparte en n columnas. */
+function blockCols<T>(groups: { title: string; list: T[] }[], n: number) {
+  const total = groups.reduce((a, g) => a + g.list.length, 0);
+  const max = Math.max(8, Math.ceil(total / n));
+  const parts = groups.flatMap((g) => {
+    const pieces = Math.max(1, Math.ceil(g.list.length / max));
+    const size = Math.ceil(g.list.length / pieces);
+    return Array.from({ length: pieces }, (_, i) => ({ key: g.title + i, title: g.title + (i ? ' (cont.)' : ''), first: i === 0, list: g.list.slice(i * size, (i + 1) * size) }));
+  });
+  return splitCols(parts, (x) => 1.5 + x.list.length, n);
+}
+
 /** Rasgos que tiene a su nivel: de clase, de subclase, de especie y dotes, con sus usos. */
 function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): FeatureRow[] {
   const sp = data?.species.find((x) => x.id === c.speciesId);
@@ -84,6 +114,16 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // Furia y Castigo del paladín se usan desde «Ataques»
   const usable = features.filter((f) => f.max && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));
   const usableKeys = new Set(usable.map((f) => f.key));
+  // «Rasgos y dotes» agrupados por origen (cada clase, su subclase, la especie, las dotes); los que ya tienen panel arriba, sin contador
+  const upKeys = (f: FeatureRow) => panelKeys.has(f.key) || panelKeys.has(f.n) || ['Furia', 'Castigo del paladín'].includes(f.key);
+  const featGroups = (() => {
+    const m = new Map<string, FeatureRow[]>();
+    features.filter((f) => !usableKeys.has(f.key)).forEach((f) => {
+      const g = f.src.replace(/ \d+$/, '');
+      m.set(g, [...(m.get(g) || []), f]);
+    });
+    return [...m].map(([title, list]) => ({ title, list }));
+  })();
   const [amount, setAmount] = useState('');
   const [resting, setResting] = useState(false);
   // subir de nivel: el asistente y, tras confirmar, la hoja de antes para poder deshacerlo
@@ -106,9 +146,20 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // Marca del cazador y Maleficio duran: mientras estén activos, su daño va en cada tirada de daño con arma
   const [smiteSel, setSmiteSel] = useState('');
   const [buffs, setBuffs] = useState<string[]>([]); // conjuros activos que suman en cada golpe (Marca, Maleficio, Favor divino…)
-  // pestañas de conjuros: por nivel y, con varias clases lanzadoras, por clase
-  const [spLv, setSpLv] = useState('all');
+  // conjuros: pestañas por clase (con varias clases lanzadoras); cada conjuro, plegado hasta pulsarlo (uno abierto a la vez)
   const [spCls, setSpCls] = useState('all');
+  const [spOpen, setSpOpen] = useState<string | null>(null);
+  const [spText, setSpText] = useState<string | null>(null);
+  // conjuros y rasgos van en bloques repartidos en columnas, según el ancho
+  const lowRef = useRef<HTMLElement>(null);
+  const [lowCols, setLowCols] = useState(1);
+  useEffect(() => {
+    const el = lowRef.current;
+    if (!el || typeof ResizeObserver !== 'function') return;
+    const ro = new ResizeObserver(() => { const w = el.clientWidth; setLowCols(w >= 900 ? 3 : w >= 600 ? 2 : 1); });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const sp = data?.species.find((x) => x.id === c.speciesId);
   const bg = data?.backgrounds.find((x) => x.id === c.backgroundId) || lib.backgrounds.find((x) => x.id === c.backgroundId);
@@ -300,10 +351,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
   ].filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
   const spClasses = casterIds.filter((k) => spellList.some((x) => x.cls.includes(k)));
   const clsTab = spCls !== 'all' && spClasses.includes(spCls) ? spCls : 'all';
-  // niveles de la clase elegida (o de todas)
-  const spLevels = [...new Set(spellList.filter((x) => clsTab === 'all' || x.cls.includes(clsTab)).map((x) => x.s!.l || 0))].sort((a, b) => a - b);
-  const lvTab = spLv !== 'all' && spLevels.includes(+spLv) ? spLv : 'all';
-  const spellShown = spellList.filter((x) => (lvTab === 'all' || (x.s!.l || 0) === +lvTab) && (clsTab === 'all' || x.cls.includes(clsTab)));
+  const spellShown = spellList.filter((x) => clsTab === 'all' || x.cls.includes(clsTab));
+  // un bloque por nivel (con sus espacios al lado, como las habilidades bajo su característica): los que tienen conjuros o espacios
+  const spBlocks = [...new Set([...spellShown.map((x) => x.s!.l || 0), ...d.slots.map((n, i) => (n > 0 ? i + 1 : -1)).filter((l) => l > 0)])]
+    .sort((a, b) => a - b).map((l) => ({ l, title: l ? 'Nivel ' + l : 'Trucos', list: spellShown.filter((x) => (x.s!.l || 0) === l) }));
+  const spTextOf = spText ? spellList.find((x) => x.k === spText) : undefined;
   const freeSmite = features.find((f) => f.key === 'Castigo del paladín' && f.max);
   // conjuros que, mientras duran, suman en cada golpe con arma: se activan como etiquetas en «Ataques»
   // (los del SRD por su nombre en inglés; los del libro del usuario, por el nombre en español)
@@ -676,6 +728,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
       </div>
       </div>
 
+      {/* abajo, en dos columnas como arriba: conjuros a la izquierda y rasgos a la derecha */}
+      <div className="pc-low">
       {(d.spell || spellList.length > 0) && (
         <section className="panel" aria-label="Conjuros">
           <div className="panel-head">
@@ -689,73 +743,105 @@ export default function CharacterSheet({ c }: { c: Character }) {
               ))}
             </span>}
           </div>
-          {d.slots.length > 0 && (
-            <div className="pc-slots">
-              {d.slots.map((n, i) => (
-                <span key={i} className="res">Nivel {i + 1}
-                  <Pips max={n} used={Math.min(n, c.slotsUsed[i] || 0)} label={'Espacios de nivel ' + (i + 1)} onSet={(v) => { const u = c.slotsUsed.slice(); u[i] = Math.max(0, Math.min(n, v)); set({ slotsUsed: u }); }} />
-                </span>
-              ))}
-            </div>
-          )}
           {d.pact && <div className="pc-slots"><span className="res">Magia de pacto (nivel {d.pact.lv})<Pips max={d.pact.n} used={Math.min(d.pact.n, c.pactUsed)} label="Espacios de pacto" onSet={(v) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) })} /></span></div>}
-          {spellList.length > 0 && (spLevels.length > 1 || spClasses.length > 1) && (
-            <div className="sp-tabs-wrap">
-              {spClasses.length > 1 && (
-                <div className="sp-tabs" role="tablist" aria-label="Conjuros por clase">
-                  {['all', ...spClasses].map((k) => <button key={k} role="tab" aria-selected={clsTab === k} className={clsTab === k ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpCls(k)}>{k === 'all' ? 'Todas las clases' : data?.classes.find((x) => x.id === k)?.n || k}</button>)}
-                </div>
-              )}
-              {spLevels.length > 1 && (
-                <div className="sp-tabs" role="tablist" aria-label="Conjuros por nivel">
-                  {['all', ...spLevels.map(String)].map((l) => {
-                    const inCls = spellList.filter((x) => clsTab === 'all' || x.cls.includes(clsTab));
-                    const n = l === 'all' ? inCls.length : inCls.filter((x) => (x.s!.l || 0) === +l).length;
-                    return <button key={l} role="tab" aria-selected={lvTab === l} className={lvTab === l ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpLv(l)}>{l === 'all' ? 'Todos' : l === '0' ? 'Trucos' : 'Nivel ' + l}<span className="sp-tab-n">{n}</span></button>;
-                  })}
-                </div>
-              )}
+          {spClasses.length > 1 && (
+            <div className="sp-tabs" role="tablist" aria-label="Conjuros por clase">
+              {['all', ...spClasses].map((k) => <button key={k} role="tab" aria-selected={clsTab === k} className={clsTab === k ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpCls(k)}>{k === 'all' ? 'Todas las clases' : data?.classes.find((x) => x.id === k)?.n || k}</button>)}
             </div>
           )}
-          {!spellList.length ? <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p> : !spellShown.length ? <p className="muted small" style={{ margin: 0 }}>Ningún conjuro de este nivel en esta clase.</p> : (
-            <ul className="pc-features grid acts">
-              {spellShown.map(({ k, s, sub }) => (
-                <li key={k}>
-                  {/* el texto completo se abre en una ventana: en la tarjeta solo el nombre, sus datos y las tiradas */}
-                  <Card name={s!.n}
-                    head={<><span className="muted small">{s!.l ? 'nivel ' + s!.l : 'truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}</span>{sub && <span className="chip-tag">{sub}</span>}<SpellRolls c={c} d={d} s={s!} set={set} /></>}
-                    dialog={<>
-                      <p className="muted small" style={{ margin: 0 }}>{s!.l ? 'Nivel ' + s!.l : 'Truco'}{s!.c ? ' · concentración' : ''}{s!.rit ? ' · ritual' : ''}{sub ? ' · ' + sub : ''}</p>
-                      <p className="muted small" style={{ margin: '4px 0' }}>{[s!.ct, s!.r, s!.cmp, s!.du].filter(Boolean).join(' · ')}</p>
-                      <p className="pc-text">{plainText(s!.t)}</p>
-                      <SpellRolls c={c} d={d} s={s!} set={set} />
-                    </>} />
-                </li>
+          {!spellList.length && <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p>}
+          {spBlocks.length > 0 && (
+            <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + lowCols + ', minmax(0, 1fr))' }}>
+              {blockCols(spBlocks, lowCols).map((col, ci) => (
+                <div key={ci} className="pc-block-col">
+                  {col.map(({ key, title, first, list }) => { const l = list.length ? list[0].s!.l || 0 : spBlocks.find((b) => b.title === title)?.l || 0; return (
+                    <div key={key} className="pc-abil pc-block" role="group" aria-label={l ? 'Conjuros de nivel ' + l : 'Trucos'}>
+                      <div className="pc-block-head">
+                        <span className="pc-abil-k">{title}</span>
+                        {first && l > 0 && (d.slots[l - 1] || 0) > 0 && <Pips max={d.slots[l - 1]} used={Math.min(d.slots[l - 1], c.slotsUsed[l - 1] || 0)} label={'Espacios de nivel ' + l} onSet={(v) => { const u = c.slotsUsed.slice(); u[l - 1] = Math.max(0, Math.min(d.slots[l - 1], v)); set({ slotsUsed: u }); }} />}
+                      </div>
+                      {!list.length ? <span className="muted small">Ningún conjuro de este nivel{clsTab !== 'all' ? ' en esta clase' : ''}.</span> : (
+                        <ul className="pc-features sp-list">
+                          {list.map(({ k, s, sub }) => {
+                            const open = spOpen === k;
+                            const tag = sub ? (/libro/.test(sub) ? 'libro' : 'siempre') : '';
+                            return (
+                              <li key={k} className={open ? 'card sp-row open' : 'card sp-row'}>
+                                {/* plegado: nombre y marcas; al pulsarlo, sus tiradas y «Lanzar» */}
+                                <button className="sp-row-head" aria-expanded={open} title={open ? 'Plegar' : 'Desplegar para usarlo'} onClick={() => setSpOpen(open ? null : k)}>
+                                  <span className="sp-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                                  <b>{s!.n}</b>
+                                  {!!s!.c && <span className="sp-mark" title="Concentración">C</span>}
+                                  {!!s!.rit && <span className="sp-mark" title="Ritual">R</span>}
+                                  {tag && <span className="chip-tag" title={sub}>{tag}</span>}
+                                </button>
+                                {open && (
+                                  <div className="sp-row-body">
+                                    <span className="muted small sp-row-meta">{[s!.ct, s!.r, s!.du].filter(Boolean).join(' · ')}{sub ? ' · ' + sub : ''}</span>
+                                    <SpellRolls c={c} d={d} s={s!} set={set} />
+                                    <button className="btn small ghost" aria-haspopup="dialog" onClick={() => setSpText(k)}>Ver texto</button>
+                                  </div>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  ); })}
+                </div>
               ))}
-            </ul>
+            </div>
+          )}
+          {spTextOf && (
+            <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
+              <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
+              <p className="muted small" style={{ margin: '4px 0' }}>{[spTextOf.s!.ct, spTextOf.s!.r, spTextOf.s!.cmp, spTextOf.s!.du].filter(Boolean).join(' · ')}</p>
+              <p className="pc-text">{plainText(spTextOf.s!.t)}</p>
+              <SpellRolls c={c} d={d} s={spTextOf.s!} set={set} />
+            </InfoDialog>
           )}
         </section>
       )}
 
-      <section className="panel" aria-label="Rasgos y dotes" data-tour="traits">
+      <section className="panel" aria-label="Rasgos y dotes" data-tour="traits" ref={lowRef}>
         <h3 className="eyebrow">Rasgos y dotes</h3>
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
-        <ul className="pc-features grid">
-          {features.filter((f) => !usableKeys.has(f.key)).map((f) => (
-            <li key={f.src + f.key}>
-              <Card name={f.n} head={<>
-                <span className="muted small">{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</span>
-                {f.max != null && !panelKeys.has(f.key) && !panelKeys.has(f.n) && <Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />}
-              </>}>
-                {f.d && <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((s, i) => (i % 2 ? <b key={i}>{s}</b> : plainText(s)))}</p>}
-              </Card>
-            </li>
-          ))}
-        </ul>
+        {featGroups.length > 0 && (
+          <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + lowCols + ', minmax(0, 1fr))' }}>
+            {blockCols(featGroups, lowCols).map((col, ci) => (
+              <div key={ci} className="pc-block-col">
+                {col.map(({ key, title, list }) => (
+                  <div key={key} className="pc-abil pc-block" role="group" aria-label={title}>
+                    <span className="pc-abil-k">{title}</span>
+                    <ul className="pc-features ft-list">
+                      {list.map((f) => {
+                        const lv = / (\d+)$/.exec(f.src)?.[1];
+                        const up = upKeys(f);
+                        return (
+                          <li key={f.src + f.key}>
+                            {/* una línea por rasgo: al pulsar el nombre se abre su texto */}
+                            <Card name={f.n} head={<>
+                              {lv && <span className="ft-lv" title={'Nivel ' + lv}>{lv}</span>}
+                              {up && <span className="chip-tag" title="Se usa desde su panel, más arriba">arriba</span>}
+                              {f.max != null && !up && <Pips max={f.max} used={Math.min(f.max, c.uses[f.key] || 0)} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />}
+                            </>}>
+                              <p className="muted small" style={{ margin: 0 }}>{f.src}{f.per ? ' · se recupera en descanso ' + (f.per === 'sr' ? 'corto o largo' : 'largo') : ''}</p>
+                              {f.d && <p className="pc-text">{f.d.split(/\*\*([^*]+)\*\*/).map((x, i) => (i % 2 ? <b key={i}>{x}</b> : plainText(x)))}</p>}
+                            </Card>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
-
-
+      </div>
     </div>
   );
 }
