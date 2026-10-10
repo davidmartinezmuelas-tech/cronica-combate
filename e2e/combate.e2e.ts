@@ -271,6 +271,7 @@ test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en
   await expect(page.getByLabel('Notas')).toHaveValue('Busca a su hermana desaparecida');
   await expect(page.locator('.pdf-page')).toHaveCount(1, { timeout: 15000 });
   const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Copia', exact: true }).click();
   await page.getByRole('button', { name: 'Descargar copia' }).click();
   const copy = JSON.parse(await (await (await download).createReadStream()).toArray().then((b) => Buffer.concat(b).toString('utf8')));
   expect(Object.values(copy.pdfs as Record<string, string>)[0].startsWith('JVBERi')).toBe(true);
@@ -1599,4 +1600,18 @@ test('PX: muestra los del siguiente nivel y resalta «Subir de nivel» al alcanz
   await expect(page.getByRole('button', { name: 'Subir de nivel', exact: true })).toBeVisible();
   await page.getByLabel('Puntos de experiencia').fill('300');
   await expect(page.getByRole('button', { name: '¡Subir de nivel!' })).toBeVisible();
+});
+
+test('copia de seguridad desde la cabecera, en cualquier pestaña', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Bestiario', exact: true }).click();
+  await page.getByRole('button', { name: 'Copia', exact: true }).click();
+  const dlg = page.getByRole('dialog', { name: 'Copia de seguridad' });
+  await expect(dlg.getByRole('button', { name: 'Descargar copia' })).toBeVisible();
+  await expect(dlg.getByRole('button', { name: 'Cargar copia…' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dlg).toHaveCount(0);
+  // en Grupo ya no está: solo un aviso de dónde encontrarla
+  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await expect(page.locator('.group-panel').getByRole('button', { name: 'Descargar copia' })).toHaveCount(0);
 });

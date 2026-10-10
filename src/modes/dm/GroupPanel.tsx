@@ -1,4 +1,3 @@
-import { useRef, useState } from 'react';
 import { DMG_TYPES } from '../../data/constants';
 import type { RosterEntry } from '../../data/types';
 import { fmt } from '../../engine/dice';
@@ -13,38 +12,12 @@ export default function GroupPanel() {
   const pf = useStore((s) => s.pcForm);
   const editingPcId = useStore((s) => s.editingPcId);
   const pcMsg = useStore((s) => s.pcMsg);
-  const ioMsg = useStore((s) => s.ioMsg);
   const confirmKey = useStore((s) => s.confirmKey);
-  const storageOk = useStore((s) => s.storageOk);
-  const persistent = useStore((s) => s.persistent);
-  const { set, addPc, addAllPcs, savePc, deletePc, exportData, importText } = useStore.getState();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const bookCount = useStore((s) => s.book.length);
-  const [withBook, setWithBook] = useState(true);
+  const { set, addPc, addAllPcs, savePc, deletePc } = useStore.getState();
   const inC = new Set(combatants.map((c) => c.rosterId).filter(Boolean));
   // jugadores conectados ahora a la sala
   const online = new Set(useRoom((r) => r.members).map((m) => m.uid));
   const setF = (k: keyof RosterEntry, v: string | string[]) => set({ pcForm: { ...useStore.getState().pcForm, [k]: v }, pcMsg: '' });
-
-  const doExport = async () => {
-    set({ ioMsg: 'Preparando la copia…' });
-    const blob = new Blob([await exportData({ book: withBook && bookCount > 0 })], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'cronica-combate-' + new Date().toISOString().slice(0, 10) + '.json';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    set({ ioMsg: 'Copia descargada. Guárdala donde quieras (Drive, USB…).' });
-  };
-  const doImport = async (f: File | undefined) => {
-    if (!f) return;
-    if (f.size > 300 * 1024 * 1024) { set({ ioMsg: 'El archivo es demasiado grande para ser una copia de la app.' }); return; }
-    set({ ioMsg: 'Cargando la copia…' });
-    await importText(await f.text());
-    if (fileRef.current) fileRef.current.value = '';
-  };
 
   return (
     <div className="panel group-panel">
@@ -103,22 +76,7 @@ export default function GroupPanel() {
         </div>
       </fieldset>
 
-      <fieldset className="fs">
-        <legend>Tus datos</legend>
-        <p className="muted small" style={{ margin: 0 }}>
-          {storageOk
-            ? 'Tu grupo, tus criaturas y el combate en curso se guardan solos en este dispositivo' + (persistent ? ' (protegidos frente a limpiezas automáticas del navegador).' : '. El navegador podría borrarlos si se queda sin espacio: haz copias de vez en cuando.')
-            : 'Este navegador no permite guardar datos (¿modo privado?). Descarga una copia antes de cerrar.'}
-        </p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn small" onClick={() => void doExport()}>Descargar copia</button>
-          <button className="btn small" onClick={() => fileRef.current?.click()}>Cargar copia…</button>
-          <input ref={fileRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Archivo de copia" onChange={(e) => void doImport(e.target.files?.[0])} />
-        </div>
-        {bookCount > 0 && <label className="check"><input type="checkbox" checked={withBook} onChange={(e) => setWithBook(e.target.checked)} />Incluir las {bookCount} criaturas de mi Manual de Monstruos (con lo revisado)</label>}
-        <p className="muted small" style={{ margin: 0 }}>La copia incluye grupo (con sus hojas en PDF), criaturas propias, encuentros y el combate abierto{bookCount > 0 ? ', y si lo marcas, las criaturas de tu Manual (pásala solo a quien tenga el libro)' : ''}. Al cargarla se fusiona con lo que ya tienes.</p>
-        {ioMsg && <p className="small" role="status" style={{ margin: 0, color: '#e8c062' }}>{ioMsg}</p>}
-      </fieldset>
+      <p className="muted small" style={{ margin: 0 }}>La copia de seguridad (grupo, criaturas, encuentros y combate) está en el botón «Copia» de arriba.</p>
     </div>
   );
 }

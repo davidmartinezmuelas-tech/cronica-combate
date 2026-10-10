@@ -21,5 +21,5 @@ export const dmTour = (tab: (t: 'combat' | 'bestiary' | 'group' | 'forge') => vo
   { target: 'section.col-left', title: 'Iniciativa', text: 'La lista se ordena sola. Tira la de los monstruos (en grupo o individual) y escribe la de los jugadores. Pulsa a alguien para ver su tarjeta.' },
   { target: '.statblock, section.col-center', title: 'Fichas de monstruo', text: 'Sus ataques y daños se tiran pulsándolos. Los efectos con salvación (alientos, conjuros) dejan elegir objetivos, tiran sus salvaciones y aplican daño y estados.' },
   { target: 'section.col-right', title: 'Sala y dados', text: 'Crea una sala y pasa el código a tus jugadores: verás sus tiradas y sus PG en directo, y les puedes pedir salvaciones.' },
-  { target: '.hdr-actions', title: 'Deshacer, cuenta y ayuda', text: 'La flecha deshace el último cambio (Ctrl+Z). Con una cuenta tus criaturas, encuentros y grupo se guardan en la nube. El «?» repite esta visita y muestra los atajos de teclado.' },
+  { target: '.hdr-actions', title: 'Deshacer, copia, cuenta y ayuda', text: 'La flecha deshace el último cambio (Ctrl+Z). «Copia» descarga o carga una copia de seguridad de todo (grupo, criaturas, encuentros). Con una cuenta tus criaturas, encuentros y grupo se guardan en la nube. El «?» repite esta visita y muestra los atajos de teclado.' },
 ];
