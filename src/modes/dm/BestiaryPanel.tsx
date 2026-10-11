@@ -176,6 +176,8 @@ export default function BestiaryPanel() {
         <label className="check"><input type="checkbox" checked={s.shareInit} onChange={(e) => set({ shareInit: e.target.checked })} />Misma iniciativa para los del mismo grupo</label>
         <label className="check"><input type="checkbox" checked={s.addLair} onChange={(e) => set({ addLair: e.target.checked })} />Están en su guarida (si tienen)</label>
       </details>
+      {/* importar el Manual de Monstruos: arriba, junto a las opciones, para que se vea sin bajar toda la lista */}
+      <BookImport />
       {s.loaded && filtering && pool.length > 0 && <p className="muted small" style={{ margin: 0 }} aria-live="polite">{pool.length === 1 ? '1 criatura' : pool.length + ' criaturas'}</p>}
       <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {shown.map((m) => <Beast key={m.id} m={m} />)}
@@ -183,7 +185,6 @@ export default function BestiaryPanel() {
       {pool.length > s.bLimit && <button className="btn" onClick={() => set({ bLimit: s.bLimit + 50 })}>Mostrar más ({pool.length - s.bLimit} restantes)</button>}
       {s.loaded && !pool.length && <p className="muted" style={{ margin: 0 }}>Ninguna criatura coincide con los filtros.</p>}
       <button className="btn" onClick={newForge}>Forjar un monstruo nuevo</button>
-      <BookImport />
     </div>
   );
 }
