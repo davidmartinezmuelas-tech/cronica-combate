@@ -12,7 +12,7 @@ const PdfViewer = lazy(() => import('../../shared/PdfViewer'));
 
 /** Hojas en blanco cuyos campos sabe leer la app (se enlazan, no se alojan: su licencia no permite redistribuirlas). */
 const SHEETS = [
-  { name: 'Hoja oficial de 2024 (rellenable)', by: 'D&D Beyond', url: 'https://media.dndbeyond.com/compendium-images/free-rules/downloads/2024-character-sheet.pdf' },
+  { name: 'Hoja oficial de 2024 (rellenable)', by: 'Wizards of the Coast', url: 'https://media.dndbeyond.com/compendium-images/free-rules/downloads/2024-character-sheet.pdf' },
 ];
 
 type Field = 'name' | 'cls' | 'ac' | 'hp' | 'initb' | 'pp';

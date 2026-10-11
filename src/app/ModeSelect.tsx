@@ -11,7 +11,7 @@ export default function ModeSelect() {
         <div className="mode-brand">
           <Logo />
           <h1 className="display">Crónica de Combate</h1>
-          <p className="muted">D&amp;D 5.ª edición (2024) · ¿cómo vas a jugar hoy?</p>
+          <p className="muted">Compatible con la 5.ª edición (reglas de 2024) · ¿cómo vas a jugar hoy?</p>
         </div>
         <div className="mode-cards">
           <button className="mode-card" onClick={() => chooseMode('dm')}>

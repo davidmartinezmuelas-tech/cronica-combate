@@ -59,7 +59,7 @@ const SKILL_SYN: Record<string, string[]> = {
 };
 
 /**
- * Hoja oficial rellenable de 2024 (D&D Beyond, código 670D3898000001): sus campos se llaman Text1, Text13…
+ * Hoja oficial rellenable de 2024 (Wizards of the Coast, código 670D3898000001): sus campos se llaman Text1, Text13…
  * La correspondencia se ha comprobado con la posición de cada campo en la hoja.
  */
 const OFICIAL_2024: Record<string, string> = {
