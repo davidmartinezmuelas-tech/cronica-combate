@@ -18,9 +18,6 @@ body{color:#efe3cb;font-family:'Alegreya Sans','Gill Sans','Trebuchet MS',sans-s
 .support-link{align-self:flex-start;margin-bottom:4px;padding:4px 12px;border:1px solid #6b5440;border-radius:999px;color:#e8c062;font-size:13px;font-weight:700;text-decoration:none}
 .support-link:hover,.support-link:focus-visible{border-color:#d4a94f;background:rgba(212,169,79,.12)}
 .offline{background:#2c4a64;color:#eef5fa;font-size:13px;font-weight:700;padding:6px 28px}
-.move-notice{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:#5a3d12;color:#f6e3b0;font-size:13px;line-height:1.4;padding:8px 28px;border-bottom:1px solid #9c7426}
-.move-notice span{flex:1 1 400px}
-.move-notice .btn{color:#f6e3b0;border-color:#9c7426}
 *{box-sizing:border-box}
 a{color:#d4a94f}a:hover{color:#f0c96a}
 button{font:inherit;cursor:pointer}

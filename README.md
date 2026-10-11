@@ -48,7 +48,7 @@ El motor de reglas (`src/engine`) no depende de React: se puede reutilizar en un
 
 ## Publicar
 
-El repositorio incluye un flujo de GitHub Actions (`.github/workflows/deploy.yml`) que pasa los tests, compila y publica en **GitHub Pages** en cada push a `main`. Actívalo en *Settings → Pages → Source: GitHub Actions*.
+El repositorio incluye un flujo de GitHub Actions (`.github/workflows/deploy.yml`) que pasa los tests, compila y publica en **GitHub Pages** en cada push a `main`, con el dominio propio **https://cronicadecombate.com** (la app se sirve desde la raíz). Actívalo en *Settings → Pages → Source: GitHub Actions*.
 
 Para otro alojamiento (Netlify, Vercel, Cloudflare Pages) basta con publicar la carpeta `dist/`. Si se sirve en una subruta, compila con `BASE_PATH=/subruta/ npm run build`.
 
