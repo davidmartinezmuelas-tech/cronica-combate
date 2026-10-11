@@ -29,7 +29,8 @@ jobs:
       - run: npm run test:e2e
       - run: npm run build
         env:
-          BASE_PATH: /${{ github.event.repository.name }}/
+          # dominio propio (cronicadecombate.com): la app se sirve desde la raíz
+          BASE_PATH: /
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
