@@ -16,6 +16,7 @@ import { assignSpells, casterPreps } from '../../engine/spellPrep';
 import { concDc, concOf, withConc, withoutConc } from '../../engine/concentration';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
+import { useMobileTabs } from './mobileTabs';
 import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
@@ -486,7 +487,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     return () => ro.disconnect();
   }, []);
   const notesPanel = (
-    <section className="panel pc-notes" aria-label="Notas">
+    <section className="panel pc-notes" aria-label="Notas" data-sec="tiradas">
       <label className="eyebrow" htmlFor="pc-notes">Notas</label>
       <textarea id="pc-notes" className="input" value={c.notes} onChange={(e) => set({ notes: e.target.value })} placeholder="Equipo, objetivos, vínculos, lo que pasó la última sesión…" />
     </section>
@@ -561,9 +562,40 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const xpReady = xpNext != null && (c.xp || 0) >= xpNext;
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
 
+  // móvil: la pestaña de conjuros solo si los lanza; arriba, una barra fija con PG y CA al dejar de ver la franja
+  const phone = useMobileTabs((s) => s.phone);
+  const mtab = useMobileTabs((s) => s.tab);
+  useEffect(() => { useMobileTabs.setState({ spells: hasSpells }); }, [hasSpells]);
+  const headRef = useRef<HTMLDivElement>(null);
+  const [headSeen, setHeadSeen] = useState(true);
+  useEffect(() => {
+    const el = headRef.current;
+    if (!phone || !el || typeof IntersectionObserver !== 'function') return;
+    const io = new IntersectionObserver(([e]) => setHeadSeen(e.isIntersecting), { rootMargin: '-40px 0px 0px 0px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [phone]);
+  // en las otras pestañas, al bajar un poco (arriba se ve la cabecera de la app)
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    if (!phone) return;
+    const on = () => setScrolled(window.scrollY > 120);
+    on();
+    window.addEventListener('scroll', on, { passive: true });
+    return () => window.removeEventListener('scroll', on);
+  }, [phone]);
+  const showMini = phone && (mtab === 'combate' ? !headSeen : scrolled);
+
   return (
-    <div className="pc">
-      <div className="panel pc-head">
+    <div className={phone ? 'pc pc-phone' : 'pc'}>
+      {showMini && (
+        <button className="pc-mini" aria-label={'PG ' + c.hp + ' de ' + d.hpMax + ', CA ' + d.ac + ': ir al combate'} onClick={() => { useMobileTabs.getState().setTab('combate'); }}>
+          <b className="pc-mini-n">{c.name || 'Sin nombre'}</b>
+          <span className="pc-mini-hp"><span>PG <b>{c.hp}</b>/{d.hpMax}{c.temp > 0 && <span className="stat-tmp"> +{c.temp}</span>}</span><span className="hpbar"><span className={'hpfill ' + (hpPct <= 25 ? 'low' : hpPct <= 50 ? 'mid' : '')} style={{ width: hpPct + '%' }} /></span></span>
+          <span className="pc-mini-ac">CA <b>{d.ac}</b></span>
+        </button>
+      )}
+      <div className="panel pc-head" data-sec="combate" ref={headRef}>
         <div className="panel-head">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
             <h2>{c.name || 'Sin nombre'}</h2>
@@ -650,7 +682,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
       {/* características a la izquierda (como la hoja oficial); ataques y rasgos de clase a la derecha */}
       <div className="pc-split" ref={splitRef}>
       <div className="pc-split-col">
-      <div className="pc-split-in" ref={leftRef}>
+      <div className="pc-split-in" ref={leftRef} data-sec="tiradas">
       {/* como en la hoja oficial: cada característica con su modificador (prueba), su puntuación, su salvación y sus habilidades */}
       <section className="panel" aria-label="Características" data-tour="rolls">
         <h3 className="eyebrow">Características, salvaciones y habilidades</h3>
@@ -719,7 +751,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
       {notesSide === 'left' && notesPanel}
       </div>
       <div className="pc-split-col">
-      <div className="pc-duo pc-split-in" ref={rightRef}>
+      <div className="pc-duo pc-split-in" ref={rightRef} data-sec="combate">
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
@@ -862,7 +894,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <div className="pc-low" ref={lowRef}>
       {hasSpells && (
         <div className="pc-low-col">
-        <section className="panel" aria-label="Conjuros">
+        <section className="panel" aria-label="Conjuros" data-sec="conjuros">
           <div className="panel-head">
             <h3 className="eyebrow">Conjuros</h3>
             {d.spell && <span className="rollrow">
@@ -892,7 +924,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           )}
         </section>
         {ftKeep < ftParts.length && (
-          <section className="panel" aria-label="Rasgos y dotes (cont.)">
+          <section className="panel" aria-label="Rasgos y dotes (cont.)" data-sec="rasgos">
             <h3 className="eyebrow">Rasgos y dotes (cont.)</h3>
             {blockGrid(ftParts.slice(ftKeep), featBlock, lowN)}
           </section>
@@ -901,14 +933,14 @@ export default function CharacterSheet({ c }: { c: Character }) {
       )}
 
       <div className="pc-low-col">
-      <section className="panel" aria-label="Rasgos y dotes" data-tour="traits">
+      <section className="panel" aria-label="Rasgos y dotes" data-tour="traits" data-sec="rasgos">
         <h3 className="eyebrow">Rasgos y dotes</h3>
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
         {ftKeep > 0 && blockGrid(ftParts.slice(0, ftKeep), featBlock, lowN)}
       </section>
       {spKeep < spParts.length && (
-        <section className="panel" aria-label="Conjuros (cont.)">
+        <section className="panel" aria-label="Conjuros (cont.)" data-sec="conjuros">
           <h3 className="eyebrow">Conjuros (cont.)</h3>
           {blockGrid(spParts.slice(spKeep), spellBlock, lowN)}
         </section>

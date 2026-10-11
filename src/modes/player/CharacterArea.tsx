@@ -9,6 +9,7 @@ import { useStore } from '../../store/useStore';
 import { activeCharacter, lastBackup, usePlayer } from '../../store/player';
 import CharacterEditor from './CharacterEditor';
 import CharacterSheet from './CharacterSheet';
+import { useMobileTabs } from './mobileTabs';
 
 /** Mis personajes: elegir, crear (o importar del PDF rellenable) y la hoja del activo. */
 export default function CharacterArea() {
@@ -81,13 +82,17 @@ export default function CharacterArea() {
     if (off.length) setAskSpells({ charId: ch.id, cls: d.classes.find((k) => k.id === ch.classId)?.n || 'tu clase', list: off });
   };
 
+  // pestañas del móvil: solo con una hoja a la vista (no en el editor ni sin personajes)
+  const showsSheet = !!active && !editing;
+  useEffect(() => { useMobileTabs.setState({ sheet: showsSheet }); return () => useMobileTabs.setState({ sheet: false }); }, [showsSheet]);
+
   if (!loaded) return <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando tus personajes…</p></div>;
 
   return (
     <>
       {/* pestañas de personajes sobre la hoja; a la derecha, crear o importar uno nuevo */}
       <div className="pc-book">
-        <div className="pc-tabs-row" data-tour="pc-tabs">
+        <div className="pc-tabs-row" data-tour="pc-tabs" data-sec="combate">
           <div className="pc-tabs" role="tablist" aria-label="Elegir personaje">
             {characters.map((c) => <button key={c.id} role="tab" aria-selected={c.id === active?.id} className={c.id === active?.id ? 'pc-tab on' : 'pc-tab'} onClick={() => select(c.id)}>{c.name || 'Sin nombre'}</button>)}
           </div>
@@ -109,7 +114,7 @@ export default function CharacterArea() {
         </div>
       </div>
       {/* al final de la hoja: copia de seguridad */}
-      <div className="panel pc-backup-bar">
+      <div className="panel pc-backup-bar" data-sec="rasgos">
         <span className="eyebrow">Copia de seguridad</span>
         <div className="rollrow">
           <button className="btn small" disabled={!characters.length} onClick={backupAll} title="Descarga todos tus personajes en un archivo (sin tu biblioteca)">Guardar copia</button>

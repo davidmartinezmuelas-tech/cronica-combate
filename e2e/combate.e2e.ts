@@ -1662,3 +1662,42 @@ test('pie: privacidad y aviso legal (también con #/privacidad) y enlace de suge
   await page.goto('/#/privacidad');
   await expect(page.getByRole('dialog', { name: 'Privacidad y aviso legal' })).toBeVisible();
 });
+
+test('móvil: la hoja del jugador en pestañas, barra con PG y CA, y características en orden', async ({ page }) => {
+  test.skip(test.info().project.name !== 'escritorio');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Mira');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  // en el editor no hay pestañas
+  await expect(page.locator('.pc-tabbar')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const bar = page.locator('.pc-tabbar');
+  await expect(bar.getByRole('button')).toHaveText(['Combate', 'Tiradas', 'Conjuros', 'Rasgos', 'Sala']);
+  // combate: ataques a la vista, características no
+  await expect(page.locator('section[aria-label="Ataques"]')).toBeVisible();
+  await expect(page.locator('section[aria-label="Características"]')).toBeHidden();
+  // al bajar, la barra de arriba con PG y CA
+  await expect(page.locator('.pc-mini')).toHaveCount(0);
+  await page.locator('section[aria-label="Estados y descansos"]').scrollIntoViewIfNeeded();
+  await expect(page.locator('.pc-mini')).toContainText('PG');
+  // tiradas: las seis características seguidas y después inspiración y competencias
+  await bar.getByRole('button', { name: 'Tiradas' }).click();
+  await expect(page.locator('section[aria-label="Ataques"]')).toBeHidden();
+  const y = async (sel: string) => (await page.locator(sel).first().boundingBox())!.y;
+  expect(await y('.pc-abil[data-abil=cha]')).toBeLessThan(await y('.pc-extra'));
+  expect(await y('.pc-abil[data-abil=int]')).toBeGreaterThan(await y('.pc-abil[data-abil=con]'));
+  await bar.getByRole('button', { name: 'Conjuros' }).click();
+  await expect(page.locator('section[aria-label="Conjuros"]')).toBeVisible();
+  await bar.getByRole('button', { name: 'Rasgos' }).click();
+  await expect(page.locator('section[aria-label="Rasgos y dotes"]')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Guardar copia' })).toBeVisible();
+  await bar.getByRole('button', { name: 'Sala' }).click();
+  await expect(page.getByRole('button', { name: 'Entrar en una sala' })).toBeVisible();
+  await expect(page.locator('section[aria-label="Rasgos y dotes"]')).toBeHidden();
+  await bar.getByRole('button', { name: 'Combate' }).click();
+  await expect(page.locator('section[aria-label="Ataques"]')).toBeVisible();
+});

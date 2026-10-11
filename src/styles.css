@@ -1040,3 +1040,28 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .pc-abil[data-abil=cha]{--grp:#6d3a7a}
 .paper .pc-block-sp{--grp:#5a4a8a}
 .paper .pc-block-ft{--grp:#8a5a0e}
+
+/* móvil (modo jugador): la hoja en pestañas con una barra abajo; cada parte lleva data-sec y solo se ve la de la pestaña */
+.mtabs[data-mtab=combate] [data-sec]:not([data-sec~=combate]),
+.mtabs[data-mtab=tiradas] [data-sec]:not([data-sec~=tiradas]),
+.mtabs[data-mtab=conjuros] [data-sec]:not([data-sec~=conjuros]),
+.mtabs[data-mtab=rasgos] [data-sec]:not([data-sec~=rasgos]),
+.mtabs[data-mtab=sala] [data-sec]:not([data-sec~=sala]){display:none !important}
+.mtabs{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+.pc-tabbar{position:fixed;left:0;right:0;bottom:0;z-index:56;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:2px;padding:5px 6px calc(5px + env(safe-area-inset-bottom));background:#32271e;border-top:1px solid #5b4837;box-shadow:0 -6px 18px rgba(0,0,0,.35)}
+.pc-tabbar button{min-height:44px;padding:6px 2px;border:0;border-radius:8px;background:none;color:#c6bba6;font:inherit;font-size:13px;font-weight:800}
+.pc-tabbar button.on{color:#f3d48a;background:rgba(212,169,79,.16);box-shadow:inset 0 2px 0 #d4a94f}
+/* el botón de dados y la barra de la última tirada, encima de la barra de pestañas */
+body:has(.mtabs) .dice-fab{bottom:calc(80px + env(safe-area-inset-bottom))}
+body:has(.mtabs) .roll-peek{bottom:calc(76px + env(safe-area-inset-bottom))}
+/* barra fija arriba con PG y CA (al dejar de ver la franja o en otra pestaña) */
+.pc-mini{position:fixed;top:0;left:0;right:0;z-index:57;display:flex;align-items:center;gap:12px;width:100%;padding:8px 14px;border:0;border-bottom:1px solid #b39c74;background:#ecdfc4;color:#2b2118;font:inherit;font-size:14px;text-align:left;box-shadow:0 6px 16px rgba(0,0,0,.35);cursor:pointer}
+.pc-mini-n{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:17px;color:#7a1f14}
+.pc-mini-hp{display:flex;flex-direction:column;gap:2px;min-width:92px}
+.pc-mini-hp .hpbar{background:#cbb994}
+.pc-mini-ac{white-space:nowrap}
+.pc-mini b{font-size:17px}
+/* en el móvil, las características en orden (FUE…CAR) y después inspiración, percepción pasiva y competencias */
+.pc-phone .pc-abils{display:flex;flex-direction:column;gap:10px}
+.pc-phone .pc-abil-col{display:contents}
+.pc-phone .pc-extra,.pc-phone .pc-profs{order:1}
