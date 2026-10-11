@@ -24,7 +24,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,mjs,css,html,svg,png,woff2}', 'data/*.json'],
         // sin conexión no sirve de nada: no se precarga para todos
-        globIgnores: ['**/firebase-*.js'],
+        // og.png: solo la usan las vistas previas al compartir el enlace
+        globIgnores: ['**/firebase-*.js', 'og.png'],
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
       },
       manifest: {

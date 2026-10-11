@@ -25,6 +25,8 @@ export interface AccountState {
   emailUp: (email: string, pass: string) => Promise<void>;
   reset: (email: string) => Promise<string>;
   out: () => Promise<void>;
+  /** Borra la cuenta y sus datos en la nube; lo del dispositivo se queda. Devuelve true si se borró. */
+  deleteAccount: (pass?: string) => Promise<boolean>;
   /** Usuario para entrar en una sala: el de la cuenta o, si no hay sesión, uno de invitado (anónimo). */
   ensureUser: () => Promise<CloudUser | null>;
 }
@@ -208,6 +210,25 @@ export const useAccount = create<AccountState>()((set, get) => {
       try { await adapter.anon(); } catch (e) { fail(e); return null; }
       await until(() => !!get().user);
       return get().user;
+    },
+
+    async deleteAccount(pass) {
+      const a = adapter;
+      const u = get().user;
+      if (!a || !u || u.anon) return false;
+      set({ error: '' });
+      // sin sincronizar mientras se borra: si no, los borrados de la nube se llevarían también lo del dispositivo
+      stopSync?.();
+      try {
+        await a.deleteAccount(u.uid, pass);
+      } catch (e) {
+        fail(e);
+        void startSync(a, u.uid);
+        return false;
+      }
+      remember(false);
+      set({ sync: 'idle' });
+      return true;
     },
 
     async out() {

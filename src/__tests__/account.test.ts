@@ -119,3 +119,30 @@ describe('juntar listas con fecha', () => {
     expect(applyItems(list, [{ id: 'a', at: 6, v: 2 }], [])[0].v).toBe(2);
   });
 });
+
+describe('borrar la cuenta', () => {
+  beforeEach(async () => {
+    await usePlayer.getState().init();
+    usePlayer.setState({ characters: [pj('a', 'Aldo', 100)], activeId: 'a' });
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+  });
+
+  it('borra lo de la nube y la cuenta, pero lo del dispositivo se queda', async () => {
+    const cloud = fakeCloud({ uid: 'u9', email: 'a@b.c', name: null, anon: false });
+    cloud.remote.set('n', pj('n', 'En la nube', 50));
+    setCloudAdapter(async () => cloud.adapter);
+    await useAccount.getState().start();
+    await vi.waitFor(() => expect(useAccount.getState().sync).toBe('ok'));
+    expect(usePlayer.getState().characters.map((c) => c.id).sort()).toEqual(['a', 'n']);
+
+    // contraseña mal: no se borra nada y la sincronización sigue
+    expect(await useAccount.getState().deleteAccount('mal')).toBe(false);
+    expect(useAccount.getState().error).toBe('Correo o contraseña incorrectos.');
+    expect(cloud.remote.size).toBe(2);
+
+    expect(await useAccount.getState().deleteAccount('bien')).toBe(true);
+    expect(cloud.remote.size).toBe(0);
+    await vi.waitFor(() => expect(useAccount.getState().status).toBe('out'));
+    expect(usePlayer.getState().characters.map((c) => c.id).sort()).toEqual(['a', 'n']);
+  });
+});

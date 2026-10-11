@@ -1649,3 +1649,16 @@ test('enlace para apoyar el proyecto en el pie, en la portada y en los dos modos
     await expect(link).toHaveAttribute('target', '_blank');
   }
 });
+
+test('pie: privacidad y aviso legal (también con #/privacidad) y enlace de sugerencias', async ({ page }) => {
+  await page.goto('/#/inicio');
+  await page.getByRole('button', { name: 'Privacidad y aviso legal' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Privacidad y aviso legal' });
+  await expect(dlg).toContainText('hola@cronicadecombate.com');
+  await expect(dlg).toContainText('Borrar mi cuenta');
+  await page.keyboard.press('Escape');
+  await expect(dlg).toHaveCount(0);
+  await expect(page.getByRole('link', { name: 'Enviar sugerencia o fallo' })).toHaveAttribute('href', /^mailto:hola@cronicadecombate\.com\?subject=/);
+  await page.goto('/#/privacidad');
+  await expect(page.getByRole('dialog', { name: 'Privacidad y aviso legal' })).toBeVisible();
+});

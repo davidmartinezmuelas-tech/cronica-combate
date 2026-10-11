@@ -43,6 +43,11 @@ export interface CloudAdapter {
   emailUp: (email: string, pass: string) => Promise<void>;
   reset: (email: string) => Promise<void>;
   out: () => Promise<void>;
+  /**
+   * Borra la cuenta y todo lo suyo en la nube (personajes y datos del máster). Primero confirma quién es (Google o
+   * contraseña), para no dejar los datos borrados y la cuenta viva si Firebase pide volver a entrar.
+   */
+  deleteAccount: (uid: string, pass?: string) => Promise<void>;
   /** Personajes de la cuenta: primero todos y luego cada cambio (los modificados y los ids borrados). */
   watchCharacters: (uid: string, cb: (changed: Character[], removed: string[], first: boolean) => void, onError: (e: Error) => void) => () => void;
   putCharacter: (uid: string, c: Character) => Promise<void>;
@@ -90,6 +95,22 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
     emailUp: async (e, p) => { await A.createUserWithEmailAndPassword(auth, e, p); },
     reset: (e) => A.sendPasswordResetEmail(auth, e),
     out: () => A.signOut(auth),
+    deleteAccount: async (uid, pass) => {
+      const u = auth.currentUser;
+      if (!u || u.uid !== uid) throw new Error('sin sesión');
+      if (u.providerData.some((p) => p.providerId === 'google.com')) await A.reauthenticateWithPopup(u, new A.GoogleAuthProvider());
+      else await A.reauthenticateWithCredential(u, A.EmailAuthProvider.credential(u.email || '', pass || ''));
+      // sin borrado en cascada: cada documento (en lotes de 400) y luego la cuenta
+      for (const sub of ['characters', 'monsters', 'encounters', 'roster']) {
+        const snap = await F.getDocs(F.collection(db, 'users', uid, sub));
+        for (let i = 0; i < snap.docs.length; i += 400) {
+          const batch = F.writeBatch(db);
+          snap.docs.slice(i, i + 400).forEach((d) => batch.delete(d.ref));
+          await batch.commit();
+        }
+      }
+      await A.deleteUser(u);
+    },
     watchCharacters: (uid, cb, onError) => {
       let first = true;
       return F.onSnapshot(col(uid), (snap) => {

@@ -31,6 +31,14 @@ export function fakeCloud(initialUser: CloudUser | null) {
     onAuth: (cb) => { auth.add(cb); setTimeout(() => cb(user), 0); return () => auth.delete(cb); },
     google: async () => {}, emailIn: async () => {}, emailUp: async () => {}, reset: async () => {},
     out: async () => setUser(null),
+    deleteAccount: async (_uid, pass) => {
+      if (pass === 'mal') throw Object.assign(new Error('mal'), { code: 'auth/wrong-password' });
+      const ids = [...remote.keys()];
+      remote.clear();
+      charWatcher?.([], ids, false);
+      (Object.keys(items) as DmKind[]).forEach((k) => { const gone = [...items[k].keys()]; items[k].clear(); itemWatch.get(k)?.([], gone, false); });
+      setUser(null);
+    },
     anon: async () => { calls.anon++; setTimeout(() => setUser({ uid: 'anon-' + calls.anon, email: null, name: null, anon: true }), 0); },
     watchCharacters: (_uid, cb) => { charWatcher = cb; setTimeout(() => cb([...remote.values()], [], true), 0); return () => { charWatcher = null; }; },
     watchItems: <T extends { id: string }>(_uid: string, kind: DmKind, cb: (changed: T[], removed: string[], first: boolean) => void) => {
