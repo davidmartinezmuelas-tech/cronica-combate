@@ -1640,3 +1640,12 @@ test('recarga: la etiqueta tira el d6 cuando la habilidad está gastada', async 
   await tag.click();
   await expect(page.locator('.plaque-label')).toContainText('Recarga · Ankheg', { timeout: 15000 });
 });
+
+test('enlace para apoyar el proyecto en el pie, en la portada y en los dos modos', async ({ page }) => {
+  for (const url of ['/#/inicio', '/#/dm', '/#/jugador']) {
+    await page.goto(url);
+    const link = page.getByRole('link', { name: /Tira iniciativa en Ko-fi/ });
+    await expect(link).toHaveAttribute('href', 'https://ko-fi.com/zmuelas');
+    await expect(link).toHaveAttribute('target', '_blank');
+  }
+});
