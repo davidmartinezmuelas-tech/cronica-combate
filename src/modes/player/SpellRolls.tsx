@@ -6,6 +6,7 @@ import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { hasInvocation } from '../../engine/subclassChoices';
 import { withConc } from '../../engine/concentration';
+import { spellFx } from '../../engine/spellEffects';
 import { useRoom } from '../../store/room';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
@@ -47,11 +48,32 @@ export default function SpellRolls({ c, d, s, set }: { c: Character; d: Derived;
   // espacio que gasta «Lanzar»
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;
   const slotLeft = lv && !usePact ? (d.slots[lv - 1] || 0) - (c.slotsUsed[lv - 1] || 0) : 0;
-  const spendSlot = () => {
+  // lo que hace el conjuro sobre quien lo recibe (PG temporales, CA, Auxilio…): «Lanzar sobre mí» lo aplica en la hoja
+  const fx = spellFx(s);
+  const spendSlot = (onMe = false) => {
     // un conjuro de concentración la empieza (y termina la de otro)
-    const conc = s.c ? { conds: withConc(c.conds, s.n) } : {};
-    if (usePact) { set({ pactUsed: c.pactUsed + 1, ...conc }); return; }
-    const u = c.slotsUsed.slice(); u[lv - 1] = (u[lv - 1] || 0) + 1; set({ slotsUsed: u, ...conc });
+    const conds = s.c ? withConc(c.conds, s.n) : c.conds;
+    const patch: Partial<Character> = { conds };
+    if (usePact) patch.pactUsed = c.pactUsed + 1;
+    else { const u = c.slotsUsed.slice(); u[lv - 1] = (u[lv - 1] || 0) + 1; patch.slotsUsed = u; }
+    if (onMe && fx) {
+      const f = fx.fx;
+      if (!f.instant) patch.active = [...(c.active || []).filter((e) => e.k !== fx.key), { k: fx.key, n: s.n, lv, conc: !!s.c, at: Date.now() }];
+      if (f.cond && !conds.includes(f.cond)) patch.conds = [...conds, f.cond];
+      // Auxilio: los PG actuales suben lo mismo que los máximos
+      if (f.hpMax) { const prev = (c.active || []).find((e) => e.k === fx.key); patch.hp = c.hp + f.hpMax(lv) - (prev && f.hpMax ? f.hpMax(prev.lv) : 0); }
+      if (f.temp) {
+        const expr = f.temp(lv, d.mods);
+        // PG temporales: no se suman, se queda el mayor
+        if (/d/.test(expr)) roll({ label: label('PG temporales'), kind: 'free', parts: [{ expr }], after: (total) => {
+          const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+          usePlayer.getState().update(c.id, { temp: Math.max(cur.temp, total) });
+          return { resultNote: total > cur.temp ? 'PG temporales: ' + total + '.' : 'Ya tenías ' + cur.temp + ' PG temporales: te quedas con esos.' };
+        } });
+        else patch.temp = Math.max(c.temp, Number(expr) || 0);
+      }
+    }
+    set(patch);
   };
   const healAfter = (total: number) => {
     const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
@@ -72,7 +94,7 @@ export default function SpellRolls({ c, d, s, set }: { c: Character; d: Derived;
         </select>
       )}
       {rr.attack && caster && (
-        <button className="rollbtn" onClick={() => roll({ label: label('ataque' + (cast.count > 1 ? ' (uno por ' + (s.n.match(/dardo|rayo/i)?.[0] || 'impacto') + ')' : '')), kind: 'attack', who, parts: [{ expr: '1d20' + (caster.atk >= 0 ? '+' : '') + caster.atk }], self: { conds: c.conds, exh: c.exh } })}>Ataque {fmt(caster.atk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
+        <button className="rollbtn" onClick={() => roll({ label: label('ataque' + (cast.count > 1 ? ' (uno por ' + (s.n.match(/dardo|rayo/i)?.[0] || 'impacto') + ')' : '')), kind: 'attack', who, parts: [{ expr: '1d20' + (caster.atk >= 0 ? '+' : '') + caster.atk + (d.bless ? '+1d4' : '') }], self: { conds: c.conds, exh: c.exh } })}>Ataque {fmt(caster.atk)}{d.bless ? ' +1d4' : ''}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
       )}
       {cast.dmg && (rr.attack || cast.count === 1 ? (
         <button className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [cast.dmg!], ...(effect ? { effect } : {}) })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}{cast.count > 1 ? ' cada uno' : ''}</button>
@@ -88,9 +110,14 @@ export default function SpellRolls({ c, d, s, set }: { c: Character; d: Derived;
           <button className="rollbtn" onClick={() => roll({ label: label('curarme'), kind: 'free', parts: [{ expr: cast.heal }], after: healAfter })}>Curarme</button>
         </>
       )}
-      {base > 0 && (d.pact || d.slots.length > 0) && (
-        <button className="btn small" disabled={usePact ? pactLeft <= 0 : slotLeft <= 0} title="Marca el espacio de conjuro gastado" onClick={spendSlot}>Lanzar (gasta {usePact ? 'espacio de pacto' : 'espacio de nivel ' + lv})</button>
-      )}
+      {base > 0 && (d.pact || d.slots.length > 0) && (fx ? (
+        <>
+          <button className="btn small" disabled={usePact ? pactLeft <= 0 : slotLeft <= 0} title={'Gasta el espacio y lo aplica en tu hoja: ' + fx.fx.note} onClick={() => spendSlot(true)}>{fx.fx.self ? 'Lanzar' : 'Lanzar sobre mí'} (gasta {usePact ? 'espacio de pacto' : 'espacio de nivel ' + lv})</button>
+          {!fx.fx.self && <button className="btn small ghost" disabled={usePact ? pactLeft <= 0 : slotLeft <= 0} title="Lo lanzas sobre otra criatura: gasta el espacio" onClick={() => spendSlot(false)}>Sobre otro</button>}
+        </>
+      ) : (
+        <button className="btn small" disabled={usePact ? pactLeft <= 0 : slotLeft <= 0} title="Marca el espacio de conjuro gastado" onClick={() => spendSlot()}>Lanzar (gasta {usePact ? 'espacio de pacto' : 'espacio de nivel ' + lv})</button>
+      ))}
     </span>
   );
 }

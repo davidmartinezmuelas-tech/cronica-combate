@@ -19,3 +19,17 @@ describe('conjuros preparados en multiclase', () => {
     expect(r.other).toEqual(['odd']);
   });
 });
+
+describe('efectos de conjuros activos en la hoja', () => {
+  it('Escudo de fe y Armadura de mago cambian la CA; Auxilio los PG máximos; Acelerar la velocidad; con concentración solo mientras dura', async () => {
+    const { spellFx, liveEffects } = await import('../engine/spellEffects');
+    expect(spellFx({ en: 'Shield of Faith', n: 'Escudo de fe' })?.fx.ac?.add).toBe(2);
+    expect(spellFx({ n: 'Armadura de Agathys' })?.fx.temp?.(2, { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 })).toBe('10');
+    expect(spellFx({ en: 'False Life', n: 'Falsa vida' })?.fx.temp?.(3, { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 })).toBe('2d4+14');
+    expect(spellFx({ en: 'Aid', n: 'Auxilio' })?.fx.hpMax?.(3)).toBe(10);
+    expect(spellFx({ en: 'Fireball', n: 'Bola de fuego' })).toBeNull();
+    const act = [{ k: 'Shield of Faith', n: 'Escudo de fe', lv: 1, conc: true, at: 1 }, { k: 'Aid', n: 'Auxilio', lv: 2, at: 2 }];
+    expect(liveEffects(act, ['Concentración: Escudo de fe']).map((e) => e.k)).toEqual(['Shield of Faith', 'Aid']);
+    expect(liveEffects(act, ['Concentración: Bendición']).map((e) => e.k)).toEqual(['Aid']);
+  });
+});

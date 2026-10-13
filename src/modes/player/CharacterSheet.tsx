@@ -17,6 +17,7 @@ import { concDc, concOf, withConc, withoutConc } from '../../engine/concentratio
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
 import { useMobileTabs } from './mobileTabs';
+import { fxCond, staleEffects } from '../../engine/spellEffects';
 import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
@@ -174,15 +175,20 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const r = (label: string, kind: RollSpec['kind'], expr: string, extra: Partial<RollSpec> = {}) =>
     roll({ label: who + ' · ' + label, kind, who, parts: [{ expr }], self: { conds: c.conds, exh: c.exh }, ...extra });
   const d20 = (b: number) => '1d20' + sgn(b);
+  // Bendición: +1d4 a ataques y salvaciones
+  const d20b = (b: number) => d20(b) + (d.bless ? '+1d4' : '');
   const set = (patch: Partial<Character>) => update(c.id, patch);
   // concentración: al bajar los PG (daño desde la hoja o desde la sala del máster) se pide la salvación
   const conc = concOf(c.conds);
   const [concCheck, setConcCheck] = useState<{ dmg: number; dc: number } | null>(null);
   const prevHp = useRef({ id: c.id, total: c.hp + c.temp });
+  // bajar PG sin daño (se acaba Auxilio): sin salvación
+  const noDamage = useRef(false);
   useEffect(() => {
     const now = c.hp + c.temp;
     const prev = prevHp.current;
     prevHp.current = { id: c.id, total: now };
+    if (noDamage.current) { noDamage.current = false; return; }
     if (prev.id !== c.id || now >= prev.total || !conc) return;
     // a 0 PG se cae inconsciente: la concentración termina sin tirada
     if (c.hp === 0) { update(c.id, { conds: withoutConc(c.conds) }); return; }
@@ -196,7 +202,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     if (!concCheck) return;
     const { dc } = concCheck;
     const spell = conc;
-    r('salvación de concentración (CD ' + dc + ')', 'save', d20(d.saves.con.bonus), {
+    r('salvación de concentración (CD ' + dc + ')', 'save', d20b(d.saves.con.bonus), {
       ...(warCaster ? { adv: 'Lanzador de guerra' } : d.saves.con.adv ? { adv: d.saves.con.adv } : {}),
       after: (total) => {
         setConcCheck(null);
@@ -567,6 +573,24 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const xpNext = d.level < 20 ? XP_LEVELS[d.level] : null;
   const xpReady = xpNext != null && (c.xp || 0) >= xpNext;
   const hpPct = Math.max(0, Math.min(100, Math.round((c.hp / Math.max(1, d.hpMax)) * 100)));
+  // conjuros activos: al perder la concentración se acaban (y se quita el estado que ponían)
+  const stale = staleEffects(c.active, c.conds);
+  useEffect(() => {
+    if (!stale.length) return;
+    update(c.id, { active: (c.active || []).filter((e) => !stale.includes(e)), conds: c.conds.filter((k) => !stale.some((e) => fxCond(e.k) === k)) });
+  }, [stale.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const endEffect = (k: string) => {
+    const e = d.effects.find((x) => x.k === k);
+    if (!e) return;
+    const bonus = e.fx.hpMax ? e.fx.hpMax(e.lv) : 0;
+    if (bonus) noDamage.current = true;
+    set({
+      active: (c.active || []).filter((x) => x.k !== k),
+      conds: (e.conc && conc === e.n ? withoutConc(c.conds) : c.conds).filter((x) => x !== e.fx.cond),
+      ...(bonus ? { hp: Math.min(c.hp, d.hpMax - bonus) } : {}),
+    });
+  };
+  const spellMod = d.spell ? d.mods[d.spell.abil] : 0;
 
   // móvil: la pestaña de conjuros solo si los lanza; arriba, una barra fija con PG y CA al dejar de ver la franja
   const phone = useMobileTabs((s) => s.phone);
@@ -662,6 +686,18 @@ export default function CharacterSheet({ c }: { c: Character }) {
           </button>
           <div className="stat stat-sm"><span className="stat-k">Velocidad</span><span className="stat-v">{d.speed}<span className="stat-of"> pies</span></span></div>
         </div>
+        {/* conjuros lanzados sobre ti que siguen en vigor (con su efecto ya en la CA, la velocidad o los PG) */}
+        {d.effects.length > 0 && (
+          <div className="pc-active" aria-label="Conjuros activos">
+            {d.effects.map((e) => (
+              <span key={e.k} className="pc-active-fx" title={e.fx.note}>
+                <b>{e.n}</b><span className="muted small">{e.fx.hpMax ? '+' + e.fx.hpMax(e.lv) + ' ' : ''}{e.fx.note}{e.conc ? ' · concentración' : ''}</span>
+                {e.k === 'Heroism' && spellMod > 0 && <button className="btn small" onClick={() => set({ temp: Math.max(c.temp, spellMod) })}>PG temporales ({spellMod})</button>}
+                <button className="btn small ghost" aria-label={'Terminar ' + e.n} onClick={() => endEffect(e.k)}>Terminar</button>
+              </span>
+            ))}
+          </div>
+        )}
         <div className="pc-hp-row" data-tour="hp">
           <input className="input" type="number" min={0} inputMode="numeric" aria-label="Cantidad de PG" placeholder="PG" value={amount} onChange={(e) => setAmount(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') damage(); }} />
           <select className="input pc-dmg-type" aria-label="Tipo de daño recibido" value={dmgType} onChange={(e) => setDmgType(e.target.value)}>
@@ -707,7 +743,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               </div>
               <ul className="pc-skills">
                 <li>
-                  <button className="pc-skill pc-save" aria-label={'Salvación de ' + ABIL_N[a] + ' ' + fmt(d.saves[a].bonus) + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].adv ? ' V' : '')} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].why ? ' · ' + d.saves[a].why : '') + (d.saves[a].adv ? ' · ventaja (' + d.saves[a].adv + ')' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20(d.saves[a].bonus), d.saves[a].adv ? { adv: d.saves[a].adv } : {})}>
+                  <button className="pc-skill pc-save" aria-label={'Salvación de ' + ABIL_N[a] + ' ' + fmt(d.saves[a].bonus) + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].adv ? ' V' : '')} title={'Salvación de ' + ABIL_N[a] + (d.saves[a].prof ? ' (competente)' : '') + (d.saves[a].why ? ' · ' + d.saves[a].why : '') + (d.saves[a].adv ? ' · ventaja (' + d.saves[a].adv + ')' : '')} onClick={() => r('salvación de ' + ABIL_N[a], 'save', d20b(d.saves[a].bonus), d.saves[a].adv ? { adv: d.saves[a].adv } : {})}>
                     <span className={d.saves[a].prof ? 'dot on' : 'dot'} aria-label={d.saves[a].prof ? 'Competente' : 'Sin competencia'} />
                     <span className="pc-skill-n">Salvación</span>
                     {d.saves[a].adv && <span className="adv-mark">V</span>}
@@ -791,7 +827,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               )}
             </span>
             <span className="rollrow">
-              <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20(atk + buffAtk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk + buffAtk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
+              <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk + buffAtk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' }, w.id)}>Daño {partsLabel(parts)}{armTag(w.id)}</button>
               {w.kind === 'melee' && smiteChips(w.id)}
               {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse }, w.id)}>A dos manos {partsLabel(verParts)}{armTag(w.id)}</button>}
@@ -805,7 +841,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="pc-attack">
             <span className="pc-attack-n">Ataque sin armas<span className="muted small">cuerpo a cuerpo</span><span className="pc-attack-feat small">{d.unarmed.notes.join(', ')}{d.unarmed.parts[0].reroll1 ? ' · repite los 1' : ''}</span></span>
             <span className="rollrow">
-              <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20(d.unarmed!.atk), { critOn: d.critOn, ...(reckless && uaHit.str ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(d.unarmed.atk)}{reckless && uaHit.str && <span className="adv-mark">V</span>}</button>
+              <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20b(d.unarmed!.atk), { critOn: d.critOn, ...(reckless && uaHit.str ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(d.unarmed.atk)}{reckless && uaHit.str && <span className="adv-mark">V</span>}</button>
               <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, 'ua')}>Daño {partsLabel(d.unarmed.parts)}{armTag('ua')}</button>
               {smiteChips('ua', false)}
               {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, uaHit, 'ua')}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
@@ -907,7 +943,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               {castLines.map((x) => (
                 <span key={x.key} className="rollrow">
                   <span className="muted small">CD {x.dc} · {ABIL_N[x.abil]}{castNamed ? ' (' + x.names.join(', ') + ')' : ''}</span>
-                  <button className="rollbtn" onClick={() => r('ataque de conjuro' + (castNamed ? ' de ' + x.names.join(', ').toLowerCase() : ''), 'attack', d20(x.atk))}>Ataque de conjuro {fmt(x.atk)}</button>
+                  <button className="rollbtn" onClick={() => r('ataque de conjuro' + (castNamed ? ' de ' + x.names.join(', ').toLowerCase() : ''), 'attack', d20b(x.atk))}>Ataque de conjuro {fmt(x.atk)}</button>
                 </span>
               ))}
             </span>}

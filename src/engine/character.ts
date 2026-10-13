@@ -1,4 +1,5 @@
 import { ABILS, SKILL_ABIL, type Abil, type ArmorData, type ClassData, type PlayerData, type Uses, type WeaponData } from '../data/player';
+import { fxCond, liveEffects, type ActiveEffect, type SpellFx } from './spellEffects';
 import { classEffects, speciesResist, type ClassFx } from './classEffects';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { featCatOf, splitFeatText } from './featText';
@@ -98,6 +99,8 @@ export interface Character {
   hpRolls?: Record<string, number>;
   /** Multiclase: dados de golpe gastados por tipo de dado («10»: 2). Con una sola clase basta hdSpent. */
   hdUsed?: Record<string, number>;
+  /** Conjuros lanzados sobre el personaje que siguen en vigor (Escudo de fe, Auxilio, Acelerar…). */
+  active?: ActiveEffect[];
   /** Puntos de experiencia (opcional: muchas mesas suben por hitos). */
   xp?: number;
   /** Solo en memoria: nivel total del personaje cuando se calcula una de sus clases por separado (asClass). */
@@ -168,6 +171,9 @@ export interface Derived {
   skills: Record<string, { bonus: number; prof: boolean; exp: boolean; abil: Abil; adv?: string; min10?: boolean }>;
   initAdv: string; // ventaja en iniciativa (motivo)
   resist: { type: string; why: string }[]; // resistencias al daño de los rasgos (Furia, Resiliencia infernal…)
+  effects: (ActiveEffect & { fx: SpellFx })[]; // conjuros activos sobre el personaje
+  bless: boolean; // Bendición: +1d4 a ataques y salvaciones
+  fxHp: number; // PG máximos de más por conjuros (Auxilio)
   cfx: ClassFx; // efectos de los rasgos de clase
   ac: number;
   acNote: string;
@@ -243,6 +249,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     bonus: mods[a] + (saveProf.has(a) ? pb : 0) + saveFlat, prof: saveProf.has(a),
     ...(cfx.saveAdv[a] ? { adv: cfx.saveAdv[a] } : {}), ...(saveFlat ? { why: cfx.saveBonus!.why + ' ' + (saveFlat > 0 ? '+' : '') + saveFlat } : {}),
   }])) as Derived['saves'];
+  // conjuros activos sobre el personaje (los de concentración, solo mientras dura)
+  const effects = liveEffects(c.active, c.conds);
+  for (const e of effects) for (const a of e.fx.saveAdv || []) if (!saves[a].adv) saves[a] = { ...saves[a], adv: e.n };
   // Aprendiz de todo: la mitad de la competencia (hacia abajo) en las pruebas sin competencia
   const half = cfx.halfProf ? Math.floor(pb / 2) : 0;
   const checks = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + half, ...(cfx.checkAdv[a] ? { adv: cfx.checkAdv[a] } : {}) }])) as Derived['checks'];
@@ -279,7 +288,11 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     ac = 13 + mods.dex;
     acNote = 'Armadura de mago (Armadura de sombras)';
   }
+  // Armadura de mago (conjuro activo): 13 + Destreza sin armadura, si es mejor
+  if (!worn && effects.some((e) => e.fx.ac?.base13) && 13 + mods.dex > ac) { ac = 13 + mods.dex; acNote = 'Armadura de mago'; }
   if (c.shield) { ac += 2 + (c.shieldBonus || 0); acNote += ' y escudo' + (c.shieldBonus ? ' +' + c.shieldBonus : ''); }
+  for (const e of effects) if (e.fx.ac?.add) { ac += e.fx.ac.add; acNote += ' + ' + e.n; }
+  for (const e of effects) if (e.fx.ac?.min && ac < e.fx.ac.min) { ac = e.fx.ac.min; acNote = e.n + ' (mínimo ' + e.fx.ac.min + ')'; }
 
   const hdDie = cls?.hd || 8;
   const lvl = level;
@@ -301,7 +314,8 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     return m;
   }, {})).map(([die, n]) => ({ die: Number(die), n })).sort((a, b) => b.die - a.die);
   // Robustez enana: +1 PG por nivel; Resiliencia dracónica: +1 por nivel de hechicero
-  const hpMax = Math.max(1, classHp + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvOf('sorcerer') : 0));
+  const fxHp = effects.reduce((t, e) => t + (e.fx.hpMax ? e.fx.hpMax(e.lv) : 0), 0);
+  const hpMax = Math.max(1, classHp + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvOf('sorcerer') : 0) + fxHp);
 
   // lanzadores: cada clase con su característica (y el Caballero arcano / Embaucador arcano, con Inteligencia)
   const casterOf = (e: ClassEntry) => {
@@ -380,8 +394,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     ac: c.ov.ac ?? ac, acNote: c.ov.ac != null ? 'Ajustada a mano' : acNote,
     init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : half),
     initAdv: cfx.initAdv,
-    speed: c.ov.speed ?? (species?.speed ?? 30) + sum('speed') + speedBonus + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0),
-    resist: [...speciesResist(c.speciesId, c.choices), ...cfx.resist],
+    speed: c.ov.speed ?? effects.reduce((v, e) => (v + (e.fx.speed?.add || 0)) * (e.fx.speed?.mul || 1), (species?.speed ?? 30) + sum('speed') + speedBonus + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0)),
+    resist: [...speciesResist(c.speciesId, c.choices), ...cfx.resist, ...effects.flatMap((e) => (e.fx.resist || []).map((type) => ({ type, why: e.n })))],
+    effects, bless: effects.some((e) => e.fx.bless), fxHp,
     cfx,
     abil,
     checks,
@@ -444,8 +459,10 @@ export function weaponFromData(w: WeaponData, cls: ClassData | undefined): CharW
 /** Descanso largo (2024): PG al máximo, recupera espacios, usos y todos los dados de golpe; reduce el agotamiento en 1. */
 export function longRest(c: Character, d: Derived): Character {
   return {
-    ...c, hp: d.hpMax, temp: 0, slotsUsed: c.slotsUsed.map(() => 0), pactUsed: 0, uses: {}, hdSpent: 0, hdUsed: {},
+    ...c, hp: d.hpMax - d.fxHp, temp: 0, slotsUsed: c.slotsUsed.map(() => 0), pactUsed: 0, uses: {}, hdSpent: 0, hdUsed: {},
     exh: Math.max(0, c.exh - 1), death: { s: 0, f: 0 }, updatedAt: Date.now(),
+    // los conjuros sobre el personaje se acaban (y los estados que ponían)
+    active: [], conds: c.conds.filter((k) => !(c.active || []).some((e) => fxCond(e.k) === k)),
   };
 }
 

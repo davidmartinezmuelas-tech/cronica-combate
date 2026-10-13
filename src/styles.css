@@ -1078,3 +1078,8 @@ body:has(.mtabs) .roll-peek{bottom:calc(76px + env(safe-area-inset-bottom))}
 /* animaciones reducidas (Ajustes) */
 .reduce-motion *,.reduce-motion *::before,.reduce-motion *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
 .settings a.btn{text-decoration:none}
+/* conjuros activos sobre el personaje, bajo la franja */
+.pc-active{display:flex;flex-wrap:wrap;gap:6px}
+.pc-active-fx{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 6px 4px 10px;border:1px solid #6b8f5e;border-radius:8px;background:rgba(106,161,82,.12)}
+.pc-active-fx b{font-size:14px}
+.paper .pc-active-fx{border-color:#7fa06f;background:#e2ead2}

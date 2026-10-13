@@ -1777,3 +1777,57 @@ test('la copia de personajes puede llevar la biblioteca (subclase propia con sus
   await expect(page.getByText('Biblioteca cargada')).toBeVisible();
   await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ })).toBeVisible();
 });
+
+test('lanzar conjuros sobre ti: CA, PG máximos, PG temporales, Bendición y concentración', async ({ page }) => {
+  test.slow();
+  await page.goto('/#/jugador');
+  const make = async (name: string, cls: string, lv: string, spells: string[]) => {
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    await page.getByLabel('Nombre del personaje').fill(name);
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
+    await page.getByLabel('Nivel', { exact: true }).fill(lv);
+    await page.getByRole('button', { name: /Matriz estándar/ }).click();
+    for (const q of spells) { await page.getByLabel(/^Buscar conjuro/).fill(q); await page.locator('.ce-spell-results .chip', { hasText: new RegExp('^. ' + q, 'i') }).first().click(); }
+    await page.getByRole('button', { name: 'Listo' }).first().click();
+  };
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  const open = async (n: string) => { const row = sp.locator('.card', { hasText: n }).first(); await row.getByRole('button', { name: new RegExp('^' + n) }).click(); return row; };
+  const ac = async () => Number(await page.locator('.stat-ac .stat-v').textContent());
+  const active = page.getByLabel('Conjuros activos');
+
+  // clérigo 3: Escudo de fe (+2 CA, concentración), Bendición la cambia, Auxilio sube los PG
+  await make('Ilsa', 'Clérigo', '3', ['escudo de fe', 'bendición', 'auxilio']);
+  const ac0 = await ac();
+  await (await open('Escudo de fe')).getByRole('button', { name: /^Lanzar sobre mí/ }).click();
+  await expect(page.locator('.stat-ac .stat-v')).toHaveText(String(ac0 + 2));
+  await expect(active).toContainText('Escudo de fe');
+  await expect(page.locator('.pc-conc')).toContainText('Escudo de fe');
+  // otro conjuro de concentración: el escudo se acaba solo
+  await (await open('Bendición')).getByRole('button', { name: /^Lanzar sobre mí/ }).click();
+  await expect(page.locator('.stat-ac .stat-v')).toHaveText(String(ac0));
+  await expect(active).toContainText('Bendición');
+  await expect(active).not.toContainText('Escudo de fe');
+  const hpMax0 = Number(await page.locator('.stat-hp .stat-max').textContent());
+  await (await open('Auxilio')).getByRole('button', { name: /^Lanzar sobre mí/ }).click();
+  await expect(page.locator('.stat-hp .stat-max')).toHaveText(String(hpMax0 + 5));
+  await page.getByRole('button', { name: 'Terminar Auxilio' }).click();
+  await expect(page.locator('.stat-hp .stat-max')).toHaveText(String(hpMax0));
+
+  // mago 1: Armadura de mago (13 + Des), Escudo (+5) y Falsa vida (PG temporales)
+  await make('Oren', 'Mago', '3', ['armadura de mago', 'escudo', 'falsa vida']);
+  const dex = Number((await page.locator('.pc-abil[data-abil=dex] .pc-abil-mod b').textContent())!.replace('−', '-'));
+  await (await open('Armadura de mago')).getByRole('button', { name: /^Lanzar sobre mí/ }).click();
+  await expect(page.locator('.stat-ac .stat-v')).toHaveText(String(13 + dex));
+  await (await open('Escudo')).getByRole('button', { name: /^Lanzar \(gasta/ }).click();
+  await expect(page.locator('.stat-ac .stat-v')).toHaveText(String(18 + dex));
+  await page.getByRole('button', { name: 'Terminar Escudo' }).click();
+  await (await open('Falsa vida')).getByRole('button', { name: /^Lanzar \(gasta/ }).click();
+  await expect(page.locator('.stat-hp .stat-tmp')).toBeVisible({ timeout: 15000 }); // PG temporales tirados
+  // descanso largo: se acaban los efectos
+  await page.getByRole('button', { name: 'Descanso largo' }).click();
+  await page.getByRole('button', { name: '¿Seguro? Descanso largo' }).click();
+  const swap = page.getByRole('dialog').getByRole('button', { name: /Cerrar|Listo|Hecho/ }).first();
+  if (await swap.count()) await swap.click();
+  await expect(active).toHaveCount(0);
+  await expect(page.locator('.stat-ac .stat-v')).toHaveText(String(10 + dex));
+});
