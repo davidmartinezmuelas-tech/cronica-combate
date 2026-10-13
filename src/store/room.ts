@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { castOnPatch, type SpellBuff } from '../engine/spellEffects';
+import { castOnPatch, fxCond, type SpellBuff } from '../engine/spellEffects';
 import { cloud, useAccount } from './account';
 import { cloudError, type RoomCast, type RoomInfo, type RoomMember, type SaveReply, type SharedRoll, type SheetSummary, type TableEntry } from './cloudAdapter';
 import { usePlayer } from './player';
@@ -35,6 +35,9 @@ export interface RoomState {
   replies: SaveReply[]; // el máster: respuestas a sus peticiones de salvación
   saveRequests: { reqId: string; dc: number; abil: number; label: string }[]; // el jugador: salvaciones que le pide el máster
   lastAttack: { label: string; total: number; at: number } | null; // el jugador: su última tirada de ataque
+  sentBuffs: Record<string, SpellBuff>; // el jugador: sus conjuros de concentración mandados a la mesa (por nombre)
+  /** El jugador perdió la concentración en ese conjuro: si lo había mandado a otros, se acaba en la mesa y en sus hojas. */
+  endBuff: (spell: string) => void;
   publishTable: (list: TableEntry[]) => void;
   sendCast: (cast: Omit<RoomCast, 'id' | 'uid' | 'who' | 'at'>) => Promise<boolean>;
   dismissCast: (id: string) => void;
@@ -54,6 +57,7 @@ export interface RoomState {
 }
 
 let stop: (() => void) | null = null;
+const endsDone = new Set<string>(); // fines de concentración ya aplicados por el máster
 let sheetTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSheet = '';
 
@@ -79,7 +83,19 @@ export const useRoom = create<RoomState>()((set, get) => {
     const fail = (e: Error) => set({ error: cloudError(e) });
     // los jugadores ven la lista de iniciativa; el máster recibe los lanzamientos y las respuestas de salvación
     const unTable = role === 'player' ? a.watchTable(info.code, (table) => set({ table }), fail) : () => {};
-    const unCasts = role === 'dm' ? a.watchCasts(info.code, (casts) => set({ casts }), fail) : () => {};
+    // el máster: los fines de concentración se aplican solos (quitar el estado en la mesa y el efecto en las hojas); el resto, a revisar
+    const unCasts = role === 'dm' ? a.watchCasts(info.code, (casts) => {
+      for (const c of casts.filter((x) => x.end && x.buff && !endsDone.has(x.id))) {
+        endsDone.add(c.id); // una sola vez (la lista vuelve a llegar mientras se borra)
+        a.deleteCast(info.code, c.id).catch(() => { /* ya borrado */ });
+        const label = c.buff!.n + ' (de ' + c.who + ')';
+        const s = useStore.getState();
+        for (const t of s.combatants) if (t.conds.some((k) => k.k === label)) s.patchC(t.id, (x) => ({ conds: x.conds.filter((k) => k.k !== label) }), c.buff!.n + ' termina');
+        const from = me()?.uid || '';
+        for (const m of get().members) if (m.role === 'player' && m.uid !== c.uid) a.sendEvent(info.code, { to: m.uid, from, charId: m.sheet?.charId || '', hp: 0, temp: 0, note: '', at: Date.now(), kind: 'unbuff', buff: c.buff!, by: c.who }).catch(fail);
+      }
+      set({ casts: casts.filter((x) => !x.end) });
+    }, fail) : () => {};
     const unReplies = role === 'dm' ? a.watchReplies(info.code, (replies) => set({ replies }), fail) : () => {};
     // cada tirada nueva de la mesa de dados se publica (si se comparte)
     let prev = useStore.getState().result;
@@ -105,6 +121,17 @@ export const useRoom = create<RoomState>()((set, get) => {
         }
         const p = usePlayer.getState();
         const c = p.characters.find((x) => x.id === ev.charId) || p.characters.find((x) => x.id === p.activeId);
+        // se acabó el conjuro que te lanzó un compañero (perdió la concentración): fuera de tu hoja
+        if (ev.kind === 'unbuff' && ev.buff) {
+          const had = c?.active?.find((e) => e.k === ev.buff!.k && e.by === ev.by);
+          if (c && had) {
+            const cond = fxCond(had.k);
+            p.update(c.id, { active: (c.active || []).filter((e) => e !== had), conds: cond ? c.conds.filter((k) => k !== cond) : c.conds });
+            set({ notice: ev.buff.n + ' de ' + (ev.by || 'un compañero') + ' se ha acabado (perdió la concentración).' });
+          }
+          a.deleteEvent(info.code, ev.id).catch(() => { /* ya borrado */ });
+          continue;
+        }
         // un compañero te ha lanzado un conjuro (Bendición, Auxilio…): su efecto en tu hoja
         if (ev.kind === 'buff' && ev.buff) {
           if (c) {
@@ -132,7 +159,7 @@ export const useRoom = create<RoomState>()((set, get) => {
 
   return {
     code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '',
-    table: [], casts: [], replies: [], saveRequests: [], lastAttack: null,
+    table: [], casts: [], replies: [], saveRequests: [], lastAttack: null, sentBuffs: {},
 
     publishTable(list) {
       const { code, role } = get();
@@ -143,7 +170,12 @@ export const useRoom = create<RoomState>()((set, get) => {
       const { code, role, name } = get();
       const uid = me()?.uid;
       if (!code || role !== 'player' || !uid) return false;
-      try { await cloud()!.sendCast(code, { ...c, uid, who: name, at: Date.now() }); return true; } catch (e) { set({ error: cloudError(e) }); return false; }
+      try {
+        await cloud()!.sendCast(code, { ...c, uid, who: name, at: Date.now() });
+        // recordar los de concentración para avisar cuando se acaben
+        if (c.buff?.conc) set({ sentBuffs: { ...get().sentBuffs, [c.buff.n]: c.buff } });
+        return true;
+      } catch (e) { set({ error: cloudError(e) }); return false; }
     },
 
     dismissCast(id) {
@@ -170,6 +202,18 @@ export const useRoom = create<RoomState>()((set, get) => {
       const { code } = get();
       set({ replies: get().replies.filter((r) => r.id !== id) });
       if (code) cloud()?.deleteReply(code, id).catch(() => { /* ya borrado */ });
+    },
+
+    endBuff(spell) {
+      const { code, role, name, sentBuffs } = get();
+      const b = sentBuffs[spell];
+      const uid = me()?.uid;
+      if (!b) return;
+      const rest = { ...sentBuffs };
+      delete rest[spell];
+      set({ sentBuffs: rest });
+      if (!code || role !== 'player' || !uid) return;
+      cloud()?.sendCast(code, { uid, who: name, at: Date.now(), label: b.n + ': termina', targets: [], crit: false, parts: [], attack: null, heal: null, effect: null, buff: b, end: true }).catch((e) => set({ error: cloudError(e) }));
     },
 
     sendBuff(to, charId, buff, by) {

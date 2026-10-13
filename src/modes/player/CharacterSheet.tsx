@@ -17,6 +17,7 @@ import { concDc, concOf, withConc, withoutConc } from '../../engine/concentratio
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
 import { useMobileTabs } from './mobileTabs';
+import { useRoom } from '../../store/room';
 import { fxCond, staleEffects } from '../../engine/spellEffects';
 import { grantedSpells, type Grant } from '../../engine/grantedSpells';
 import { plainText, useSpells } from './spells';
@@ -198,6 +199,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
   }, [c.id, c.hp, c.temp]); // eslint-disable-line react-hooks/exhaustive-deps
   // al perder la concentración se apagan las etiquetas de ese conjuro en «Ataques»
   useEffect(() => { setBuffs((bs) => bs.filter((k) => { const b = hitBuffs.find((x) => x.key === k); return !b?.conc || b.n === conc; })); }, [conc]); // eslint-disable-line react-hooks/exhaustive-deps
+  // y si ese conjuro lo habías lanzado sobre otros en la sala, se acaba también en la mesa y en sus hojas
+  const prevConc = useRef(conc);
+  useEffect(() => {
+    const was = prevConc.current;
+    prevConc.current = conc;
+    if (was && was !== conc) useRoom.getState().endBuff(was);
+  }, [conc]);
   const warCaster = c.feats.some((f) => /lanzador de guerra|war caster/i.test(f));
   const concSave = () => {
     if (!concCheck) return;

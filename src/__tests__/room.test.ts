@@ -154,3 +154,41 @@ describe('el máster aplica un conjuro sobre otros', () => {
     expect(sent).toEqual(['p2:pj-bruno']); // a Ilsa no: ya lo tiene si se lo lanzó a sí misma
   });
 });
+
+describe('fin de la concentración de un conjuro lanzado sobre otros', () => {
+  it('quien lo lanzó avisa; el máster quita el estado de la mesa y avisa a los demás; al otro jugador se le quita de la hoja', async () => {
+    const { usePlayer } = await import('../store/player');
+    const { blankCharacter } = await import('../engine/character');
+    const { useStore } = await import('../store/useStore');
+    const buff = { k: 'Bless', n: 'Bendición', lv: 1, conc: true, note: '+1d4' };
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+    useRoom.setState({ code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '', sentBuffs: {} });
+    const cloud = fakeCloud({ uid: 'dm1', email: null, name: null, anon: false });
+    setCloudAdapter(async () => cloud.adapter);
+    await useRoom.getState().create('Laura');
+    const code = useRoom.getState().code!;
+    // en la mesa del máster: Bruno con la Bendición de Ilsa; Bruno está en la sala
+    await cloud.adapter.setMember(code, { uid: 'p2', name: 'Bruno', role: 'player', sheet: { name: 'Bruno', cls: '', level: 1, ac: 12, hp: 10, hpMax: 10, temp: 0, pp: 10, conds: [], charId: 'pj-bruno' }, at: 1 });
+    useStore.setState({ combatants: [{ id: 'c1', name: 'Bruno', kind: 'pc', conds: [{ k: 'Bendición (de Ilsa)', r: null }] } as never] });
+    await cloud.adapter.sendCast(code, { uid: 'p1', who: 'Ilsa', label: 'Bendición: termina', targets: [], crit: false, parts: [], attack: null, heal: null, effect: null, buff, end: true, at: 1 });
+    await vi.waitFor(() => expect(useStore.getState().combatants[0].conds).toHaveLength(0));
+    expect(cloud.rooms.get(code)!.events.map((e) => e.to + ':' + e.kind)).toEqual(['p2:unbuff']);
+    expect(useRoom.getState().casts).toHaveLength(0); // no queda para revisar
+    await useRoom.getState().leave();
+
+    // Bruno recibe el aviso y se le quita de la hoja
+    await usePlayer.getState().init();
+    usePlayer.setState({ characters: [{ ...blankCharacter(), id: 'pj-bruno', name: 'Bruno', active: [{ k: 'Bless', n: 'Bendición', lv: 1, at: 1, by: 'Ilsa' }] }], activeId: 'pj-bruno' });
+    await cloud.setUser({ uid: 'p2', email: null, name: null, anon: true });
+    await vi.waitFor(() => expect(useAccount.getState().user?.uid).toBe('p2'));
+    await useRoom.getState().join(code, 'Bruno');
+    await vi.waitFor(() => expect(usePlayer.getState().characters[0].active).toHaveLength(0));
+    expect(useRoom.getState().notice).toContain('Bendición de Ilsa se ha acabado');
+
+    // quien lo lanzó: al acabarse su concentración manda el aviso (solo de lo que mandó a la mesa)
+    useRoom.setState({ sentBuffs: { Bendición: buff } });
+    useRoom.getState().endBuff('Bendición');
+    await vi.waitFor(() => expect(cloud.rooms.get(code)!.casts.some((x) => x.end && x.buff?.n === 'Bendición')).toBe(true));
+    expect(useRoom.getState().sentBuffs).toEqual({});
+  });
+});

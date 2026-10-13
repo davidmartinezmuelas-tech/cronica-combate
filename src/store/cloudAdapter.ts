@@ -8,7 +8,7 @@ export interface SheetSummary { name: string; cls: string; level: number; ac: nu
 /** Aviso del máster a un jugador: sus PG tras lo que ha pasado en la mesa (daño, curación…). */
 export interface RoomEvent {
   id: string; to: string; from: string; charId: string; hp: number; temp: number; note: string; at: number;
-  kind?: 'hp' | 'save' | 'buff'; // 'save': el máster le pide una salvación; 'buff': le aplica el conjuro de otro jugador
+  kind?: 'hp' | 'save' | 'buff' | 'unbuff'; // 'save': el máster le pide una salvación; 'buff'/'unbuff': el conjuro de otro jugador empieza o se acaba
   dc?: number; abil?: number; label?: string; reqId?: string;
   buff?: SpellBuff; by?: string;
 }
@@ -19,6 +19,7 @@ export interface RoomCast {
   id: string; uid: string; who: string; label: string; targets: string[]; at: number;
   parts: { type: string; amt: number }[]; crit: boolean; attack: number | null; heal: number | null; effect: SaveEffect | null;
   buff?: SpellBuff | null; // conjuro sobre otros (Bendición, Auxilio…): el máster lo aplica a los objetivos
+  end?: boolean; // con buff: quien lo lanzó perdió la concentración (se quita solo, sin revisar)
 }
 /** Respuesta de un jugador a una petición de salvación. */
 export interface SaveReply { id: string; uid: string; reqId: string; total: number; at: number }
