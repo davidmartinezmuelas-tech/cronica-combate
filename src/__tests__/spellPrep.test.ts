@@ -33,3 +33,16 @@ describe('efectos de conjuros activos en la hoja', () => {
     expect(liveEffects(act, ['Concentración: Bendición']).map((e) => e.k)).toEqual(['Aid']);
   });
 });
+
+describe('conjuros de especie: característica para lanzarlos', () => {
+  it('la elegida; sin elegir, la más alta entre Inteligencia, Sabiduría y Carisma', async () => {
+    const { grantedSpells } = await import('../engine/grantedSpells');
+    const { blankCharacter } = await import('../engine/character');
+    const list = [{ id: 'fb', en: 'Fire Bolt' }, { id: 'th', en: 'Thaumaturgy' }];
+    const mods = { str: 0, dex: 0, con: 0, int: -1, wis: 3, cha: 2 };
+    const c = { ...blankCharacter(), speciesId: 'tiefling-infernal', level: 1 };
+    expect(grantedSpells(c, list, mods).map((g) => g.abil)).toEqual(['wis', 'wis']);
+    const chose = { ...c, choices: { 'species.abil': ['cha'] } };
+    expect(grantedSpells(chose, list, mods).map((g) => g.abil)).toEqual(['cha', 'cha']);
+  });
+});

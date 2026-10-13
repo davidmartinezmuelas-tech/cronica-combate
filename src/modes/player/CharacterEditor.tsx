@@ -5,7 +5,7 @@ import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../.
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
 import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
-import { hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY, TOME_KEY } from '../../engine/grantedSpells';
+import { hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY, SPECIES_ABIL_KEY, speciesHasSpells, TOME_KEY } from '../../engine/grantedSpells';
 import { hasInvocation } from '../../engine/subclassChoices';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
@@ -169,6 +169,15 @@ export default function CharacterEditor({ c }: { c: Character }) {
                 {data.species.map((s) => <option key={s.id} value={s.id}>{s.n}</option>)}
               </select></div>
             {!c.speciesId && <div className="field"><label htmlFor="ce-spn">Nombre de la especie</label><input id="ce-spn" className="input" value={c.speciesName} onChange={(e) => set({ speciesName: e.target.value })} /></div>}
+            {/* elfo, gnomo y tiflin: característica para lanzar los conjuros de su linaje o legado (por defecto, la más alta) */}
+            {speciesHasSpells(c.speciesId) && (() => {
+              const best = (['int', 'wis', 'cha'] as const).reduce((a, b) => (d.mods[b] > d.mods[a] ? b : a), 'int' as 'int' | 'wis' | 'cha');
+              return <div className="field"><label htmlFor="ce-spab">Característica para tus conjuros de especie</label>
+                <select id="ce-spab" className="input" value={c.choices?.[SPECIES_ABIL_KEY]?.[0] || ''} onChange={(e) => set({ choices: { ...(c.choices || {}), [SPECIES_ABIL_KEY]: e.target.value ? [e.target.value] : [] } })}>
+                  <option value="">La más alta ({ABIL_N[best]})</option>
+                  {(['int', 'wis', 'cha'] as const).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                </select></div>;
+            })()}
             {/* dracónido: su ascendencia da el tipo de su resistencia (y de su aliento) */}
             {c.speciesId === 'dragonborn' && <div className="field"><label htmlFor="ce-anc">Ascendencia dracónica</label>
               <select id="ce-anc" className="input" value={c.choices?.['species.ancestry']?.[0] || ''} onChange={(e) => set({ choices: { ...(c.choices || {}), 'species.ancestry': e.target.value ? [e.target.value] : [] } })}>

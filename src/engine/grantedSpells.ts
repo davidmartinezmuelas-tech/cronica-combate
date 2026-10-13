@@ -44,6 +44,10 @@ const SPECIES: Record<string, { n: string; at: [number, string, GrantHow | 'know
   'tiefling-infernal': { n: 'Legado infernal', at: [[1, 'Thaumaturgy', 'known'], [1, 'Fire Bolt', 'known'], [3, 'Hellish Rebuke', 'lr'], [5, 'Darkness', 'lr']] },
 };
 
+/** ¿La especie da conjuros? (elfo, gnomo, tiflin: con ellos se elige la característica para lanzarlos) */
+export const speciesHasSpells = (id: string) => !!SPECIES[id];
+export const SPECIES_ABIL_KEY = 'species.abil';
+
 /** Clase de la lista de Iniciado en la magia que fija el trasfondo (Acólito: clérigo; Sabio: mago). */
 export const MI_FROM_BACKGROUND: Record<string, string> = { acolyte: 'cleric', sage: 'wizard' };
 export const MI_KEY = 'feat.magic-initiate'; // elección: [clase de la lista, característica, truco, truco, conjuro de nivel 1]
@@ -63,8 +67,9 @@ export function grantedSpells(c: Character, list: { id: string; en?: string }[],
   }
   const sp = SPECIES[c.speciesId];
   if (sp) {
-    // característica de lanzamiento: la mejor entre Inteligencia, Sabiduría y Carisma
-    const abil = (['int', 'wis', 'cha'] as Abil[]).reduce((a, b) => (mods[b] > mods[a] ? b : a), 'int');
+    // característica de lanzamiento: la elegida al escoger la especie; si no, la mejor entre Inteligencia, Sabiduría y Carisma
+    const chosen = c.choices?.[SPECIES_ABIL_KEY]?.[0];
+    const abil = (['int', 'wis', 'cha'].includes(chosen || '') ? chosen : (['int', 'wis', 'cha'] as Abil[]).reduce((a, b) => (mods[b] > mods[a] ? b : a), 'int')) as Abil;
     for (const [lv, en, how] of sp.at) if (c.level >= lv) out.push({ en, how, src: sp.n, abil });
   }
   const mi = c.choices?.[MI_KEY];

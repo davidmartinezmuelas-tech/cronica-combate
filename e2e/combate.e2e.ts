@@ -1858,6 +1858,8 @@ test('conjuros de rasgos: invocaciones del brujo, legado de la especie e Iniciad
   await page.getByLabel('Nombre del personaje').fill('Kael');
   await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Tiflin, Infernal' });
   await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await expect(page.getByLabel('Característica para tus conjuros de especie')).toHaveValue(''); // sin elegir: la más alta
+  await page.getByLabel('Característica para tus conjuros de especie').selectOption({ label: 'Carisma' });
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   for (const n of ['Taumaturgia', 'Descarga de fuego', 'Reprensión infernal', 'Oscuridad']) await expect(sp).toContainText(n);
