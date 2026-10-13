@@ -18,6 +18,7 @@ import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
 import { useMobileTabs } from './mobileTabs';
 import { fxCond, staleEffects } from '../../engine/spellEffects';
+import { grantedSpells, type Grant } from '../../engine/grantedSpells';
 import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
@@ -374,13 +375,21 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const alwaysIds = new Set([...subSpells.map((x) => x.id), ...classAlways.map((a) => a.id)]);
   const assigned = assignSpells(c.spells, preps, (id) => spellIdx.get(id)?.l || 0, alwaysIds);
   const clsOf = (id: string) => Object.entries(assigned.byClass).filter(([, b]) => b.cantrips.includes(id) || b.spells.includes(id)).map(([k]) => k);
-  const spellList = [
+  type SpellItem = { k: string; s: ReturnType<typeof spellIdx.get>; sub: string; cls: string[]; grant?: Grant & { id: string; key: string } };
+  const baseList: SpellItem[] = [
     // elegido a mano pero siempre preparado (Castigo divino del paladín…): se muestra como tal
     ...c.spells.map((k) => { const a = alwaysOf(k); return a ? { k, s: spellIdx.get(k), sub: a.n + ' · siempre preparado', cls: [a.cls] } : { k, s: spellIdx.get(k), sub: '', cls: clsOf(k) }; }),
     ...classSpells,
     ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: 'Subclase · siempre preparado', cls: [x.cls] })),
     ...picked.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: x.prepared ? 'Subclase · siempre preparado' : 'Subclase · en tu libro de conjuros', cls: [x.cls] })),
-  ].filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
+  ];
+  // los que dan los rasgos (invocaciones, especie, Iniciado en la magia): con su uso sin espacio
+  const grantText = (g: Grant) => g.src + ' · ' + (g.how === 'will' ? 'a voluntad' : g.how === 'lr' ? '1 vez por descanso largo sin espacio' : g.how === 'pb' ? d.pb + ' veces por descanso largo sin espacio' : 'lo conoces');
+  for (const g of grantedSpells(c, spellIdx.list, d.mods)) {
+    const have = baseList.find((x) => x.k === g.id);
+    if (have) { if (!have.grant) have.grant = g; } else baseList.push({ k: g.id, s: spellIdx.get(g.id), sub: grantText(g), cls: [], grant: g });
+  }
+  const spellList = baseList.filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
   const spClasses = casterIds.filter((k) => spellList.some((x) => x.cls.includes(k)));
   const clsTab = spCls !== 'all' && spClasses.includes(spCls) ? spCls : 'all';
   const spellShown = spellList.filter((x) => clsTab === 'all' || x.cls.includes(clsTab));
@@ -513,9 +522,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
       </div>
       {!list.length ? <span className="muted small">Ningún conjuro de este nivel{clsTab !== 'all' ? ' en esta clase' : ''}.</span> : (
         <ul className="pc-features sp-list">
-          {list.map(({ k, s, sub }) => {
+          {list.map(({ k, s, sub, grant }) => {
             const open = spOpen === k;
-            const tag = sub ? (/libro/.test(sub) ? 'libro' : 'siempre') : '';
+            const tag = grant && (!sub || sub === grantText(grant)) ? (grant.how === 'will' ? 'a voluntad' : grant.how === 'known' ? 'rasgo' : 'sin espacio') : sub ? (/libro/.test(sub) ? 'libro' : 'siempre') : '';
             return (
               <li key={k} className={open ? 'card sp-row open' : 'card sp-row'}>
                 {/* plegado: nombre y marcas; al pulsarlo, sus tiradas y «Lanzar» */}
@@ -528,8 +537,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
                 </button>
                 {open && (
                   <div className="sp-row-body">
-                    <span className="muted small sp-row-meta">{[s!.ct, s!.r, s!.du].filter(Boolean).join(' · ')}{sub ? ' · ' + sub : ''}</span>
-                    <SpellRolls c={c} d={d} s={s!} set={set} />
+                    <span className="muted small sp-row-meta">{[s!.ct, s!.r, s!.du].filter(Boolean).join(' · ')}{sub ? ' · ' + sub : ''}{grant && sub !== grantText(grant) ? ' · ' + grantText(grant) : ''}</span>
+                    <SpellRolls c={c} d={d} s={s!} set={set} grant={grant} />
                     <button className="btn small ghost" aria-haspopup="dialog" onClick={() => setSpText(k)}>Ver texto</button>
                   </div>
                 )}
@@ -961,7 +970,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
               <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
               <p className="muted small" style={{ margin: '4px 0' }}>{[spTextOf.s!.ct, spTextOf.s!.r, spTextOf.s!.cmp, spTextOf.s!.du].filter(Boolean).join(' · ')}</p>
               <p className="pc-text">{plainText(spTextOf.s!.t)}</p>
-              <SpellRolls c={c} d={d} s={spTextOf.s!} set={set} />
+              <SpellRolls c={c} d={d} s={spTextOf.s!} set={set} grant={spTextOf.grant} />
             </InfoDialog>
           )}
         </section>

@@ -5,6 +5,7 @@ import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../.
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
 import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
+import { hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY } from '../../engine/grantedSpells';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
@@ -401,6 +402,40 @@ export default function CharacterEditor({ c }: { c: Character }) {
               </Picker>
             );
           })}
+          {/* Iniciado en la magia: lista (la fija el trasfondo si viene de él), característica, dos trucos y un conjuro de nivel 1 */}
+          {hasMagicInitiate(c) && (() => {
+            const mi = c.choices?.[MI_KEY] || [];
+            const fixed = MI_FROM_BACKGROUND[c.backgroundId];
+            const listCls = fixed || mi[0] || 'cleric';
+            const k = data.classes.find((x) => x.id === listCls);
+            const pool = spellIdx.list.filter((x) => k?.spells.includes(x.id));
+            const put = (i: number, v: string) => { const n = [listCls, mi[1] || 'wis', mi[2] || '', mi[3] || '', mi[4] || '']; n[i] = v; if (i === 0) { n[2] = ''; n[3] = ''; n[4] = ''; } set({ choices: { ...(c.choices || {}), [MI_KEY]: n } }); };
+            const pick = (i: number, lvl: number, label: string) => (
+              <div className="field"><label htmlFor={'ce-mi' + i}>{label}</label>
+                <select id={'ce-mi' + i} className="input" value={mi[i] || ''} onChange={(e) => put(i, e.target.value)}>
+                  <option value="">Elige…</option>
+                  {pool.filter((x) => (x.l || 0) === lvl).sort((a, b) => a.n.localeCompare(b.n, 'es')).map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
+                </select></div>
+            );
+            return (
+              <fieldset className="fs ce-mi">
+                <legend>Iniciado en la magia</legend>
+                <div className="row2">
+                  <div className="field"><label htmlFor="ce-mi0">Lista de conjuros</label>
+                    <select id="ce-mi0" className="input" value={listCls} disabled={!!fixed} onChange={(e) => put(0, e.target.value)}>
+                      {['cleric', 'druid', 'wizard'].map((id) => <option key={id} value={id}>{data.classes.find((x) => x.id === id)?.n || id}</option>)}
+                    </select></div>
+                  <div className="field"><label htmlFor="ce-mi1">Característica para lanzarlos</label>
+                    <select id="ce-mi1" className="input" value={mi[1] || 'wis'} onChange={(e) => put(1, e.target.value)}>
+                      {(['int', 'wis', 'cha'] as const).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                    </select></div>
+                </div>
+                <div className="row2">{pick(2, 0, 'Truco')}{pick(3, 0, 'Otro truco')}</div>
+                {pick(4, 1, 'Conjuro de nivel 1 (una vez por descanso largo sin espacio; también con espacios si tienes)')}
+                {fixed && <span className="muted small">La lista la fija tu trasfondo.</span>}
+              </fieldset>
+            );
+          })()}
           {c.customFeats.length > 0 && (
             <ul className="pc-features">
               {c.customFeats.map((f) => (

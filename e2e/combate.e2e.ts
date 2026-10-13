@@ -1831,3 +1831,51 @@ test('lanzar conjuros sobre ti: CA, PG máximos, PG temporales, Bendición y con
   await expect(active).toHaveCount(0);
   await expect(page.locator('.stat-ac .stat-v')).toHaveText(String(10 + dex));
 });
+
+test('conjuros de rasgos: invocaciones del brujo, legado de la especie e Iniciado en la magia, sin gastar espacio', async ({ page }) => {
+  test.slow();
+  await page.goto('/#/jugador');
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  const row = (n: string) => sp.locator('.card', { hasText: n }).first();
+  const open = async (n: string) => { await row(n).getByRole('button', { name: new RegExp('^' + n) }).click(); return row(n); };
+
+  // brujo 5 con Vigor infernal: Falsa vida a voluntad, con los PG temporales al máximo (2d4+4 = 12)
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Nera');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  const inv = page.locator('details.picker', { hasText: 'Invocaciones arcanas' });
+  await inv.locator(':scope > summary').click();
+  await inv.getByRole('button', { name: 'Vigor infernal', exact: true }).click();
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(row('Falsa vida')).toContainText('a voluntad');
+  await (await open('Falsa vida')).getByRole('button', { name: 'Lanzar (a voluntad)' }).click();
+  await expect(page.locator('.stat-hp .stat-tmp')).toHaveText('12');
+
+  // tiflin infernal 5 (guerrero, sin conjuros de clase): Descarga de fuego, y Oscuridad una vez sin espacio
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Kael');
+  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Tiflin, Infernal' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  for (const n of ['Taumaturgia', 'Descarga de fuego', 'Reprensión infernal', 'Oscuridad']) await expect(sp).toContainText(n);
+  const dark = await open('Oscuridad');
+  await dark.getByRole('button', { name: 'Lanzar sin espacio' }).click();
+  await expect(dark).toContainText('0 de 1 sin espacio');
+  await expect(dark.getByRole('button', { name: 'Lanzar sin espacio' })).toBeDisabled();
+
+  // acólito (Iniciado en la magia de clérigo): se eligen los conjuros en el editor
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Tobías');
+  await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Acólito' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await expect(page.getByLabel('Lista de conjuros')).toBeDisabled();
+  await page.getByLabel('Truco', { exact: true }).selectOption({ label: 'Luz' });
+  await page.getByLabel(/^Conjuro de nivel 1/).selectOption({ label: 'Bendición' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(sp).toContainText('Luz');
+  await (await open('Bendición')).getByRole('button', { name: 'Lanzar sin espacio' }).click();
+  await expect(page.getByLabel('Conjuros activos')).toContainText('Bendición');
+});
