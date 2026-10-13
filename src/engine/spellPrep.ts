@@ -55,6 +55,21 @@ export function casterPreps(c: Character, data: PlayerData, spells: SpellLite[])
   return out;
 }
 
+/** Conjuros que una clase tiene siempre preparados (reglas 2024): no cuentan en sus preparados y se añaden solos. */
+export const CLASS_ALWAYS: { cls: string; lv: number; en: string; n: string }[] = [
+  { cls: 'paladin', lv: 2, en: 'Divine Smite', n: 'Paladín' }, // Castigo del paladín
+  { cls: 'paladin', lv: 5, en: 'Find Steed', n: 'Paladín' }, // Corcel fiel
+  { cls: 'ranger', lv: 1, en: "Hunter's Mark", n: 'Explorador' }, // Enemigo predilecto
+  { cls: 'druid', lv: 1, en: 'Speak with Animals', n: 'Druida' }, // Druídico
+];
+
+/** Los de CLASS_ALWAYS que el personaje tiene por el nivel de sus clases (con el id del conjuro en la lista). */
+export function classAlwaysSpells(c: Character, list: { id: string; en?: string }[]): ((typeof CLASS_ALWAYS)[number] & { id: string })[] {
+  return CLASS_ALWAYS
+    .filter((a) => classEntries(c).some((e) => e.classId === a.cls && e.level >= a.lv))
+    .flatMap((a) => { const sp = list.find((x) => x.en === a.en); return sp ? [{ ...a, id: sp.id }] : []; });
+}
+
 /**
  * Reparte los conjuros elegidos entre sus clases: el de una sola lista va a esa clase; el que está en varias, a la
  * primera a la que aún le quede hueco. `always`: los que se tienen preparados sin contar (subclase, Castigo del paladín).

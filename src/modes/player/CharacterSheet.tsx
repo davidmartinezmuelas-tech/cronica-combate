@@ -12,7 +12,7 @@ import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 import type { RollSpec } from '../../store/state';
 import { hasInvocation, subclassSpells, subclassText } from '../../engine/subclassChoices';
-import { assignSpells, casterPreps } from '../../engine/spellPrep';
+import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
 import { concDc, concOf, withConc, withoutConc } from '../../engine/concentration';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
@@ -21,6 +21,7 @@ import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
+import { KITS } from '../../engine/subclassActions';
 import SpellRolls from './SpellRolls';
 import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
@@ -115,6 +116,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // Furia y Castigo del paladín se usan desde «Ataques»
   const usable = features.filter((f) => f.max && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));
   const usableKeys = new Set(usable.map((f) => f.key));
+  // subclases escritas que no son del SRD, ni de la biblioteca de este dispositivo, ni de las que la app ya conoce
+  const missingSubs = views.map(({ v }) => v.subclass).filter((n, i) => !!n && !subclassText(views[i].v, views[i].dv.cls, lib.subclasses)
+    && !KITS.some((k) => k.subs.some((x) => norm(x) === norm(n))) && norm(n) !== 'otra subclase');
   // «Rasgos y dotes» agrupados por origen (cada clase, su subclase, la especie, las dotes); los que ya tienen panel arriba, sin contador
   const upKeys = (f: FeatureRow) => panelKeys.has(f.key) || panelKeys.has(f.n) || ['Furia', 'Castigo del paladín'].includes(f.key);
   const featGroups = (() => {
@@ -352,19 +356,21 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const subSpells = views.flatMap(({ v, dv }) => subclassSpells(v, dv.cls, subclassText(v, dv.cls, lib.subclasses), spellIdx.list).map((x) => ({ ...x, cls: v.classId }))).filter((x, i, a) => !c.spells.includes(x.id) && a.findIndex((y) => y.id === x.id) === i);
   // elegidos por la subclase (Descubrimientos mágicos, conjuros gratis de la escuela del mago)
   const picked = views.flatMap(({ v }) => choiceSpells(v).map((x) => ({ ...x, cls: v.classId }))).filter((x) => !c.spells.includes(x.id) && !subSpells.some((y) => y.id === x.id));
-  // Castigo del paladín (paladín 2): Castigo divino siempre preparado
-  const smite = classLevel(c, 'paladin') >= 2 ? spellIdx.list.find((x) => x.en === 'Divine Smite') : undefined;
-  const classSpells = smite && !c.spells.includes(smite.id) && !subSpells.some((y) => y.id === smite.id) ? [{ k: smite.id, s: smite, sub: 'Paladín · siempre preparado', cls: ['paladin'] }] : [];
+  // los que da la clase siempre preparados (Castigo divino y Hallar corcel del paladín, Marca del cazador del explorador,
+  // Hablar con los animales del druida): aunque no se hayan elegido
+  const classAlways = classAlwaysSpells(c, spellIdx.list);
+  const alwaysOf = (id: string) => classAlways.find((a) => a.id === id);
+  const classSpells = classAlways.filter((a) => !c.spells.includes(a.id) && !subSpells.some((y) => y.id === a.id)).map((a) => ({ k: a.id, s: spellIdx.get(a.id), sub: a.n + ' · siempre preparado', cls: [a.cls] }));
   // clases a las que pertenece cada conjuro elegido (para las pestañas por clase): las que lo tienen en su lista
   // cada conjuro elegido va a la clase que lo prepara (su lista y su nivel máximo), como en «Editar hoja»
   const preps = data ? casterPreps(c, data, spellIdx.list) : [];
   const casterIds = preps.map((pr) => pr.id);
-  const alwaysIds = new Set([...subSpells.map((x) => x.id), ...(smite ? [smite.id] : [])]);
+  const alwaysIds = new Set([...subSpells.map((x) => x.id), ...classAlways.map((a) => a.id)]);
   const assigned = assignSpells(c.spells, preps, (id) => spellIdx.get(id)?.l || 0, alwaysIds);
   const clsOf = (id: string) => Object.entries(assigned.byClass).filter(([, b]) => b.cantrips.includes(id) || b.spells.includes(id)).map(([k]) => k);
   const spellList = [
-    // elegido a mano pero siempre preparado (Castigo divino del paladín): se muestra como tal
-    ...c.spells.map((k) => (smite && k === smite.id ? { k, s: spellIdx.get(k), sub: 'Paladín · siempre preparado', cls: ['paladin'] } : { k, s: spellIdx.get(k), sub: '', cls: clsOf(k) })),
+    // elegido a mano pero siempre preparado (Castigo divino del paladín…): se muestra como tal
+    ...c.spells.map((k) => { const a = alwaysOf(k); return a ? { k, s: spellIdx.get(k), sub: a.n + ' · siempre preparado', cls: [a.cls] } : { k, s: spellIdx.get(k), sub: '', cls: clsOf(k) }; }),
     ...classSpells,
     ...subSpells.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: 'Subclase · siempre preparado', cls: [x.cls] })),
     ...picked.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: x.prepared ? 'Subclase · siempre preparado' : 'Subclase · en tu libro de conjuros', cls: [x.cls] })),
@@ -935,6 +941,8 @@ export default function CharacterSheet({ c }: { c: Character }) {
       <div className="pc-low-col">
       <section className="panel" aria-label="Rasgos y dotes" data-tour="traits" data-sec="rasgos">
         <h3 className="eyebrow">Rasgos y dotes</h3>
+        {/* subclase de la biblioteca que no está en este dispositivo (la biblioteca no va a la nube): sin ella no hay sus rasgos ni sus conjuros */}
+        {lib.loaded && missingSubs.map((n) => <p key={n} className="warn small" role="status" style={{ margin: 0 }}>«{n}» no está en la biblioteca de este dispositivo: si la importaste de tu Manual del Jugador, vuelve a importarlo en «Biblioteca» (o carga una copia que incluya tu biblioteca) para tener sus rasgos y sus conjuros.</p>)}
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
         {ftKeep > 0 && blockGrid(ftParts.slice(0, ftKeep), featBlock, lowN)}

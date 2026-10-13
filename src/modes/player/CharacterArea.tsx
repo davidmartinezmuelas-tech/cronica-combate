@@ -38,10 +38,16 @@ export default function CharacterArea() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
   const slug = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'personaje';
+  // la biblioteca (lo importado de tu libro) no va a la nube: con la casilla va en la copia para pasarla a otro dispositivo
+  const lib = useLibrary();
+  const libTotal = lib.feats.length + lib.backgrounds.length + lib.spells.length + lib.subclasses.length;
+  const [withLib, setWithLib] = useState(true);
   const backupAll = () => {
-    download(usePlayer.getState().exportText(), 'personajes-cronica-' + new Date().toISOString().slice(0, 10) + '.json');
+    const file = JSON.parse(usePlayer.getState().exportText());
+    if (withLib && libTotal > 0) file.biblioteca = JSON.parse(lib.exportText());
+    download(JSON.stringify(file), 'personajes-cronica-' + new Date().toISOString().slice(0, 10) + '.json');
     setLast(lastBackup());
-    setNote('Copia guardada con ' + characters.length + (characters.length === 1 ? ' personaje.' : ' personajes.'));
+    setNote('Copia guardada con ' + characters.length + (characters.length === 1 ? ' personaje' : ' personajes') + (withLib && libTotal > 0 ? ' y tu biblioteca.' : '.'));
   };
   const exportOne = () => {
     if (!active) return;
@@ -50,11 +56,14 @@ export default function CharacterArea() {
   };
   const loadBackup = async (f: File | undefined) => {
     if (!f) return;
-    setNote(await usePlayer.getState().importText(await f.text()));
+    const text = await f.text();
+    let libMsg = '';
+    try { const b = JSON.parse(text)?.biblioteca; if (b) libMsg = ' ' + await useLibrary.getState().importText(JSON.stringify(b)); } catch { /* el aviso lo da la copia de personajes */ }
+    setNote((await usePlayer.getState().importText(text)) + libMsg);
     if (backupRef.current) backupRef.current.value = '';
   };
 
-  useEffect(() => { void init(); void loadData(); }, [init, loadData]);
+  useEffect(() => { void init(); void loadData(); void useLibrary.getState().init(); }, [init, loadData]);
   // la pestaña del personaje activo, siempre a la vista (con muchos personajes la fila se desplaza)
   useEffect(() => { document.querySelector('.pc-tab.on')?.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }, [active?.id]);
 
@@ -117,11 +126,12 @@ export default function CharacterArea() {
       <div className="panel pc-backup-bar" data-sec="rasgos">
         <span className="eyebrow">Copia de seguridad</span>
         <div className="rollrow">
-          <button className="btn small" disabled={!characters.length} onClick={backupAll} title="Descarga todos tus personajes en un archivo (sin tu biblioteca)">Guardar copia</button>
+          <button className="btn small" disabled={!characters.length} onClick={backupAll} title={'Descarga todos tus personajes en un archivo' + (withLib && libTotal > 0 ? ' con tu biblioteca' : '')}>Guardar copia</button>
           {active && <button className="btn small" onClick={exportOne} aria-label={'Exportar ' + (active.name || 'personaje')} title={'Descarga solo a ' + (active.name || 'este personaje')}>Exportar personaje</button>}
           <button className="btn small" onClick={() => backupRef.current?.click()}>Cargar copia</button>
           {characters.length > 0 && <span className="muted small">{last ? 'Última copia: ' + new Date(last).toLocaleDateString('es-ES') + '.' : 'Aún no tienes copia: guarda una copia de vez en cuando.'}</span>}
         </div>
+        {libTotal > 0 && <label className="check small"><input type="checkbox" checked={withLib} onChange={(e) => setWithLib(e.target.checked)} />Incluir mi biblioteca ({lib.subclasses.length} subclases, {lib.feats.length} dotes, {lib.backgrounds.length} trasfondos, {lib.spells.length} conjuros): no va a la nube; pásala solo a quien tenga el libro</label>}
         {note && <p className="muted small" role="status" style={{ margin: 0 }}>{note}</p>}
       </div>
       {askSpells && (

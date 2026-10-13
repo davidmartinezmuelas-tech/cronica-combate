@@ -4,7 +4,7 @@ import { asClass, classEntries, derive, totalLevel, weaponFromData, type Charact
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
-import { assignSpells, casterPreps } from '../../engine/spellPrep';
+import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
@@ -110,10 +110,10 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const subCaster = subclassCaster(c);
   const preps = casterPreps(c, data, spellIdx.list);
   const lvOf = (id: string) => spellIdx.get(id)?.l || 0;
-  // los que se tienen preparados sin contar: los de la subclase y Castigo divino del paladín
+  // los que se tienen preparados sin contar: los de la subclase y los de la clase (Castigo divino, Marca del cazador…)
   const always = new Set([
     ...classEntries(c).flatMap((e) => { const v = asClass(c, e); const k = data.classes.find((x) => x.id === e.classId); return subclassSpells(v, k, subclassText(v, k, lib.subclasses), spellIdx.list).map((x) => x.id); }),
-    ...(classEntries(c).some((e) => e.classId === 'paladin' && e.level >= 2) ? spellIdx.list.filter((x) => x.en === 'Divine Smite').map((x) => x.id) : []),
+    ...classAlwaysSpells(c, spellIdx.list).map((a) => a.id),
   ]);
   const assigned = assignSpells(c.spells, preps, lvOf, always);
   const useClassList = !allSpells && preps.length > 0;

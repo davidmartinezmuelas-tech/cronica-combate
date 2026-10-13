@@ -1701,3 +1701,70 @@ test('móvil: la hoja del jugador en pestañas, barra con PG y CA, y caracterís
   await bar.getByRole('button', { name: 'Combate' }).click();
   await expect(page.locator('section[aria-label="Ataques"]')).toBeVisible();
 });
+
+test('conjuros siempre preparados de clase y aviso si la subclase de la biblioteca no está en el dispositivo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  // explorador 1: Marca del cazador sin elegirla (Enemigo predilecto)
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Vera');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await expect(page.getByText('Siempre preparados, sin contar', { exact: false })).toContainText('Marca del cazador');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const mark = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Marca del cazador' });
+  await expect(mark).toContainText('siempre');
+  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ })).toBeVisible();
+
+  // paladín 3 con una subclase que no está en la biblioteca de este dispositivo: aviso
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Harin');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByLabel(/^Subclase/).selectOption({ label: 'Otra (escríbela)' });
+  await page.getByLabel('Nombre de la subclase').fill('Juramento de venganza');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.locator('section[aria-label="Rasgos y dotes"]')).toContainText('«Juramento de venganza» no está en la biblioteca de este dispositivo');
+});
+
+test('la copia de personajes puede llevar la biblioteca (subclase propia con sus conjuros) y se recupera al cargarla', async ({ page }) => {
+  await page.goto('/#/jugador');
+  // biblioteca inventada: una subclase de paladín con sus conjuros siempre preparados
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'Prueba', feats: [], backgrounds: [], spells: [], subclasses: [
+    { id: 'sub-prueba', n: 'Juramento de prueba', cls: 'paladin', d: '', f: [{ lv: 3, n: 'Conjuros del juramento de prueba', d: 'Siempre tienes preparados estos conjuros. Nivel de paladín Conjuros 3 Marca del cazador, Perdición' }] },
+  ] };
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'lib.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByText('Biblioteca cargada')).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Harin');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByLabel(/^Subclase/).selectOption({ label: 'Juramento de prueba' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const spells = page.locator('section[aria-label="Conjuros"]');
+  await expect(spells).toContainText('Marca del cazador');
+  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ })).toBeVisible();
+
+  // copia con la biblioteca
+  await expect(page.getByLabel(/Incluir mi biblioteca/)).toBeChecked();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Guardar copia' }).click();
+  const copy = Buffer.concat(await (await (await download).createReadStream()).toArray()).toString('utf8');
+  expect(JSON.parse(copy).biblioteca.subclasses).toHaveLength(1);
+
+  // sin la biblioteca: aviso y sin sus conjuros
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Vaciar' }).click();
+  await page.getByRole('button', { name: '¿Seguro? Vaciar' }).click();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await expect(page.locator('section[aria-label="Rasgos y dotes"]')).toContainText('«Juramento de prueba» no está en la biblioteca de este dispositivo');
+  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ })).toHaveCount(0);
+
+  // al cargar la copia vuelve la biblioteca
+  await page.getByLabel('Copia de personajes').setInputFiles({ name: 'copia.json', mimeType: 'application/json', buffer: Buffer.from(copy) });
+  await expect(page.getByText('Biblioteca cargada')).toBeVisible();
+  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ })).toBeVisible();
+});
