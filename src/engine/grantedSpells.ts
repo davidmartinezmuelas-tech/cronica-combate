@@ -6,7 +6,7 @@ import { hasInvocation } from './subclassChoices';
  * Conjuros que dan los rasgos sin ser de la clase (reglas 2024 del SRD): invocaciones del brujo, el linaje o legado de
  * la especie y la dote Iniciado en la magia. Se lanzan sin gastar espacio: a voluntad o una vez por descanso largo.
  */
-export type GrantHow = 'will' | 'lr' | 'pb';
+export type GrantHow = 'will' | 'lr' | 'pb' | 'ritual';
 export interface Grant {
   en: string; // conjuro (nombre en inglés del SRD)
   src: string; // de dónde sale (para la etiqueta)
@@ -47,12 +47,20 @@ const SPECIES: Record<string, { n: string; at: [number, string, GrantHow | 'know
 /** Clase de la lista de Iniciado en la magia que fija el trasfondo (Acólito: clérigo; Sabio: mago). */
 export const MI_FROM_BACKGROUND: Record<string, string> = { acolyte: 'cleric', sage: 'wizard' };
 export const MI_KEY = 'feat.magic-initiate'; // elección: [clase de la lista, característica, truco, truco, conjuro de nivel 1]
+export const TOME_KEY = 'warlock.tome'; // Pacto del tomo: [truco, truco, truco, ritual, ritual]
+
 export const hasMagicInitiate = (c: Pick<Character, 'feats'>) => c.feats.some((f) => /^iniciado en la magia|^magic initiate/i.test(f));
 
 /** Los conjuros que dan los rasgos de este personaje (con el id del conjuro en la lista). */
 export function grantedSpells(c: Character, list: { id: string; en?: string }[], mods: Record<Abil, number>): (Grant & { id: string; key: string })[] {
   const out: Grant[] = [];
   if (classLevel(c, 'warlock')) for (const [n, g] of INVOCATIONS) if (hasInvocation(c, n)) out.push({ ...g, src: n, abil: 'cha' });
+  // Pacto del tomo: tres trucos y dos rituales de nivel 1 de cualquier clase, que cuentan como de brujo (Carisma)
+  const tome = c.choices?.[TOME_KEY];
+  if (classLevel(c, 'warlock') && hasInvocation(c, 'Pacto del tomo') && tome?.length) {
+    tome.slice(0, 3).filter(Boolean).forEach((id) => out.push({ en: '#' + id, how: 'known', src: 'Pacto del tomo', abil: 'cha' }));
+    tome.slice(3, 5).filter(Boolean).forEach((id) => out.push({ en: '#' + id, how: 'ritual', src: 'Pacto del tomo', abil: 'cha' }));
+  }
   const sp = SPECIES[c.speciesId];
   if (sp) {
     // característica de lanzamiento: la mejor entre Inteligencia, Sabiduría y Carisma

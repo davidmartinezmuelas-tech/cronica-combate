@@ -54,7 +54,7 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   // lo que hace el conjuro sobre quien lo recibe (PG temporales, CA, Auxilio…): «Lanzar sobre mí» lo aplica en la hoja
   const fx = spellFx(s);
   // sin espacio, por el rasgo: a voluntad, una vez por descanso largo o tantas como el bonificador por competencia
-  const freeMax = !grant || grant.how === 'known' ? 0 : grant.how === 'will' ? Infinity : grant.how === 'lr' ? 1 : d.pb;
+  const freeMax = !grant || grant.how === 'known' ? 0 : grant.how === 'will' || grant.how === 'ritual' ? Infinity : grant.how === 'lr' ? 1 : d.pb;
   const freeUsed = grant ? c.uses[grant.key] || 0 : 0;
   const spendSlot = (onMe = false, free = false) => {
     // un conjuro de concentración la empieza (y termina la de otro)
@@ -124,7 +124,7 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
       {freeMax > 0 && (
         <>
           {freeMax !== Infinity && <span className="muted small">{Math.max(0, freeMax - freeUsed)} de {freeMax} sin espacio</span>}
-          <button className="btn small" disabled={freeUsed >= freeMax} title={grant!.src + ': sin gastar espacio' + (fx && !grant!.noFx ? '; lo aplica en tu hoja: ' + fx.fx.note : '')} onClick={() => spendSlot(true, true)}>{freeMax === Infinity ? 'Lanzar (a voluntad)' : 'Lanzar sin espacio'}</button>
+          <button className="btn small" disabled={freeUsed >= freeMax} title={grant!.src + ': sin gastar espacio' + (fx && !grant!.noFx ? '; lo aplica en tu hoja: ' + fx.fx.note : '')} onClick={() => spendSlot(true, true)}>{grant!.how === 'ritual' ? 'Lanzar como ritual (sin espacio, 10 min más)' : freeMax === Infinity ? 'Lanzar (a voluntad)' : 'Lanzar sin espacio'}</button>
         </>
       )}
       {base > 0 && grant?.how !== 'will' && (d.pact || d.slots.length > 0) && (fx ? (

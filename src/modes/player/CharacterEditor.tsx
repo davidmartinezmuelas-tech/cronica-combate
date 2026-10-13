@@ -5,7 +5,8 @@ import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../.
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
 import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
-import { hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY } from '../../engine/grantedSpells';
+import { hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY, TOME_KEY } from '../../engine/grantedSpells';
+import { hasInvocation } from '../../engine/subclassChoices';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
@@ -433,6 +434,29 @@ export default function CharacterEditor({ c }: { c: Character }) {
                 <div className="row2">{pick(2, 0, 'Truco')}{pick(3, 0, 'Otro truco')}</div>
                 {pick(4, 1, 'Conjuro de nivel 1 (una vez por descanso largo sin espacio; también con espacios si tienes)')}
                 {fixed && <span className="muted small">La lista la fija tu trasfondo.</span>}
+              </fieldset>
+            );
+          })()}
+          {/* Pacto del tomo: tres trucos y dos rituales de nivel 1 de cualquier lista, en tu Libro de las sombras */}
+          {classEntries(c).some((e) => e.classId === 'warlock') && hasInvocation(c, 'Pacto del tomo') && (() => {
+            const tome = c.choices?.[TOME_KEY] || [];
+            const put = (i: number, v: string) => { const n = [0, 1, 2, 3, 4].map((j) => tome[j] || ''); n[i] = v; set({ choices: { ...(c.choices || {}), [TOME_KEY]: n } }); };
+            const pick = (i: number, label: string, ok: (x: { l?: number; rit?: number | boolean }) => boolean) => (
+              <div className="field"><label htmlFor={'ce-tome' + i}>{label}</label>
+                <select id={'ce-tome' + i} className="input" value={tome[i] || ''} onChange={(e) => put(i, e.target.value)}>
+                  <option value="">Elige…</option>
+                  {spellIdx.list.filter(ok).filter((x) => x.id === tome[i] || !tome.includes(x.id)).sort((a, b) => a.n.localeCompare(b.n, 'es')).map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
+                </select></div>
+            );
+            const cantrip = (x: { l?: number }) => (x.l || 0) === 0;
+            const ritual = (x: { l?: number; rit?: number | boolean }) => x.l === 1 && !!x.rit;
+            return (
+              <fieldset className="fs ce-mi">
+                <legend>Pacto del tomo: Libro de las sombras</legend>
+                <div className="row2">{pick(0, 'Truco', cantrip)}{pick(1, 'Segundo truco', cantrip)}</div>
+                <div className="row2">{pick(2, 'Tercer truco', cantrip)}<span /></div>
+                <div className="row2">{pick(3, 'Ritual de nivel 1', ritual)}{pick(4, 'Otro ritual de nivel 1', ritual)}</div>
+                <span className="muted small">De cualquier clase. Cuentan como conjuros de brujo (Carisma); los rituales se lanzan como ritual sin espacio.</span>
               </fieldset>
             );
           })()}

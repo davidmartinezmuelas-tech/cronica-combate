@@ -1879,3 +1879,27 @@ test('conjuros de rasgos: invocaciones del brujo, legado de la especie e Iniciad
   await (await open('Bendición')).getByRole('button', { name: 'Lanzar sin espacio' }).click();
   await expect(page.getByLabel('Conjuros activos')).toContainText('Bendición');
 });
+
+test('Pacto del tomo: tres trucos y dos rituales de cualquier lista, como conjuros de brujo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Selene');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  const inv = page.locator('details.picker', { hasText: 'Invocaciones arcanas' });
+  await inv.locator(':scope > summary').click();
+  await inv.getByRole('button', { name: 'Pacto del tomo', exact: true }).click();
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Truco', { exact: true }).selectOption({ label: 'Guía' });
+  await page.getByLabel('Segundo truco').selectOption({ label: 'Descarga de fuego' });
+  await page.getByLabel('Tercer truco').selectOption({ label: 'Luz' });
+  await page.getByLabel('Ritual de nivel 1', { exact: true }).selectOption({ label: 'Detectar magia' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  for (const n of ['Guía', 'Descarga de fuego', 'Luz', 'Detectar magia']) await expect(sp).toContainText(n);
+  const row = sp.locator('.card', { hasText: 'Detectar magia' }).first();
+  await expect(row).toContainText('ritual');
+  await row.getByRole('button', { name: /^Detectar magia/ }).click();
+  await row.getByRole('button', { name: /^Lanzar como ritual/ }).click();
+  await expect(page.locator('.pc-conc')).toContainText('Detectar magia');
+});

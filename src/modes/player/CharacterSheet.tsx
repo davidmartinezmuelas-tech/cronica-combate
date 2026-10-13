@@ -384,7 +384,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     ...picked.map((x) => ({ k: x.id, s: spellIdx.get(x.id), sub: x.prepared ? 'Subclase · siempre preparado' : 'Subclase · en tu libro de conjuros', cls: [x.cls] })),
   ];
   // los que dan los rasgos (invocaciones, especie, Iniciado en la magia): con su uso sin espacio
-  const grantText = (g: Grant) => g.src + ' · ' + (g.how === 'will' ? 'a voluntad' : g.how === 'lr' ? '1 vez por descanso largo sin espacio' : g.how === 'pb' ? d.pb + ' veces por descanso largo sin espacio' : 'lo conoces');
+  const grantText = (g: Grant) => g.src + ' · ' + (g.how === 'will' ? 'a voluntad' : g.how === 'ritual' ? 'como ritual sin espacio' : g.how === 'lr' ? '1 vez por descanso largo sin espacio' : g.how === 'pb' ? d.pb + ' veces por descanso largo sin espacio' : 'lo conoces');
   for (const g of grantedSpells(c, spellIdx.list, d.mods)) {
     const have = baseList.find((x) => x.k === g.id);
     if (have) { if (!have.grant) have.grant = g; } else baseList.push({ k: g.id, s: spellIdx.get(g.id), sub: grantText(g), cls: [], grant: g });
@@ -524,7 +524,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         <ul className="pc-features sp-list">
           {list.map(({ k, s, sub, grant }) => {
             const open = spOpen === k;
-            const tag = grant && (!sub || sub === grantText(grant)) ? (grant.how === 'will' ? 'a voluntad' : grant.how === 'known' ? 'rasgo' : 'sin espacio') : sub ? (/libro/.test(sub) ? 'libro' : 'siempre') : '';
+            const tag = grant && (!sub || sub === grantText(grant)) ? (grant.how === 'will' ? 'a voluntad' : grant.how === 'known' ? 'rasgo' : grant.how === 'ritual' ? 'ritual' : 'sin espacio') : sub ? (/libro/.test(sub) ? 'libro' : 'siempre') : '';
             return (
               <li key={k} className={open ? 'card sp-row open' : 'card sp-row'}>
                 {/* plegado: nombre y marcas; al pulsarlo, sus tiradas y «Lanzar» */}
