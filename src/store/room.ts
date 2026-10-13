@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { castOnPatch, type SpellBuff } from '../engine/spellEffects';
 import { cloud, useAccount } from './account';
 import { cloudError, type RoomCast, type RoomInfo, type RoomMember, type SaveReply, type SharedRoll, type SheetSummary, type TableEntry } from './cloudAdapter';
 import { usePlayer } from './player';
@@ -48,6 +49,8 @@ export interface RoomState {
   publishSheet: (sheet: SheetSummary | null) => void;
   resume: () => Promise<void>;
   sendHp: (to: string, charId: string, hp: number, temp: number) => void;
+  /** El máster aplica a otro jugador el conjuro que le ha lanzado un compañero. */
+  sendBuff: (to: string, charId: string, buff: SpellBuff, by: string) => void;
 }
 
 let stop: (() => void) | null = null;
@@ -102,6 +105,16 @@ export const useRoom = create<RoomState>()((set, get) => {
         }
         const p = usePlayer.getState();
         const c = p.characters.find((x) => x.id === ev.charId) || p.characters.find((x) => x.id === p.activeId);
+        // un compañero te ha lanzado un conjuro (Bendición, Auxilio…): su efecto en tu hoja
+        if (ev.kind === 'buff' && ev.buff) {
+          if (c) {
+            const { patch } = castOnPatch(c, ev.buff.k, ev.buff.n, ev.buff.lv, false, { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, ev.by);
+            p.update(c.id, patch);
+            set({ notice: (ev.by || 'Un compañero') + ' te ha lanzado ' + ev.buff.n + ': ' + ev.buff.note + '.' });
+          }
+          a.deleteEvent(info.code, ev.id).catch(() => { /* ya borrado */ });
+          continue;
+        }
         if (c) {
           p.update(c.id, { hp: Math.max(0, ev.hp), temp: Math.max(0, ev.temp), ...(ev.hp > 0 ? { death: { s: 0, f: 0 } } : {}) });
           set({ notice: 'El máster ha cambiado los PG de ' + (c.name || 'tu personaje') + ': ' + ev.hp + (ev.temp ? ' (+' + ev.temp + ' temporales)' : '') + '.' });
@@ -157,6 +170,13 @@ export const useRoom = create<RoomState>()((set, get) => {
       const { code } = get();
       set({ replies: get().replies.filter((r) => r.id !== id) });
       if (code) cloud()?.deleteReply(code, id).catch(() => { /* ya borrado */ });
+    },
+
+    sendBuff(to, charId, buff, by) {
+      const { code, role } = get();
+      const from = me()?.uid;
+      if (!code || role !== 'dm' || !from) return;
+      cloud()?.sendEvent(code, { to, from, charId, hp: 0, temp: 0, note: '', at: Date.now(), kind: 'buff', buff, by }).catch((e) => set({ error: cloudError(e) }));
     },
 
     sendHp(to, charId, hp, temp) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { classEntries, derive } from '../engine/character';
-import type { SheetSummary } from '../store/cloudAdapter';
+import type { RoomCast, SheetSummary } from '../store/cloudAdapter';
+import { addCondition } from '../engine/combat';
 import { activeCharacter, usePlayer } from '../store/player';
 import { cleanCode, hadRoom, useRoom } from '../store/room';
 import { applyInitiativeRolls, reviewCast, syncMembersToTable, watchTableForPlayers, watchTableToPublish } from '../store/roomTable';
@@ -40,6 +41,24 @@ function useSheetSummary(enabled: boolean): SheetSummary | null {
  * Sala de juego: crear (máster) o entrar con el código (jugador), quién está con su hoja resumida y las tiradas que se
  * comparten en directo.
  */
+/**
+ * Conjuro de un jugador sobre otros (Bendición, Escudo de fe, Auxilio…): en la mesa queda como estado en cada objetivo
+ * y, si el objetivo es otro jugador de la sala, se le aplica también en su hoja.
+ */
+export function applyBuff(c: RoomCast) {
+  const b = c.buff!;
+  const s = useStore.getState();
+  const label = b.n + ' (de ' + c.who + ')';
+  for (const id of c.targets) {
+    const t = s.combatants.find((x) => x.id === id);
+    if (!t) continue;
+    s.patchC(id, (x) => ({ conds: addCondition(x.conds, label) }), b.n + ' en ' + t.name);
+    const uid = t.kind === 'pc' && t.rosterId ? s.roster.find((r) => r.id === t.rosterId)?.roomUid : undefined;
+    const member = uid ? useRoom.getState().members.find((m) => m.uid === uid) : undefined;
+    if (uid && uid !== c.uid) useRoom.getState().sendBuff(uid, member?.sheet?.charId || '', b, c.who);
+  }
+}
+
 export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
   const { code, role, room, members, rolls, share, busy, error, notice, casts, saveRequests } = useRoom();
   const { create, join, leave, close, setShare, publishSheet, resume } = useRoom.getState();
@@ -118,12 +137,14 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
           <ul className="room-members">
             {casts.map((c) => {
               const names = c.targets.map((id) => useStore.getState().combatants.find((x) => x.id === id)?.name).filter(Boolean).join(', ');
-              const what = c.heal != null ? 'cura ' + c.heal : c.effect ? 'salvación de ' + ABIL_N[c.effect.abil] + ' CD ' + c.effect.dc + (c.parts.length ? ', ' + c.parts.map((p) => p.amt + ' ' + p.type).join(' + ') : '') : c.parts.map((p) => p.amt + ' ' + p.type).join(' + ') + (c.attack != null ? ' (ataque ' + c.attack + ')' : '');
+              const what = c.buff ? c.buff.n + (c.buff.lv > 1 ? ' (nivel ' + c.buff.lv + ')' : '') + ': ' + c.buff.note : c.heal != null ? 'cura ' + c.heal : c.effect ? 'salvación de ' + ABIL_N[c.effect.abil] + ' CD ' + c.effect.dc + (c.parts.length ? ', ' + c.parts.map((p) => p.amt + ' ' + p.type).join(' + ') : '') : c.parts.map((p) => p.amt + ' ' + p.type).join(' + ') + (c.attack != null ? ' (ataque ' + c.attack + ')' : '');
               return (
                 <li key={c.id}>
                   <b>{c.who}</b><span className="small">{c.label} · {what} → {names || 'objetivos que ya no están'}</span>
                   <span className="rollrow">
-                    {c.heal != null ? (
+                    {c.buff ? (
+                      <button className="btn small gold" onClick={() => { applyBuff(c); useRoom.getState().dismissCast(c.id); }}>Aplicar</button>
+                    ) : c.heal != null ? (
                       <button className="btn small gold" onClick={() => { c.targets.forEach((id) => useStore.getState().heal(id, c.heal!, c.who)); useRoom.getState().dismissCast(c.id); }}>Aplicar curación</button>
                     ) : (
                       <button className="btn small gold" onClick={() => { reviewCast(c); useRoom.getState().dismissCast(c.id); }}>Revisar en la mesa de dados</button>

@@ -61,7 +61,7 @@ export function spellFx(s: { en?: string; n: string }): { key: string; fx: Spell
 }
 
 /** Efecto activo en la hoja (conjuro lanzado sobre el personaje). */
-export interface ActiveEffect { k: string; n: string; lv: number; conc?: boolean; at: number }
+export interface ActiveEffect { k: string; n: string; lv: number; conc?: boolean; at: number; by?: string }
 
 /** Los que siguen en vigor: los de concentración solo mientras se concentra en ese conjuro. */
 export function liveEffects(active: ActiveEffect[] | undefined, conds: string[]): (ActiveEffect & { fx: SpellFx })[] {
@@ -77,6 +77,32 @@ export function liveEffects(active: ActiveEffect[] | undefined, conds: string[])
 export function staleEffects(active: ActiveEffect[] | undefined, conds: string[]): ActiveEffect[] {
   const conc = concOf(conds);
   return (active || []).filter((e) => e.conc && conc !== e.n);
+}
+
+/** Conjuro sobre otro que se manda a la mesa (por la sala): el máster lo aplica a sus objetivos. */
+export interface SpellBuff { k: string; n: string; lv: number; conc: boolean; note: string }
+
+/**
+ * Lo que cambia en la hoja al recibir el conjuro: el efecto activo, su estado, los PG de Auxilio y los PG temporales
+ * (fijos; si son de dados, se devuelven para tirarlos). `by`: quien lo lanzó, si es otro.
+ */
+export function castOnPatch(c: { active?: ActiveEffect[]; conds: string[]; hp: number; temp: number }, key: string, n: string, lv: number, conc: boolean, mods: Record<Abil, number>, by?: string):
+  { patch: { active?: ActiveEffect[]; conds?: string[]; hp?: number; temp?: number }; tempDice: string | null } {
+  const hit = FX.find((x) => x.keys[0] === key);
+  if (!hit) return { patch: {}, tempDice: null };
+  const f = hit.fx;
+  const patch: { active?: ActiveEffect[]; conds?: string[]; hp?: number; temp?: number } = {};
+  if (!f.instant) patch.active = [...(c.active || []).filter((e) => e.k !== key), { k: key, n, lv, conc, at: Date.now(), ...(by ? { by } : {}) }];
+  if (f.cond && !c.conds.includes(f.cond)) patch.conds = [...c.conds, f.cond];
+  // Auxilio: los PG actuales suben lo mismo que los máximos
+  if (f.hpMax) { const prev = (c.active || []).find((e) => e.k === key); patch.hp = c.hp + f.hpMax(lv) - (prev ? f.hpMax(prev.lv) : 0); }
+  let tempDice: string | null = null;
+  if (f.temp) {
+    const expr = f.temp(lv, mods);
+    if (/d/.test(expr)) tempDice = expr;
+    else patch.temp = Math.max(c.temp, Number(expr) || 0); // PG temporales: no se suman, se queda el mayor
+  }
+  return { patch, tempDice };
 }
 
 /** Estado que pone un efecto (si pone alguno). */

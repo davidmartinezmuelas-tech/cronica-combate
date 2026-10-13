@@ -6,7 +6,7 @@ import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { hasInvocation } from '../../engine/subclassChoices';
 import { withConc } from '../../engine/concentration';
-import { spellFx } from '../../engine/spellEffects';
+import { castOnPatch, spellFx } from '../../engine/spellEffects';
 import type { Grant } from '../../engine/grantedSpells';
 import { useRoom } from '../../store/room';
 import { usePlayer } from '../../store/player';
@@ -53,6 +53,17 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   const slotLeft = lv && !usePact ? (d.slots[lv - 1] || 0) - (c.slotsUsed[lv - 1] || 0) : 0;
   // lo que hace el conjuro sobre quien lo recibe (PG temporales, CA, Auxilio…): «Lanzar sobre mí» lo aplica en la hoja
   const fx = spellFx(s);
+  const inRoom = useRoom((x) => !!x.code && x.role === 'player');
+  const table = useRoom((x) => x.table);
+  // tras «Sobre otro» en una sala: a quién (de la lista de iniciativa del máster)
+  const [targets, setTargets] = useState<{ lv: number; sel: string[] } | null>(null);
+  const [sentNote, setSentNote] = useState('');
+  const sendBuff = async () => {
+    if (!targets || !fx) return;
+    const ok = await useRoom.getState().sendCast({ label: label('sobre otros'), targets: targets.sel, crit: false, parts: [], attack: null, heal: null, effect: null,
+      buff: { k: fx.key, n: s.n, lv: targets.lv, conc: !!s.c, note: (fx.fx.hpMax ? '+' + fx.fx.hpMax(targets.lv) + ' ' : '') + fx.fx.note } });
+    if (ok) { setTargets(null); setSentNote('Enviado al máster: lo aplica a los objetivos.'); }
+  };
   // sin espacio, por el rasgo: a voluntad, una vez por descanso largo o tantas como el bonificador por competencia
   const freeMax = !grant || grant.how === 'known' ? 0 : grant.how === 'will' || grant.how === 'ritual' ? Infinity : grant.how === 'lr' ? 1 : d.pb;
   const freeUsed = grant ? c.uses[grant.key] || 0 : 0;
@@ -65,25 +76,21 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
     else if (usePact) patch.pactUsed = c.pactUsed + 1;
     else { const u = c.slotsUsed.slice(); u[lv - 1] = (u[lv - 1] || 0) + 1; patch.slotsUsed = u; }
     if (onMe && fx && !grant?.noFx) {
-      const lv = castLv;
-      const f = fx.fx;
-      if (!f.instant) patch.active = [...(c.active || []).filter((e) => e.k !== fx.key), { k: fx.key, n: s.n, lv, conc: !!s.c, at: Date.now() }];
-      if (f.cond && !conds.includes(f.cond)) patch.conds = [...conds, f.cond];
-      // Auxilio: los PG actuales suben lo mismo que los máximos
-      if (f.hpMax) { const prev = (c.active || []).find((e) => e.k === fx.key); patch.hp = c.hp + f.hpMax(lv) - (prev && f.hpMax ? f.hpMax(prev.lv) : 0); }
-      if (f.temp) {
-        let expr = f.temp(lv, d.mods);
+      const { patch: fxPatch, tempDice } = castOnPatch({ ...c, conds }, fx.key, s.n, castLv, !!s.c, d.mods);
+      Object.assign(patch, fxPatch);
+      if (tempDice) {
         // Vigor infernal: los PG temporales al máximo, sin tirar
-        if (free && grant?.max) expr = String(expr.split('+').reduce((t, x) => { const m = /^(\d*)d(\d+)$/.exec(x.trim()); return t + (m ? (parseInt(m[1] || '1', 10) * parseInt(m[2], 10)) : Number(x) || 0); }, 0));
+        if (free && grant?.max) patch.temp = Math.max(c.temp, tempDice.split('+').reduce((t, x) => { const m = /^(\d*)d(\d+)$/.exec(x.trim()); return t + (m ? (parseInt(m[1] || '1', 10) * parseInt(m[2], 10)) : Number(x) || 0); }, 0));
         // PG temporales: no se suman, se queda el mayor
-        if (/d/.test(expr)) roll({ label: label('PG temporales'), kind: 'free', parts: [{ expr }], after: (total) => {
+        else roll({ label: label('PG temporales'), kind: 'free', parts: [{ expr: tempDice }], after: (total) => {
           const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
           usePlayer.getState().update(c.id, { temp: Math.max(cur.temp, total) });
           return { resultNote: total > cur.temp ? 'PG temporales: ' + total + '.' : 'Ya tenías ' + cur.temp + ' PG temporales: te quedas con esos.' };
         } });
-        else patch.temp = Math.max(c.temp, Number(expr) || 0);
       }
     }
+    // sobre otros en la sala: se eligen los objetivos y se manda a la mesa del máster
+    if (!onMe && fx && !fx.fx.self && inRoom) setTargets({ lv: castLv, sel: [] });
     set(patch);
   };
   const healAfter = (total: number) => {
@@ -94,7 +101,6 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   const dc = caster?.dc;
   // con salvación: el daño lleva el efecto (CD, mitad, estados) para mandarlo a la mesa del máster
   const effect = rr.save && dc != null ? saveEffectOf(dc, rr.save, rr.half, s.t) : null;
-  const inRoom = useRoom((x) => !!x.code && x.role === 'player');
 
   return (
     <span className="rollrow" onClick={(e) => e.preventDefault()}>
@@ -135,6 +141,21 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
       ) : (
         <button className="btn small" disabled={usePact ? pactLeft <= 0 : slotLeft <= 0} title="Marca el espacio de conjuro gastado" onClick={() => spendSlot()}>Lanzar (gasta {usePact ? 'espacio de pacto' : 'espacio de nivel ' + lv})</button>
       ))}
+      {targets && (
+        <span className="targets send-table">
+          <span className="small muted">{s.n} sobre otros: elige a quién en la mesa del máster</span>
+          {!table.length ? <span className="small muted">El máster aún no ha compartido la lista de iniciativa.</span> : (
+            <span className="chips" role="group" aria-label={'Objetivos de ' + s.n}>
+              {table.map((t) => <button key={t.id} className={targets.sel.includes(t.id) ? 'chip on' : 'chip'} aria-pressed={targets.sel.includes(t.id)} onClick={() => setTargets({ ...targets, sel: targets.sel.includes(t.id) ? targets.sel.filter((x) => x !== t.id) : [...targets.sel, t.id] })}>{t.name}</button>)}
+            </span>
+          )}
+          <span className="rollrow">
+            <button className="btn small primary" disabled={!targets.sel.length} onClick={() => void sendBuff()}>Enviar a la mesa</button>
+            <button className="btn small ghost" onClick={() => setTargets(null)}>No enviar</button>
+          </span>
+        </span>
+      )}
+      {sentNote && <span className="small muted" role="status">{sentNote}</span>}
     </span>
   );
 }

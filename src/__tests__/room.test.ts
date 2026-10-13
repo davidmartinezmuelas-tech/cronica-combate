@@ -79,6 +79,31 @@ describe('avisos del máster al jugador', () => {
     expect(useRoom.getState().notice).toBe('El máster ha cambiado los PG de Ana: 17.');
     expect(cloud.rooms.get(code)!.events).toHaveLength(0); // se borra al aplicarlo
   });
+
+  it('el conjuro que un compañero le lanza (Escudo de fe) llega a su hoja con quién lo lanzó', async () => {
+    const { usePlayer } = await import('../store/player');
+    const { blankCharacter, derive } = await import('../engine/character');
+    await usePlayer.getState().init();
+    usePlayer.setState({ characters: [{ ...blankCharacter(), id: 'pj-ana', name: 'Ana', hp: 20 }], activeId: 'pj-ana' });
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+    useRoom.setState({ code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '' });
+    const cloud = fakeCloud({ uid: 'dm1', email: null, name: null, anon: false });
+    setCloudAdapter(async () => cloud.adapter);
+    await useRoom.getState().create('Laura');
+    const code = useRoom.getState().code!;
+    await useRoom.getState().leave();
+    await cloud.setUser({ uid: 'p1', email: null, name: null, anon: true });
+    await vi.waitFor(() => expect(useAccount.getState().user?.uid).toBe('p1'));
+    await useRoom.getState().join(code, 'Ana');
+    const ac0 = derive(usePlayer.getState().characters[0], null).ac;
+    await cloud.adapter.sendEvent(code, { to: 'p1', from: 'dm1', charId: 'pj-ana', hp: 0, temp: 0, note: '', at: 1, kind: 'buff', by: 'Ilsa', buff: { k: 'Shield of Faith', n: 'Escudo de fe', lv: 1, conc: true, note: '+2 a la CA' } });
+    await vi.waitFor(() => expect(usePlayer.getState().characters[0].active).toHaveLength(1));
+    const c = usePlayer.getState().characters[0];
+    expect(c.hp).toBe(20); // no toca los PG
+    expect(c.active![0].by).toBe('Ilsa');
+    expect(derive(c, null).ac).toBe(ac0 + 2); // en otra hoja no depende de su concentración
+    expect(useRoom.getState().notice).toContain('Ilsa te ha lanzado Escudo de fe');
+  });
 });
 
 describe('lanzamientos y peticiones de salvación por la sala', () => {
@@ -106,5 +131,26 @@ describe('lanzamientos y peticiones de salvación por la sala', () => {
     useRoom.getState().answerSave('q1', 12);
     await vi.waitFor(() => expect(cloud.rooms.get(code)!.replies.map((r) => [r.reqId, r.total])).toEqual([['q1', 12]]));
     expect(useRoom.getState().saveRequests).toEqual([]);
+  });
+});
+
+describe('el máster aplica un conjuro sobre otros', () => {
+  it('estado en cada objetivo de la mesa y el efecto en la hoja del otro jugador (no en la de quien lo lanzó)', async () => {
+    const { applyBuff } = await import('../shared/RoomPanel');
+    const { useStore } = await import('../store/useStore');
+    const sent: string[] = [];
+    useRoom.setState({ members: [{ uid: 'p2', name: 'Bruno', role: 'player', sheet: { name: 'Bruno', cls: '', level: 1, ac: 12, hp: 10, hpMax: 10, temp: 0, pp: 10, conds: [], charId: 'pj-bruno' }, at: 1 }], sendBuff: (to, charId) => { sent.push(to + ':' + charId); } });
+    useStore.setState({
+      roster: [{ id: 'r2', name: 'Bruno', roomUid: 'p2' } as never, { id: 'r1', name: 'Ilsa', roomUid: 'p1' } as never],
+      combatants: [
+        { id: 'c1', name: 'Bruno', kind: 'pc', rosterId: 'r2', conds: [] } as never,
+        { id: 'c2', name: 'Ilsa', kind: 'pc', rosterId: 'r1', conds: [] } as never,
+        { id: 'c3', name: 'Goblin', kind: 'monster', conds: [] } as never,
+      ],
+    });
+    applyBuff({ id: 'x', uid: 'p1', who: 'Ilsa', label: '', targets: ['c1', 'c2', 'c3'], at: 1, parts: [], crit: false, attack: null, heal: null, effect: null, buff: { k: 'Bless', n: 'Bendición', lv: 1, conc: true, note: '+1d4' } });
+    const conds = useStore.getState().combatants.map((c) => c.conds.map((k) => k.k));
+    expect(conds).toEqual([['Bendición (de Ilsa)'], ['Bendición (de Ilsa)'], ['Bendición (de Ilsa)']]);
+    expect(sent).toEqual(['p2:pj-bruno']); // a Ilsa no: ya lo tiene si se lo lanzó a sí misma
   });
 });

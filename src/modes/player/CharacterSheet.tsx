@@ -700,7 +700,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <div className="pc-active" aria-label="Conjuros activos">
             {d.effects.map((e) => (
               <span key={e.k} className="pc-active-fx" title={e.fx.note}>
-                <b>{e.n}</b><span className="muted small">{e.fx.hpMax ? '+' + e.fx.hpMax(e.lv) + ' ' : ''}{e.fx.note}{e.conc ? ' · concentración' : ''}</span>
+                <b>{e.n}</b><span className="muted small">{e.fx.hpMax ? '+' + e.fx.hpMax(e.lv) + ' ' : ''}{e.fx.note}{e.conc ? ' · concentración' : ''}{e.by ? ' · de ' + e.by : ''}</span>
                 {e.k === 'Heroism' && spellMod > 0 && <button className="btn small" onClick={() => set({ temp: Math.max(c.temp, spellMod) })}>PG temporales ({spellMod})</button>}
                 <button className="btn small ghost" aria-label={'Terminar ' + e.n} onClick={() => endEffect(e.k)}>Terminar</button>
               </span>

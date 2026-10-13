@@ -1,4 +1,5 @@
 import type { Character } from '../engine/character';
+import type { SpellBuff } from '../engine/spellEffects';
 import type { SaveEffect } from '../engine/saveEffect';
 import { toCloud } from '../engine/sync';
 
@@ -7,8 +8,9 @@ export interface SheetSummary { name: string; cls: string; level: number; ac: nu
 /** Aviso del máster a un jugador: sus PG tras lo que ha pasado en la mesa (daño, curación…). */
 export interface RoomEvent {
   id: string; to: string; from: string; charId: string; hp: number; temp: number; note: string; at: number;
-  kind?: 'hp' | 'save'; // 'save': el máster le pide una salvación
+  kind?: 'hp' | 'save' | 'buff'; // 'save': el máster le pide una salvación; 'buff': le aplica el conjuro de otro jugador
   dc?: number; abil?: number; label?: string; reqId?: string;
+  buff?: SpellBuff; by?: string;
 }
 /** Entrada de la lista de iniciativa que el máster comparte (sin PG ni números de los monstruos). */
 export interface TableEntry { id: string; name: string; kind: 'monster' | 'pc'; roomUid?: string }
@@ -16,6 +18,7 @@ export interface TableEntry { id: string; name: string; kind: 'monster' | 'pc'; 
 export interface RoomCast {
   id: string; uid: string; who: string; label: string; targets: string[]; at: number;
   parts: { type: string; amt: number }[]; crit: boolean; attack: number | null; heal: number | null; effect: SaveEffect | null;
+  buff?: SpellBuff | null; // conjuro sobre otros (Bendición, Auxilio…): el máster lo aplica a los objetivos
 }
 /** Respuesta de un jugador a una petición de salvación. */
 export interface SaveReply { id: string; uid: string; reqId: string; total: number; at: number }
