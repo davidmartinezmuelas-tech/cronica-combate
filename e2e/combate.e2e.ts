@@ -1905,3 +1905,31 @@ test('Pacto del tomo: tres trucos y dos rituales de cualquier lista, como conjur
   await row.getByRole('button', { name: /^Lanzar como ritual/ }).click();
   await expect(page.locator('.pc-conc')).toContainText('Detectar magia');
 });
+
+test('a 0 PG cada golpe es un fallo de salvación contra la muerte (el crítico, dos) y el daño masivo mata', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Rurik');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const max = Number(await page.locator('.stat-hp .stat-max').textContent());
+  const hit = async (n: number) => { await page.getByLabel('Cantidad de PG').fill(String(n)); await page.getByRole('button', { name: 'Daño', exact: true }).click(); };
+  const fails = page.locator('.stat-death .pip.bad');
+  await hit(max); // a 0 PG
+  await expect(page.locator('.stat-hp .stat-v')).toHaveText('0');
+  await expect(fails).toHaveCount(0);
+  await hit(1);
+  await expect(fails).toHaveCount(1);
+  await expect(page.locator('.pc-death-hit')).toContainText('un fallo de salvación contra la muerte (1/3)');
+  await page.getByRole('button', { name: 'Era un crítico: otro fallo' }).click();
+  await expect(fails).toHaveCount(2);
+  // otro personaje: el daño que sobra llega a sus PG máximos
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Bran');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const max2 = Number(await page.locator('.stat-hp .stat-max').textContent());
+  await hit(max2 * 2);
+  await expect(fails).toHaveCount(3);
+  await expect(page.locator('.pc-death-hit')).toContainText('Daño masivo');
+});

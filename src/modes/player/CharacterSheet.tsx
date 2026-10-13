@@ -319,14 +319,30 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const uaHit: Hit = { melee: true, str: !(classLevel(c, 'monk') && d.mods.dex > d.mods.str), finesse: false };
   const amt = parseInt(amount, 10);
   const resisted = dmgType && d.resist.find((x) => x.type === dmgType);
+  // a 0 PG: cada golpe es un fallo de salvación contra la muerte (el crítico, dos); daño masivo (lo que sobra llega a tus PG máximos): muere
+  const [deathHit, setDeathHit] = useState<{ msg: string; crit: boolean } | null>(null);
   const damage = () => {
     if (!(amt > 0)) return;
     const taken = resisted ? Math.floor(amt / 2) : amt;
     const fromTemp = Math.min(c.temp, taken);
     const rest = taken - fromTemp;
     const hp = Math.max(0, c.hp - rest);
-    set({ temp: c.temp - fromTemp, hp, death: c.hp > 0 && hp === 0 ? { s: 0, f: 0 } : c.death });
+    let death = c.hp > 0 && hp === 0 ? { s: 0, f: 0 } : c.death;
+    setDeathHit(null);
+    if (rest > 0 && (c.hp === 0 ? rest : rest - c.hp) >= d.hpMax && hp === 0) {
+      death = { s: 0, f: 3 };
+      setDeathHit({ msg: 'Daño masivo: el daño que sobra llega a tus PG máximos. El personaje muere.', crit: false });
+    } else if (c.hp === 0 && rest > 0) {
+      death = { s: c.death.s, f: Math.min(3, c.death.f + 1) };
+      setDeathHit({ msg: 'Golpe estando a 0 PG: un fallo de salvación contra la muerte (' + death.f + '/3).' + (death.f >= 3 ? ' Tercer fallo: el personaje muere.' : ''), crit: death.f < 3 });
+    }
+    set({ temp: c.temp - fromTemp, hp, death });
     setAmount('');
+  };
+  const critHit = () => {
+    const f = Math.min(3, c.death.f + 1);
+    set({ death: { ...c.death, f } });
+    setDeathHit({ msg: 'Golpe crítico a 0 PG: dos fallos (' + f + '/3).' + (f >= 3 ? ' Tercer fallo: el personaje muere.' : ''), crit: false });
   };
   const heal = () => { if (amt > 0) { set({ hp: Math.min(d.hpMax, c.hp + amt), death: { s: 0, f: 0 } }); setAmount(''); } };
   const giveTemp = () => { if (amt > 0) { set({ temp: Math.max(c.temp, amt) }); setAmount(''); } };
@@ -726,6 +742,13 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <button className="btn temp" onClick={giveTemp}>PG temporales</button>
           {conc && <button className="chip on pc-conc" title="Te concentras en este conjuro. Pulsa para dejar de concentrarte." onClick={() => set({ conds: withoutConc(c.conds) })}>Concentración: {conc} ✕</button>}
         </div>
+        {deathHit && (
+          <p className="warn small pc-death-hit" role="status" style={{ margin: 0 }}>
+            {deathHit.msg}
+            {deathHit.crit && <button className="btn small" onClick={critHit}>Era un crítico: otro fallo</button>}
+            <button className="btn small ghost" onClick={() => setDeathHit(null)}>Vale</button>
+          </p>
+        )}
         {concCheck && conc && (
           <InfoDialog title="Salvación de concentración" onClose={() => setConcCheck(null)}>
             <p style={{ marginTop: 0 }}>Has recibido {concCheck.dmg} de daño mientras te concentras en <b>{conc}</b>. Tira una salvación de Constitución con <b>CD {concCheck.dc}</b>{warCaster ? ' (con ventaja por Lanzador de guerra)' : ''}: si fallas, el conjuro termina.</p>
