@@ -16,12 +16,10 @@ body{color:#efe3cb;font-family:'Alegreya Sans','Gill Sans','Trebuchet MS',sans-s
 .status-dot.bad{background:#c0513c}
 .app-footer{padding:12px 28px 22px;font-size:12px;line-height:1.5;color:#9d927e;display:flex;flex-direction:column;gap:4px;max-width:1100px}
 .footer-links{display:flex;align-items:center;gap:6px 16px;flex-wrap:wrap;margin-bottom:4px}
-.footer-links a:not(.support-link),.footer-links .linkbtn{color:#c6bba6;font-size:12px}
+.footer-links a,.footer-links .linkbtn{color:#c6bba6;font-size:12px}
 .legal h3{font-size:15px;margin:14px 0 4px}
 .legal p,.legal li{font-size:14px;line-height:1.5}
 .legal ul{margin:0;padding-left:20px}
-.support-link{align-self:flex-start;padding:4px 12px;border:1px solid #6b5440;border-radius:999px;color:#e8c062;font-size:13px;font-weight:700;text-decoration:none}
-.support-link:hover,.support-link:focus-visible{border-color:#d4a94f;background:rgba(212,169,79,.12)}
 .offline{background:#2c4a64;color:#eef5fa;font-size:13px;font-weight:700;padding:6px 28px}
 *{box-sizing:border-box}
 a{color:#d4a94f}a:hover{color:#f0c96a}
@@ -1065,3 +1063,18 @@ body:has(.mtabs) .roll-peek{bottom:calc(76px + env(safe-area-inset-bottom))}
 .pc-phone .pc-abils{display:flex;flex-direction:column;gap:10px}
 .pc-phone .pc-abil-col{display:contents}
 .pc-phone .pc-extra,.pc-phone .pc-profs{order:1}
+
+/* encabezado: apoyar (Ko-fi) y Ajustes, con icono; en pantallas estrechas solo el icono */
+.settings-btn,.support-btn{display:inline-flex;align-items:center;gap:6px;text-decoration:none}
+.settings-btn svg,.support-btn svg{width:18px;height:18px;flex:none}
+.support-btn{color:#e8c062;border-color:#9c7426}
+.support-btn:hover{background:rgba(212,169,79,.14)}
+@media (max-width:719px){.settings-txt{display:none}.settings-btn,.support-btn{padding-left:9px;padding-right:9px}}
+/* ventana de Ajustes: apartados */
+.settings{display:flex;flex-direction:column;gap:14px}
+.settings>section{display:flex;flex-direction:column;gap:8px;padding-top:12px;border-top:1px solid #5b4837}
+.settings>section:first-child{border-top:0;padding-top:0}
+.settings h3{margin:0;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#d4a94f}
+/* animaciones reducidas (Ajustes) */
+.reduce-motion *,.reduce-motion *::before,.reduce-motion *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;scroll-behavior:auto !important}
+.settings a.btn{text-decoration:none}

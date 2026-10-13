@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import AccountMenu from '../../shared/AccountMenu';
-import HelpMenu from '../../shared/HelpMenu';
+import SettingsMenu, { SupportButton } from '../../shared/SettingsMenu';
+import PlayerBackup from './PlayerBackup';
 import Tour, { tourPending } from '../../shared/Tour';
 import { playerTour } from '../../shared/tours';
 import Attribution from '../../shared/Attribution';
@@ -41,7 +41,7 @@ export default function PlayerApp() {
           ))}
         </nav>
         {/* la cuenta, en la esquina */}
-        <div className="app-header-end" data-tour="header-end"><HelpMenu onTour={() => setTour(true)} /><AccountMenu /></div>
+        <div className="app-header-end" data-tour="header-end"><SupportButton /><SettingsMenu mode="player" backup={<PlayerBackup />} onTour={() => setTour(true)} /></div>
       </header>
       <main className={mobileTabs ? 'app-main mtabs' : 'app-main'} data-mtab={mobileTabs ? mt.tab : undefined}>
         {tab === 'sheet' || tab === 'library' ? (

@@ -9,7 +9,7 @@ export const playerTour = (goSheet: () => void, goLibrary: () => void): TourStep
   { target: '[data-tour="hp"]', title: 'Daño y curación', text: 'Escribe los PG y pulsa Daño, Curación o PG temporales. Si eliges el tipo de daño, tus resistencias lo reducen a la mitad solas.' },
   { target: '[data-tour="library"]', before: goLibrary, title: 'Tu Manual del Jugador 2024', text: 'El SRD trae una subclase por clase y cuatro trasfondos. Si tienes el Manual del Jugador 2024 en PDF, impórtalo aquí y tendrás todas sus subclases, trasfondos, dotes y conjuros al crear y subir de nivel. Se lee en tu navegador y se queda solo en tu dispositivo.' },
   { target: '[data-tour="table"]', before: goSheet, title: 'Mesa de dados y sala', text: 'Aquí caen tus tiradas. Con el código de tu máster entras en su sala: ve tus tiradas y tus PG, y el daño que te ponga llega a tu hoja.' },
-  { target: '[data-tour="header-end"]', title: 'Cuenta y ayuda', text: 'Con una cuenta tus personajes se guardan en la nube y los tienes en todos tus dispositivos. Este «?» repite la visita cuando quieras. Al final de la hoja puedes guardar una copia de seguridad.' },
+  { target: '[data-tour="header-end"]', title: 'Ajustes y apoyo', text: 'En «Ajustes» tienes la cuenta (tus personajes en la nube y en todos tus dispositivos), la copia de seguridad, el modo, las preferencias y esta visita para repetirla. «Apoyar» lleva a Ko-fi si quieres echar una mano.' },
 ];
 
 /** Visita del modo máster. `tab` abre una pestaña. */
@@ -21,5 +21,5 @@ export const dmTour = (tab: (t: 'combat' | 'bestiary' | 'group' | 'forge') => vo
   { target: 'section.col-left', title: 'Iniciativa', text: 'La lista se ordena sola. Tira la de los monstruos (en grupo o individual) y escribe la de los jugadores. Pulsa a alguien para ver su tarjeta.' },
   { target: '.statblock, section.col-center', title: 'Fichas de monstruo', text: 'Sus ataques y daños se tiran pulsándolos. Los efectos con salvación (alientos, conjuros) dejan elegir objetivos, tiran sus salvaciones y aplican daño y estados.' },
   { target: 'section.col-right', title: 'Sala y dados', text: 'Crea una sala y pasa el código a tus jugadores: verás sus tiradas y sus PG en directo, y les puedes pedir salvaciones.' },
-  { target: '.hdr-actions', title: 'Deshacer, copia, cuenta y ayuda', text: 'La flecha deshace el último cambio (Ctrl+Z). «Copia» descarga o carga una copia de seguridad de todo (grupo, criaturas, encuentros). Con una cuenta tus criaturas, encuentros y grupo se guardan en la nube. El «?» repite esta visita y muestra los atajos de teclado.' },
+  { target: '.hdr-actions', title: 'Deshacer, ajustes y apoyo', text: 'La flecha deshace el último cambio (Ctrl+Z). En «Ajustes» están la cuenta (tus criaturas, encuentros y grupo en la nube), la copia de seguridad de todo, el modo, las preferencias, esta visita y los atajos de teclado. «Apoyar» lleva a Ko-fi.' },
 ];

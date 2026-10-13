@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import Legal, { feedbackHref, LEGAL_HASH } from './Legal';
 
-/** Pie: enlace para apoyar el proyecto y atribución del SRD 5.2.1 y de la traducción (obligatoria por la licencia CC-BY-4.0). */
+/** Pie: sugerencias, privacidad y atribución del SRD 5.2.1 y de la traducción (obligatoria por la licencia CC-BY-4.0). */
 export default function Attribution({ hotkeys = false }: { hotkeys?: boolean }) {
   // privacidad y aviso legal: en una ventana (también al entrar con la dirección #/privacidad)
   const [legal, setLegal] = useState(() => location.hash === LEGAL_HASH);
@@ -15,7 +15,6 @@ export default function Attribution({ hotkeys = false }: { hotkeys?: boolean }) 
     <footer className="app-footer">
       {/* donación voluntaria: no desbloquea nada (la app es gratis y completa) */}
       <span className="footer-links">
-        <a className="support-link" href="https://ko-fi.com/zmuelas" target="_blank" rel="noopener noreferrer">¿Quieres echar una mano? Tira iniciativa en Ko-fi</a>
         <a href={feedbackHref()} onClick={(e) => { e.currentTarget.href = feedbackHref(); }}>Enviar sugerencia o fallo</a>
         <button type="button" className="linkbtn" onClick={() => setLegal(true)}>Privacidad y aviso legal</button>
       </span>

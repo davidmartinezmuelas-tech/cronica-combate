@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react';
 import type { DieView } from '../data/types';
 import { throwFrames } from '../engine/throw';
+import { reducedMotion } from './prefs';
 
 type Pt = [number, number];
 interface Geo {
@@ -69,9 +70,6 @@ const GEO: Record<number, Geo> = {
 
 const pts = (p: Pt[]) => p.map(([x, y]) => x + ',' + y).join(' ');
 
-const reducedMotion = () => {
-  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
-};
 
 /** Dibujo de un dado (también se usa en los botones de dados rápidos). */
 export function DieShape({ sides, value, uidKey }: { sides: number; value?: number | string; uidKey: string }) {

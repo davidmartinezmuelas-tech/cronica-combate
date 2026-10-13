@@ -1,8 +1,7 @@
-import AccountMenu from '../../shared/AccountMenu';
-import HelpMenu from '../../shared/HelpMenu';
+import SettingsMenu, { SupportButton } from '../../shared/SettingsMenu';
 import { useStore, type Tab } from '../../store/useStore';
 import Brand from '../../shared/Brand';
-import DataMenu from './DataMenu';
+import DataBackup from './DataBackup';
 import { UndoIcon } from '../../shared/Icons';
 
 const TABS: [Tab, string][] = [['combat', 'Combate'], ['bestiary', 'Bestiario'], ['group', 'Grupo'], ['forge', 'Forja'], ['rules', 'Reglas']];
@@ -36,10 +35,9 @@ export default function Header() {
             <UndoIcon />
           </button>
         )}
-        {/* copia de seguridad, ayuda (visita guiada y atajos) y la cuenta, en la esquina (como en el modo jugador) */}
-        <DataMenu />
-        <HelpMenu onTour={() => set({ tourOpen: true })} onKeys={() => set({ helpOpen: true })} />
-        <AccountMenu />
+        {/* apoyar el proyecto y Ajustes (cuenta, copia, modo, preferencias, ayuda), en la esquina como en el modo jugador */}
+        <SupportButton />
+        <SettingsMenu mode="dm" backup={<DataBackup />} onTour={() => set({ tourOpen: true })} onKeys={() => set({ helpOpen: true })} />
       </div>
     </header>
   );

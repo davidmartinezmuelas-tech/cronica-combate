@@ -5,13 +5,11 @@ import Die, { DieShape } from './Die';
 import Dice3D, { hasWebGL } from './Dice3D';
 import EffectTargets from './EffectTargets';
 import SendToTable from './SendToTable';
+import { reducedMotion } from './prefs';
 
 const QUICK = [4, 6, 8, 10, 12, 20, 100];
 export const THEMES: [string, string][] = [['ruby', 'Rubí'], ['bone', 'Hueso'], ['obsidian', 'Obsidiana'], ['gem', 'Gema'], ['metal', 'Metal'], ['wood', 'Madera']];
 
-const reducedMotion = () => {
-  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
-};
 
 /** El total sube rápido hasta su valor en vez de aparecer de golpe. */
 function CountUp({ value }: { value: string }) {
@@ -207,9 +205,6 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
       </div>
       {exprError && <p className="warn" role="alert" style={{ fontSize: 14 }}>Fórmula no válida. Usa algo como 3d8+2.</p>}
 
-      <label className="check" title={!can3d ? 'Este navegador no puede mostrar gráficos 3D (WebGL desactivado o sin aceleración por hardware)' : reduced ? 'Tu sistema pide reducir las animaciones, por eso empiezan desactivados. Puedes activarlos igualmente.' : 'Dados con física real. Desactívalo si la tablet va lenta.'}>
-        <input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (este navegador no tiene gráficos 3D)'}
-      </label>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <span className="muted small" style={{ fontWeight: 700 }}>Color</span>
         <div className="swatches">

@@ -76,7 +76,7 @@ export default function GroupPanel() {
         </div>
       </fieldset>
 
-      <p className="muted small" style={{ margin: 0 }}>La copia de seguridad (grupo, criaturas, encuentros y combate) está en el botón «Copia» de arriba.</p>
+      <p className="muted small" style={{ margin: 0 }}>La copia de seguridad (grupo, criaturas, encuentros y combate) está en «Ajustes», arriba a la derecha.</p>
     </div>
   );
 }

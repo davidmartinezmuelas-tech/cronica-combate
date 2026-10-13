@@ -10,6 +10,12 @@ async function open(page: Page) {
   await expect(page.getByText('Prepara el encuentro')).toBeVisible();
 }
 
+/** Abre Ajustes (encabezado) y devuelve su ventana. */
+async function settings(page: Page) {
+  await page.getByRole('button', { name: 'Ajustes', exact: true }).click();
+  return page.getByRole('dialog', { name: 'Ajustes' });
+}
+
 async function addMonsters(page: Page, search: string, name: string, qty: number) {
   await page.getByRole('button', { name: 'Bestiario', exact: true }).click();
   await page.getByLabel('Buscar (español o inglés)').fill(search);
@@ -121,8 +127,6 @@ test('la página no se sale de la pantalla', async ({ page }) => {
 
 test('dados 3D: se usan cuando el equipo puede, un toque salta la animación y se pueden cambiar a 2D', async ({ page }) => {
   await open(page);
-  const toggle = page.getByLabel(/^Dados 3D/);
-  await expect(toggle).toBeChecked();
   await expect(page.locator('canvas.felt-3d')).toBeVisible();
   await page.waitForTimeout(2500); // la escena 3D se carga en segundo plano
   await page.getByRole('button', { name: 'Tirar d20' }).click();
@@ -135,26 +139,32 @@ test('dados 3D: se usan cuando el equipo puede, un toque salta la animación y s
   expect(total).toBeGreaterThanOrEqual(1);
   expect(total).toBeLessThanOrEqual(20);
 
-  await toggle.uncheck();
+  // la preferencia está en Ajustes
+  const dlg = await settings(page);
+  await expect(dlg.getByLabel(/^Dados 3D/)).toBeChecked();
+  await dlg.getByLabel(/^Dados 3D/).uncheck();
+  await page.keyboard.press('Escape');
   await expect(page.locator('canvas.felt-3d')).toHaveCount(0);
   await page.getByRole('button', { name: 'Tirar d20' }).click();
   await expect(page.locator('.die-spot')).toHaveCount(1);
   await page.waitForTimeout(600); // guardado automático
   await page.reload();
-  await expect(page.getByLabel(/^Dados 3D/)).not.toBeChecked(); // la preferencia se guarda
+  await expect((await settings(page)).getByLabel(/^Dados 3D/)).not.toBeChecked(); // la preferencia se guarda
 });
 
 test('con «reducir movimiento» empiezan los dados 2D, pero se pueden activar los 3D', async ({ browser }) => {
   const ctx = await browser.newContext({ reducedMotion: 'reduce' });
   const page = await ctx.newPage();
   await open(page);
-  const toggle = page.getByLabel(/^Dados 3D/);
   await expect(page.locator('canvas.felt-3d')).toHaveCount(0);
-  await expect(toggle).toBeEnabled();
-  await expect(toggle).not.toBeChecked();
   await page.getByRole('button', { name: 'Tirar d20' }).click();
   await expect(page.locator('.plaque-in')).toBeVisible();
+  const dlg = await settings(page);
+  const toggle = dlg.getByLabel(/^Dados 3D/);
+  await expect(toggle).toBeEnabled();
+  await expect(toggle).not.toBeChecked();
   await toggle.check();
+  await page.keyboard.press('Escape');
   await expect(page.locator('canvas.felt-3d')).toBeVisible();
   await page.waitForTimeout(2500);
   await page.getByRole('button', { name: 'Tirar d20' }).click();
@@ -271,7 +281,7 @@ test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en
   await expect(page.getByLabel('Notas')).toHaveValue('Busca a su hermana desaparecida');
   await expect(page.locator('.pdf-page')).toHaveCount(1, { timeout: 15000 });
   const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: 'Copia', exact: true }).click();
+  await settings(page);
   await page.getByRole('button', { name: 'Descargar copia' }).click();
   const copy = JSON.parse(await (await (await download).createReadStream()).toArray().then((b) => Buffer.concat(b).toString('utf8')));
   expect(Object.values(copy.pdfs as Record<string, string>)[0].startsWith('JVBERi')).toBe(true);
@@ -920,8 +930,8 @@ test('copia de seguridad de personajes: guardar, borrar y volver a cargar', asyn
 
 test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario de inicio carga al pedirlo', async ({ page }) => {
   await page.goto('/#/jugador');
-  // la cuenta está en la esquina del encabezado
-  await page.locator('.app-header').getByRole('button', { name: 'Iniciar sesión' }).click();
+  // la cuenta está en Ajustes
+  await (await settings(page)).getByRole('region', { name: 'Cuenta' }).getByRole('button', { name: 'Iniciar sesión' }).click();
   await expect(page.getByRole('button', { name: 'Entrar con Google' })).toBeEnabled({ timeout: 15000 }); // Firebase cargado y sin sesión
   await expect(page.getByRole('button', { name: 'Entrar', exact: true })).toBeDisabled();
   await page.getByLabel('Correo').fill('jugador@ejemplo.test');
@@ -933,8 +943,8 @@ test('cuenta opcional: sin sesión todo sigue en el dispositivo; el formulario d
   await page.getByRole('button', { name: 'Entrar', exact: true }).click(); // vuelve al formulario de entrar
   await expect(page.getByRole('button', { name: 'He olvidado la contraseña' })).toBeVisible();
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('dialog', { name: 'Cuenta' })).toHaveCount(0);
-  await expect(page.locator('.app-header').getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Ajustes' })).toHaveCount(0);
+  await expect(page.locator('.app-header').getByRole('button', { name: 'Ajustes', exact: true })).toBeVisible();
 });
 
 test('cuenta en la pantalla de inicio y en el grupo del máster', async ({ page }) => {
@@ -944,8 +954,8 @@ test('cuenta en la pantalla de inicio y en el grupo del máster', async ({ page 
   await expect(box).toContainText('tus criaturas, encuentros y grupo');
   await expect(box.getByRole('button', { name: 'Cancelar' })).toHaveCount(0);
   await page.getByRole('button', { name: /Soy el máster/ }).click();
-  // en el modo máster, la cuenta está en la esquina del encabezado
-  await expect(page.locator('.app-header').getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
+  // en el modo máster, la cuenta está en Ajustes
+  await expect((await settings(page)).getByRole('region', { name: 'Cuenta' }).getByRole('button', { name: 'Iniciar sesión' })).toBeVisible();
 });
 
 test('efectos con salvación: objetivos, salvaciones de los monstruos, daño y estados', async ({ page }) => {
@@ -1118,10 +1128,9 @@ test('estados del jugador en sus tiradas: envenenado da desventaja en ataques y 
   await expect(page.locator('.plaque')).toContainText('desventaja: envenenado', { timeout: 15000 });
 });
 
-test('visita guiada: se abre desde el «?», avanza, señala y se puede saltar', async ({ page }) => {
+test('visita guiada: se abre desde Ajustes, avanza, señala y se puede saltar', async ({ page }) => {
   await page.goto('/#/jugador');
-  await page.getByRole('button', { name: 'Ayuda' }).click();
-  await page.getByRole('menuitem', { name: 'Repetir la visita guiada' }).click();
+  await (await settings(page)).getByRole('button', { name: 'Repetir la visita guiada' }).click();
   const tour = page.getByRole('dialog', { name: 'Visita guiada' });
   await expect(tour).toContainText('Paso 1 de 8');
   await expect(tour).toContainText('Tus personajes');
@@ -1131,13 +1140,11 @@ test('visita guiada: se abre desde el «?», avanza, señala y se puede saltar',
   await expect(tour).toHaveCount(0);
   // máster: también con los atajos de teclado en el mismo menú
   await page.goto('/#/dm');
-  await page.getByRole('button', { name: 'Ayuda' }).click();
-  await page.getByRole('menuitem', { name: 'Repetir la visita guiada' }).click();
+  await (await settings(page)).getByRole('button', { name: 'Repetir la visita guiada' }).click();
   await expect(page.getByRole('dialog', { name: 'Visita guiada' })).toContainText('Paso 1 de 8');
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Visita guiada' })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Ayuda' }).click();
-  await page.getByRole('menuitem', { name: 'Atajos de teclado' }).click();
+  await (await settings(page)).getByRole('button', { name: 'Atajos de teclado' }).click();
   await expect(page.getByRole('heading', { name: 'Atajos de teclado' })).toBeVisible();
 });
 
@@ -1614,11 +1621,13 @@ test('PX: muestra los del siguiente nivel y resalta «Subir de nivel» al alcanz
   await expect(page.getByRole('button', { name: '¡Subir de nivel!' })).toBeVisible();
 });
 
-test('copia de seguridad desde la cabecera, en cualquier pestaña', async ({ page }) => {
+test('Ajustes en la cabecera: cuenta, copia, modo, preferencias, ayuda y acerca de; y el botón de apoyo', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Bestiario', exact: true }).click();
-  await page.getByRole('button', { name: 'Copia', exact: true }).click();
-  const dlg = page.getByRole('dialog', { name: 'Copia de seguridad' });
+  await expect(page.locator('.app-header').getByRole('link', { name: 'Apoyar el proyecto en Ko-fi' })).toHaveAttribute('href', 'https://ko-fi.com/zmuelas');
+  const dlg = await settings(page);
+  for (const sec of ['Cuenta', 'Copia de seguridad', 'Modo', 'Preferencias', 'Ayuda', 'Acerca de']) await expect(dlg.getByRole('region', { name: sec })).toBeVisible();
+  await expect(dlg.getByRole('button', { name: 'Atajos de teclado' })).toBeVisible();
   await expect(dlg.getByRole('button', { name: 'Descargar copia' })).toBeVisible();
   await expect(dlg.getByRole('button', { name: 'Cargar copia…' })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -1641,10 +1650,10 @@ test('recarga: la etiqueta tira el d6 cuando la habilidad está gastada', async 
   await expect(page.locator('.plaque-label')).toContainText('Recarga · Ankheg', { timeout: 15000 });
 });
 
-test('enlace para apoyar el proyecto en el pie, en la portada y en los dos modos', async ({ page }) => {
-  for (const url of ['/#/inicio', '/#/dm', '/#/jugador']) {
+test('botón para apoyar el proyecto en la cabecera de los dos modos', async ({ page }) => {
+  for (const url of ['/#/dm', '/#/jugador']) {
     await page.goto(url);
-    const link = page.getByRole('link', { name: /Tira iniciativa en Ko-fi/ });
+    const link = page.getByRole('link', { name: 'Apoyar el proyecto en Ko-fi' });
     await expect(link).toHaveAttribute('href', 'https://ko-fi.com/zmuelas');
     await expect(link).toHaveAttribute('target', '_blank');
   }

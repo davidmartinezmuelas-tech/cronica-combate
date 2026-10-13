@@ -8,6 +8,8 @@ const base = process.env.BASE_PATH || '/';
 
 export default defineConfig({
   base,
+  // versión y fecha de la compilación (en Ajustes > Acerca de)
+  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version || ''), __BUILD_DATE__: JSON.stringify(new Date().toISOString().slice(0, 10)) },
   // el worker de la física de los dados se empaqueta como módulo
   worker: { format: 'es' },
   // la escena 3D (three.js) es un trozo aparte que solo se descarga al usar los dados

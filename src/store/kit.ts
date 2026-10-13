@@ -4,6 +4,7 @@ import { rollDie, type PhysicalDie } from '../engine/dice';
 import { throwOrigin } from '../engine/throw';
 import { uid } from '../engine/util';
 import type { GetState, SetState, State } from './state';
+import { reducedMotion } from '../shared/prefs';
 
 /** Mesa 3D registrada por la interfaz: reproduce la tirada y avisa al terminar. */
 export interface DiceStage {
@@ -53,9 +54,6 @@ export function pickShown(dice: PhysicalDie[], cap: number): PhysicalDie[] {
   return keys.flatMap((k) => groups.get(k)!.slice(0, quota.get(k)));
 }
 
-const reducedMotion = () => {
-  try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
-};
 
 export function createKit(set: SetState, get: GetState): Kit {
   // temporizadores de la animación (fuera del estado)
