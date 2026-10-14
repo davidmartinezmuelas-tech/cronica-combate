@@ -18,6 +18,10 @@ export const cleanCode = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, ''
 interface Saved { code: string; role: 'dm' | 'player'; name: string; share: boolean }
 const save = (v: Saved | null) => { try { if (v) localStorage.setItem(SAVED, JSON.stringify(v)); else localStorage.removeItem(SAVED); } catch { /* nada */ } };
 const saved = (): Saved | null => { try { return JSON.parse(localStorage.getItem(SAVED) || 'null'); } catch { return null; } };
+// conjuros de concentración mandados a la mesa: se recuerdan aunque se recargue (para avisar cuando se acaben)
+const BUFFS = 'cronica-sala-conjuros';
+const saveBuffs = (code: string, b: Record<string, SpellBuff>) => { try { localStorage.setItem(BUFFS, JSON.stringify({ code, b })); } catch { /* solo esta visita */ } };
+const savedBuffs = (code: string): Record<string, SpellBuff> => { try { const x = JSON.parse(localStorage.getItem(BUFFS) || 'null'); return x?.code === code ? x.b || {} : {}; } catch { return {}; } };
 
 export interface RoomState {
   code: string | null;
@@ -51,7 +55,7 @@ export interface RoomState {
   setShare: (v: boolean) => void;
   publishSheet: (sheet: SheetSummary | null) => void;
   resume: () => Promise<void>;
-  sendHp: (to: string, charId: string, hp: number, temp: number) => void;
+  sendHp: (to: string, charId: string, hp: number, temp: number, fails?: number) => void;
   /** El máster aplica a otro jugador el conjuro que le ha lanzado un compañero. */
   sendBuff: (to: string, charId: string, buff: SpellBuff, by: string) => void;
 }
@@ -68,7 +72,7 @@ export const useRoom = create<RoomState>()((set, get) => {
   function enter(info: RoomInfo, role: 'dm' | 'player', name: string, share: boolean) {
     const a = cloud()!;
     stop?.();
-    set({ code: info.code, role, name, room: info, share, error: '', busy: false });
+    set({ code: info.code, role, name, room: info, share, error: '', busy: false, sentBuffs: role === 'player' ? savedBuffs(info.code) : {} });
     save({ code: info.code, role, name, share });
     let present = false;
     const unMembers = a.watchMembers(info.code, (members) => {
@@ -143,8 +147,10 @@ export const useRoom = create<RoomState>()((set, get) => {
           continue;
         }
         if (c) {
-          p.update(c.id, { hp: Math.max(0, ev.hp), temp: Math.max(0, ev.temp), ...(ev.hp > 0 ? { death: { s: 0, f: 0 } } : {}) });
-          set({ notice: 'El máster ha cambiado los PG de ' + (c.name || 'tu personaje') + ': ' + ev.hp + (ev.temp ? ' (+' + ev.temp + ' temporales)' : '') + '.' });
+          // un golpe a 0 PG en la mesa: los fallos de salvación contra la muerte que lleva el máster (estable ya no)
+          const fails = ev.hp === 0 && ev.fails != null ? { death: { s: c.death.s >= 3 ? 0 : c.death.s, f: Math.min(3, ev.fails) } } : {};
+          p.update(c.id, { hp: Math.max(0, ev.hp), temp: Math.max(0, ev.temp), ...(ev.hp > 0 ? { death: { s: 0, f: 0 } } : fails) });
+          set({ notice: ev.hp === 0 && ev.fails != null ? (ev.fails >= 3 ? (c.name || 'Tu personaje') + ' ha muerto.' : 'Te golpean a 0 PG: ' + ev.fails + ' de 3 fallos de salvación contra la muerte.') : 'El máster ha cambiado los PG de ' + (c.name || 'tu personaje') + ': ' + ev.hp + (ev.temp ? ' (+' + ev.temp + ' temporales)' : '') + '.' });
         }
         a.deleteEvent(info.code, ev.id).catch(() => { /* ya borrado */ });
       }
@@ -173,7 +179,7 @@ export const useRoom = create<RoomState>()((set, get) => {
       try {
         await cloud()!.sendCast(code, { ...c, uid, who: name, at: Date.now() });
         // recordar los de concentración para avisar cuando se acaben
-        if (c.buff?.conc) set({ sentBuffs: { ...get().sentBuffs, [c.buff.n]: c.buff } });
+        if (c.buff?.conc) { const b = { ...get().sentBuffs, [c.buff.n]: c.buff }; set({ sentBuffs: b }); saveBuffs(code, b); }
         return true;
       } catch (e) { set({ error: cloudError(e) }); return false; }
     },
@@ -212,6 +218,7 @@ export const useRoom = create<RoomState>()((set, get) => {
       const rest = { ...sentBuffs };
       delete rest[spell];
       set({ sentBuffs: rest });
+      if (code) saveBuffs(code, rest);
       if (!code || role !== 'player' || !uid) return;
       cloud()?.sendCast(code, { uid, who: name, at: Date.now(), label: b.n + ': termina', targets: [], crit: false, parts: [], attack: null, heal: null, effect: null, buff: b, end: true }).catch((e) => set({ error: cloudError(e) }));
     },
@@ -223,11 +230,11 @@ export const useRoom = create<RoomState>()((set, get) => {
       cloud()?.sendEvent(code, { to, from, charId, hp: 0, temp: 0, note: '', at: Date.now(), kind: 'buff', buff, by }).catch((e) => set({ error: cloudError(e) }));
     },
 
-    sendHp(to, charId, hp, temp) {
+    sendHp(to, charId, hp, temp, fails) {
       const { code, role } = get();
       const from = me()?.uid;
       if (!code || role !== 'dm' || !from) return;
-      cloud()?.sendEvent(code, { to, from, charId, hp, temp, note: '', at: Date.now() }).catch((e) => set({ error: cloudError(e) }));
+      cloud()?.sendEvent(code, { to, from, charId, hp, temp, note: '', at: Date.now(), ...(fails != null ? { fails } : {}) }).catch((e) => set({ error: cloudError(e) }));
     },
 
     async create(name) {

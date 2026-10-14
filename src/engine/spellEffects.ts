@@ -52,6 +52,26 @@ const FX: { keys: string[]; fx: SpellFx }[] = [
   { keys: ['Jump', 'salto'], fx: { note: 'tus saltos llegan el triple de lejos' } },
 ];
 
+/**
+ * Conjuros que perjudican a quien falla la salvación con algo que no es un estado del juego: en la mesa del máster
+ * quedan como un estado con su efecto en corto (Perdición: −1d4 a ataques y salvaciones…).
+ */
+const DEBUFFS: [string, string, string][] = [
+  ['Bane', 'perdicion', 'Perdición (−1d4 a ataques y salvaciones)'],
+  ['Slow', 'ralentizar', 'Ralentizar (−2 a la CA y a salvaciones de Destreza, velocidad a la mitad, sin reacciones)'],
+  ['Faerie Fire', 'fuego feerico', 'Fuego feérico (los ataques contra él tienen ventaja; no puede ser invisible)'],
+  ['Ray of Enfeeblement', 'rayo debilitador', 'Rayo debilitador (desventaja en tiradas de Fuerza; −1d8 al daño con armas)'],
+  ['Bestow Curse', 'imponer maldicion', 'Maldición (según la elegida al lanzarla)'],
+  ['Mind Spike', 'clavo mental', 'Clavo mental (no puede volverse invisible para quien lo lanzó)'],
+];
+
+/** Estado de la mesa para quien falla la salvación de un conjuro que perjudica (o null). */
+export function debuffOf(s: { en?: string; n: string }): string | null {
+  const en = (s.en || '').toLowerCase();
+  const n = norm(s.n);
+  return DEBUFFS.find(([e, es]) => (en && e.toLowerCase() === en) || es === n)?.[2] || null;
+}
+
 /** Efecto del conjuro (por su nombre en inglés o en español), o null si no cambia la hoja. */
 export function spellFx(s: { en?: string; n: string }): { key: string; fx: SpellFx } | null {
   const en = (s.en || '').toLowerCase();

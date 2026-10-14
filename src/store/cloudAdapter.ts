@@ -11,6 +11,7 @@ export interface RoomEvent {
   kind?: 'hp' | 'save' | 'buff' | 'unbuff'; // 'save': el máster le pide una salvación; 'buff'/'unbuff': el conjuro de otro jugador empieza o se acaba
   dc?: number; abil?: number; label?: string; reqId?: string;
   buff?: SpellBuff; by?: string;
+  fails?: number; // con kind 'hp': fallos de salvación contra la muerte tras un golpe a 0 PG en la mesa (3: muerto)
 }
 /** Entrada de la lista de iniciativa que el máster comparte (sin PG ni números de los monstruos). */
 export interface TableEntry { id: string; name: string; kind: 'monster' | 'pc'; roomUid?: string }

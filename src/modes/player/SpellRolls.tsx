@@ -6,7 +6,7 @@ import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { hasInvocation } from '../../engine/subclassChoices';
 import { withConc } from '../../engine/concentration';
-import { castOnPatch, spellFx } from '../../engine/spellEffects';
+import { castOnPatch, debuffOf, spellFx } from '../../engine/spellEffects';
 import type { Grant } from '../../engine/grantedSpells';
 import { useRoom } from '../../store/room';
 import { usePlayer } from '../../store/player';
@@ -100,7 +100,10 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   };
   const dc = caster?.dc;
   // con salvación: el daño lleva el efecto (CD, mitad, estados) para mandarlo a la mesa del máster
-  const effect = rr.save && dc != null ? saveEffectOf(dc, rr.save, rr.half, s.t) : null;
+  const effect0 = rr.save && dc != null ? saveEffectOf(dc, rr.save, rr.half, s.t) : null;
+  // los que perjudican sin un estado del juego (Perdición, Ralentizar…): su efecto como estado para quien falla
+  const debuff = debuffOf(s);
+  const effect = effect0 && debuff && !effect0.conds.includes(debuff) ? { ...effect0, conds: [...effect0.conds, debuff] } : effect0;
 
   return (
     <span className="rollrow" onClick={(e) => e.preventDefault()}>

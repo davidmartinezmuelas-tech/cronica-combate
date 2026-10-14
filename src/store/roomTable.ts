@@ -8,7 +8,7 @@ import { useStore } from './useStore';
  * Mesa del máster con sala: los jugadores de la sala pasan a su Grupo y al combate, y sus PG y CA llegan en directo.
  * Solo se aplica lo que el jugador cambia (el daño que pone el máster no se pisa con cualquier otra actualización).
  */
-interface Seen { hp: number; temp: number; hpMax: number; ac: number; charId: string; rage: boolean }
+interface Seen { hp: number; temp: number; hpMax: number; ac: number; charId: string; rage: boolean; fails?: number }
 const seen = new Map<string, Seen>(); // última hoja recibida de cada participante
 const rollsDone = new Set<string>(); // tiradas de iniciativa ya aplicadas
 
@@ -68,18 +68,22 @@ const pending = new Map<string, ReturnType<typeof setTimeout>>();
  * Lo que el máster cambia en la mesa (daño, curación, PG temporales) de un jugador de la sala se le envía a su hoja.
  * Lo que llegó del propio jugador no se reenvía: su valor ya es el conocido. Varios cambios seguidos van en uno.
  */
-export function watchTableForPlayers(send: (to: string, charId: string, hp: number, temp: number) => void): () => void {
+export function watchTableForPlayers(send: (to: string, charId: string, hp: number, temp: number, fails?: number) => void): () => void {
   return useStore.subscribe((s, prev) => {
     if (s.combatants === prev.combatants) return;
     for (const c of s.combatants) {
       if (c.kind !== 'pc' || !c.rosterId) continue;
       const uid = s.roster.find((r) => r.id === c.rosterId)?.roomUid;
       const known = uid ? seen.get(uid) : undefined;
-      if (!uid || !known || (c.hp === known.hp && c.temp === known.temp)) continue;
+      // fallos de salvación contra la muerte por un golpe a 0 PG en la mesa (los PG no cambian, pero los fallos sí)
+      const fails = c.dead ? 3 : c.death?.f || 0;
+      if (!uid || !known || (c.hp === known.hp && c.temp === known.temp && fails === (known.fails ?? 0))) continue;
+      const failsChanged = c.hp === 0 && fails !== (known.fails ?? 0);
       known.hp = c.hp;
       known.temp = c.temp;
+      known.fails = fails;
       clearTimeout(pending.get(uid));
-      pending.set(uid, setTimeout(() => { pending.delete(uid); const k = seen.get(uid)!; send(uid, k.charId, k.hp, k.temp); }, 500));
+      pending.set(uid, setTimeout(() => { pending.delete(uid); const k = seen.get(uid)!; send(uid, k.charId, k.hp, k.temp, failsChanged ? k.fails : undefined); }, 500));
     }
   });
 }

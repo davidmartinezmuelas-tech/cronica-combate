@@ -80,6 +80,26 @@ describe('avisos del máster al jugador', () => {
     expect(cloud.rooms.get(code)!.events).toHaveLength(0); // se borra al aplicarlo
   });
 
+  it('un golpe a 0 PG en la mesa suma los fallos en su hoja', async () => {
+    const { usePlayer } = await import('../store/player');
+    const { blankCharacter } = await import('../engine/character');
+    await usePlayer.getState().init();
+    usePlayer.setState({ characters: [{ ...blankCharacter(), id: 'pj-ana', name: 'Ana', hp: 0 }], activeId: 'pj-ana' });
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+    useRoom.setState({ code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '' });
+    const cloud = fakeCloud({ uid: 'dm1', email: null, name: null, anon: false });
+    setCloudAdapter(async () => cloud.adapter);
+    await useRoom.getState().create('Laura');
+    const code = useRoom.getState().code!;
+    await useRoom.getState().leave();
+    await cloud.setUser({ uid: 'p1', email: null, name: null, anon: true });
+    await vi.waitFor(() => expect(useAccount.getState().user?.uid).toBe('p1'));
+    await useRoom.getState().join(code, 'Ana');
+    await cloud.adapter.sendEvent(code, { to: 'p1', from: 'dm1', charId: 'pj-ana', hp: 0, temp: 0, note: '', at: 1, fails: 2 });
+    await vi.waitFor(() => expect(usePlayer.getState().characters[0].death.f).toBe(2));
+    expect(useRoom.getState().notice).toBe('Te golpean a 0 PG: 2 de 3 fallos de salvación contra la muerte.');
+  });
+
   it('el conjuro que un compañero le lanza (Escudo de fe) llega a su hoja con quién lo lanzó', async () => {
     const { usePlayer } = await import('../store/player');
     const { blankCharacter, derive } = await import('../engine/character');
@@ -189,6 +209,32 @@ describe('fin de la concentración de un conjuro lanzado sobre otros', () => {
     useRoom.setState({ sentBuffs: { Bendición: buff } });
     useRoom.getState().endBuff('Bendición');
     await vi.waitFor(() => expect(cloud.rooms.get(code)!.casts.some((x) => x.end && x.buff?.n === 'Bendición')).toBe(true));
+    expect(useRoom.getState().sentBuffs).toEqual({});
+  });
+});
+
+describe('conjuros mandados a la mesa: se recuerdan al recargar', () => {
+  it('al volver a entrar en la sala sigue sabiendo qué mandó (y lo olvida al acabarse)', async () => {
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+    useRoom.setState({ code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '', sentBuffs: {} });
+    const cloud = fakeCloud({ uid: 'dm1', email: null, name: null, anon: false });
+    setCloudAdapter(async () => cloud.adapter);
+    await useRoom.getState().create('Laura');
+    const code = useRoom.getState().code!;
+    await useRoom.getState().leave();
+    await cloud.setUser({ uid: 'p1', email: null, name: null, anon: true });
+    await vi.waitFor(() => expect(useAccount.getState().user?.uid).toBe('p1'));
+    await useRoom.getState().join(code, 'Ilsa');
+    const buff = { k: 'Bless', n: 'Bendición', lv: 1, conc: true, note: '+1d4' };
+    await useRoom.getState().sendCast({ label: 'x', targets: ['c1'], crit: false, parts: [], attack: null, heal: null, effect: null, buff });
+    // «recarga»: se pierde la memoria y se vuelve a entrar
+    useRoom.setState({ sentBuffs: {} });
+    await useRoom.getState().leave();
+    await useRoom.getState().join(code, 'Ilsa');
+    expect(useRoom.getState().sentBuffs).toEqual({ Bendición: buff });
+    useRoom.getState().endBuff('Bendición');
+    await useRoom.getState().leave();
+    await useRoom.getState().join(code, 'Ilsa');
     expect(useRoom.getState().sentBuffs).toEqual({});
   });
 });

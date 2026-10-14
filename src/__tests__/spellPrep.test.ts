@@ -46,3 +46,17 @@ describe('conjuros de especie: característica para lanzarlos', () => {
     expect(grantedSpells(chose, list, mods).map((g) => g.abil)).toEqual(['cha', 'cha']);
   });
 });
+
+describe('conjuros que perjudican: estado para quien falla la salvación', () => {
+  it('Perdición y Ralentizar dan su estado; Bola de fuego no', async () => {
+    const { debuffOf } = await import('../engine/spellEffects');
+    const { spellRoll } = await import('../engine/spellRoll');
+    const { readFileSync } = await import('node:fs');
+    const rules = JSON.parse(readFileSync('public/data/reglas_es.json', 'utf8')).e as { en?: string; n: string; t: string; cat: string }[];
+    const bane = rules.find((e) => e.en === 'Bane')!;
+    expect(spellRoll(bane.t)?.save).toBe('cha');
+    expect(debuffOf(bane)).toMatch(/^Perdición \(−1d4/);
+    expect(debuffOf({ en: 'Slow', n: 'Ralentizar' })).toMatch(/^Ralentizar/);
+    expect(debuffOf({ en: 'Fireball', n: 'Bola de fuego' })).toBeNull();
+  });
+});

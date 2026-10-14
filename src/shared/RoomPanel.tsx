@@ -76,7 +76,7 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
   useEffect(() => { if (mode === 'dm' && role === 'dm') syncMembersToTable(members); }, [mode, role, members]);
   useEffect(() => { if (mode === 'dm' && role === 'dm') applyInitiativeRolls(rolls, members); }, [mode, role, rolls, members]);
   // y lo que el máster cambia en la mesa (daño, curación) llega a la hoja del jugador
-  useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableForPlayers((to, charId, hp, temp) => useRoom.getState().sendHp(to, charId, hp, temp)) : undefined), [mode, role]);
+  useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableForPlayers((to, charId, hp, temp, fails) => useRoom.getState().sendHp(to, charId, hp, temp, fails)) : undefined), [mode, role]);
   // la lista de iniciativa (solo nombres) para que los jugadores elijan objetivos
   useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableToPublish((list) => useRoom.getState().publishTable(list)) : undefined), [mode, role]);
 

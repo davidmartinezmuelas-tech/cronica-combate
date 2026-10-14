@@ -73,6 +73,24 @@ describe('el daño del máster llega a la hoja del jugador', () => {
     stop();
     vi.useRealTimers();
   });
+
+  it('un golpe a 0 PG en la mesa manda los fallos de salvación contra la muerte aunque los PG no cambien', async () => {
+    const { vi } = await import('vitest');
+    vi.useFakeTimers();
+    const sent: [number, number | undefined][] = [];
+    const stop = watchTableForPlayers((_to, _charId, hp, _temp, fails) => sent.push([hp, fails]));
+    syncMembersToTable([member('u1', 'Laura', sheet({ hp: 0, charId: 'pj-ana' }))]);
+    await vi.advanceTimersByTimeAsync(600);
+    const id = useStore.getState().combatants[0].id;
+    const set = (patch: object) => useStore.setState({ combatants: useStore.getState().combatants.map((c) => (c.id === id ? { ...c, ...patch } : c)) });
+    set({ death: { s: 0, f: 1 } });
+    await vi.advanceTimersByTimeAsync(600);
+    set({ death: { s: 0, f: 3 } });
+    await vi.advanceTimersByTimeAsync(600);
+    expect(sent).toEqual([[0, 1], [0, 3]]);
+    stop();
+    vi.useRealTimers();
+  });
 });
 
 describe('lanzamientos de los jugadores y lista de iniciativa', () => {
