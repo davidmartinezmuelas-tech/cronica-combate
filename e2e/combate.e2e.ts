@@ -1940,3 +1940,41 @@ test('a 0 PG cada golpe es un fallo de salvación contra la muerte (el crítico,
   await expect(fails).toHaveCount(3);
   await expect(page.locator('.pc-death-hit')).toContainText('Daño masivo');
 });
+
+test('subir de nivel: estilo de combate, pericia, límite de conjuros nuevos y lo que falta', async ({ page }) => {
+  await page.goto('/#/jugador');
+  const make = async (name: string, cls: string, lv: string, skills = 0) => {
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    await page.getByLabel('Nombre del personaje').fill(name);
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
+    await page.getByLabel('Nivel', { exact: true }).fill(lv);
+    await page.getByRole('button', { name: /Matriz estándar/ }).click();
+    for (let i = 0; i < skills; i++) await page.locator('.ce-skill input').nth(i).check();
+    await page.getByRole('button', { name: 'Listo' }).first().click();
+    await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  };
+  // paladín 1 → 2: Estilo de combate (Defensa: +1 a la CA con armadura)
+  await make('Aldo', 'Paladín', '1');
+  let dlg = page.getByRole('dialog', { name: 'Subir a nivel 2' });
+  await expect(dlg.getByLabel('Resumen de la subida')).toContainText('Falta: estilo de combate');
+  await dlg.getByLabel('Estilo de combate').selectOption({ label: 'Defensa' });
+  await expect(dlg.getByLabel('Resumen de la subida')).not.toContainText('estilo de combate');
+  await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 2' }).click();
+  await expect(page.locator('section[aria-label="Rasgos y dotes"]')).toContainText('Defensa');
+  // pícaro 5 → 6: Pericia en dos habilidades (no más)
+  await make('Vex', 'Pícaro', '5', 3);
+  dlg = page.getByRole('dialog', { name: 'Subir a nivel 6' });
+  const exp = dlg.getByRole('group', { name: 'Pericia' }).getByRole('button');
+  await exp.nth(0).click();
+  await exp.nth(1).click();
+  await expect(exp.nth(2)).toBeDisabled();
+  await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 6' }).click();
+  // mago 3 → 4: un truco más (el resto se bloquea) y su texto al pulsarlo
+  await make('Oren', 'Mago', '3');
+  dlg = page.getByRole('dialog', { name: 'Subir a nivel 4' });
+  const chips = dlg.locator('.lvl-spells .chip');
+  await chips.first().click();
+  await expect(chips.nth(1)).toBeDisabled();
+  await expect(dlg.locator('.lvl-peek')).toBeVisible();
+  await expect(dlg.getByLabel('Resumen de la subida')).toContainText('conjuros (0 de 1)');
+});
