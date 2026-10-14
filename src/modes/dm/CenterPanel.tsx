@@ -5,6 +5,8 @@ import { forgeToMonster } from '../../engine/forge';
 import { fmt } from '../../engine/dice';
 import { ChevronLeft, ChevronRight } from '../../shared/Icons';
 import { useStore } from '../../store/useStore';
+import { blankRoster } from '../../store/persist';
+import type { RosterEntry } from '../../data/types';
 import CombatantCard from './CombatantCard';
 import EncounterGenerator from './EncounterGenerator';
 import StatBlock, { SpellCard } from './StatBlock';
@@ -19,6 +21,23 @@ function Onboarding() {
   const monsNoInit = mons.filter((c) => c.init == null).length;
   const pcs = combatants.filter((c) => c.kind === 'pc');
   const pcsNoInit = pcs.filter((c) => c.init == null).length;
+  // quien llega nuevo: un encuentro de muestra con todo listo para pulsar «Empezar combate»
+  const tryExample = () => {
+    const st = useStore.getState();
+    const boss = st.monById('goblin-boss');
+    const gob = st.monById('goblin-warrior');
+    if (!boss || !gob) { st.showToast('El bestiario aún se está cargando'); return; }
+    st.addMonster(boss, 1, { silent: true });
+    st.addMonster(gob, 3, { silent: true });
+    const pcs: RosterEntry[] = [
+      { ...blankRoster(), id: 'ejemplo-brenna', name: 'Brenna', player: 'Ejemplo', cls: 'Clériga', level: '3', ac: '16', hp: '21', initb: '0', pp: '15' },
+      { ...blankRoster(), id: 'ejemplo-tarek', name: 'Tarek', player: 'Ejemplo', cls: 'Guerrero', level: '3', ac: '16', hp: '28', initb: '2', pp: '12' },
+    ];
+    pcs.forEach((r) => st.addPc(r));
+    const inits: Record<string, number> = { 'ejemplo-brenna': 12, 'ejemplo-tarek': 17 };
+    useStore.getState().combatants.forEach((c) => { if (c.rosterId && inits[c.rosterId] != null) st.patchC(c.id, { init: inits[c.rosterId] }); });
+    st.rollInit('group');
+  };
   const steps = [
     { title: 'Añade los monstruos', text: mons.length ? mons.length + ' en el encuentro.' : 'Búscalos en el Bestiario (todo el SRD 2024) o crea los tuyos en la Forja.', done: mons.length > 0, btn: 'Ir al bestiario', act: () => set({ tab: 'bestiary' }) },
     { title: 'Tira su iniciativa', text: !mons.length ? 'Cuando tengas monstruos.' : monsNoInit ? monsNoInit + ' sin iniciativa.' : 'Hecho. Se ordenan solos por número.', done: mons.length > 0 && monsNoInit === 0, btn: 'Tirar iniciativa', act: () => rollInit() },
@@ -37,6 +56,12 @@ function Onboarding() {
           </li>
         ))}
       </ol>
+      {!combatants.length && (
+        <div className="rollrow">
+          <button className="btn small" onClick={tryExample}>Probar con un ejemplo</button>
+          <span className="small muted">Monta un encuentro de muestra (goblins contra dos jugadores) con la iniciativa tirada, listo para empezar.</span>
+        </div>
+      )}
       <EncounterGenerator />
     </div>
   );

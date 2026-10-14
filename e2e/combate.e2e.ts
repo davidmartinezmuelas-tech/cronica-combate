@@ -1978,3 +1978,21 @@ test('subir de nivel: estilo de combate, pericia, límite de conjuros nuevos y l
   await expect(dlg.locator('.lvl-peek')).toBeVisible();
   await expect(dlg.getByLabel('Resumen de la subida')).toContainText('conjuros (0 de 1)');
 });
+
+test('probar con un ejemplo: encuentro de muestra para el máster y personaje de muestra para el jugador', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Probar con un ejemplo' }).click();
+  // todo listo: monstruos y jugadores con iniciativa, se puede empezar
+  await expect(page.getByText('Hecho. Se ordenan solos por número.')).toBeVisible();
+  await expect(page.getByText('2 jugadores listos.')).toBeVisible();
+  await page.getByTitle('Empezar combate (N)').click();
+  await expect(activeName(page)).toContainText(/Tarek|Jefe goblin|Guerrero goblin|Brenna/);
+  await expect(page.getByText('Brenna').first()).toBeVisible();
+  await expect(page.getByText('Guerrero goblin 3').first()).toBeVisible();
+
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Probar con un ejemplo' }).click();
+  await expect(page.getByRole('tab', { name: 'Brenna (ejemplo)' })).toBeVisible();
+  await expect(page.getByText('Clérigo 3').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /Llama sagrada/ }).first()).toBeVisible();
+});

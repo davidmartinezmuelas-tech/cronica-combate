@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { offListSpells, sheetToCharacter, type SpellRef } from '../../engine/characterImport';
+import { sampleCharacter } from '../../engine/sample';
 import { norm } from '../../engine/util';
 import { InfoDialog } from '../../shared/Card';
 import { useLibrary } from '../../store/library';
@@ -22,6 +23,13 @@ export default function CharacterArea() {
   const editing = usePlayer((s) => s.editing);
   const { init, loadData, select, create, replace, setEditing } = usePlayer.getState();
   const file = useRef<HTMLInputElement>(null);
+  // quien llega nuevo: un personaje ya hecho para ver la hoja funcionando
+  const tryExample = () => {
+    if (!data) return;
+    const c = create();
+    replace({ ...sampleCharacter(data), id: c.id });
+    setEditing(false);
+  };
   const [msg, setMsg] = useState('');
   // conjuros de la hoja importada que no son de la lista de su clase: se pregunta antes de añadirlos
   const [askSpells, setAskSpells] = useState<{ charId: string; cls: string; list: SpellRef[] } | null>(null);
@@ -78,6 +86,10 @@ export default function CharacterArea() {
           <div className="panel">
             <h2>Mis personajes</h2>
             <p className="muted" style={{ margin: 0 }}>Aún no tienes personajes. Créalo paso a paso con las clases, especies y trasfondos del SRD 2024, o importa tu hoja en PDF rellenable (la oficial de 2024 y otras con campos como Name, Class, AC o Max HP).</p>
+            <div className="rollrow" style={{ marginTop: 10 }}>
+              <button className="btn small" disabled={!data} onClick={tryExample}>Probar con un ejemplo</button>
+              <span className="small muted">Crea una clériga de nivel 3 ya hecha para ver cómo funciona la hoja.</span>
+            </div>
           </div>
         )}
         {/* la ficha y el editor, en papel claro como una hoja de verdad */}
