@@ -163,6 +163,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // conjuros y rasgos van en bloques repartidos en columnas, según el ancho
   const lowRef = useRef<HTMLDivElement>(null);
   const [lowW, setLowW] = useState(0);
+  // pocos conjuros (niveles bajos): si caben en el hueco bajo los ataques, suben ahí y los rasgos ocupan todo el ancho abajo
+  const spRef = useRef<HTMLElement>(null);
+  const [spUp, setSpUp] = useState(false);
   useEffect(() => {
     const el = lowRef.current;
     if (!el || typeof ResizeObserver !== 'function') return;
@@ -448,11 +451,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
     }, [])
     : d.spell ? [{ key: '', dc: d.spell.dc, abil: d.spell.abil, atk: d.spell.atk, names: [] as string[] }] : [];
   const castNamed = castLines.length > 1;
-  const twoLow = hasSpells && lowW >= 1000;
+  const twoLow = hasSpells && !spUp && lowW >= 1000;
   const lowN = twoLow ? 1 : lowW >= 900 ? 3 : lowW >= 600 ? 2 : 1;
-  // a todo el ancho, los grupos se trocean para llenar todas las columnas; en dos columnas, de 8 en 8
+  // a todo el ancho, los grupos se trocean para llenar las columnas (sin dejar ninguna vacía); en dos columnas, de 8 en 8
   const chunkMax = (g: { list: unknown[] }[]) => (twoLow ? 8 : Math.max(4, Math.ceil(g.reduce((a, x) => a + x.list.length, 0) / lowN)));
-  const spParts = chunkGroups(spBlocks, chunkMax(spBlocks));
+  const spParts = chunkGroups(spBlocks, spUp ? 8 : chunkMax(spBlocks));
   const ftParts = chunkGroups(featGroups, chunkMax(featGroups));
   const sumW = (a: { list: unknown[] }[]) => a.reduce((x, b) => x + blockW(b), 0);
   let spKeep = spParts.length;
@@ -534,17 +537,33 @@ export default function CharacterSheet({ c }: { c: Character }) {
       const cs = getComputedStyle(last);
       return inner.getBoundingClientRect().bottom - el.getBoundingClientRect().top + parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
     };
+    // alto del panel de conjuros sin estirar
+    const own = (el: HTMLElement) => {
+      const inner = el.lastElementChild as HTMLElement | null;
+      if (!inner) return el.offsetHeight;
+      const cs = getComputedStyle(el);
+      return inner.getBoundingClientRect().bottom - el.getBoundingClientRect().top + parseFloat(cs.paddingBottom) + parseFloat(cs.borderBottomWidth);
+    };
     const place = () => {
       const twoCols = getComputedStyle(sp).display === 'grid';
       setNotesSide(twoCols && natural(rr) < natural(l) ? 'right' : 'left');
+      // hueco bajo los ataques: tiene que caber el panel de conjuros y que queden unas notas (110) con sus separaciones
+      const spEl = spRef.current;
+      const gap = natural(l) - natural(rr);
+      if (!twoCols || !spEl) { setSpUp(false); return; }
+      const need = own(spEl) + 14 + 124;
+      // con un margen para no ir y venir al cambiar un poco de alto
+      setSpUp((up) => (up ? gap >= need - 24 : gap >= need));
     };
     place();
     const ro = new ResizeObserver(place);
     ro.observe(l); ro.observe(rr); ro.observe(sp);
     // también cada panel y su contenido: un panel estirado no cambia de alto aunque crezca lo de dentro
     [l, rr].forEach((col) => [...col.children].forEach((pn) => { ro.observe(pn); if (pn.lastElementChild) ro.observe(pn.lastElementChild); }));
+    const spEl = spRef.current;
+    if (spEl) { ro.observe(spEl); if (spEl.lastElementChild) ro.observe(spEl.lastElementChild); }
     return () => ro.disconnect();
-  }, []);
+  }, [hasSpells, spUp]);
   const notesPanel = (
     <section className="panel pc-notes" aria-label="Notas" data-sec="tiradas">
       <label className="eyebrow" htmlFor="pc-notes">Notas</label>
@@ -612,10 +631,41 @@ export default function CharacterSheet({ c }: { c: Character }) {
     </div>
   );
   const blockGrid = <T extends { list: unknown[] }>(parts: T[], render: (p: T) => JSX.Element, n: number) => (
-    <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + n + ', minmax(0, 1fr))' }}>
-      {splitCols(parts, blockW, n).map((col, ci) => <div key={ci} className="pc-block-col">{col.map(render)}</div>)}
+    <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + Math.max(1, Math.min(n, parts.length)) + ', minmax(0, 1fr))' }}>
+      {splitCols(parts, blockW, Math.max(1, Math.min(n, parts.length))).map((col, ci) => <div key={ci} className="pc-block-col">{col.map(render)}</div>)}
     </div>
   );
+  const spellsPanel = hasSpells ? (
+        <section className="panel" aria-label="Conjuros" data-sec="conjuros" ref={spRef}>
+          <div className="panel-head">
+            <h3 className="eyebrow">Conjuros</h3>
+            {d.spell && <span className="rollrow">
+              {castLines.map((x) => (
+                <span key={x.key} className="rollrow">
+                  <span className="muted small">CD {x.dc} · {ABIL_N[x.abil]}{castNamed ? ' (' + x.names.join(', ') + ')' : ''}</span>
+                  <button className="rollbtn" onClick={() => r('ataque de conjuro' + (castNamed ? ' de ' + x.names.join(', ').toLowerCase() : ''), 'attack', d20b(x.atk))}>Ataque de conjuro {fmt(x.atk)}</button>
+                </span>
+              ))}
+            </span>}
+          </div>
+          {d.pact && <div className="pc-slots"><span className="res">Magia de pacto (nivel {d.pact.lv})<Pips max={d.pact.n} used={Math.min(d.pact.n, c.pactUsed)} label="Espacios de pacto" onSet={(v) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) })} /></span></div>}
+          {spClasses.length > 1 && (
+            <div className="sp-tabs" role="tablist" aria-label="Conjuros por clase">
+              {['all', ...spClasses].map((k) => <button key={k} role="tab" aria-selected={clsTab === k} className={clsTab === k ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpCls(k)}>{k === 'all' ? 'Todas las clases' : data?.classes.find((x) => x.id === k)?.n || k}</button>)}
+            </div>
+          )}
+          {!spellList.length && <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p>}
+          {spKeep > 0 && blockGrid(spParts.slice(0, spKeep), spellBlock, spUp ? 1 : lowN)}
+          {spTextOf && (
+            <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
+              <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
+              <p className="muted small" style={{ margin: '4px 0' }}>{[spTextOf.s!.ct, spTextOf.s!.r, spTextOf.s!.cmp, spTextOf.s!.du].filter(Boolean).join(' · ')}</p>
+              <p className="pc-text">{plainText(spTextOf.s!.t)}</p>
+              <SpellRolls c={c} d={d} s={spTextOf.s!} set={set} grant={spTextOf.grant} />
+            </InfoDialog>
+          )}
+        </section>
+  ) : null;
   // PX para el siguiente nivel; al alcanzarlos se resalta «Subir de nivel» (subir es a mano: hay que elegir)
   const xpNext = d.level < 20 ? XP_LEVELS[d.level] : null;
   const xpReady = xpNext != null && (c.xp || 0) >= xpNext;
@@ -982,43 +1032,16 @@ export default function CharacterSheet({ c }: { c: Character }) {
         )}
       </section>
       </div>
+      {spUp && spellsPanel}
       {notesSide === 'right' && notesPanel}
       </div>
       </div>
 
       {/* abajo, en dos columnas como arriba: conjuros a la izquierda y rasgos a la derecha */}
       <div className="pc-low" ref={lowRef}>
-      {hasSpells && (
+      {hasSpells && !spUp && (
         <div className="pc-low-col">
-        <section className="panel" aria-label="Conjuros" data-sec="conjuros">
-          <div className="panel-head">
-            <h3 className="eyebrow">Conjuros</h3>
-            {d.spell && <span className="rollrow">
-              {castLines.map((x) => (
-                <span key={x.key} className="rollrow">
-                  <span className="muted small">CD {x.dc} · {ABIL_N[x.abil]}{castNamed ? ' (' + x.names.join(', ') + ')' : ''}</span>
-                  <button className="rollbtn" onClick={() => r('ataque de conjuro' + (castNamed ? ' de ' + x.names.join(', ').toLowerCase() : ''), 'attack', d20b(x.atk))}>Ataque de conjuro {fmt(x.atk)}</button>
-                </span>
-              ))}
-            </span>}
-          </div>
-          {d.pact && <div className="pc-slots"><span className="res">Magia de pacto (nivel {d.pact.lv})<Pips max={d.pact.n} used={Math.min(d.pact.n, c.pactUsed)} label="Espacios de pacto" onSet={(v) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) })} /></span></div>}
-          {spClasses.length > 1 && (
-            <div className="sp-tabs" role="tablist" aria-label="Conjuros por clase">
-              {['all', ...spClasses].map((k) => <button key={k} role="tab" aria-selected={clsTab === k} className={clsTab === k ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpCls(k)}>{k === 'all' ? 'Todas las clases' : data?.classes.find((x) => x.id === k)?.n || k}</button>)}
-            </div>
-          )}
-          {!spellList.length && <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p>}
-          {spKeep > 0 && blockGrid(spParts.slice(0, spKeep), spellBlock, lowN)}
-          {spTextOf && (
-            <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
-              <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
-              <p className="muted small" style={{ margin: '4px 0' }}>{[spTextOf.s!.ct, spTextOf.s!.r, spTextOf.s!.cmp, spTextOf.s!.du].filter(Boolean).join(' · ')}</p>
-              <p className="pc-text">{plainText(spTextOf.s!.t)}</p>
-              <SpellRolls c={c} d={d} s={spTextOf.s!} set={set} grant={spTextOf.grant} />
-            </InfoDialog>
-          )}
-        </section>
+        {!spUp && spellsPanel}
         {ftKeep < ftParts.length && (
           <section className="panel" aria-label="Rasgos y dotes (cont.)" data-sec="rasgos">
             <h3 className="eyebrow">Rasgos y dotes (cont.)</h3>

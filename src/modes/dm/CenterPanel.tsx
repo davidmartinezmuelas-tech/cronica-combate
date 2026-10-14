@@ -16,6 +16,7 @@ import PartySheets from './PartySheets';
 function Onboarding() {
   const combatants = useStore((s) => s.combatants);
   const roster = useStore((s) => s.roster);
+  const srdLoaded = useStore((s) => s.loaded);
   const { set, rollInit, addAllPcs, startCombat } = useStore.getState();
   const mons = combatants.filter((c) => c.kind === 'monster');
   const monsNoInit = mons.filter((c) => c.init == null).length;
@@ -58,7 +59,7 @@ function Onboarding() {
       </ol>
       {!combatants.length && (
         <div className="rollrow">
-          <button className="btn small" onClick={tryExample}>Probar con un ejemplo</button>
+          <button className="btn small" disabled={!srdLoaded} onClick={tryExample}>Probar con un ejemplo</button>
           <span className="small muted">Monta un encuentro de muestra (goblins contra dos jugadores) con la iniciativa tirada, listo para empezar.</span>
         </div>
       )}
