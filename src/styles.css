@@ -842,11 +842,8 @@ b.card-title{flex-basis:100%;font-size:16px}
 /* cuenta en la esquina del encabezado */
 .app-header-end{margin-left:auto;display:flex;align-items:center}
 .acct{position:relative}
-.acct-btn{max-width:260px}
-.acct-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acct-dot{width:8px;height:8px;border-radius:50%;flex:none;background:#6aa152}
 .acct-dot.busy{background:#d4a94f}.acct-dot.bad{background:#c0513c}
-.acct-pop{position:absolute;right:0;top:calc(100% + 8px);z-index:40;width:min(420px,92vw);padding:14px}
 /* pestañas de personajes pegadas a la hoja (la activa, del color del papel) */
 .pc-book{display:flex;flex-direction:column}
 .pc-tabs-row{display:flex;align-items:flex-end;justify-content:space-between;gap:8px 12px;flex-wrap:wrap}
@@ -876,7 +873,6 @@ b.card-title{flex-basis:100%;font-size:16px}
 .tour-text{margin:0;font-size:15px;line-height:1.5;color:#e2d6be}
 .tour-actions{display:flex;align-items:center;gap:8px;margin-top:4px}
 .app-header-end{gap:10px}
-.help-pop{width:auto;min-width:220px;display:flex;flex-direction:column;gap:6px;padding:10px}
 /* forja: añadir rasgos en una rejilla pareja; guardar en dos columnas y «empezar de cero» debajo a todo el ancho */
 .forge-adds{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px}
 .forge-save{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -891,7 +887,6 @@ b.card-title{flex-basis:100%;font-size:16px}
   .brand-sub{display:none}
   .app-header .app-header-end,.app-header .hdr-actions{grid-column:2;grid-row:1;width:auto !important;margin:0 !important;gap:6px !important;justify-content:flex-end}
   .app-header .app-nav{grid-column:1/-1;grid-row:2;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none}
-  .acct-btn{max-width:140px}
   .app-header .btn.icon{width:38px;min-height:38px}
   .app-header .btn.small{min-height:38px}
   /* jugador: pestañas de personajes en una fila con scroll; crear e importar debajo, en dos mitades */
@@ -909,7 +904,6 @@ b.card-title{flex-basis:100%;font-size:16px}
   .pc-abil .adv-mark{margin-left:3px}
   .brand-title{font-size:clamp(15px,4.8vw,20px);overflow:hidden;text-overflow:ellipsis}
   .brand>span{min-width:0}
-  .acct-btn{max-width:118px}
   /* grupo: los datos del jugador a todo el ancho y los botones debajo */
   .roster-item{grid-template-columns:1fr}
   .roster-actions{justify-content:flex-start}
