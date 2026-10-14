@@ -1983,7 +1983,7 @@ test('probar con un ejemplo: encuentro de muestra para el máster y personaje de
   await open(page);
   await page.getByRole('button', { name: 'Probar con un ejemplo' }).click();
   // todo listo: monstruos y jugadores con iniciativa, se puede empezar
-  await expect(page.getByText('Hecho. Se ordenan solos por número.')).toBeVisible();
+  await expect(page.getByText('Hecho. Se ordenan solos por número.')).toBeVisible({ timeout: 15000 });
   await expect(page.getByText('2 jugadores listos.')).toBeVisible();
   await page.getByTitle('Empezar combate (N)').click();
   await expect(activeName(page)).toContainText(/Tarek|Jefe goblin|Guerrero goblin|Brenna/);

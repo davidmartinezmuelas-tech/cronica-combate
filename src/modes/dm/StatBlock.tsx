@@ -119,7 +119,7 @@ export function SpellCard() {
   return (
     <div className="spellcard" role="region" aria-label={'Conjuro ' + sp.n}>
       <div className="panel-head" style={{ alignItems: 'flex-start' }}>
-        <div><h3>{sp.n}</h3><span style={{ fontFamily: "'Alegreya Sans', sans-serif", fontSize: 13, fontWeight: 700, color: '#605243' }}>{meta}</span></div>
+        <div><h3>{sp.n}</h3><span style={{ fontFamily: "'Alegreya Sans', sans-serif", fontSize: 13, fontWeight: 700, color: '#5d5246' }}>{meta}</span></div>
         <span style={{ display: 'flex', gap: 6 }}>
           <button className="rollbtn" onClick={() => void useStore.getState().openRuleByName(sp.n, 'Conjuros')}>Ver en Reglas</button>
           <button className="rollbtn dmg" onClick={() => set({ spellOpen: null })}>Cerrar</button>

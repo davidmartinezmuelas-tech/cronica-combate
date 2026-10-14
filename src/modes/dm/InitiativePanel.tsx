@@ -64,7 +64,7 @@ function Row({ c }: { c: Combatant }) {
             <span className="init-badge" aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
             <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
-            {isActive && <span className="turn-flag">Turno</span>}
+            {isActive && <span className="turn-flag" title="En turno" aria-label="En turno">▶</span>}
             {c.kind !== 'lair' && (
               <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto', fontSize: 12, color: '#c6bba6' }}>CA {c.ac} · {c.hp}/{c.maxHp}{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
             )}
@@ -89,7 +89,7 @@ function Encounters() {
   const [name, setName] = useState('');
   const save = () => { if (saveEncounter(name)) setName(''); };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #524031', paddingTop: 12 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #4b4138', paddingTop: 12 }}>
       <span className="eyebrow">Encuentros preparados</span>
       {encounters.length > 0 && (
         <ul className="rem">
@@ -140,7 +140,8 @@ export default function InitiativePanel() {
   const pendingPc = combatants.some((c) => c.init == null && c.kind === 'pc');
   const pendingMon = combatants.filter((c) => c.init == null && c.kind === 'monster').length;
   // ya en combate, el botón solo sirve para los refuerzos: volver a tirar a todos desordenaría la ronda
-  const showRoll = !started || pendingMon > 0;
+  const hasMon = combatants.some((c) => c.kind === 'monster');
+  const showRoll = hasMon && (!started || pendingMon > 0);
   // móvil: al empezar el combate se pliegan las opciones de preparación (se pueden abrir)
   const narrow = () => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 560px)').matches;
   const [extrasOpen, setExtrasOpen] = useState(() => !(started && narrow()));
@@ -162,14 +163,14 @@ export default function InitiativePanel() {
       <details className="init-extras" open={extrasOpen} onToggle={(e) => setExtrasOpen((e.target as HTMLDetailsElement).open)}>
       <summary className="init-extras-sum">Más opciones (grupo, encuentros, guarida)</summary>
       {rosterOut.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #524031', paddingTop: 12 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #4b4138', paddingTop: 12 }}>
           <div className="panel-head"><span className="eyebrow">Tu grupo</span><button className="btn small" onClick={addAllPcs}>Añadir a todos</button></div>
           <div className="chips">{rosterOut.map((r) => <button key={r.id} className="chip" onClick={() => addPc(r)}>+ {r.name}</button>)}</div>
         </div>
       )}
       {!roster.length && <button className="btn small ghost" onClick={() => set({ tab: 'group' })} style={{ alignSelf: 'flex-start' }}>Guardar a tus jugadores en Grupo</button>}
       <Encounters />
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, borderTop: '1px solid #524031', paddingTop: 12 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, borderTop: '1px solid #4b4138', paddingTop: 12 }}>
         {!combatants.some((c) => c.kind === 'lair') && <button className="btn small ghost" onClick={addLairCombatant}>Añadir acciones de guarida (ini 20)</button>}
         {started && <button className="btn small ghost" onClick={() => confirm('end', endCombat)}>{confirmKey === 'end' ? '¿Seguro? Pulsa otra vez' : 'Terminar combate'}</button>}
         {combatants.length > 0 && <button className="btn small ghost" onClick={() => confirm('clear', clearAll)}>{confirmKey === 'clear' ? '¿Seguro? Pulsa otra vez' : 'Vaciar encuentro'}</button>}
