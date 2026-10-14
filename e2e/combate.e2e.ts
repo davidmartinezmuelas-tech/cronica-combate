@@ -1921,8 +1921,15 @@ test('a 0 PG cada golpe es un fallo de salvación contra la muerte (el crítico,
   await hit(1);
   await expect(fails).toHaveCount(1);
   await expect(page.locator('.pc-death-hit')).toContainText('un fallo de salvación contra la muerte (1/3)');
-  await page.getByRole('button', { name: 'Era un crítico: otro fallo' }).click();
+  await expect(page.locator('section[aria-label="Estados y descansos"] .picker-sum')).toContainText('Inconsciente'); // al caer a 0 PG
+  await page.getByRole('button', { name: 'Crítico o cuerpo a cuerpo a 5 pies: otro fallo' }).click();
   await expect(fails).toHaveCount(2);
+  // curarse: vuelve en sí (sin Inconsciente), los contadores a cero y sigue Derribado
+  await page.getByLabel('Cantidad de PG').fill('3');
+  await page.getByRole('button', { name: 'Curación', exact: true }).click();
+  await expect(fails).toHaveCount(0);
+  await expect(page.locator('section[aria-label="Estados y descansos"] .picker-sum')).not.toContainText('Inconsciente');
+  await expect(page.locator('section[aria-label="Estados y descansos"] .picker-sum')).toContainText('Derribado');
   // otro personaje: el daño que sobra llega a sus PG máximos
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
   await page.getByLabel('Nombre del personaje').fill('Bran');

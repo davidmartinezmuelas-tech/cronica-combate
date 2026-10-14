@@ -184,6 +184,17 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const conc = concOf(c.conds);
   const [concCheck, setConcCheck] = useState<{ dmg: number; dc: number } | null>(null);
   const prevHp = useRef({ id: c.id, total: c.hp + c.temp });
+  // a 0 PG se cae Inconsciente; al recuperar algún PG termina, pero sigue Derribado
+  const prevLife = useRef({ id: c.id, hp: c.hp });
+  useEffect(() => {
+    const was = prevLife.current;
+    prevLife.current = { id: c.id, hp: c.hp };
+    if (was.id !== c.id) return;
+    // estados al día (otro efecto puede haberlos cambiado en este mismo momento, como la concentración al caer)
+    const conds = (usePlayer.getState().characters.find((x) => x.id === c.id) || c).conds;
+    if (was.hp > 0 && c.hp === 0 && !conds.includes('Inconsciente')) update(c.id, { conds: [...conds, 'Inconsciente'] });
+    else if (was.hp === 0 && c.hp > 0 && conds.includes('Inconsciente')) update(c.id, { conds: [...conds.filter((k) => k !== 'Inconsciente'), ...(conds.includes('Derribado') ? [] : ['Derribado'])] });
+  }, [c.id, c.hp]); // eslint-disable-line react-hooks/exhaustive-deps
   // bajar PG sin daño (se acaba Auxilio): sin salvación
   const noDamage = useRef(false);
   useEffect(() => {
@@ -333,8 +344,10 @@ export default function CharacterSheet({ c }: { c: Character }) {
       death = { s: 0, f: 3 };
       setDeathHit({ msg: 'Daño masivo: el daño que sobra llega a tus PG máximos. El personaje muere.', crit: false });
     } else if (c.hp === 0 && rest > 0) {
-      death = { s: c.death.s, f: Math.min(3, c.death.f + 1) };
-      setDeathHit({ msg: 'Golpe estando a 0 PG: un fallo de salvación contra la muerte (' + death.f + '/3).' + (death.f >= 3 ? ' Tercer fallo: el personaje muere.' : ''), crit: death.f < 3 });
+      // estable: deja de estarlo y vuelve a tirar salvaciones (los contadores empiezan de cero)
+      const stable = c.death.s >= 3;
+      death = stable ? { s: 0, f: 1 } : { s: c.death.s, f: Math.min(3, c.death.f + 1) };
+      setDeathHit({ msg: (stable ? 'Dejas de estar estable. ' : '') + 'Golpe estando a 0 PG: un fallo de salvación contra la muerte (' + death.f + '/3).' + (death.f >= 3 ? ' Tercer fallo: el personaje muere.' : ''), crit: death.f < 3 });
     }
     set({ temp: c.temp - fromTemp, hp, death });
     setAmount('');
@@ -356,6 +369,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
       const ds = { ...cur.death };
       if (total === 1) ds.f += 2; else if (total >= 10) ds.s += 1; else ds.f += 1;
       ds.s = Math.min(3, ds.s); ds.f = Math.min(3, ds.f);
+      if (ds.s >= 3 && ds.f < 3) ds.f = 0; // estable: los fallos vuelven a cero
       update(c.id, { death: ds });
       return { resultNote: ds.f >= 3 ? 'Tercer fallo: el personaje muere.' : ds.s >= 3 ? 'Tres éxitos: queda estable.' : total >= 10 ? 'Éxito (' + ds.s + '/3).' : 'Fallo (' + ds.f + '/3).' };
     },
@@ -706,11 +720,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
             {/* gastar uno cura (un dado más la Constitución): en descansos cortos */}
             <span className="stat-hd-btns">{d.hitDice.map((x) => <button key={x.die} className="btn small" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} title={'Gastar un d' + x.die + ' y curarte (descanso corto)'} onClick={() => spendHd(x.die)}>{multiHd ? 'd' + x.die : 'Usar uno'}</button>)}</span>
           </div>
-          <div className={c.hp === 0 ? 'stat stat-death on' : 'stat stat-death'}><span className="stat-k">Salv. contra la muerte</span>
+          <div className={c.hp === 0 ? 'stat stat-death on' : 'stat stat-death'}><span className="stat-k">Salv. contra la muerte{c.death.f >= 3 ? ' · muerto' : c.hp === 0 && c.death.s >= 3 ? ' · estable' : ''}</span>
             {/* se marcan a mano: un golpe estando a 0 PG es un fallo (dos si es crítico) */}
             <span className="death-row"><span className="stat-note">Éxitos</span><span className="pips">{[0, 1, 2].map((j) => <button key={j} className={j < c.death.s ? 'pip ok' : 'pip off'} aria-label={'Éxitos: ' + (j + 1)} aria-pressed={j < c.death.s} onClick={() => markDeath('s', j)} />)}</span></span>
             <span className="death-row"><span className="stat-note">Fallos</span><span className="pips">{[0, 1, 2].map((j) => <button key={j} className={j < c.death.f ? 'pip bad' : 'pip off'} aria-label={'Fallos: ' + (j + 1)} aria-pressed={j < c.death.f} onClick={() => markDeath('f', j)} />)}</span></span>
-            <button className="btn small gold" disabled={c.hp > 0} title={c.hp > 0 ? 'Solo a 0 PG' : 'Tirar una salvación contra la muerte'} onClick={deathSave}>Tirar</button>
+            <button className="btn small gold" disabled={c.hp > 0 || c.death.f >= 3 || c.death.s >= 3} title={c.hp > 0 ? 'Solo a 0 PG' : c.death.f >= 3 ? 'El personaje ha muerto' : c.death.s >= 3 ? 'Estable: no tira más salvaciones (recupera 1 PG tras 1d4 horas si nadie lo cura)' : 'Tirar una salvación contra la muerte'} onClick={deathSave}>Tirar</button>
           </div>
           {/* la iniciativa se tira pulsándola: botón dorado con su d20, como los de ataque */}
           <button className="stat stat-init" onClick={() => r('iniciativa', 'init', d20(d.init), d.initAdv ? { adv: d.initAdv } : {})} title={'Tirar iniciativa' + (d.initAdv ? ' con ventaja (' + d.initAdv + ')' : '')}>
@@ -745,7 +759,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
         {deathHit && (
           <p className="warn small pc-death-hit" role="status" style={{ margin: 0 }}>
             {deathHit.msg}
-            {deathHit.crit && <button className="btn small" onClick={critHit}>Era un crítico: otro fallo</button>}
+            {deathHit.crit && <button className="btn small" title="Inconsciente: todo ataque que te impacte desde 5 pies o menos es crítico" onClick={critHit}>Crítico o cuerpo a cuerpo a 5 pies: otro fallo</button>}
             <button className="btn small ghost" onClick={() => setDeathHit(null)}>Vale</button>
           </p>
         )}
