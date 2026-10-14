@@ -22,6 +22,7 @@ const flush = () => act(async () => { await new Promise((r) => setTimeout(r, 20)
 describe('flujo completo de un combate', () => {
   it('prepara, juega, deshace y guarda', async () => {
     render(<App />);
+    await screen.findByRole('button', { name: 'Bestiario' }, { timeout: 5000 }); // la mesa del máster se descarga aparte
     await flush();
     await act(async () => { await vi.waitFor(() => expect(useStore.getState().loaded).toBe(true)); });
     expect(screen.getByText('Prepara el encuentro')).toBeTruthy();
@@ -85,6 +86,7 @@ describe('flujo completo de un combate', () => {
 
   it('herramientas del DM: daño alternativo y aviso de concentración', async () => {
     render(<App />);
+    await screen.findByRole('button', { name: 'Bestiario' }, { timeout: 5000 }); // la mesa del máster se descarga aparte
     await flush();
     await act(async () => { await vi.waitFor(() => expect(useStore.getState().loaded).toBe(true)); });
     act(() => useStore.getState().set({ combatants: [], started: false, encounters: [], concPrompts: [] }));
@@ -106,6 +108,7 @@ describe('flujo completo de un combate', () => {
 
   it('la ayuda de atajos se abre con ?', async () => {
     render(<App />);
+    await screen.findByRole('button', { name: 'Bestiario' }, { timeout: 5000 }); // la mesa del máster se descarga aparte
     await flush();
     fireEvent.keyDown(window, { key: '?' });
     expect(screen.getByRole('dialog')).toBeTruthy();

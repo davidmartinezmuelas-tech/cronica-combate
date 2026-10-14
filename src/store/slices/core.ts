@@ -15,7 +15,7 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
     tab: 'combat', loaded: false, hydrated: false, loadError: '', srd: [], spells: {}, types: [], storageOk: true, readFailed: false, persistent: false,
     log: [], toast: '', spellOpen: null, spellCtx: null, confirmKey: null, undoStack: [], helpOpen: false,
 
-    async init() {
+    async init(defer) {
       // los datos guardados primero: pedir al navegador que no los borre puede tardar (o, en Firefox, esperar a que el
       // usuario responda a un aviso), así que va aparte y no retrasa la carga
       const { data, ok } = await loadSaved();
@@ -25,6 +25,11 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
       if (ok) void prunePdfs(new Set(data.roster.map((r) => r.pdf?.id).filter((x): x is string => !!x)));
       // criaturas del Manual de Monstruos del usuario, si lo importó en este dispositivo
       void loadBookMonsters().then((book) => { if (book.length) set({ book, types: typesOf([...get().srd, ...book]) }); });
+      // fuera de la mesa del máster el bestiario no corre prisa: se baja cuando el navegador queda libre
+      if (defer) await new Promise<void>((ok) => {
+        const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
+        if (ric) ric(() => ok(), { timeout: 3000 }); else setTimeout(ok, 1500);
+      });
       try {
         const res = await fetch(import.meta.env.BASE_URL + 'data/srd52_es.json');
         if (!res.ok) throw new Error('HTTP ' + res.status);
