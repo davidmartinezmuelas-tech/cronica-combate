@@ -31,10 +31,10 @@ export default function Legal({ onClose }: { onClose: () => void }) {
         <ul>
           <li>Google (Firebase): cuentas y datos en la nube. Puede tratar datos fuera de la UE con las garantías que exige el RGPD.</li>
           <li>GitHub: aloja la web y, como cualquier servidor, registra la dirección IP de las visitas por seguridad.</li>
-          <li>Cloudflare: gestiona el dominio y reenvía el correo de contacto.</li>
+          <li>Cloudflare: gestiona el dominio, reenvía el correo de contacto y cuenta las visitas (Cloudflare Web Analytics: cuántas personas entran, desde qué país y con qué navegador, sin cookies, sin guardar tu dirección IP y sin seguirte por otras webs). Así sé si la app se usa y qué mejorar; la base legal es el interés legítimo.</li>
           <li>Ko-fi: si decides apoyar el proyecto, el pago se hace en su web, con su propia política de privacidad.</li>
         </ul>
-        <p>No hay publicidad, ni analítica, ni cookies de seguimiento.</p>
+        <p>No hay publicidad ni cookies de seguimiento.</p>
 
         <h3>Tus derechos</h3>
         <p>Puedes acceder a tus datos, rectificarlos, llevártelos (con las copias de seguridad de la app) o borrarlos. Para borrar la cuenta y todo lo suyo en la nube, usa «Borrar mi cuenta» en el apartado de la cuenta. Para lo demás, escribe a <a href={'mailto:' + CONTACT}>{CONTACT}</a>. Si crees que no se han respetado tus derechos, puedes reclamar ante la Agencia Española de Protección de Datos (<a href="https://www.aepd.es" target="_blank" rel="noopener noreferrer">aepd.es</a>). Para crear una cuenta debes tener al menos 14 años o el permiso de tus padres o tutores.</p>
