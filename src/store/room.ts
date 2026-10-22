@@ -75,16 +75,18 @@ export const useRoom = create<RoomState>()((set, get) => {
     set({ code: info.code, role, name, room: info, share, error: '', busy: false, sentBuffs: role === 'player' ? savedBuffs(info.code) : {} });
     save({ code: info.code, role, name, share });
     let present = false;
+    // si me han quitado (o el máster cerró la sala) después de haber entrado, salgo
+    const gone = () => { stop?.(); set({ code: null, role: null, room: null, members: [], rolls: [], error: 'La sala se ha cerrado o ya no estás en ella.' }); save(null); };
+    // al cerrarse la sala, las escuchas pierden el permiso antes de ver que ya no estoy: es el mismo aviso
+    const fail = (e: Error) => (present && (e as { code?: string }).code === 'permission-denied' ? gone() : set({ error: cloudError(e) }));
     const unMembers = a.watchMembers(info.code, (members) => {
       const uid = me()?.uid;
       const mine = members.some((m) => m.uid === uid);
-      // si me han quitado (o el máster cerró la sala) después de haber entrado, salgo
-      if (present && !mine) { stop?.(); set({ code: null, role: null, room: null, members: [], rolls: [], error: 'La sala se ha cerrado o ya no estás en ella.' }); save(null); return; }
+      if (present && !mine) { gone(); return; }
       if (mine) present = true;
       set({ members: members.sort((x, y) => (x.role === y.role ? x.name.localeCompare(y.name, 'es') : x.role === 'dm' ? -1 : 1)) });
-    }, (e) => set({ error: cloudError(e) }));
-    const unRolls = a.watchRolls(info.code, (rolls) => set({ rolls }), (e) => set({ error: cloudError(e) }));
-    const fail = (e: Error) => set({ error: cloudError(e) });
+    }, fail);
+    const unRolls = a.watchRolls(info.code, (rolls) => set({ rolls }), fail);
     // los jugadores ven la lista de iniciativa; el máster recibe los lanzamientos y las respuestas de salvación
     const unTable = role === 'player' ? a.watchTable(info.code, (table) => set({ table }), fail) : () => {};
     // el máster: los fines de concentración se aplican solos (quitar el estado en la mesa y el efecto en las hojas); el resto, a revisar

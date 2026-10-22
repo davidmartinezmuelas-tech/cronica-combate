@@ -45,11 +45,17 @@ def text(html):
     return unify_terms(to_markup(html or '', RES))
 
 
+# nombres de la traducción que no siguen la misma forma que el resto
+NAME_FIX = {'Elfo, Alto': 'Elfo, alto', 'Elfo, Silvano': 'Elfo, silvano', 'Tiefling, abisal': 'Tiflin, abisal', 'Tiefling, ctónico': 'Tiflin, ctónico',
+            'Tiflin, Infernal': 'Tiflin, infernal', 'Bastón (Quarterstaff)': 'Bastón'}
+
+
 def es(tr, item, field='name'):
     """Texto en español de un objeto (por su _id) o, si falta, el original."""
     e = tr.get(item['_id']) or {}
     if field == 'name':
-        return unify_terms(e.get('name') or item['name'])
+        n = unify_terms(e.get('name') or item['name'])
+        return NAME_FIX.get(n, n)
     return text(e.get('description') or (item['system'].get('description') or {}).get('value'))
 
 

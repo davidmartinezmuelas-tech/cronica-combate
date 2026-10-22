@@ -1856,7 +1856,7 @@ test('conjuros de rasgos: invocaciones del brujo, legado de la especie e Iniciad
   // tiflin infernal 5 (guerrero, sin conjuros de clase): Descarga de fuego, y Oscuridad una vez sin espacio
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
   await page.getByLabel('Nombre del personaje').fill('Kael');
-  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Tiflin, Infernal' });
+  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Tiflin, infernal' });
   await page.getByLabel('Nivel', { exact: true }).fill('5');
   await expect(page.getByLabel('Característica para tus conjuros de especie')).toHaveValue(''); // sin elegir: la más alta
   await page.getByLabel('Característica para tus conjuros de especie').selectOption({ label: 'Carisma' });
