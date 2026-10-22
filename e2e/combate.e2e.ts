@@ -2288,3 +2288,23 @@ test('rasgo propio del personaje con efecto, y conjuro propio con efecto sobre t
   await expect(ca).toContainText(String(10 + dex + 4));
   await expect(page.locator('.pc-active')).toContainText('Coraza de hielo');
 });
+
+test('reacción: ataque de oportunidad con sus armas, dotes de reacción y la reacción gastada', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Bram');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Daga (1d4 perforante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: '+ Dote o rasgo propio' }).click();
+  await page.locator('#cf-n').fill('Centinela');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const re = page.getByRole('region', { name: 'Reacción' });
+  await expect(re).toContainText('Ataque de oportunidad');
+  await expect(re).toContainText('Centinela');
+  await expect(re).toContainText('velocidad pasa a 0');
+  await re.getByRole('button', { name: /^Daga [+−]/ }).click();
+  await expect(re).toContainText('usada');
+  await expect(re.getByRole('button', { name: 'Usar la reacción' })).toBeDisabled();
+});

@@ -5,6 +5,7 @@ import { useAccount } from '../../store/account';
 import { activeCharacter, usePlayer } from '../../store/player';
 import { useRoom } from '../../store/room';
 import { useStore } from '../../store/useStore';
+import { REACTION } from './ReactionPanel';
 
 /**
  * Avisos de turno en la pantalla del jugador (solo si el máster los activa en la sala): pedir la iniciativa, el
@@ -29,7 +30,11 @@ export default function TurnBanner() {
     if (!on) return;
     if (turn!.started && !was?.started) setFlash(mine ? '' : '¡Empieza el combate!');
     else if (!turn!.started && was?.started) setFlash('Fin del combate');
-    if (mine && was?.uid !== uid) { try { navigator.vibrate?.([120, 60, 120]); } catch { /* sin vibración */ } }
+    if (mine && was?.uid !== uid) {
+      try { navigator.vibrate?.([120, 60, 120]); } catch { /* sin vibración */ }
+      // empieza tu turno: recuperas la reacción
+      if (c && c.uses[REACTION]) usePlayer.getState().update(c.id, { uses: { ...c.uses, [REACTION]: 0 } });
+    }
   }, [turn]); // eslint-disable-line react-hooks/exhaustive-deps
   // el aviso se va solo (aunque el turno cambie mientras tanto)
   useEffect(() => {

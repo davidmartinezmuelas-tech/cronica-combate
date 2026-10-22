@@ -25,6 +25,7 @@ import { grantedSpells, type Grant } from '../../engine/grantedSpells';
 import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
+import ReactionPanel from './ReactionPanel';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import { KITS } from '../../engine/subclassActions';
 import SpellRolls from './SpellRolls';
@@ -995,6 +996,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         )}
         </div>
       </section>
+
+      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => x.s!)} />
 
       {views.map(({ v, dv }, i) => (
         <Fragment key={i}>
