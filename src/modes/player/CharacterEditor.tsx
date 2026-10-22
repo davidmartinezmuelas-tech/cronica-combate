@@ -172,6 +172,30 @@ export default function CharacterEditor({ c }: { c: Character }) {
   };
 
   const caster = !!cls && cls.caster !== 'none';
+  // repaso: lo calculado sin los ajustes a mano, para avisar de lo que no cuadra
+  const calc = wizard ? derive({ ...c, ov: {} }, data) : d;
+  const reviewWarn: string[] = [];
+  if (wizard) {
+    const armor = data.armor.find((x) => x.id === c.armorId);
+    const wear = (armor ? armor.n : 'sin armadura') + (c.shield ? ' y escudo' : '');
+    if (c.ov.ac != null && c.ov.ac !== calc.ac) reviewWarn.push('CA ' + c.ov.ac + ': con ' + wear + ' te sale ' + calc.ac + '. ' + (c.ov.ac > calc.ac ? 'Más solo si lo da un objeto mágico, un conjuro o un rasgo que la app no aplique; si no, no es correcto.' : 'Menos de lo que te corresponde: revísalo.'));
+    const lv = totalLevel(c);
+    const conMod = Math.floor((c.abil.con - 10) / 2);
+    if (c.ov.hpMax != null && cls && !c.multi?.length) {
+      const top = cls.hd * lv + conMod * lv;
+      const low = cls.hd + (lv - 1) + conMod * lv;
+      if (c.ov.hpMax > top) reviewWarn.push('PG máx. ' + c.ov.hpMax + ': no es posible. Con d' + cls.hd + ' y Constitución ' + (conMod >= 0 ? '+' : '') + conMod + ' a nivel ' + lv + ', el máximo sacando todo es ' + top + ' (la media es ' + calc.hpMax + ').');
+      else if (c.ov.hpMax < Math.max(1, low)) reviewWarn.push('PG máx. ' + c.ov.hpMax + ': no es posible; lo mínimo a nivel ' + lv + ' es ' + Math.max(1, low) + ' (la media es ' + calc.hpMax + ').');
+      else if (c.ov.hpMax !== calc.hpMax) reviewWarn.push('PG máx. ' + c.ov.hpMax + ': la media es ' + calc.hpMax + '. Vale si tiraste los dados.');
+    }
+    if (c.ov.init != null && c.ov.init !== calc.init) reviewWarn.push('Iniciativa ' + c.ov.init + ': te sale ' + (calc.init >= 0 ? '+' : '') + calc.init + ' por tu Destreza (y tus dotes). Revísalo si no tienes algo que la cambie.');
+    if (c.ov.speed != null && c.ov.speed !== calc.speed) reviewWarn.push('Velocidad ' + c.ov.speed + ': tu especie te da ' + calc.speed + ' pies.');
+    const bonus = bgBonus(c);
+    for (const a of ABILS) {
+      if (c.abil[a] > 20) reviewWarn.push(ABIL_N[a] + ' ' + c.abil[a] + ': no puede pasar de 20 (sin objetos mágicos).');
+      else if (c.level < 4 && !c.multi?.length && c.abil[a] - bonus[a] > 18) reviewWarn.push(ABIL_N[a] + ' ' + c.abil[a] + ': al empezar, la puntuación base no pasa de 18 (ni tirando 4d6).');
+    }
+  }
   const STEPS = ['Quién eres', 'Trasfondo', 'Características', 'Habilidades', 'Equipo', caster || c.spells.length ? 'Conjuros y dotes' : 'Dotes', 'Repaso'];
   const last = STEPS.length - 1;
 
@@ -576,10 +600,18 @@ export default function CharacterEditor({ c }: { c: Character }) {
           <fieldset className="fs ce-review" data-wstep="s6">
             <legend>Repaso</legend>
             <p className="ce-review-t"><b>{c.name || 'Sin nombre'}</b> · {[data.species.find((x) => x.id === c.speciesId)?.n || c.speciesName, (cls?.n || c.className) + ' ' + c.level, bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</p>
-            <div className="ce-review-stats">
-              <span><b>{d.ac}</b> CA</span><span><b>{d.hpMax}</b> PG</span><span><b>{(d.init >= 0 ? '+' : '') + d.init}</b> Iniciativa</span><span><b>{d.speed}</b> pies</span>
-              {ABILS.map((a) => <span key={a}><b>{c.abil[a]}</b> {ABIL_N[a].slice(0, 3)}</span>)}
+            {/* todo se puede cambiar aquí; lo que no cuadra con las reglas se avisa (sin impedirlo: puede haber un objeto mágico) */}
+            <div className="ce-review-grid">
+              {([['ac', 'CA', calc.ac], ['hpMax', 'PG máx.', calc.hpMax], ['init', 'Iniciativa', calc.init], ['speed', 'Velocidad', calc.speed]] as const).map(([k, label, v]) => (
+                <label key={k} className={c.ov[k] != null && c.ov[k] !== v ? 'ce-rv warn-b' : 'ce-rv'}><span>{label}</span>
+                  <input className="input" type="number" value={c.ov[k] ?? v} onChange={(e) => { const n = parseInt(e.target.value, 10); const ov = { ...c.ov }; if (Number.isNaN(n) || n === v) delete ov[k]; else ov[k] = n; set({ ov }); }} /></label>
+              ))}
+              {ABILS.map((a) => (
+                <label key={a} className={c.abil[a] > 20 ? 'ce-rv warn-b' : 'ce-rv'}><span>{ABIL_N[a].slice(0, 3)}</span>
+                  <input className="input" type="number" min={1} max={30} value={c.abil[a]} onChange={(e) => { const n = parseInt(e.target.value, 10); if (!Number.isNaN(n)) set({ abil: { ...c.abil, [a]: Math.max(1, Math.min(30, n)) } }); }} /></label>
+              ))}
             </div>
+            {reviewWarn.length > 0 && <ul className="ce-review-warn" role="status">{reviewWarn.map((w) => <li key={w}>{w}</li>)}</ul>}
             <p className="muted small" style={{ margin: 0 }}>{c.weapons.length ? 'Ataques: ' + d.attacks.map((x) => x.w.name + ' ' + (x.atk >= 0 ? '+' : '') + x.atk).join(', ') + '. ' : 'Sin armas. '}{caster ? (c.spells.length ? c.spells.length + ' conjuros y trucos elegidos.' : 'Aún sin conjuros.') : ''}</p>
             <p className="muted small" style={{ margin: 0 }}>Todo se puede cambiar luego en «Editar hoja».</p>
           </fieldset>

@@ -2085,6 +2085,17 @@ test.describe('asistente para crear personaje', () => {
     await expect(page.locator('.ce-review')).toContainText('Mira');
     await expect(page.locator('.ce-review')).toContainText('CA');
     await expect(page.locator('.lvl-pending')).toContainText('conjuros');
+    // se puede cambiar cualquier número, pero avisa de lo que no cuadra
+    const ca = page.locator('.ce-review').getByRole('spinbutton', { name: 'CA', exact: true });
+    const real = Number(await ca.inputValue());
+    await ca.fill(String(real + 3));
+    await expect(page.locator('.ce-review-warn')).toContainText('con Camisote de malla y escudo te sale ' + real);
+    await page.locator('.ce-review').getByRole('spinbutton', { name: 'PG máx.', exact: true }).fill('99');
+    await expect(page.locator('.ce-review-warn')).toContainText('no es posible');
+    await page.locator('.ce-review').getByRole('spinbutton', { name: 'Sab', exact: true }).fill('22');
+    await expect(page.locator('.ce-review-warn')).toContainText('no puede pasar de 20');
+    await ca.fill(String(real));
+    await expect(page.locator('.ce-review-warn')).not.toContainText('CA ');
     await page.getByRole('button', { name: 'Crear personaje' }).click();
     await expect(page.getByRole('heading', { name: 'Mira' })).toBeVisible();
     // «Editar hoja» ya no usa el asistente
