@@ -31,7 +31,7 @@ function SpellPick({ id, ids, set }: { id: string; ids: string[]; set: (ids: str
 }
 
 /** El efecto de un rasgo propio: lo que la hoja sabe tirar o sumar (ataque, salvación, curación, daño extra, bonificador). */
-function FxEditor({ id, fx, set }: { id: string; fx: HbFx | undefined; set: (fx: HbFx | undefined) => void }) {
+export function FxEditor({ id, fx, set }: { id: string; fx: HbFx | undefined; set: (fx: HbFx | undefined) => void }) {
   const k = fx?.kind || '';
   const put = (patch: Partial<HbFx>) => set({ ...(fx as HbFx), ...patch });
   const dice = (label: string) => (

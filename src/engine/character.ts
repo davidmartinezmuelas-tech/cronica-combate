@@ -4,7 +4,7 @@ import { classEffects, speciesResist, type ClassFx } from './classEffects';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { featCatOf, splitFeatText } from './featText';
 import { choiceSkills, subclassCaster } from './subclassChoices';
-import { ownFeatures } from './homebrew';
+import { ownFeatures, type HbFx } from './homebrew';
 import { norm, uid } from './util';
 
 /** Arma (o ataque) del personaje: de la lista del SRD o propia. */
@@ -37,7 +37,7 @@ export type FeatCat = 'origin' | 'general' | 'fighting-style' | 'epic-boon' | 'o
 export function expandCustomFeats(list: CustomFeat[]): CustomFeat[] {
   return list.flatMap((f) => {
     const parts = splitFeatText(f.n + (f.d ? '\n' + f.d : ''));
-    if (!parts) return [f];
+    if (!parts || f.fx) return [f];
     return parts.map((p, i) => ({ ...f, id: f.id + '-' + i, n: p.n, d: p.d, cat: f.cat === 'other' ? featCatOf(p.n) || 'other' : f.cat, max: null, per: '' }));
   });
 }
@@ -49,6 +49,7 @@ export interface CustomFeat {
   cat: FeatCat;
   max: number | null; // usos (null = sin límite)
   per: '' | 'sr' | 'lr';
+  fx?: HbFx; // qué hace en la hoja (ataque, salvación, curación, daño extra, bonificador), como los de las subclases propias
 }
 
 /** Hoja de personaje (versión 1). Todo lo calculable se calcula; `ov` permite corregir cualquier número a mano. */
@@ -294,7 +295,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   if (c.shield) { ac += 2 + (c.shieldBonus || 0); acNote += ' y escudo' + (c.shieldBonus ? ' +' + c.shieldBonus : ''); }
   for (const e of effects) if (e.fx.ac?.add) { ac += e.fx.ac.add; acNote += ' + ' + e.n; }
   // rasgos propios (subclase de «Mis creaciones») con un bonificador fijo
-  const own = ownFeatures(entries).filter((f) => f.fx.kind === 'bonus');
+  const own = [...ownFeatures(entries), ...c.customFeats.filter((f) => f.fx).map((f) => ({ n: f.n, fx: f.fx! }))].filter((f) => f.fx.kind === 'bonus');
   for (const f of own) if (f.fx.ac) { ac += f.fx.ac; acNote += ' + ' + f.n; }
   for (const e of effects) if (e.fx.ac?.min && ac < e.fx.ac.min) { ac = e.fx.ac.min; acNote = e.n + ' (mínimo ' + e.fx.ac.min + ')'; }
 

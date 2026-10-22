@@ -14,6 +14,7 @@ import { usePlayer } from '../../store/player';
 import { useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
 import AbilityMethods, { BG_ASI_KEY, bgBonus } from './AbilityMethods';
+import { FxEditor } from './HomebrewPanel';
 import { applyGear, GEAR_KEY, gearOptions, gearText, LETTERS } from '../../engine/startingGear';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
@@ -571,6 +572,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
                   <select id="cf-c" className="input" value={newFeat.cat} onChange={(e) => setNewFeat({ ...newFeat, cat: e.target.value as FeatCat })}>{FEAT_CATS.map(([k]) => <option key={k} value={k}>{CAT_ONE[k]}</option>)}</select></div>
               </div>
               <div className="field"><label htmlFor="cf-d">Qué hace</label><textarea id="cf-d" className="input" rows={3} value={newFeat.d} onChange={(e) => setNewFeat({ ...newFeat, d: e.target.value })} /></div>
+              <FxEditor id="cf" fx={newFeat.fx} set={(fx) => setNewFeat({ ...newFeat, fx })} />
               <div className="row2">
                 <div className="field"><label htmlFor="cf-m">Usos (vacío = sin límite)</label><input id="cf-m" className="input" type="number" min={1} value={newFeat.max ?? ''} onChange={(e) => setNewFeat({ ...newFeat, max: e.target.value ? parseInt(e.target.value, 10) : null })} /></div>
                 <div className="field"><label htmlFor="cf-p">Se recuperan</label>

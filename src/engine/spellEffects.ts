@@ -73,10 +73,35 @@ export function debuffOf(s: { en?: string; n: string }): string | null {
 }
 
 /** Efecto del conjuro (por su nombre en inglés o en español), o null si no cambia la hoja. */
+/**
+ * Efecto sobre quien lo recibe de un conjuro propio («Mis creaciones»): lo que se escribe en su ficha. La biblioteca
+ * los registra aquí con su clave («own:» + id) y su nombre, y se usan igual que los de la tabla.
+ */
+export interface OwnSelfFx { on: 'self' | 'any'; ac?: number; temp?: string; tempMod?: boolean; hpMax?: number; speed?: number; resist?: string }
+let OWN: { keys: string[]; fx: SpellFx }[] = [];
+const all = () => (OWN.length ? [...OWN, ...FX] : FX);
+export function ownSelfFx(o: OwnSelfFx): SpellFx {
+  const note = [o.ac && (o.ac > 0 ? '+' : '') + o.ac + ' a la CA', o.temp && o.temp + (o.tempMod ? ' + modificador' : '') + ' PG temporales', o.hpMax && '+' + o.hpMax + ' PG máximos',
+    o.speed && (o.speed > 0 ? '+' : '') + o.speed + ' pies de velocidad', o.resist && 'resistencia a ' + o.resist].filter(Boolean).join(', ');
+  return {
+    ...(o.on === 'self' ? { self: true } : {}),
+    ...(o.ac ? { ac: { add: o.ac } } : {}),
+    // + modificador: el de lanzar conjuros (el mayor de Inteligencia, Sabiduría y Carisma)
+    ...(o.temp ? { temp: (_lv: number, mods: Record<Abil, number>) => { const m = Math.max(mods.int, mods.wis, mods.cha); return o.temp! + (o.tempMod ? (m >= 0 ? '+' : '') + m : ''); } } : {}),
+    ...(o.hpMax ? { hpMax: () => o.hpMax! } : {}),
+    ...(o.speed ? { speed: { add: o.speed } } : {}),
+    ...(o.resist ? { resist: [o.resist] } : {}),
+    // solo PG temporales: se aplica al lanzarlo y no queda activo
+    ...(o.temp && !o.ac && !o.hpMax && !o.speed && !o.resist ? { instant: true } : {}),
+    note: note || 'efecto propio',
+  };
+}
+export function setOwnSpellFx(list: { id: string; n: string; fx: SpellFx }[]) { OWN = list.map((x) => ({ keys: ['own:' + x.id, x.n], fx: x.fx })); }
+
 export function spellFx(s: { en?: string; n: string }): { key: string; fx: SpellFx } | null {
   const en = (s.en || '').toLowerCase();
   const n = norm(s.n);
-  const hit = FX.find((x) => (en && x.keys[0].toLowerCase() === en) || x.keys.some((k) => norm(k) === n));
+  const hit = all().find((x) => (en && x.keys[0].toLowerCase() === en) || x.keys.some((k) => norm(k) === n));
   return hit ? { key: hit.keys[0], fx: hit.fx } : null;
 }
 
@@ -88,7 +113,7 @@ export function liveEffects(active: ActiveEffect[] | undefined, conds: string[])
   const conc = concOf(conds);
   return (active || []).flatMap((e) => {
     if (e.conc && conc !== e.n) return [];
-    const hit = FX.find((x) => x.keys[0] === e.k);
+    const hit = all().find((x) => x.keys[0] === e.k);
     return hit ? [{ ...e, fx: hit.fx }] : [];
   });
 }
@@ -108,7 +133,7 @@ export interface SpellBuff { k: string; n: string; lv: number; conc: boolean; no
  */
 export function castOnPatch(c: { active?: ActiveEffect[]; conds: string[]; hp: number; temp: number }, key: string, n: string, lv: number, conc: boolean, mods: Record<Abil, number>, by?: string):
   { patch: { active?: ActiveEffect[]; conds?: string[]; hp?: number; temp?: number }; tempDice: string | null } {
-  const hit = FX.find((x) => x.keys[0] === key);
+  const hit = all().find((x) => x.keys[0] === key);
   if (!hit) return { patch: {}, tempDice: null };
   const f = hit.fx;
   const patch: { active?: ActiveEffect[]; conds?: string[]; hp?: number; temp?: number } = {};
@@ -126,4 +151,4 @@ export function castOnPatch(c: { active?: ActiveEffect[]; conds: string[]; hp: n
 }
 
 /** Estado que pone un efecto (si pone alguno). */
-export const fxCond = (k: string): string | undefined => FX.find((x) => x.keys[0] === k)?.fx.cond;
+export const fxCond = (k: string): string | undefined => all().find((x) => x.keys[0] === k)?.fx.cond;

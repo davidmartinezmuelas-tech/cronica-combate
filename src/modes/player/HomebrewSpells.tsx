@@ -43,7 +43,7 @@ function fromDraft(d: Draft): LibSpell {
     upCount: d.l > 0 && !!d.sr?.upCount,
   };
   const cmp = [d.cv && 'V', d.cs && 'S', d.cm && 'M' + (d.mat.trim() ? ' (' + d.mat.trim() + ')' : '')].filter(Boolean).join(', ');
-  return { id: d.id, n: d.n.trim(), l: d.l, esc: d.esc, classes: d.classes, ct: d.ct, r: d.r, cmp, du: d.du, c: d.c, rit: d.rit, t: d.t, own: true, sr, ...(d.roll === 'save' && d.cond ? { cond: d.cond } : {}) };
+  return { id: d.id, n: d.n.trim(), l: d.l, esc: d.esc, classes: d.classes, ct: d.ct, r: d.r, cmp, du: d.du, c: d.c, rit: d.rit, t: d.t, own: true, sr, ...(d.roll === 'save' && d.cond ? { cond: d.cond } : {}), ...(d.self?.on && (d.self.ac || d.self.temp || d.self.hpMax || d.self.speed || d.self.resist) ? { self: d.self } : {}) };
 }
 
 /** Mis creaciones: conjuros propios, con lo que hacen al lanzarlos (ataque o salvación, daño, curación, mejora). */
@@ -83,7 +83,8 @@ export default function HomebrewSpells() {
   const put = (p: Partial<Draft>) => setD({ ...d, ...p });
   const putR = (p: Partial<SpellRoll>) => setD({ ...d, sr: { ...(d.sr || NONE), ...p } });
   const clash = !!d.n.trim() && ((rules || []).some((e) => e.cat === 'Conjuros' && norm(e.n) === norm(d.n)) || lib.spells.some((s) => s.id !== d.id && norm(s.n) === norm(d.n)));
-  const bad = [d.dmgDice, d.healDice, d.sr?.upDice || ''].some((x) => x && !validDice(x));
+  const bad = [d.dmgDice, d.healDice, d.sr?.upDice || '', d.self?.temp || ''].some((x) => x && !validDice(x));
+  const putS = (p: Partial<NonNullable<Draft['self']>>) => setD({ ...d, self: { on: d.self?.on || 'self', ...(d.self || {}), ...p } });
   const ok = !!d.n.trim() && !clash && !bad;
   const save = () => { if (!ok) return; void lib.save({ spells: [...lib.spells.filter((s) => s.id !== d.id), fromDraft(d)] }); setD(null); };
 
@@ -165,6 +166,26 @@ export default function HomebrewSpells() {
           </div>
         )}
         {bad && <p className="warn small" style={{ margin: 0 }}>Escribe los dados como 2d6, 1d8+2 o 5.</p>}
+      </fieldset>
+
+      <fieldset className="fs hb-level">
+        <legend>Efecto sobre quien lo recibe (opcional)</legend>
+        <p className="muted small" style={{ margin: 0 }}>Como Escudo de fe o Auxilio: se aplica a la hoja al lanzarlo («Lanzar sobre mí» o, en la sala, sobre otros) y se quita al acabar o al perder la concentración.</p>
+        <div className="hb-grid">
+          <div className="field"><label htmlFor="hs-on">Sobre quién</label>
+            <select id="hs-on" className="input" value={d.self?.on || ''} onChange={(e) => (e.target.value ? putS({ on: e.target.value as 'self' | 'any' }) : setD({ ...d, self: undefined }))}>
+              <option value="">Ninguno</option><option value="self">Solo sobre ti</option><option value="any">Sobre ti o un aliado</option>
+            </select></div>
+          {d.self?.on && <>
+            <div className="field"><label htmlFor="hs-ac">CA</label><input id="hs-ac" className="input" type="number" value={d.self.ac ?? ''} placeholder="+2" onChange={(e) => putS({ ac: parseInt(e.target.value, 10) || undefined })} /></div>
+            <div className="field"><label htmlFor="hs-tmp">PG temporales</label><input id="hs-tmp" className="input" value={d.self.temp || ''} placeholder="2d4+4" onChange={(e) => putS({ temp: e.target.value.replace(/\s+/g, '') || undefined })} /></div>
+            <div className="field"><label htmlFor="hs-hp">PG máximos</label><input id="hs-hp" className="input" type="number" value={d.self.hpMax ?? ''} placeholder="+5" onChange={(e) => putS({ hpMax: parseInt(e.target.value, 10) || undefined })} /></div>
+            <div className="field"><label htmlFor="hs-spd">Velocidad (pies)</label><input id="hs-spd" className="input" type="number" step={5} value={d.self.speed ?? ''} placeholder="+10" onChange={(e) => putS({ speed: parseInt(e.target.value, 10) || undefined })} /></div>
+            <div className="field"><label htmlFor="hs-res">Resistencia</label>
+              <select id="hs-res" className="input" value={d.self.resist || ''} onChange={(e) => putS({ resist: e.target.value || undefined })}><option value="">Ninguna</option>{DMG_TYPES.map((t) => <option key={t}>{t}</option>)}</select></div>
+          </>}
+        </div>
+        {d.self?.on && d.self.temp && <label className="check small"><input type="checkbox" checked={!!d.self.tempMod} onChange={(e) => putS({ tempMod: e.target.checked })} />Sumar tu modificador a los PG temporales</label>}
       </fieldset>
       <div className="rollrow">
         <button className="btn primary" disabled={!ok} onClick={save}>Guardar conjuro</button>

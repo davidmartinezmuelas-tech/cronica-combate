@@ -2236,3 +2236,39 @@ test('conjuro propio: su ficha, en la lista de su clase, siempre preparado por u
   await card.getByLabel('Nivel de espacio para Lanza de escarcha').selectOption('2');
   await expect(card.getByRole('button', { name: /^Daño 4d8 frío/ })).toBeVisible();
 });
+
+test('rasgo propio del personaje con efecto, y conjuro propio con efecto sobre ti (CA y concentración)', async ({ page }) => {
+  // conjuro propio solo sobre ti: +3 a la CA, de concentración
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear conjuro' }).click();
+  await page.getByLabel('Nombre del conjuro').fill('Coraza de hielo');
+  await page.getByRole('button', { name: 'Mago', exact: true }).click();
+  await page.getByLabel('Concentración').check();
+  await page.getByLabel('Sobre quién').selectOption({ label: 'Solo sobre ti' });
+  await page.locator('#hs-ac').fill('3');
+  await page.getByRole('button', { name: 'Guardar conjuro' }).click();
+
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Nim');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Mago' });
+  await page.getByLabel('Buscar conjuro').fill('Coraza de hielo');
+  await page.getByRole('button', { name: /\+ Coraza de hielo/ }).click();
+  // rasgo propio: +1 a la CA
+  await page.getByRole('button', { name: '+ Dote o rasgo propio' }).click();
+  await page.locator('#cf-n').fill('Piel de piedra');
+  await page.getByLabel('Efecto en la hoja').selectOption({ label: 'Bonificador fijo' });
+  await page.locator('#cfac').fill('1');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+
+  const ca = page.locator('.stat').filter({ hasText: 'CA' }).first();
+  const dex = Number((await page.locator('[data-abil=dex] .pc-abil-mod b').first().innerText()).replace('−', '-'));
+  await expect(ca).toContainText(String(10 + dex + 1));
+  // lanzarlo: +3 mientras dura y se concentra
+  await page.locator('.pc-block-sp').getByText('Coraza de hielo').click();
+  await page.getByRole('button', { name: /^Lanzar \(gasta espacio de nivel 1\)/ }).click();
+  await expect(ca).toContainText(String(10 + dex + 4));
+  await expect(page.locator('.pc-active')).toContainText('Coraza de hielo');
+});

@@ -2,6 +2,7 @@ import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-ke
 import { create } from 'zustand';
 import type { LibBackground, LibFeat, LibSpell, LibSubclass } from '../engine/bookImport';
 import { setOwnSubclasses } from '../engine/homebrew';
+import { ownSelfFx, setOwnSpellFx } from '../engine/spellEffects';
 
 /**
  * Biblioteca propia: dotes, trasfondos y conjuros que el usuario añade desde su propio libro (importando su PDF o
@@ -88,4 +89,8 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
 const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats, backgrounds: s.backgrounds, spells: s.spells, subclasses: s.subclasses || [] });
 
 // los rasgos propios con bonificadores fijos entran en el cálculo de la hoja
-useLibrary.subscribe((s, prev) => { if (s.subclasses !== prev.subclasses) setOwnSubclasses(s.subclasses); });
+useLibrary.subscribe((s, prev) => {
+  if (s.subclasses !== prev.subclasses) setOwnSubclasses(s.subclasses);
+  // y los conjuros propios con efecto sobre quien lo recibe
+  if (s.spells !== prev.spells) setOwnSpellFx(s.spells.filter((x) => x.own && x.self).map((x) => ({ id: x.id, n: x.n, fx: ownSelfFx(x.self!) })));
+});

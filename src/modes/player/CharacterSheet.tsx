@@ -101,7 +101,7 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
     const lf = lib.feats.find((x) => x.n === name);
     if (lf) rows.push({ key: lf.id, n: lf.n, d: (lf.req ? 'Requisitos: ' + lf.req + '\n\n' : '') + lf.d, src: CAT[lf.cat] || 'Dote', max: null, per: '' });
   });
-  expandCustomFeats(c.customFeats).forEach((f) => rows.push({ key: f.id, n: f.n, d: f.d, src: CAT[f.cat] || 'Rasgo propio', max: f.max && f.max > 0 ? f.max : null, per: f.per }));
+  expandCustomFeats(c.customFeats).forEach((f) => rows.push({ key: f.id, n: f.n, d: f.d, src: CAT[f.cat] || 'Rasgo propio', max: f.max && f.max > 0 ? f.max : null, per: f.per, ...(f.fx ? { fx: f.fx } : {}) }));
   return rows;
 }
 
