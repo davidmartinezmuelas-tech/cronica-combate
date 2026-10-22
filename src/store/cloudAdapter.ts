@@ -1,10 +1,11 @@
 import type { Character } from '../engine/character';
+import type { SheetPack } from '../engine/sheetPack';
 import type { SpellBuff } from '../engine/spellEffects';
 import type { SaveEffect } from '../engine/saveEffect';
 import { toCloud } from '../engine/sync';
 
 /** Resumen de la hoja que un jugador comparte en la sala (lo que el máster necesita ver). */
-export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; init?: number; conds: string[]; charId?: string }
+export interface SheetSummary { name: string; cls: string; level: number; ac: number; hp: number; hpMax: number; temp: number; pp: number; init?: number; conds: string[]; charId?: string; pack?: SheetPack }
 /** Aviso del máster a un jugador: sus PG tras lo que ha pasado en la mesa (daño, curación…). */
 export interface RoomEvent {
   id: string; to: string; from: string; charId: string; hp: number; temp: number; note: string; at: number;

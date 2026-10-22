@@ -1203,3 +1203,11 @@ body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}
 .mode-feat h3{margin:0;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:19px;color:#f3e6c8}
 .mode-feat-s{margin:0;font-size:12px;font-weight:800;letter-spacing:.04em;color:#d4a94f}
 .mode-feat ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.35;color:#d6cbb6}
+/* mesa del máster: la hoja de un jugador de la sala, más pequeña y solo para mirar */
+.guest-col{flex:999 1 360px}
+.guest-col~.sheet-col{display:none}
+.guest-sheet{zoom:.64;pointer-events:none;user-select:none}
+.guest-sheet .pc-tabs-row,.guest-sheet .pc-backup-bar{display:none}
+.guest-sheet .pc-head-actions,.guest-sheet .pc-notes,.guest-sheet .pc-hp-row>:not(.pc-conc){display:none !important}
+/* al máster le interesa antes lo de combate (ataques, usos, estados) que las características */
+.guest-sheet .pc-split>.pc-split-col:last-child{order:-1}

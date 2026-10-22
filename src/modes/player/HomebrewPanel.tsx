@@ -112,7 +112,7 @@ export default function HomebrewPanel() {
   const [draft, setDraft] = useState<LibSubclass | null>(null);
   const [confirmDel, setConfirmDel] = useState('');
   const [extraLv, setExtraLv] = useState(1);
-  const own = lib.subclasses.filter((s) => s.own);
+  const own = lib.subclasses.filter((s) => s.own && !s.guest);
   const classes = data?.classes || [];
   const clsName = (id: string) => classes.find((k) => k.id === id)?.n || id;
 

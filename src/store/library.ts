@@ -28,6 +28,19 @@ export interface LibraryState extends LibraryData {
   clear: () => Promise<void>;
   exportText: () => string;
   importText: (text: string) => Promise<string>; // mensaje para el usuario
+  /** El máster: lo que necesita la hoja de un jugador de la sala (de paso: ni se guarda ni se exporta). null: quitarlo. */
+  setGuest: (uid: string, pack: GuestLib | null) => void;
+}
+
+export interface GuestLib { subs: LibSubclass[]; spells: LibSpell[]; bgs: LibBackground[]; feats: LibFeat[] }
+
+// lo de los jugadores de la sala, por jugador: se añade a las listas marcado como «guest» y nunca se guarda
+const guests = new Map<string, GuestLib>();
+function withGuests(d: LibraryData): LibraryData {
+  if (!guests.size) return d;
+  const add = <T extends { id: string; guest?: boolean }>(base: T[], extra: T[]) => [...base, ...extra.filter((x, i) => !base.some((b) => b.id === x.id) && extra.findIndex((y) => y.id === x.id) === i).map((x) => ({ ...x, guest: true }))];
+  const all = [...guests.values()];
+  return { ...d, subclasses: add(d.subclasses, all.flatMap((g) => g.subs)), spells: add(d.spells, all.flatMap((g) => g.spells)), backgrounds: add(d.backgrounds, all.flatMap((g) => g.bgs)), feats: add(d.feats, all.flatMap((g) => g.feats)) };
 }
 
 // lectura inicial única: guardar o importar la esperan, para no pisar lo que ya había en el dispositivo
@@ -46,16 +59,19 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     loading ??= (async () => {
       let d: LibraryData | undefined;
       try { d = await idbGet<LibraryData>(KEY, store()); } catch { /* nada */ }
-      set({ ...empty(), ...(d || {}), loaded: true });
+      set({ ...withGuests({ ...empty(), ...(d || {}) }), loaded: true });
     })();
     return loading;
   },
 
   async save(patch) {
     await get().init();
-    const d = { ...pick(get()), ...patch, v: 1 as const };
+    // lo que llega de la sala no se guarda nunca
+    const clean = <T extends { guest?: boolean }>(l: T[] | undefined) => l?.filter((x) => !x.guest);
+    const p = { ...patch, ...(patch.feats ? { feats: clean(patch.feats) } : {}), ...(patch.backgrounds ? { backgrounds: clean(patch.backgrounds) } : {}), ...(patch.spells ? { spells: clean(patch.spells) } : {}), ...(patch.subclasses ? { subclasses: clean(patch.subclasses) } : {}) };
+    const d = { ...pick(get()), ...p, v: 1 as const };
     persist(d);
-    set(d);
+    set(withGuests(d));
   },
 
   async clear() {
@@ -63,9 +79,14 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     // lo importado del libro se va; las creaciones propias se quedan
     const own = get().subclasses.filter((s) => s.own);
     const ownSp = get().spells.filter((s) => s.own);
-    if (own.length || ownSp.length) { const d = { ...empty(), subclasses: own, spells: ownSp }; persist(d); set(d); return; }
+    if (own.length || ownSp.length) { const d = { ...empty(), subclasses: own, spells: ownSp }; persist(d); set(withGuests(d)); return; }
     void idbDel(KEY, store()).catch(() => { /* nada */ });
-    set({ ...empty() });
+    set(withGuests(empty()));
+  },
+
+  setGuest(uid, pack) {
+    if (pack) guests.set(uid, pack); else guests.delete(uid);
+    set(withGuests(pick(get())));
   },
 
   exportText() {
@@ -86,7 +107,8 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
   },
 }));
 
-const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats, backgrounds: s.backgrounds, spells: s.spells, subclasses: s.subclasses || [] });
+// lo propio del dispositivo (sin lo que llega de paso de la sala)
+const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats.filter((x) => !x.guest), backgrounds: s.backgrounds.filter((x) => !x.guest), spells: s.spells.filter((x) => !x.guest), subclasses: (s.subclasses || []).filter((x) => !x.guest) });
 
 // los rasgos propios con bonificadores fijos entran en el cálculo de la hoja
 useLibrary.subscribe((s, prev) => {

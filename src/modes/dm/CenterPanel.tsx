@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
+import { useRoom } from '../../store/room';
 import { useShallow } from 'zustand/react/shallow';
 import { reminders } from '../../engine/combat';
 import { forgeToMonster } from '../../engine/forge';
@@ -12,6 +13,9 @@ import EncounterGenerator from './EncounterGenerator';
 import StatBlock, { SpellCard } from './StatBlock';
 import { RuleQuick, RuleView } from '../../shared/RulesPanel';
 import PartySheets from './PartySheets';
+
+// la hoja del jugador es del modo jugador: se descarga solo si hace falta
+const GuestSheet = lazy(() => import('../player/GuestSheet'));
 
 function Onboarding() {
   const combatants = useStore((s) => s.combatants);
@@ -172,6 +176,9 @@ export default function CenterPanel() {
   else if (tab === 'bestiary' && viewM) sheet = { m: viewM, label: viewM.custom ? 'Bestiario · creación propia' : viewM.id.startsWith('mm-') ? 'Bestiario · tu Manual de Monstruos' : 'Bestiario · SRD 5.2.1', c: null };
   else if (tab === 'forge' && forgeM) sheet = { m: forgeM, label: 'Vista previa en vivo', c: null };
 
+  // un jugador de la sala: su hoja entera (la que manda desde su dispositivo), en lugar de nada
+  const roomUid = useStore((s) => (isCombat && sel?.kind === 'pc' && sel.rosterId ? s.roster.find((r) => r.id === sel.rosterId)?.roomUid : undefined));
+  const guest = useRoom((s) => (roomUid ? s.members.find((m) => m.uid === roomUid)?.sheet?.pack?.char : undefined));
   const hasCtrl = (isCombat && !started) || tab === 'group' || (isCombat && (hasActive || !!sel));
   const emptyCombat = isCombat && started && hasCombatants && !sel;
 
@@ -179,7 +186,7 @@ export default function CenterPanel() {
     <>
       <div className="center-grid">
         {hasCtrl && (
-          <div className="ctrl-col" style={sheet ? undefined : { maxWidth: 'none' }}>
+          <div className="ctrl-col" style={sheet || guest ? undefined : { maxWidth: 'none' }}>
             {isCombat && !started && <Onboarding />}
             {tab === 'group' && <PartySheets />}
             {isCombat && (
@@ -196,6 +203,12 @@ export default function CenterPanel() {
           <div className="sheet-col">
             <span className="eyebrow">Reglas · SRD 5.2.1</span>
             <RuleView />
+          </div>
+        )}
+        {guest && !sheet && (
+          <div className="sheet-col guest-col">
+            <span className="eyebrow">Hoja de {guest.name} · en directo desde su dispositivo</span>
+            <Suspense fallback={<p className="muted small" style={{ margin: 0 }}>Cargando la hoja…</p>}><GuestSheet c={guest} /></Suspense>
           </div>
         )}
         {sheet && (

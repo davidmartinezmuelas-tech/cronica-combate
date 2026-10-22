@@ -6,6 +6,9 @@ import { activeCharacter, usePlayer } from '../store/player';
 import { cleanCode, hadRoom, useRoom } from '../store/room';
 import { applyInitiativeRolls, reviewCast, syncMembersToTable, watchTableForPlayers, watchTableToPublish } from '../store/roomTable';
 import { useStore } from '../store/useStore';
+import { useLibrary } from '../store/library';
+import { buildPack } from '../engine/sheetPack';
+import { useSpells } from '../modes/player/spells';
 import { sgn } from '../engine/dice';
 
 const ABIL_N = ['Fuerza', 'Destreza', 'Constitución', 'Inteligencia', 'Sabiduría', 'Carisma'];
@@ -32,9 +35,13 @@ function SaveRequest({ q }: { q: { reqId: string; dc: number; abil: number; labe
 function useSheetSummary(enabled: boolean): SheetSummary | null {
   const c = usePlayer(activeCharacter);
   const data = usePlayer((s) => s.data);
+  const lib = useLibrary();
+  const spells = useSpells();
   if (!enabled || !c) return null;
   const d = derive(c, data);
-  return { name: c.name || 'Sin nombre', cls: classEntries(c).map((e) => data?.classes.find((x) => x.id === e.classId)?.n || e.className).filter(Boolean).join(' / '), level: d.level, ac: d.ac, hp: c.hp, hpMax: d.hpMax, temp: c.temp, pp: d.pp, init: d.init, conds: c.conds, charId: c.id };
+  // y su hoja entera para la mesa del máster (sin notas ni texto del libro)
+  const pack = buildPack(c, data, lib, spells.list);
+  return { name: c.name || 'Sin nombre', cls: classEntries(c).map((e) => data?.classes.find((x) => x.id === e.classId)?.n || e.className).filter(Boolean).join(' / '), level: d.level, ac: d.ac, hp: c.hp, hpMax: d.hpMax, temp: c.temp, pp: d.pp, init: d.init, conds: c.conds, charId: c.id, pack };
 }
 
 /**
@@ -75,6 +82,13 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
   useEffect(() => { if (sheet) publishSheet(sheet); }, [sheet, publishSheet]);
   // el máster: los jugadores de la sala pasan a su Grupo y al combate, con sus PG en directo
   useEffect(() => { if (mode === 'dm' && role === 'dm') syncMembersToTable(members); }, [mode, role, members]);
+  // el máster: lo que necesitan las hojas de los jugadores (sus creaciones y lo de su libro, sin texto), solo de paso
+  useEffect(() => {
+    if (mode !== 'dm' || role !== 'dm') return;
+    const lib = useLibrary.getState();
+    for (const m of members) if (m.role === 'player') lib.setGuest(m.uid, m.sheet?.pack || null);
+    return () => { for (const m of members) lib.setGuest(m.uid, null); };
+  }, [mode, role, members]);
   useEffect(() => { if (mode === 'dm' && role === 'dm') applyInitiativeRolls(rolls, members); }, [mode, role, rolls, members]);
   // y lo que el máster cambia en la mesa (daño, curación) llega a la hoja del jugador
   useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableForPlayers((to, charId, hp, temp, fails) => useRoom.getState().sendHp(to, charId, hp, temp, fails)) : undefined), [mode, role]);

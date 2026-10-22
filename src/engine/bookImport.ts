@@ -16,13 +16,13 @@ export interface TextItem { str: string; x: number; y: number; w?: number }
 /** `p`: página del libro (1, 2…), cuando se sabe. */
 export interface Line { t: string; col: number; y: number; p?: number }
 
-export interface LibFeat { id: string; n: string; cat: 'origin' | 'general' | 'fighting-style' | 'epic-boon'; req: string; d: string }
-export interface LibBackground { id: string; n: string; abil: Abil[]; skills: string[]; tool: string; feat: string; equip: string; d: string }
+export interface LibFeat { id: string; n: string; cat: 'origin' | 'general' | 'fighting-style' | 'epic-boon'; req: string; d: string; guest?: boolean }
+export interface LibBackground { id: string; n: string; abil: Abil[]; skills: string[]; tool: string; feat: string; equip: string; d: string; guest?: boolean }
 /** Conjuro de la biblioteca: del libro del usuario o propio (own: escrito en «Mis creaciones», con sus tiradas en `sr` y un estado si falla la salvación). */
-export interface LibSpell { id: string; n: string; l: number; esc: string; classes: string[]; ct: string; r: string; cmp: string; du: string; c: number; rit: number; t: string; own?: boolean; sr?: SpellRoll; cond?: string; self?: OwnSelfFx; at?: number }
+export interface LibSpell { id: string; n: string; l: number; esc: string; classes: string[]; ct: string; r: string; cmp: string; du: string; c: number; rit: number; t: string; own?: boolean; sr?: SpellRoll; cond?: string; self?: OwnSelfFx; at?: number; guest?: boolean }
 /** `x`: apartados de opciones que van tras los rasgos («Opciones de maniobras»). */
 /** Subclase de la biblioteca: importada del libro del usuario o propia (own: escrita a mano en «Mis creaciones», con sus usos). */
-export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[] }[]; x?: { n: string; d: string }[]; own?: boolean; at?: number }
+export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[] }[]; x?: { n: string; d: string }[]; own?: boolean; at?: number; guest?: boolean }
 
 /** Líneas de una página en orden de lectura: primero la columna izquierda de arriba abajo, luego la derecha. */
 export function pageLines(items: TextItem[], width: number): Line[] {

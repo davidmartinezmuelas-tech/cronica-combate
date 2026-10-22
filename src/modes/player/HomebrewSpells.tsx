@@ -53,7 +53,7 @@ export default function HomebrewSpells() {
   const rules = useStore((s) => s.rules);
   const [d, setD] = useState<Draft | null>(null);
   const [confirmDel, setConfirmDel] = useState('');
-  const own = lib.spells.filter((s) => s.own);
+  const own = lib.spells.filter((s) => s.own && !s.guest);
   const casters = (data?.classes || []).filter((k) => k.caster !== 'none');
   // las reglas, para no repetir el nombre de un conjuro del SRD
   useEffect(() => { void useStore.getState().loadRules(); }, []);

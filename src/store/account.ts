@@ -126,7 +126,7 @@ const isSub = (x: Creation): x is LibSubclass => 'cls' in x;
 async function startCreationsSync(a: CloudAdapter, uid: string, onError: (e: unknown) => void, onOk: () => void): Promise<() => void> {
   await useLibrary.getState().init();
   const lib = () => useLibrary.getState();
-  const list = (s = lib()): Creation[] => [...s.subclasses.filter((x) => x.own), ...s.spells.filter((x) => x.own)];
+  const list = (s = lib()): Creation[] => [...s.subclasses.filter((x) => x.own && !x.guest), ...s.spells.filter((x) => x.own && !x.guest)];
   let applying = false;
   let ready = false;
   const pending = new Map<string, ReturnType<typeof setTimeout>>();
@@ -136,7 +136,7 @@ async function startCreationsSync(a: CloudAdapter, uid: string, onError: (e: unk
     const clean = (x: Creation) => { const { kind: _k, ...rest } = x as Creation & { kind?: string }; return rest as Creation; };
     const own = next.map(clean);
     try {
-      await s.save({ subclasses: [...s.subclasses.filter((x) => !x.own), ...own.filter(isSub).map((x) => ({ ...x, own: true }))], spells: [...s.spells.filter((x) => !x.own), ...own.filter((x) => !isSub(x)).map((x) => ({ ...(x as LibSpell), own: true }))] });
+      await s.save({ subclasses: [...s.subclasses.filter((x) => !x.own || x.guest), ...own.filter(isSub).map((x) => ({ ...x, own: true }))], spells: [...s.spells.filter((x) => !x.own || x.guest), ...own.filter((x) => !isSub(x)).map((x) => ({ ...(x as LibSpell), own: true }))] });
     } finally { applying = false; }
   };
   const put = (x: Creation) => { const doc: { id: string; kind: string } = { ...x, kind: isSub(x) ? 'sub' : 'spell' }; return a.putItem(uid, 'creations', doc); };

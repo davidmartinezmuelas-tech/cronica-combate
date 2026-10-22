@@ -27,7 +27,7 @@ export function useSpells() {
     const srdNames = new Set(srd.map((e) => norm(e.n)));
     const extra: SpellEntry[] = lib.filter((s) => !srdNames.has(norm(s.n))).map((s) => ({
       id: s.id, n: s.n, en: '', cat: 'Conjuros', t: s.t, l: s.l, esc: s.esc, ct: s.ct, r: s.r, du: s.du, c: s.c, rit: s.rit, cmp: s.cmp, classes: s.classes, lib: true,
-      ...(s.own ? { own: true, sr: s.sr, cond: s.cond } : {}),
+      ...(s.own ? { own: true } : {}), ...(s.sr ? { sr: s.sr } : {}), ...(s.cond ? { cond: s.cond } : {}),
     }));
     const list = [...srd, ...extra];
     const byId = new Map(list.map((e) => [e.id, e]));

@@ -105,9 +105,12 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
   return rows;
 }
 
-export default function CharacterSheet({ c }: { c: Character }) {
+/** `readOnly`: la hoja de otro (la de un jugador en la mesa del máster): se ve igual pero no guarda ni manda nada. */
+export default function CharacterSheet({ c, readOnly = false }: { c: Character; readOnly?: boolean }) {
   const data = usePlayer((s) => s.data);
-  const { update, replace, setEditing } = usePlayer.getState();
+  const store = usePlayer.getState();
+  const update: typeof store.update = readOnly ? () => {} : store.update;
+  const { replace, setEditing } = store;
   const spellIdx = useSpells();
   const { roll } = useStore.getState();
   const lib = useLibrary();
@@ -208,7 +211,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
     const prev = prevHp.current;
     prevHp.current = { id: c.id, total: now };
     if (noDamage.current) { noDamage.current = false; return; }
-    if (prev.id !== c.id || now >= prev.total || !conc) return;
+    if (readOnly || prev.id !== c.id || now >= prev.total || !conc) return;
     // a 0 PG se cae inconsciente: la concentración termina sin tirada
     if (c.hp === 0) { update(c.id, { conds: withoutConc(c.conds) }); return; }
     const dmg = prev.total - now;
@@ -221,7 +224,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   useEffect(() => {
     const was = prevConc.current;
     prevConc.current = conc;
-    if (was && was !== conc) useRoom.getState().endBuff(was);
+    if (was && was !== conc && !readOnly) useRoom.getState().endBuff(was);
   }, [conc]);
   const warCaster = c.feats.some((f) => /lanzador de guerra|war caster/i.test(f));
   const concSave = () => {
@@ -729,7 +732,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // móvil: la pestaña de conjuros solo si los lanza; arriba, una barra fija con PG y CA al dejar de ver la franja
   const phone = useMobileTabs((s) => s.phone);
   const mtab = useMobileTabs((s) => s.tab);
-  useEffect(() => { useMobileTabs.setState({ spells: hasSpells }); }, [hasSpells]);
+  useEffect(() => { if (!readOnly) useMobileTabs.setState({ spells: hasSpells }); }, [hasSpells]); // eslint-disable-line react-hooks/exhaustive-deps
   const headRef = useRef<HTMLDivElement>(null);
   const [headSeen, setHeadSeen] = useState(true);
   useEffect(() => {
@@ -766,7 +769,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
             <span className="muted">{[sp?.n || c.speciesName, classEntries(c).map((e) => (data?.classes.find((x) => x.id === e.classId)?.n || e.className || 'Sin clase') + ' ' + e.level + (e.subclass ? ' (' + e.subclass + ')' : '')).join(' / '), bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</span>
             {d.resist.length > 0 && <span className="small pc-resist">Resistencias: {d.resist.map((x) => x.type + ' (' + x.why + ')').join(' · ')}</span>}
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="pc-head-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {data && <button className={xpReady ? 'btn small primary lvl-ready' : 'btn small primary'} title={xpReady ? 'Tienes PX para el nivel ' + (d.level + 1) : undefined} onClick={() => setLeveling(true)}>{xpReady ? '¡Subir de nivel!' : 'Subir de nivel'}</button>}
             <button className="btn small" data-tour="edit" onClick={() => setEditing(true)}>Editar hoja</button>
           </div>
