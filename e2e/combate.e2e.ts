@@ -454,6 +454,7 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   await page.getByRole('button', { name: '+ Daño extra' }).click();
   await page.getByLabel('Conjuro', { exact: false }).first().fill('castigo');
   await page.locator('.ce-spell-results .chip', { hasText: 'Castigo Divino' }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await page.getByRole('button', { name: '+ Dote o rasgo propio' }).click();
   await page.locator('#cf-n').fill('Protección');
   await page.locator('#cf-c').selectOption({ label: 'Estilo de combate' });
@@ -494,6 +495,7 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
   await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Farero' });
   await expect(page.getByText('competencia en Percepción y Supervivencia', { exact: false })).toBeVisible();
   await page.locator('.ce-spell-results .chip', { hasText: 'Rayo de faro' }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sheet = page.locator('.pc');
   await expect(sheet).toContainText('Paladín 3 (Juramento del faro) · Farero');
@@ -640,7 +642,7 @@ test('dotes con botones: atacante salvaje, ataque extra con arma ligera, sin arm
     await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   }
   await page.locator('details').evaluateAll((ds) => ds.forEach((d) => ((d as HTMLDetailsElement).open = true)));
-  for (const f of ['Atacante salvaje', 'Combate con dos armas', 'Afortunado', 'Resistente', 'Matón de taberna']) await page.locator('.chip', { hasText: f }).first().click();
+  for (const f of ['Atacante salvaje', 'Combate con dos armas', 'Afortunado', 'Resistente', 'Matón de taberna']) { await page.locator('.chip', { hasText: f }).first().click(); await page.getByRole('button', { name: 'Elegir dote' }).click(); }
   await page.getByRole('button', { name: 'Listo' }).first().click();
 
   const atk = page.locator('section[aria-label="Ataques"]');
@@ -679,7 +681,7 @@ test('crítico con Perforador y Don del ataque imparable; Duelo se quita por arm
   await page.getByLabel('Arma para añadir').selectOption({ label: 'Estoque (1d8 perforante)' });
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await page.locator('details').evaluateAll((ds) => ds.forEach((d) => ((d as HTMLDetailsElement).open = true)));
-  for (const f of ['Perforador', 'Don del ataque imparable', 'Duelo']) await page.locator('.chip', { hasText: f }).first().click();
+  for (const f of ['Perforador', 'Don del ataque imparable', 'Duelo']) { await page.locator('.chip', { hasText: f }).first().click(); await page.getByRole('button', { name: 'Elegir dote' }).click(); }
   await page.getByRole('button', { name: 'Listo' }).first().click();
 
   const rapier = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Estoque' });
@@ -852,6 +854,7 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   for (const q of ['bola de fuego', 'descarga de fuego']) {
     await page.getByLabel(/^Buscar conjuro/).fill(q);
     await page.locator('.ce-spell-results .chip').first().click();
+    await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   }
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sp = page.locator('section[aria-label="Conjuros"]');
@@ -888,6 +891,7 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByLabel(/^Buscar conjuro/).fill('curar heridas');
   await page.locator('.ce-spell-results .chip', { hasText: /^\+ Curar heridas 1$/ }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await page.getByLabel('Cantidad de PG').fill('5');
   await page.getByRole('button', { name: 'Daño', exact: true }).click();
@@ -997,6 +1001,7 @@ test('conjuro en una clase que no lanza: pide confirmación una vez', async ({ p
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
   await page.getByLabel(/^Buscar conjuro/).fill('luz');
   await page.locator('.ce-spell-results .chip').first().click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   const dlg = page.getByRole('dialog', { name: '¿Añadir un conjuro?' });
   await expect(dlg).toContainText('no lanza conjuros');
   await dlg.getByRole('button', { name: 'Cerrar' }).click();
@@ -1004,11 +1009,13 @@ test('conjuro en una clase que no lanza: pide confirmación una vez', async ({ p
   await expect(page.locator('.chips .chip.on')).toHaveCount(0); // no se añadió
   await page.getByLabel(/^Buscar conjuro/).fill('luz');
   await page.locator('.ce-spell-results .chip').first().click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await dlg.getByRole('button', { name: 'Sí, añadirlo' }).click();
   await expect(page.locator('.chips .chip.on')).toHaveCount(1);
   // la segunda ya no pregunta
   await page.getByLabel(/^Buscar conjuro/).fill('mano');
   await page.locator('.ce-spell-results .chip').first().click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await expect(dlg).toHaveCount(0);
   await expect(page.locator('.chips .chip.on')).toHaveCount(2);
 });
@@ -1222,6 +1229,7 @@ test('subir de nivel: elecciones de clase o subclase y cambiar un conjuro', asyn
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByLabel(/^Buscar conjuro/).fill('escudo de fe');
   await page.locator('.ce-spell-results .chip', { hasText: /^\+ Escudo de fe 1$/ }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await page.getByRole('button', { name: 'Subir de nivel' }).click();
   const dlg = page.getByRole('dialog', { name: 'Subir a nivel 7' });
@@ -1303,6 +1311,7 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await page.getByLabel(/^Buscar conjuro/).fill('descarga sobrenatural');
   await page.locator('.ce-spell-results .chip').first().click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.locator('.pc-stats .stat-ac')).toHaveAttribute('title', /Armadura de sombras/);
   const blast = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Descarga sobrenatural' });
@@ -1328,6 +1337,7 @@ test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con 
   for (const q of ['descarga sobrenatural', 'maleficio', 'bendición']) {
     await page.getByLabel(/^Buscar conjuro/).fill(q);
     await page.locator('.ce-spell-results .chip').first().click();
+    await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   }
   await page.getByRole('button', { name: 'Listo' }).first().click();
 
@@ -1443,12 +1453,14 @@ test('multiclase: cada clase prepara sus conjuros, hasta su nivel, y se eligen p
   for (const q of ['castigo divino', 'bendición']) {
     await page.getByLabel(/^Buscar conjuro/).fill(q);
     await page.locator('.ce-spell-results .chip').first().click();
+    await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   }
   await expect(pal).toContainText('Conjuros preparados 1 de 4');
   // por pestañas: brujo, trucos
   await page.getByRole('tab', { name: 'Brujo' }).click();
   await page.getByRole('tab', { name: 'Trucos' }).click();
   await page.locator('.ce-spell-results .chip', { hasText: 'Descarga sobrenatural' }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await expect(war).toContainText('Trucos 1 de 3');
   // los elegidos siguen las pestañas
   const chosen = page.locator('.ce-chosen');
@@ -1460,6 +1472,7 @@ test('multiclase: cada clase prepara sus conjuros, hasta su nivel, y se eligen p
   await page.getByRole('tab', { name: 'Brujo' }).click();
   await page.getByRole('tab', { name: 'Nivel 3' }).click();
   await page.locator('.ce-spell-results .chip', { hasText: 'Disipar magia' }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   // en la hoja: Disipar magia es del brujo (el paladín 3 no llega a nivel 3) y Castigo divino, siempre preparado
   const sheetSp = page.locator('section[aria-label="Conjuros"]');
@@ -1488,6 +1501,7 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   for (const q of ['favor divino', 'castigo abrasador', 'arma mágica']) {
     await page.getByLabel(/^Buscar conjuro/).fill(q);
     await page.locator('.ce-spell-results .chip').first().click();
+    await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   }
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const atk = page.locator('section[aria-label="Ataques"]');
@@ -1523,6 +1537,7 @@ test('subir de nivel con PG fijados a mano, habilidades por característica y co
   for (const q of ['marca del cazador', 'detectar magia']) {
     await page.getByLabel(/^Buscar conjuro/).fill(q);
     await page.locator('.ce-spell-results .chip').first().click();
+    await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   }
   await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
@@ -1787,7 +1802,7 @@ test('lanzar conjuros sobre ti: CA, PG máximos, PG temporales, Bendición y con
     await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
     await page.getByLabel('Nivel', { exact: true }).fill(lv);
     await page.getByRole('button', { name: /Matriz estándar/ }).click();
-    for (const q of spells) { await page.getByLabel(/^Buscar conjuro/).fill(q); await page.locator('.ce-spell-results .chip', { hasText: new RegExp('^. ' + q, 'i') }).first().click(); }
+    for (const q of spells) { await page.getByLabel(/^Buscar conjuro/).fill(q); await page.locator('.ce-spell-results .chip', { hasText: new RegExp('^. ' + q, 'i') }).first().click(); await page.getByRole('button', { name: 'Añadir conjuro' }).click(); }
     await page.getByRole('button', { name: 'Listo' }).first().click();
   };
   const sp = page.locator('section[aria-label="Conjuros"]');
@@ -2255,6 +2270,7 @@ test('rasgo propio del personaje con efecto, y conjuro propio con efecto sobre t
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Mago' });
   await page.getByLabel('Buscar conjuro').fill('Coraza de hielo');
   await page.getByRole('button', { name: /\+ Coraza de hielo/ }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   // rasgo propio: +1 a la CA
   await page.getByRole('button', { name: '+ Dote o rasgo propio' }).click();
   await page.locator('#cf-n').fill('Piel de piedra');

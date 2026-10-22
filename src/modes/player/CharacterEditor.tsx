@@ -11,7 +11,7 @@ import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
-import { useSpells } from './spells';
+import { plainText, useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
 import AbilityMethods, { BG_ASI_KEY, bgBonus } from './AbilityMethods';
 import { FxEditor } from './HomebrewPanel';
@@ -40,6 +40,9 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const [askSpell, setAskSpell] = useState<{ id: string; n: string } | null>(null);
   const [nonCasterOk, setNonCasterOk] = useState(false);
   const [newFeat, setNewFeat] = useState<CustomFeat | null>(null);
+  // antes de elegir una dote o un conjuro, su texto en una ventana
+  const [featInfo, setFeatInfo] = useState<{ n: string; cat: string } | null>(null);
+  const [spellInfo, setSpellInfo] = useState<string | null>(null);
   // personaje nuevo: asistente paso a paso (las secciones del editor, una por paso)
   const wizard = usePlayer((s) => s.creating) === c.id;
   const [step, setStep] = useState(0);
@@ -456,10 +459,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
             </div>
           )}
           {spellResults.length > 0 && (
-            <div className="chips ce-spell-results">{spellResults.map((s) => <button key={s.id} className="chip" onClick={() => {
-              if (cls && !d.spell && !nonCasterOk) { setAskSpell({ id: s.id, n: s.n }); return; }
-              set({ spells: [...c.spells, s.id] }); setSpellQ('');
-            }}>+ {s.n} <span className="chip-tag">{s.l ? s.l : 'T'}</span></button>)}</div>
+            <div className="chips ce-spell-results">{spellResults.map((s) => <button key={s.id} className="chip" onClick={() => setSpellInfo(s.id)}>+ {s.n} <span className="chip-tag">{s.l ? s.l : 'T'}</span></button>)}</div>
           )}
           {askSpell && (
             <InfoDialog title="¿Añadir un conjuro?" onClose={() => setAskSpell(null)}>
@@ -489,7 +489,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
             return (
               <Picker key={cat} title={title} summary={mine.join(', ')}>
                 <div className="chips">
-                  {list.map((f) => <button key={f.id} className={c.feats.includes(f.n) ? 'chip on' : 'chip'} aria-pressed={c.feats.includes(f.n)} onClick={() => toggleFeat(f)}>{f.n}</button>)}
+                  {list.map((f) => <button key={f.id} className={c.feats.includes(f.n) ? 'chip on' : 'chip'} aria-pressed={c.feats.includes(f.n)} onClick={() => setFeatInfo({ n: f.n, cat })}>{f.n}</button>)}
                 </div>
               </Picker>
             );
@@ -628,6 +628,43 @@ export default function CharacterEditor({ c }: { c: Character }) {
               : <button className="btn primary" onClick={finish}>Crear personaje</button>}
           </div>
         )}
+
+        {featInfo && (() => {
+          const text = data.feats.find((f) => f.n === featInfo.n)?.d || lib.feats.find((f) => f.n === featInfo.n)?.d || '';
+          const req = lib.feats.find((f) => f.n === featInfo.n)?.req;
+          const has = c.feats.includes(featInfo.n);
+          return (
+            <InfoDialog title={featInfo.n} onClose={() => setFeatInfo(null)}>
+              <p className="muted small" style={{ margin: 0 }}>{CAT_ONE[featInfo.cat as FeatCat] || 'Dote'}{req ? ' · Requisito: ' + req : ''}</p>
+              {text ? <div className="pc-text info-text">{plainText(text)}</div> : <p className="muted small">Sin texto en este dispositivo.</p>}
+              <div className="rollrow">
+                <button className={has ? 'btn small' : 'btn small primary'} onClick={() => { toggleFeat({ n: featInfo.n }); setFeatInfo(null); }}>{has ? 'Quitar dote' : 'Elegir dote'}</button>
+                <button className="btn small ghost" onClick={() => setFeatInfo(null)}>Volver</button>
+              </div>
+            </InfoDialog>
+          );
+        })()}
+        {spellInfo && (() => {
+          const s = spellIdx.get(spellInfo);
+          if (!s) return null;
+          const add = () => {
+            setSpellInfo(null);
+            if (cls && !d.spell && !nonCasterOk) { setAskSpell({ id: s.id, n: s.n }); return; }
+            if (!c.spells.includes(s.id)) set({ spells: [...c.spells, s.id] });
+            setSpellQ('');
+          };
+          return (
+            <InfoDialog title={s.n} onClose={() => setSpellInfo(null)}>
+              <p className="muted small" style={{ margin: 0 }}>{s.l ? 'Nivel ' + s.l : 'Truco'}{s.esc ? ' · ' + s.esc : ''}{s.c ? ' · concentración' : ''}{s.rit ? ' · ritual' : ''}</p>
+              <p className="muted small" style={{ margin: 0 }}>{[s.ct, s.r, s.cmp, s.du].filter(Boolean).join(' · ')}</p>
+              {s.t ? <div className="pc-text info-text">{plainText(s.t)}</div> : <p className="muted small">Sin texto en este dispositivo.</p>}
+              <div className="rollrow">
+                <button className="btn small primary" onClick={add}>{c.spells.includes(s.id) ? 'Ya lo tienes' : 'Añadir conjuro'}</button>
+                <button className="btn small ghost" onClick={() => setSpellInfo(null)}>Volver</button>
+              </div>
+            </InfoDialog>
+          );
+        })()}
 
         <div className="rollrow" data-wstep="x" style={{ justifyContent: 'space-between' }}>
           <button className="btn primary" onClick={finish}>Listo</button>

@@ -1211,3 +1211,4 @@ body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}
 .guest-sheet .pc-head-actions,.guest-sheet .pc-notes,.guest-sheet .pc-hp-row>:not(.pc-conc){display:none !important}
 /* al máster le interesa antes lo de combate (ataques, usos, estados) que las características */
 .guest-sheet .pc-split>.pc-split-col:last-child{order:-1}
+.info-text{white-space:pre-line;max-height:55vh;overflow-y:auto;margin:0}
