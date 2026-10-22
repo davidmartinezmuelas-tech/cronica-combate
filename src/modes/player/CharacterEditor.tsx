@@ -54,7 +54,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
     }
     update(c.id, patch);
   };
-  const d = useMemo(() => derive(c, data), [c, data]);
+  // (las subclases propias de la biblioteca pueden sumar CA, velocidad o resistencias)
+  const d = useMemo(() => derive(c, data), [c, data, lib.subclasses]); // eslint-disable-line react-hooks/exhaustive-deps
   const cls = d.cls;
   // subclases: la del SRD, las de la biblioteca propia para esta clase u «Otra»
   const libSubs = lib.subclasses.filter((s) => s.cls === c.classId);

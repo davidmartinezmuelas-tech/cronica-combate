@@ -4,6 +4,7 @@ import { classEffects, speciesResist, type ClassFx } from './classEffects';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { featCatOf, splitFeatText } from './featText';
 import { choiceSkills, subclassCaster } from './subclassChoices';
+import { ownFeatures } from './homebrew';
 import { norm, uid } from './util';
 
 /** Arma (o ataque) del personaje: de la lista del SRD o propia. */
@@ -292,6 +293,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   if (!worn && effects.some((e) => e.fx.ac?.base13) && 13 + mods.dex > ac) { ac = 13 + mods.dex; acNote = 'Armadura de mago'; }
   if (c.shield) { ac += 2 + (c.shieldBonus || 0); acNote += ' y escudo' + (c.shieldBonus ? ' +' + c.shieldBonus : ''); }
   for (const e of effects) if (e.fx.ac?.add) { ac += e.fx.ac.add; acNote += ' + ' + e.n; }
+  // rasgos propios (subclase de «Mis creaciones») con un bonificador fijo
+  const own = ownFeatures(entries).filter((f) => f.fx.kind === 'bonus');
+  for (const f of own) if (f.fx.ac) { ac += f.fx.ac; acNote += ' + ' + f.n; }
   for (const e of effects) if (e.fx.ac?.min && ac < e.fx.ac.min) { ac = e.fx.ac.min; acNote = e.n + ' (mínimo ' + e.fx.ac.min + ')'; }
 
   const hdDie = cls?.hd || 8;
@@ -394,8 +398,8 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     ac: c.ov.ac ?? ac, acNote: c.ov.ac != null ? 'Ajustada a mano' : acNote,
     init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : half),
     initAdv: cfx.initAdv,
-    speed: c.ov.speed ?? effects.reduce((v, e) => (v + (e.fx.speed?.add || 0)) * (e.fx.speed?.mul || 1), (species?.speed ?? 30) + sum('speed') + speedBonus + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0)),
-    resist: [...speciesResist(c.speciesId, c.choices), ...cfx.resist, ...effects.flatMap((e) => (e.fx.resist || []).map((type) => ({ type, why: e.n })))],
+    speed: c.ov.speed ?? effects.reduce((v, e) => (v + (e.fx.speed?.add || 0)) * (e.fx.speed?.mul || 1), (species?.speed ?? 30) + sum('speed') + speedBonus + own.reduce((t, f) => t + (f.fx.speed || 0), 0) + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0)),
+    resist: [...speciesResist(c.speciesId, c.choices), ...cfx.resist, ...own.filter((f) => f.fx.resist).map((f) => ({ type: f.fx.resist!, why: f.n })), ...effects.flatMap((e) => (e.fx.resist || []).map((type) => ({ type, why: e.n })))],
     effects, bless: effects.some((e) => e.fx.bless), fxHp,
     cfx,
     abil,

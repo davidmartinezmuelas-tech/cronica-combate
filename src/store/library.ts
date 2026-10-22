@@ -1,6 +1,7 @@
 import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { create } from 'zustand';
 import type { LibBackground, LibFeat, LibSpell, LibSubclass } from '../engine/bookImport';
+import { setOwnSubclasses } from '../engine/homebrew';
 
 /**
  * Biblioteca propia: dotes, trasfondos y conjuros que el usuario añade desde su propio libro (importando su PDF o
@@ -84,3 +85,6 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
 }));
 
 const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats, backgrounds: s.backgrounds, spells: s.spells, subclasses: s.subclasses || [] });
+
+// los rasgos propios con bonificadores fijos entran en el cálculo de la hoja
+useLibrary.subscribe((s, prev) => { if (s.subclasses !== prev.subclasses) setOwnSubclasses(s.subclasses); });

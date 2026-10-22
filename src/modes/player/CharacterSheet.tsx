@@ -16,6 +16,8 @@ import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spell
 import { concDc, concOf, withConc, withoutConc } from '../../engine/concentration';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { featureUses } from '../../engine/featureUses';
+import type { HbFx } from '../../engine/homebrew';
+import type { SaveEffect } from '../../engine/saveEffect';
 import { useMobileTabs } from './mobileTabs';
 import { useRoom } from '../../store/room';
 import { fxCond, staleEffects } from '../../engine/spellEffects';
@@ -33,7 +35,7 @@ import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './Sub
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
 
-interface FeatureRow { key: string; n: string; d: string; src: string; max: number | null; per: string }
+interface FeatureRow { key: string; n: string; d: string; src: string; max: number | null; per: string; fx?: HbFx }
 
 /** Reparte bloques en columnas seguidas (se leen de arriba abajo) con alturas lo más parecidas posible, según su peso. */
 function splitCols<T>(items: T[], weight: (x: T) => number, n: number): T[][] {
@@ -87,7 +89,7 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
     libSub?.f.filter((f) => f.lv <= e.level).forEach((f) => {
       const u = f.u || featureUses(f.n, f.d, e.level) || undefined;
       const max = usesMax(u, v, cls);
-      rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: max && max > 0 ? max : null, per: max ? u?.per || '' : '' });
+      rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: max && max > 0 ? max : null, per: max ? u?.per || '' : '', ...(f.fx ? { fx: f.fx } : {}) });
     });
     choiceRows(resolveChoices(v, data, lib)).forEach((r) => rows.push({ ...r, max: null, per: '' }));
   }
@@ -108,8 +110,9 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const { update, replace, setEditing } = usePlayer.getState();
   const spellIdx = useSpells();
   const { roll } = useStore.getState();
-  const d = useMemo(() => derive(c, data), [c, data]);
   const lib = useLibrary();
+  // (las subclases propias de la biblioteca pueden sumar CA, velocidad o resistencias)
+  const d = useMemo(() => derive(c, data), [c, data, lib.subclasses]); // eslint-disable-line react-hooks/exhaustive-deps
   const features = useMemo(() => featureRows(c, data, lib), [c, data, lib]);
   // multiclase: cada clase vista por separado (su nivel y sus datos) para sus paneles de acciones y elecciones
   const views = useMemo(() => classEntries(c).map((e, i): { v: Character; dv: Derived } => ({ v: i === 0 ? c : asClass(c, e), dv: { ...d, cls: data?.classes.find((x) => x.id === e.classId) } })), [c, d, data]);
@@ -117,7 +120,7 @@ export default function CharacterSheet({ c }: { c: Character }) {
   const panelKeys = useMemo(() => new Set(views.flatMap(({ v }) => [...classPanelKeys(v, data), ...actionPanelKeys(v, data, lib)])), [views, data, lib]);
   // rasgos con usos que se gastan desde su propia tarjeta (Astucia mágica, Afinidad con la piedra, Arma de aliento…);
   // Furia y Castigo del paladín se usan desde «Ataques»
-  const usable = features.filter((f) => f.max && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));
+  const usable = features.filter((f) => (f.max || (f.fx && f.fx.kind !== 'bonus' && f.fx.kind !== 'hit')) && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));
   const usableKeys = new Set(usable.map((f) => f.key));
   // subclases escritas que no son del SRD, ni de la biblioteca de este dispositivo, ni de las que la app ya conoce
   const missingSubs = views.map(({ v }) => v.subclass).filter((n, i) => !!n && !subclassText(views[i].v, views[i].dv.cls, lib.subclasses)
@@ -480,6 +483,35 @@ export default function CharacterSheet({ c }: { c: Character }) {
   // conjuros que, mientras duran, suman en cada golpe con arma: se activan como etiquetas en «Ataques»
   // (los del SRD por su nombre en inglés; los del libro del usuario, por el nombre en español)
   const has = (en: string, es: RegExp) => spellList.some((x) => x.s!.en === en || es.test(norm(x.s!.n)));
+  // rasgos propios: la característica que usan (la de conjuros, la mejor de Fuerza y Destreza o una concreta)
+  const hbMod = (a: HbFx['abil']) => (a === 'spell' ? (d.spell ? d.mods[d.spell.abil] : Math.max(d.mods.int, d.mods.wis, d.mods.cha)) : a === 'best' ? Math.max(d.mods.str, d.mods.dex) : d.mods[a || 'str']);
+  const hbButtons = (f: FeatureRow, spend: () => void, left: boolean) => {
+    const fx = f.fx;
+    if (!fx) return null;
+    const m = hbMod(fx.abil);
+    const amount = (fx.dmg || '') + (fx.addMod && m ? sgn(m) : '');
+    const label = (what: string) => who + ' · ' + f.n + ': ' + what;
+    const out: JSX.Element[] = [];
+    const use = (go: () => void) => () => { if (f.max) spend(); go(); };
+    if (fx.kind === 'attack') {
+      const atk = d.pb + m;
+      out.push(<button key="a" className="rollbtn" disabled={!left} onClick={use(() => r(f.n + ': ataque', 'attack', d20b(atk)))}>Ataque {fmt(atk)}</button>);
+      if (fx.dmg) out.push(<button key="d" className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [{ expr: amount, type: fx.type || '' }] })}>Daño {amount}{fx.type ? ' ' + fx.type : ''}</button>);
+    }
+    if (fx.kind === 'save') {
+      const dc = 8 + d.pb + m;
+      const effect: SaveEffect = { dc, abil: ABILS.indexOf(fx.save || 'dex'), half: !!fx.half, conds: fx.cond ? [fx.cond] : [], rounds: null, until: null, repeat: false };
+      out.push(<span key="dc" className="chip-tag">CD {dc} {ABIL_N[fx.save || 'dex']}{fx.half ? ' · mitad si supera' : ''}{fx.cond ? ' · ' + fx.cond : ''}</span>);
+      if (fx.dmg) out.push(<button key="d" className="rollbtn dmg" disabled={!left} onClick={use(() => roll({ label: label('daño'), kind: 'damage', who, by: null, half: !!fx.half, parts: [{ expr: amount, type: fx.type || '' }], effect }))}>Daño {amount}{fx.type ? ' ' + fx.type : ''}</button>);
+    }
+    if (fx.kind === 'heal' && fx.dmg) out.push(<button key="h" className="rollbtn" disabled={!left} onClick={use(() => roll({ label: label('curación'), kind: 'free', heal: true, parts: [{ expr: amount }] }))}>Curar {amount}</button>);
+    if (fx.kind === 'temp' && fx.dmg) out.push(<button key="t" className="rollbtn" disabled={!left} onClick={use(() => roll({ label: label('PG temporales'), kind: 'free', parts: [{ expr: amount }], after: (total) => {
+      const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+      usePlayer.getState().update(c.id, { temp: Math.max(cur.temp, total) });
+      return { resultNote: total > cur.temp ? 'PG temporales: ' + total + '.' : 'Ya tenías ' + cur.temp + ' PG temporales: te quedas con esos.' };
+    } }))}>PG temporales {amount}</button>);
+    return out.length ? out : null;
+  };
   const hitBuffs = [
     ...(markDie || has("Hunter's Mark", /^marca del cazador$/) ? [{ key: 'mark', n: 'Marca del cazador', dmg: markDie || '1d6', type: 'fuerza', atk: 0, conc: true, why: 'su daño de fuerza en cada golpe al objetivo marcado' }] : []),
     ...(has('Hex', /^maleficio$/) ? [{ key: 'hex', n: 'Maleficio', dmg: '1d6', type: 'necrótico', atk: 0, conc: true, why: '1d6 necrótico en cada golpe al objetivo maldito' }] : []),
@@ -487,6 +519,11 @@ export default function CharacterSheet({ c }: { c: Character }) {
     ...(has("Crusader's Mantle", /^manto del cruzado$/) ? [{ key: 'mantle', n: 'Manto del cruzado', dmg: '1d4', type: 'radiante', atk: 0, conc: true, why: '1d4 radiante en cada golpe con arma (concentración)' }] : []),
     ...(has('Elemental Weapon', /^arma elemental$/) ? [{ key: 'elemental', n: 'Arma elemental', dmg: '1d4', type: '', atk: 1, conc: true, why: '+1 al ataque y 1d4 del tipo elegido con el arma encantada (a nivel 3)' }] : []),
     ...(has('Magic Weapon', /^arma magica$/) ? [{ key: 'magic', n: 'Arma mágica', dmg: '1', type: '', atk: 1, conc: false, why: '+1 al ataque y al daño con el arma encantada (a nivel 2)' }] : []),
+    // rasgos propios (subclase de «Mis creaciones») que suman daño al golpear
+    ...features.filter((f) => f.fx?.kind === 'hit' && f.fx.dmg).map((f) => {
+      const m = f.fx!.addMod ? hbMod(f.fx!.abil) : 0;
+      return { key: 'own:' + f.key, n: f.n, dmg: f.fx!.dmg! + (m ? sgn(m) : ''), type: f.fx!.type || '', atk: 0, conc: false, why: f.fx!.dmg + (m ? sgn(m) : '') + (f.fx!.type ? ' ' + f.fx!.type : '') + ' en cada golpe (' + f.src + ')' };
+    }),
   ];
   const toggleBuff = (b: (typeof hitBuffs)[number]) => {
     const on = buffs.includes(b.key);
@@ -968,17 +1005,18 @@ export default function CharacterSheet({ c }: { c: Character }) {
           <h3 className="eyebrow">Rasgos con usos</h3>
           <ul className="pc-features grid acts">
             {usable.map((f) => {
-              const used = Math.min(f.max!, c.uses[f.key] || 0);
+              const used = f.max ? Math.min(f.max, c.uses[f.key] || 0) : 0;
               const spend = (patch: Partial<Character> = {}) => set({ ...patch, uses: { ...c.uses, [f.key]: used + 1 } });
               // Astucia mágica (brujo): recupera la mitad de los espacios de pacto (redondeando arriba); con Maestro arcano, todos
               const cunning = f.key === 'Astucia mágica' && d.pact ? Math.min(c.pactUsed, classLevel(c, 'warlock') >= 20 ? d.pact.n : Math.ceil(d.pact.n / 2)) : null;
               return (
                 <li key={f.key}>
                   <Card name={f.n} head={<>
-                    <span className="muted small">{f.src} · {f.per === 'sr' ? 'descanso corto o largo' : 'descanso largo'}</span>
+                    <span className="muted small">{f.src}{f.max ? ' · ' + (f.per === 'sr' ? 'descanso corto o largo' : 'descanso largo') : ''}</span>
                     <span className="rollrow">
-                      <Pips max={f.max!} used={used} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} />
-                      {cunning != null
+                      {f.max ? <Pips max={f.max} used={used} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(f.max!, v)) } })} /> : null}
+                      {f.fx && hbButtons(f, () => spend(), !f.max || used < f.max)}
+                      {f.fx ? null : cunning != null
                         ? <button className="btn small" disabled={used >= f.max! || cunning <= 0} title="Recupera espacios de pacto gastados" onClick={() => spend({ pactUsed: c.pactUsed - cunning })}>{cunning > 0 ? 'Usar: recupera ' + cunning + (cunning === 1 ? ' espacio de pacto' : ' espacios de pacto') : 'Usar (no has gastado espacios de pacto)'}</button>
                         : <button className="btn small" disabled={used >= f.max!} onClick={() => spend()}>Usar (gasta un uso)</button>}
                     </span>

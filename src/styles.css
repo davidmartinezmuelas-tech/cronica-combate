@@ -1182,3 +1182,6 @@ body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}
 .hb-uses .field{flex:1 1 150px}
 .hb-extra{flex-direction:row;align-items:center;gap:8px}
 .hb-extra .input{width:72px}
+.hb-fx{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;padding-top:8px;border-top:1px dashed #5c5046}
+.hb-fx .field{flex:1 1 160px}
+.hb-fx .check{flex:0 0 auto}

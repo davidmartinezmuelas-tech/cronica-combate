@@ -2134,3 +2134,60 @@ test('subclase propia: se escribe en «Mis creaciones», se elige en el personaj
   await page.getByRole('button', { name: 'Subir de nivel' }).click();
   await expect(page.locator('.lvl')).toContainText('Vista de halcón');
 });
+
+test('subclase propia con efectos: ataque, salvación, curación, daño extra al golpear y bonificador fijo funcionan en la hoja', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nombre de la subclase').fill('Garra Roja');
+  const feat = async (i: number, name: string, kind: string) => {
+    await page.getByRole('button', { name: '+ Rasgo de nivel 3' }).click();
+    await page.getByLabel('Rasgo', { exact: true }).nth(i).fill(name);
+    await page.getByLabel('Efecto en la hoja').nth(i).selectOption({ label: kind });
+  };
+  await feat(0, 'Zarpazo', 'Tirada de ataque');
+  await page.locator('#hb0ab').selectOption({ label: 'Destreza' });
+  await page.locator('#hb0dmg').fill('1d8');
+  await page.locator('#hb0ty').selectOption('cortante');
+  await feat(1, 'Rugido', 'Salvación con tu CD');
+  await page.locator('#hb1ab').selectOption({ label: 'Constitución' });
+  await page.locator('#hb1sv').selectOption({ label: 'Sabiduría' });
+  await page.locator('#hb1dmg').fill('2d6');
+  await page.locator('#hb1ty').selectOption('trueno');
+  await page.locator('#hb1co').selectOption('Asustado');
+  await page.getByLabel('Usos').nth(1).selectOption({ label: 'Un número fijo' });
+  await feat(2, 'Sangre caliente', 'Curación');
+  await page.locator('#hb2dmg').fill('1d10');
+  await feat(3, 'Garra ardiente', 'Daño extra al golpear');
+  await page.locator('#hb3dmg').fill('1d4');
+  await page.locator('#hb3ty').selectOption('fuego');
+  await feat(4, 'Piel de escamas', 'Bonificador fijo');
+  await page.locator('#hb4ac').fill('1');
+  await page.locator('#hb4re').selectOption('fuego');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Rhea');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.locator('#ce-subsel').selectOption({ label: 'Garra Roja (propia)' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+
+  const panel = page.getByRole('region', { name: 'Rasgos con usos' });
+  // la CA lleva el +1 (sin armadura: 10 + Des + 1) y la resistencia al fuego
+  const dex = Number((await page.locator('[data-abil=dex] .pc-abil-mod b').first().innerText()).replace('−', '-'));
+  await expect(page.locator('.stat').filter({ hasText: 'CA' }).first()).toContainText(String(10 + dex + 1));
+  // ataque con Destreza y competencia (+2) y su daño
+  await expect(panel.getByRole('button', { name: 'Ataque ' + (dex + 2 >= 0 ? '+' : '') + (dex + 2) })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Daño 1d8 cortante' })).toBeVisible();
+  // salvación: CD 8 + 2 + Con, con su estado; gasta su uso
+  await expect(panel).toContainText(/CD \d+ Sabiduría · mitad si supera · Asustado/);
+  await panel.getByRole('button', { name: 'Daño 2d6 trueno' }).click();
+  await expect(panel.getByRole('button', { name: 'Daño 2d6 trueno' })).toBeDisabled();
+  await expect(panel.getByRole('button', { name: 'Curar 1d10' })).toBeVisible();
+  // el daño extra sale como etiqueta en los ataques
+  await expect(page.getByRole('button', { name: /Garra ardiente/ }).first()).toBeVisible();
+});

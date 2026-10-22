@@ -1,12 +1,77 @@
 import { useState } from 'react';
 import { ABILS, type Abil, type Uses } from '../../data/player';
+import { CONDITIONS, DMG_TYPES } from '../../data/constants';
 import type { LibSubclass } from '../../engine/bookImport';
+import { validDice, type HbFx } from '../../engine/homebrew';
 import { norm, uid } from '../../engine/util';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 type Feature = LibSubclass['f'][number];
+
+const KINDS: [HbFx['kind'] | '', string][] = [['', 'Solo texto'], ['attack', 'Tirada de ataque'], ['save', 'Salvación con tu CD'], ['heal', 'Curación'], ['temp', 'PG temporales'], ['hit', 'Daño extra al golpear'], ['bonus', 'Bonificador fijo']];
+const ABIL_OPTS: [NonNullable<HbFx['abil']>, string][] = [['str', 'Fuerza'], ['dex', 'Destreza'], ['best', 'La mejor de Fuerza y Destreza'], ['spell', 'Tu característica de conjuros'], ['con', 'Constitución'], ['int', 'Inteligencia'], ['wis', 'Sabiduría'], ['cha', 'Carisma']];
+
+/** El efecto de un rasgo propio: lo que la hoja sabe tirar o sumar (ataque, salvación, curación, daño extra, bonificador). */
+function FxEditor({ id, fx, set }: { id: string; fx: HbFx | undefined; set: (fx: HbFx | undefined) => void }) {
+  const k = fx?.kind || '';
+  const put = (patch: Partial<HbFx>) => set({ ...(fx as HbFx), ...patch });
+  const dice = (label: string) => (
+    <div className="field"><label htmlFor={id + 'dmg'}>{label}</label>
+      <input id={id + 'dmg'} className="input" value={fx?.dmg || ''} placeholder="2d6" onChange={(e) => put({ dmg: e.target.value.replace(/\s+/g, '') })} /></div>
+  );
+  const abil = (label: string) => (
+    <div className="field"><label htmlFor={id + 'ab'}>{label}</label>
+      <select id={id + 'ab'} className="input" value={fx?.abil || 'str'} onChange={(e) => put({ abil: e.target.value as HbFx['abil'] })}>
+        {ABIL_OPTS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+      </select></div>
+  );
+  const type = (
+    <div className="field"><label htmlFor={id + 'ty'}>Tipo de daño</label>
+      <select id={id + 'ty'} className="input" value={fx?.type || ''} onChange={(e) => put({ type: e.target.value })}>
+        <option value="">Sin tipo</option>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+      </select></div>
+  );
+  const addMod = <label className="check small"><input type="checkbox" checked={!!fx?.addMod} onChange={(e) => put({ addMod: e.target.checked })} />Sumar el modificador</label>;
+  const badDice = !!fx?.dmg && !validDice(fx.dmg);
+  return (
+    <div className="hb-fx">
+      <div className="field"><label htmlFor={id + 'k'}>Efecto en la hoja</label>
+        <select id={id + 'k'} className="input" value={k} onChange={(e) => {
+          const v = e.target.value as HbFx['kind'] | '';
+          set(v ? { kind: v, abil: v === 'save' || v === 'heal' || v === 'temp' ? 'spell' : 'str', ...(v === 'save' ? { save: 'dex', half: true } : {}) } : undefined);
+        }}>
+          {KINDS.map(([v, n]) => <option key={v} value={v}>{n}</option>)}
+        </select></div>
+      {k === 'attack' && <>{abil('Característica del ataque')}{dice('Daño')}{type}{addMod}</>}
+      {k === 'save' && <>
+        {abil('Característica de la CD')}
+        <div className="field"><label htmlFor={id + 'sv'}>Salvación del objetivo</label>
+          <select id={id + 'sv'} className="input" value={fx?.save || 'dex'} onChange={(e) => put({ save: e.target.value as HbFx['save'] })}>
+            {ABILS.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+          </select></div>
+        {dice('Daño (opcional)')}{type}
+        <label className="check small"><input type="checkbox" checked={!!fx?.half} onChange={(e) => put({ half: e.target.checked })} />Mitad de daño si la supera</label>
+        <div className="field"><label htmlFor={id + 'co'}>Estado si falla</label>
+          <select id={id + 'co'} className="input" value={fx?.cond || ''} onChange={(e) => put({ cond: e.target.value || undefined })}>
+            <option value="">Ninguno</option>{CONDITIONS.map(([n]) => <option key={n} value={n}>{n}</option>)}
+          </select></div>
+      </>}
+      {(k === 'heal' || k === 'temp') && <>{dice(k === 'heal' ? 'Cura' : 'PG temporales')}{abil('Característica')}{addMod}</>}
+      {k === 'hit' && <>{dice('Daño extra')}{type}{abil('Característica')}{addMod}</>}
+      {k === 'bonus' && <>
+        <div className="field"><label htmlFor={id + 'ac'}>CA</label><input id={id + 'ac'} className="input" type="number" value={fx?.ac ?? ''} placeholder="+1" onChange={(e) => put({ ac: parseInt(e.target.value, 10) || undefined })} /></div>
+        <div className="field"><label htmlFor={id + 'sp'}>Velocidad (pies)</label><input id={id + 'sp'} className="input" type="number" step={5} value={fx?.speed ?? ''} placeholder="+10" onChange={(e) => put({ speed: parseInt(e.target.value, 10) || undefined })} /></div>
+        <div className="field"><label htmlFor={id + 're'}>Resistencia</label>
+          <select id={id + 're'} className="input" value={fx?.resist || ''} onChange={(e) => put({ resist: e.target.value || undefined })}>
+            <option value="">Ninguna</option>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select></div>
+      </>}
+      {badDice && <p className="warn small" style={{ margin: 0 }}>Escribe los dados como 2d6, 1d8+2 o 5.</p>}
+    </div>
+  );
+}
 
 /** Usos de un rasgo propio, en la forma de los datos de la app («2», «@prof», «max(1, @abilities.cha.mod)»). */
 type UseKind = '' | 'n' | 'pb' | 'mod';
@@ -129,6 +194,7 @@ export default function HomebrewPanel() {
                   </div>
                 );
               })()}
+              <FxEditor id={'hb' + i} fx={f.fx} set={(fx) => setF(i, { fx })} />
             </div>
           ))}
           <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => add(lv)}>+ Rasgo de nivel {lv}</button>
