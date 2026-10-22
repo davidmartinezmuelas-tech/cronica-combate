@@ -260,7 +260,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
               <select id="ce-subsel" className="input" value={subValue} onChange={(e) => { const v = e.target.value; set({ subclass: v === 'srd' ? cls?.sub?.n || '' : v === 'other' ? (subValue === 'other' ? c.subclass : 'Otra subclase') : v.startsWith('lib:') ? v.slice(4) : '' }); }}>
                 <option value="">Sin subclase</option>
                 {cls?.sub && <option value="srd">{cls.sub.n}</option>}
-                {libSubs.map((s) => <option key={s.id} value={'lib:' + s.n}>{s.n}</option>)}
+                {libSubs.map((s) => <option key={s.id} value={'lib:' + s.n}>{s.n}{s.own ? ' (propia)' : ''}</option>)}
                 <option value="other">Otra (escríbela)</option>
               </select></div>
             {subValue === 'other' && <div className="field"><label htmlFor="ce-sub">Nombre de la subclase</label><input id="ce-sub" className="input" value={c.subclass} onChange={(e) => set({ subclass: e.target.value })} /></div>}

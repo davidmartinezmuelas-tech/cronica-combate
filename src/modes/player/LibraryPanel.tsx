@@ -3,6 +3,7 @@ import { ABILS, type Abil } from '../../data/player';
 import type { LibBackground } from '../../engine/bookImport';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
+import HomebrewPanel from './HomebrewPanel';
 import { NO_TEXT, NO_TEXT_HELP, readBook, type BookResult } from '../../store/bookReader';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
@@ -118,6 +119,8 @@ export default function LibraryPanel() {
         )}
         {msg && <p className="warn" role="status" style={{ margin: 0 }}>{msg}</p>}
       </div>
+
+      <HomebrewPanel />
 
       {found && (
         <div className="panel">

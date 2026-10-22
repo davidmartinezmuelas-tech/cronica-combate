@@ -1,0 +1,149 @@
+import { useState } from 'react';
+import { ABILS, type Abil, type Uses } from '../../data/player';
+import type { LibSubclass } from '../../engine/bookImport';
+import { norm, uid } from '../../engine/util';
+import { useLibrary } from '../../store/library';
+import { usePlayer } from '../../store/player';
+
+const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
+type Feature = LibSubclass['f'][number];
+
+/** Usos de un rasgo propio, en la forma de los datos de la app («2», «@prof», «max(1, @abilities.cha.mod)»). */
+type UseKind = '' | 'n' | 'pb' | 'mod';
+const kindOf = (u?: Uses): { k: UseKind; n: number; a: Abil } => {
+  if (!u) return { k: '', n: 1, a: 'cha' };
+  if (u.max === '@prof') return { k: 'pb', n: 1, a: 'cha' };
+  const m = /@abilities\.(\w+)\.mod/.exec(u.max);
+  if (m) return { k: 'mod', n: 1, a: m[1] as Abil };
+  return { k: 'n', n: parseInt(u.max, 10) || 1, a: 'cha' };
+};
+const usesOf = (k: UseKind, n: number, a: Abil, per: string): Uses | undefined =>
+  k === 'n' ? { max: String(Math.max(1, Math.min(10, n))), per } : k === 'pb' ? { max: '@prof', per } : k === 'mod' ? { max: 'max(1, @abilities.' + a + '.mod)', per } : undefined;
+
+/**
+ * Mis creaciones: subclases propias (homebrew o de otros libros) escritas a mano, nivel a nivel. Se guardan en la
+ * biblioteca de este dispositivo como una subclase más, así que el editor, la subida de nivel y la hoja las usan igual.
+ */
+export default function HomebrewPanel() {
+  const lib = useLibrary();
+  const data = usePlayer((s) => s.data);
+  const [draft, setDraft] = useState<LibSubclass | null>(null);
+  const [confirmDel, setConfirmDel] = useState('');
+  const [extraLv, setExtraLv] = useState(1);
+  const own = lib.subclasses.filter((s) => s.own);
+  const classes = data?.classes || [];
+  const clsName = (id: string) => classes.find((k) => k.id === id)?.n || id;
+
+  const save = () => {
+    if (!draft || !draft.n.trim()) return;
+    const clean: LibSubclass = { ...draft, n: draft.n.trim(), own: true, f: draft.f.filter((f) => f.n.trim()).sort((a, b) => a.lv - b.lv) };
+    void lib.save({ subclasses: [...lib.subclasses.filter((s) => s.id !== clean.id), clean] });
+    setDraft(null);
+  };
+
+  if (!draft) {
+    return (
+      <div className="panel" aria-label="Mis creaciones">
+        <div className="panel-head"><h2>Mis creaciones</h2></div>
+        <p className="muted small" style={{ margin: 0 }}>Subclases propias, de tu mesa o de otros libros: escribe sus rasgos nivel a nivel y aparecerán al crear el personaje, al subir de nivel y en su hoja, con sus usos. Se guardan en este dispositivo (y van en «Exportar biblioteca» para pasárselas a tu grupo).</p>
+        {own.length > 0 && (
+          <ul className="hb-list">
+            {own.map((s) => (
+              <li key={s.id}>
+                <span><b>{s.n}</b> <span className="muted small">subclase de {clsName(s.cls)} · {s.f.length} {s.f.length === 1 ? 'rasgo' : 'rasgos'}</span></span>
+                <span className="rollrow">
+                  <button className="btn small" onClick={() => setDraft(s)}>Editar</button>
+                  <button className="btn small ghost" onClick={() => { if (confirmDel === s.id) { void lib.save({ subclasses: lib.subclasses.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button className="btn small primary" style={{ alignSelf: 'flex-start' }} disabled={!classes.length} onClick={() => setDraft({ id: 'own-' + uid(), n: '', cls: classes[0]?.id || '', d: '', f: [], own: true })}>Crear subclase</button>
+      </div>
+    );
+  }
+
+  const cls = classes.find((k) => k.id === draft.cls);
+  // los niveles en que la clase gana rasgos de subclase (los de su subclase del SRD) y los que ya tengan rasgos
+  const levels = [...new Set([...(cls?.sub?.f.map((f) => f.lv) || [3]), ...draft.f.map((f) => f.lv)])].sort((a, b) => a - b);
+  const setF = (i: number, patch: Partial<Feature>) => setDraft({ ...draft, f: draft.f.map((f, j) => (j === i ? { ...f, ...patch } : f)) });
+  const add = (lv: number) => setDraft({ ...draft, f: [...draft.f, { lv, n: '', d: '' }] });
+  const taken = lib.subclasses.some((s) => s.id !== draft.id && s.cls === draft.cls && norm(s.n) === norm(draft.n)) || (!!cls?.sub && norm(cls.sub.n) === norm(draft.n));
+
+  return (
+    <div className="panel hb-edit" aria-label="Subclase propia">
+      <div className="panel-head">
+        <h2>{draft.n || 'Subclase nueva'}</h2>
+        <span className="rollrow">
+          <button className="btn small primary" disabled={!draft.n.trim() || taken} onClick={save}>Guardar</button>
+          <button className="btn small ghost" onClick={() => setDraft(null)}>Cancelar</button>
+        </span>
+      </div>
+      <div className="row2">
+        <div className="field"><label htmlFor="hb-cls">Clase</label>
+          <select id="hb-cls" className="input" value={draft.cls} onChange={(e) => setDraft({ ...draft, cls: e.target.value })}>
+            {classes.map((k) => <option key={k.id} value={k.id}>{k.n}</option>)}
+          </select></div>
+        <div className="field"><label htmlFor="hb-n">Nombre de la subclase</label>
+          <input id="hb-n" className="input" value={draft.n} placeholder="Juramento del Alba, Colegio de las Sombras…" onChange={(e) => setDraft({ ...draft, n: e.target.value })} /></div>
+      </div>
+      {taken && <p className="warn small" style={{ margin: 0 }}>Ya hay una subclase de {clsName(draft.cls)} con ese nombre.</p>}
+      <div className="field"><label htmlFor="hb-d">Descripción (opcional)</label>
+        <textarea id="hb-d" className="input" rows={2} value={draft.d} onChange={(e) => setDraft({ ...draft, d: e.target.value })} /></div>
+      <p className="muted small" style={{ margin: 0 }}>Si ya la lleva algún personaje y le cambias el nombre, vuelve a elegirla en su «Editar hoja».</p>
+
+      {levels.map((lv) => (
+        <fieldset key={lv} className="fs hb-level">
+          <legend>Nivel {lv}</legend>
+          {draft.f.map((f, i) => f.lv !== lv ? null : (
+            <div key={i} className="hb-feat">
+              <div className="field"><label htmlFor={'hb-fn' + i}>Rasgo</label>
+                <input id={'hb-fn' + i} className="input" value={f.n} placeholder="Nombre del rasgo" onChange={(e) => setF(i, { n: e.target.value })} /></div>
+              <div className="field"><label htmlFor={'hb-fd' + i}>Qué hace</label>
+                <textarea id={'hb-fd' + i} className="input" rows={3} value={f.d} onChange={(e) => setF(i, { d: e.target.value })} /></div>
+              {(() => {
+                const u = kindOf(f.u);
+                const per = f.u?.per || 'lr';
+                return (
+                  <div className="hb-uses">
+                    <div className="field"><label htmlFor={'hb-fu' + i}>Usos</label>
+                      <select id={'hb-fu' + i} className="input" value={u.k} onChange={(e) => setF(i, { u: usesOf(e.target.value as UseKind, u.n, u.a, per) })}>
+                        <option value="">Sin límite</option>
+                        <option value="n">Un número fijo</option>
+                        <option value="pb">Tu bono de competencia</option>
+                        <option value="mod">Tu modificador de…</option>
+                      </select></div>
+                    {u.k === 'n' && <div className="field"><label htmlFor={'hb-fun' + i}>Cuántos</label>
+                      <input id={'hb-fun' + i} className="input" type="number" min={1} max={10} value={u.n} onChange={(e) => setF(i, { u: usesOf('n', parseInt(e.target.value, 10) || 1, u.a, per) })} /></div>}
+                    {u.k === 'mod' && <div className="field"><label htmlFor={'hb-fua' + i}>Característica</label>
+                      <select id={'hb-fua' + i} className="input" value={u.a} onChange={(e) => setF(i, { u: usesOf('mod', u.n, e.target.value as Abil, per) })}>
+                        {ABILS.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                      </select></div>}
+                    {u.k && <div className="field"><label htmlFor={'hb-fup' + i}>Se recuperan</label>
+                      <select id={'hb-fup' + i} className="input" value={per} onChange={(e) => setF(i, { u: usesOf(u.k, u.n, u.a, e.target.value) })}>
+                        <option value="sr">En un descanso corto o largo</option>
+                        <option value="lr">En un descanso largo</option>
+                      </select></div>}
+                    <button className="btn small ghost" onClick={() => setDraft({ ...draft, f: draft.f.filter((_, j) => j !== i) })}>Quitar rasgo</button>
+                  </div>
+                );
+              })()}
+            </div>
+          ))}
+          <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => add(lv)}>+ Rasgo de nivel {lv}</button>
+        </fieldset>
+      ))}
+      <div className="rollrow">
+        <label className="field hb-extra">Otro nivel
+          <input className="input" type="number" min={1} max={20} value={extraLv} onChange={(e) => setExtraLv(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1)))} />
+        </label>
+        <button className="btn small" onClick={() => add(extraLv)}>+ Rasgo en ese nivel</button>
+      </div>
+      <div className="rollrow">
+        <button className="btn primary" disabled={!draft.n.trim() || taken} onClick={save}>Guardar subclase</button>
+        <button className="btn ghost" onClick={() => setDraft(null)}>Cancelar</button>
+      </div>
+    </div>
+  );
+}

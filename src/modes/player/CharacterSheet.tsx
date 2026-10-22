@@ -85,7 +85,7 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
     // subclase de la biblioteca propia (si es la elegida)
     const libSub = lib.subclasses.find((s) => s.cls === e.classId && norm(s.n) === norm(e.subclass));
     libSub?.f.filter((f) => f.lv <= e.level).forEach((f) => {
-      const u = featureUses(f.n, f.d, e.level) || undefined;
+      const u = f.u || featureUses(f.n, f.d, e.level) || undefined;
       const max = usesMax(u, v, cls);
       rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: max && max > 0 ? max : null, per: max ? u?.per || '' : '' });
     });

@@ -2103,3 +2103,34 @@ test.describe('asistente para crear personaje', () => {
     await expect(steps).toHaveCount(0);
   });
 });
+
+test('subclase propia: se escribe en «Mis creaciones», se elige en el personaje y sus rasgos salen con sus usos y al subir de nivel', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nombre de la subclase').fill('Orden del Halcón');
+  await page.getByRole('button', { name: '+ Rasgo de nivel 3' }).click();
+  await page.getByLabel('Rasgo', { exact: true }).fill('Picado');
+  await page.getByLabel('Qué hace').fill('Te lanzas en picado: +2d6 al daño del siguiente ataque.');
+  await page.getByLabel('Usos').selectOption({ label: 'Tu bono de competencia' });
+  await page.getByRole('button', { name: '+ Rasgo de nivel 7' }).click();
+  await page.getByLabel('Rasgo', { exact: true }).nth(1).fill('Vista de halcón');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+  await expect(page.getByText('subclase de Guerrero · 2 rasgos')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Kael');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('6');
+  await page.locator('#ce-subsel').selectOption({ label: 'Orden del Halcón (propia)' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // su rasgo de nivel 3, con 3 usos (bono de competencia a nivel 6)
+  await expect(page.getByText('Picado').first()).toBeVisible();
+  await expect(page.getByRole('group', { name: /Picado: 3 de 3 disponibles/ })).toBeVisible();
+  await expect(page.getByText('Vista de halcón')).toHaveCount(0);
+  // al subir a 7, la subida de nivel lo enseña
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  await expect(page.locator('.lvl')).toContainText('Vista de halcón');
+});

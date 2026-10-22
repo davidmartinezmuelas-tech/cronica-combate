@@ -58,6 +58,9 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
 
   async clear() {
     await get().init();
+    // lo importado del libro se va; las creaciones propias se quedan
+    const own = get().subclasses.filter((s) => s.own);
+    if (own.length) { const d = { ...empty(), subclasses: own }; persist(d); set(d); return; }
     void idbDel(KEY, store()).catch(() => { /* nada */ });
     set({ ...empty() });
   },
