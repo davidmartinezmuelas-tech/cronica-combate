@@ -104,7 +104,7 @@ const usesOf = (k: UseKind, n: number, a: Abil, per: string): Uses | undefined =
 
 /**
  * Mis creaciones: subclases propias (homebrew o de otros libros) escritas a mano, nivel a nivel. Se guardan en la
- * biblioteca de este dispositivo como una subclase más, así que el editor, la subida de nivel y la hoja las usan igual.
+ * biblioteca (y, con cuenta, en la nube) como una subclase más, así que el editor, la subida de nivel y la hoja las usan igual.
  */
 export default function HomebrewPanel() {
   const lib = useLibrary();
@@ -127,7 +127,7 @@ export default function HomebrewPanel() {
     return (
       <div className="panel" aria-label="Mis creaciones">
         <div className="panel-head"><h2>Mis creaciones</h2></div>
-        <p className="muted small" style={{ margin: 0 }}>Subclases y conjuros propios, de tu mesa o de otros libros: escribe sus rasgos nivel a nivel o lo que hace el conjuro, y funcionarán en el personaje como los demás. Se guardan en este dispositivo (y van en «Exportar biblioteca» para pasárselas a tu grupo).</p>
+        <p className="muted small" style={{ margin: 0 }}>Subclases y conjuros propios, de tu mesa o de otros libros: escribe sus rasgos nivel a nivel o lo que hace el conjuro, y funcionarán en el personaje como los demás. Se guardan en este dispositivo y, si tienes cuenta, también en la nube para tenerlas en todos tus dispositivos. Van en «Exportar biblioteca» para pasárselas a tu grupo.</p>
         <h3 className="eyebrow">Subclases propias</h3>
         {own.length > 0 && (
           <ul className="hb-list">

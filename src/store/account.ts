@@ -4,6 +4,8 @@ import { applyItems, diffCharacters, diffItems, mergeCharacters, mergeItems, typ
 import { cloudError, firebaseAdapter, type CloudAdapter, type CloudUser, type DmKind } from './cloudAdapter';
 import { usePlayer } from './player';
 import { useStore } from './useStore';
+import { useLibrary } from './library';
+import type { LibSpell, LibSubclass } from '../engine/bookImport';
 
 /**
  * Cuenta opcional (Google o correo) y sincronización de los personajes con la nube. Sin cuenta todo sigue en el
@@ -50,10 +52,10 @@ let stopAuth: (() => void) | null = null;
 let stopSync: (() => void) | null = null;
 
 /** Dónde vive en el almacén del máster cada cosa que se guarda en la cuenta. */
-const DM_KEYS: Record<DmKind, 'custom' | 'encounters' | 'roster'> = { monsters: 'custom', encounters: 'encounters', roster: 'roster' };
+const DM_KEYS: Record<Exclude<DmKind, 'creations'>, 'custom' | 'encounters' | 'roster'> = { monsters: 'custom', encounters: 'encounters', roster: 'roster' };
 type DmItem = Monster | Encounter | RosterEntry;
 /** La hoja en PDF de un jugador del grupo se queda en el dispositivo donde se subió: no va a la nube. */
-const toCloudItem = (kind: DmKind, x: DmItem) => (kind === 'roster' ? { ...(x as RosterEntry), pdf: null } : x);
+const toCloudItem = (kind: Exclude<DmKind, 'creations'>, x: DmItem) => (kind === 'roster' ? { ...(x as RosterEntry), pdf: null } : x);
 
 /** Espera a que el almacén del máster haya cargado lo guardado en el dispositivo. */
 function dmLoaded(): Promise<void> {
@@ -68,7 +70,7 @@ function dmLoaded(): Promise<void> {
 async function startDmSync(a: CloudAdapter, uid: string, onError: (e: unknown) => void, onOk: () => void): Promise<() => void> {
   await dmLoaded();
   const stops: (() => void)[] = [];
-  for (const kind of Object.keys(DM_KEYS) as DmKind[]) {
+  for (const kind of Object.keys(DM_KEYS) as Exclude<DmKind, 'creations'>[]) {
     const key = DM_KEYS[kind];
     const list = () => useStore.getState()[key] as DmItem[];
     let applying = false;
@@ -113,6 +115,61 @@ async function startDmSync(a: CloudAdapter, uid: string, onError: (e: unknown) =
     stops.push(() => pending.forEach((t) => clearTimeout(t)));
   }
   return () => stops.forEach((f) => f());
+}
+
+/**
+ * Subclases y conjuros propios («Mis creaciones») en la cuenta del jugador, como los datos del máster: cada cambio
+ * se fecha y se sube; de la nube solo se aplica lo más reciente. Lo importado del libro no sale del dispositivo.
+ */
+type Creation = (LibSubclass | LibSpell) & { at?: number };
+const isSub = (x: Creation): x is LibSubclass => 'cls' in x;
+async function startCreationsSync(a: CloudAdapter, uid: string, onError: (e: unknown) => void, onOk: () => void): Promise<() => void> {
+  await useLibrary.getState().init();
+  const lib = () => useLibrary.getState();
+  const list = (s = lib()): Creation[] => [...s.subclasses.filter((x) => x.own), ...s.spells.filter((x) => x.own)];
+  let applying = false;
+  let ready = false;
+  const pending = new Map<string, ReturnType<typeof setTimeout>>();
+  const setList = async (next: Creation[]) => {
+    applying = true;
+    const s = lib();
+    const clean = (x: Creation) => { const { kind: _k, ...rest } = x as Creation & { kind?: string }; return rest as Creation; };
+    const own = next.map(clean);
+    try {
+      await s.save({ subclasses: [...s.subclasses.filter((x) => !x.own), ...own.filter(isSub).map((x) => ({ ...x, own: true }))], spells: [...s.spells.filter((x) => !x.own), ...own.filter((x) => !isSub(x)).map((x) => ({ ...(x as LibSpell), own: true }))] });
+    } finally { applying = false; }
+  };
+  const put = (x: Creation) => { const doc: { id: string; kind: string } = { ...x, kind: isSub(x) ? 'sub' : 'spell' }; return a.putItem(uid, 'creations', doc); };
+  const push = (x: Creation) => {
+    clearTimeout(pending.get(x.id));
+    pending.set(x.id, setTimeout(() => { pending.delete(x.id); put(x).then(onOk, onError); }, 1200));
+  };
+  const stopWatch = a.watchItems<Creation>(uid, 'creations', (changed, removed, first) => {
+    if (first) {
+      const { toLocal, toRemote } = mergeItems<Synced>(list(), changed);
+      if (toLocal.length) void setList(applyItems<Synced>(list(), toLocal.map((x) => ({ ...x, at: x.at || 1 })), []) as Creation[]);
+      toRemote.forEach((x) => put(x as Creation).catch(onError));
+      ready = true;
+    } else {
+      const next = applyItems<Synced>(list(), changed, removed) as Creation[];
+      if (next.length !== list().length || next.some((x, i) => x !== list()[i])) void setList(next);
+    }
+    onOk();
+  }, onError);
+  const stopLocal = useLibrary.subscribe((s, prev) => {
+    if (applying || !ready || (s.subclasses === prev.subclasses && s.spells === prev.spells)) return;
+    const { changed, removed } = diffItems<Synced>(list(prev), list(s));
+    if (changed.length) {
+      // se fecha lo que ha cambiado aquí
+      const now = Date.now();
+      const ids = new Set(changed.map((x) => x.id));
+      const stamped = list(s).map((x) => (ids.has(x.id) ? { ...x, at: now } : x));
+      void setList(stamped);
+      stamped.filter((x) => ids.has(x.id)).forEach(push);
+    }
+    removed.forEach((id) => { clearTimeout(pending.get(id)); a.deleteItem(uid, 'creations', id).catch(onError); });
+  });
+  return () => { stopWatch(); stopLocal(); pending.forEach((t) => clearTimeout(t)); };
 }
 
 /** Para las pruebas: otro adaptador en lugar de Firebase. */
@@ -166,10 +223,13 @@ export const useAccount = create<AccountState>()((set, get) => {
       removed.forEach((id) => { clearTimeout(pending.get(id)); a.deleteCharacter(uid, id).catch((e) => set({ sync: 'error', syncError: cloudError(e) })); });
     });
     let stopDm: (() => void) | null = null;
+    let stopOwn: (() => void) | null = null;
     let stopped = false;
-    void startDmSync(a, uid, (e) => set({ sync: 'error', syncError: cloudError(e) }), () => { if (get().sync !== 'error') set({ sync: 'ok' }); })
-      .then((f) => { if (stopped) f(); else stopDm = f; });
-    stopSync = () => { stopped = true; unwatch(); unsub(); stopDm?.(); pending.forEach((t) => clearTimeout(t)); stopSync = null; };
+    const syncErr = (e: unknown) => set({ sync: 'error', syncError: cloudError(e) });
+    const syncOk = () => { if (get().sync !== 'error') set({ sync: 'ok' }); };
+    void startDmSync(a, uid, syncErr, syncOk).then((f) => { if (stopped) f(); else stopDm = f; });
+    void startCreationsSync(a, uid, syncErr, syncOk).then((f) => { if (stopped) f(); else stopOwn = f; });
+    stopSync = () => { stopped = true; unwatch(); unsub(); stopDm?.(); stopOwn?.(); pending.forEach((t) => clearTimeout(t)); stopSync = null; };
   }
 
   return {

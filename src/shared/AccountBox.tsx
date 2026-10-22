@@ -53,7 +53,7 @@ export default function AccountBox({ start: openAtStart = false }: { start?: boo
         </div>
       ) : (
         <form className="pc-login" onSubmit={(e) => { e.preventDefault(); void run(() => (signup ? emailUp(email, pass) : emailIn(email, pass))); }}>
-          <p className="muted small" style={{ margin: 0 }}>Con una cuenta, tus personajes y, como máster, tus criaturas, encuentros y grupo se guardan también en la nube y los tienes en todos tus dispositivos. Tu biblioteca y los PDF siguen solo en el dispositivo.</p>
+          <p className="muted small" style={{ margin: 0 }}>Con una cuenta, tus personajes y, como máster, tus criaturas, encuentros y grupo se guardan también en la nube y los tienes en todos tus dispositivos. También tus subclases y conjuros propios. Lo importado de tus libros y los PDF siguen solo en el dispositivo.</p>
           <button type="button" className="btn small" style={{ alignSelf: 'flex-start' }} disabled={busy || status === 'loading'} onClick={() => void run(google)}>Entrar con Google</button>
           <span className="muted small">{signup ? 'Crear una cuenta con tu correo:' : 'O con tu correo:'}</span>
           <div className="row2">

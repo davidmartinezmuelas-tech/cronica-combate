@@ -6,7 +6,7 @@ export function fakeCloud(initialUser: CloudUser | null) {
   let user = initialUser;
   const auth = new Set<(u: CloudUser | null) => void>();
   const remote = new Map<string, Character>();
-  const items: Record<DmKind, Map<string, { id: string }>> = { monsters: new Map(), encounters: new Map(), roster: new Map() };
+  const items: Record<DmKind, Map<string, { id: string }>> = { monsters: new Map(), encounters: new Map(), roster: new Map(), creations: new Map() };
   const itemWatch = new Map<DmKind, (changed: { id: string }[], removed: string[], first: boolean) => void>();
   const rooms = new Map<string, { info: RoomInfo; members: Map<string, RoomMember>; rolls: SharedRoll[]; events: RoomEvent[]; table: TableEntry[]; turn?: TurnState | null; casts: RoomCast[]; replies: SaveReply[] }>();
   const watch = { table: new Map<string, Set<(l: TableEntry[], t: TurnState | null) => void>>(), casts: new Map<string, Set<(l: RoomCast[]) => void>>(), replies: new Map<string, Set<(l: SaveReply[]) => void>>() };

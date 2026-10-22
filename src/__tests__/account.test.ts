@@ -6,6 +6,7 @@ import { blankRoster } from '../store/persist';
 import { useStore } from '../store/useStore';
 import { setCloudAdapter, useAccount } from '../store/account';
 import { usePlayer } from '../store/player';
+import { useLibrary } from '../store/library';
 import { fakeCloud } from './fakeCloud';
 
 const pj = (id: string, name: string, updatedAt: number): Character => ({ ...blankCharacter(), id, name, updatedAt });
@@ -106,6 +107,24 @@ describe('sincronizar con la cuenta', () => {
     expect(cloud.items.encounters.has('e1')).toBe(false);
     cloud.emitItems('monsters', [], ['m3']);
     expect(useStore.getState().custom.some((m) => m.id === 'm3')).toBe(false);
+  });
+  it('el jugador: sus subclases y conjuros propios van a la cuenta; lo importado del libro no', async () => {
+    const sub = (id: string, n: string, at?: number) => ({ id, n, cls: 'fighter', d: '', f: [], own: true, ...(at ? { at } : {}) });
+    const sp = (id: string, n: string, own: boolean) => ({ id, n, l: 1, esc: 'Evocación', classes: [], ct: '', r: '', cmp: '', du: '', c: 0, rit: 0, t: '', ...(own ? { own: true } : {}) });
+    await useLibrary.getState().init();
+    await useLibrary.getState().save({ subclasses: [sub('s1', 'Orden local', 100), { ...sub('b1', 'Del libro'), own: undefined }], spells: [sp('x1', 'Rayo propio', true), sp('lb', 'Del libro', false)] });
+    useStore.setState({ loaded: true, custom: [], encounters: [], roster: [] });
+    const cloud = fakeCloud({ uid: 'u1', email: 'a@b.c', name: null, anon: false });
+    cloud.items.creations.set('s2', { ...sub('s2', 'De otro dispositivo', 50), kind: 'sub' } as { id: string });
+    setCloudAdapter(async () => cloud.adapter);
+    await useAccount.getState().start();
+    await vi.waitFor(() => expect(cloud.items.creations.has('x1')).toBe(true));
+    expect([...cloud.items.creations.keys()].sort()).toEqual(['s1', 's2', 'x1']);
+    expect(useLibrary.getState().subclasses.map((x) => x.n).sort()).toEqual(['De otro dispositivo', 'Del libro', 'Orden local']);
+    expect(useLibrary.getState().subclasses.find((x) => x.id === 's2')!.own).toBe(true);
+    // borrar una creación aquí la borra de la cuenta
+    await useLibrary.getState().save({ spells: useLibrary.getState().spells.filter((x) => x.id !== 'x1') });
+    await vi.waitFor(() => expect(cloud.items.creations.has('x1')).toBe(false));
   });
 });
 

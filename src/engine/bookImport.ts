@@ -19,10 +19,10 @@ export interface Line { t: string; col: number; y: number; p?: number }
 export interface LibFeat { id: string; n: string; cat: 'origin' | 'general' | 'fighting-style' | 'epic-boon'; req: string; d: string }
 export interface LibBackground { id: string; n: string; abil: Abil[]; skills: string[]; tool: string; feat: string; equip: string; d: string }
 /** Conjuro de la biblioteca: del libro del usuario o propio (own: escrito en «Mis creaciones», con sus tiradas en `sr` y un estado si falla la salvación). */
-export interface LibSpell { id: string; n: string; l: number; esc: string; classes: string[]; ct: string; r: string; cmp: string; du: string; c: number; rit: number; t: string; own?: boolean; sr?: SpellRoll; cond?: string; self?: OwnSelfFx }
+export interface LibSpell { id: string; n: string; l: number; esc: string; classes: string[]; ct: string; r: string; cmp: string; du: string; c: number; rit: number; t: string; own?: boolean; sr?: SpellRoll; cond?: string; self?: OwnSelfFx; at?: number }
 /** `x`: apartados de opciones que van tras los rasgos («Opciones de maniobras»). */
 /** Subclase de la biblioteca: importada del libro del usuario o propia (own: escrita a mano en «Mis creaciones», con sus usos). */
-export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[] }[]; x?: { n: string; d: string }[]; own?: boolean }
+export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[] }[]; x?: { n: string; d: string }[]; own?: boolean; at?: number }
 
 /** Líneas de una página en orden de lectura: primero la columna izquierda de arriba abajo, luego la derecha. */
 export function pageLines(items: TextItem[], width: number): Line[] {

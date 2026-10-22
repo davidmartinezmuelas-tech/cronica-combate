@@ -38,7 +38,7 @@ export interface SharedRoll { id: string; uid: string; who: string; label: strin
 export interface RoomInfo { code: string; name: string; dmUid: string; dmName: string; createdAt: number }
 
 /** Datos del máster que se guardan en la cuenta: criaturas propias, encuentros y grupo. */
-export type DmKind = 'monsters' | 'encounters' | 'roster';
+export type DmKind = 'monsters' | 'encounters' | 'roster' | 'creations'; // creations: subclases y conjuros propios («Mis creaciones»)
 
 /** Usuario de la cuenta (anónimo: invitado en una sala, sin personajes en la nube). */
 export interface CloudUser { uid: string; email: string | null; name: string | null; anon: boolean }
@@ -112,7 +112,7 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
       if (u.providerData.some((p) => p.providerId === 'google.com')) await A.reauthenticateWithPopup(u, new A.GoogleAuthProvider());
       else await A.reauthenticateWithCredential(u, A.EmailAuthProvider.credential(u.email || '', pass || ''));
       // sin borrado en cascada: cada documento (en lotes de 400) y luego la cuenta
-      for (const sub of ['characters', 'monsters', 'encounters', 'roster']) {
+      for (const sub of ['characters', 'monsters', 'encounters', 'roster', 'creations']) {
         const snap = await F.getDocs(F.collection(db, 'users', uid, sub));
         for (let i = 0; i < snap.docs.length; i += 400) {
           const batch = F.writeBatch(db);
