@@ -2339,3 +2339,29 @@ test('dotes que cambian la magia: Adepto elemental, metamagia del hechicero y do
   await mm.getByRole('button', { name: 'Usar (gasta 1)' }).first().click();
   await expect(mm).toContainText('Puntos de hechicería 1/2');
 });
+
+test('trucos que atacan con el arma: Impacto certero y Shillelagh salen en Ataques con la característica de conjuros', async ({ page }) => {
+  await page.goto('/#/jugador');
+  // brujo 5 con daga e Impacto certero: Carisma al ataque y al daño, radiante y +1d6
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Sera');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Daga (1d4 perforante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  for (const q of ['Impacto certero', 'Descarga sobrenatural']) {
+    await page.getByLabel('Buscar conjuro').fill(q);
+    await page.locator('.ce-spell-results .chip').first().click();
+    await page.getByRole('button', { name: 'Añadir conjuro' }).click();
+  }
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // los trucos de ataque también salen en Ataques (Descarga sobrenatural: 2 rayos a nivel 5)
+  const eb = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Descarga sobrenatural' });
+  await expect(eb.getByRole('button', { name: /^Ataque [+−]\d+ ×2$/ })).toBeVisible();
+  await expect(eb.getByRole('button', { name: 'Daño 2 × 1d10 fuerza' })).toBeVisible();
+  const cha = Number((await page.locator('[data-abil=cha] .pc-abil-mod b').first().innerText()).replace('−', '-'));
+  const row = page.locator('.pc-cantrip-atk', { hasText: 'Impacto certero' });
+  await expect(row.getByRole('button', { name: 'Ataque ' + (cha + 3 >= 0 ? '+' : '−') + Math.abs(cha + 3) })).toBeVisible();
+  await expect(row.getByRole('button', { name: /^Daño 1d4[+−]\d+ radiante \+ 1d6 radiante/ })).toBeVisible();
+});

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Abil } from '../../data/player';
+import type { Abil, PlayerData } from '../../data/player';
 import type { Character, Derived } from '../../engine/character';
 import { fmt } from '../../engine/dice';
 import { saveEffectOf } from '../../engine/saveEffect';
@@ -17,26 +17,13 @@ import type { SpellEntry } from './spells';
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 
 /**
- * Tiradas de un conjuro en la hoja: ataque de conjuro, daño o curación con el nivel de espacio elegido (los trucos
- * mejoran solos con el nivel) y la CD si pide salvación. «Lanzar» gasta el espacio.
+ * Ataque, CD y fórmulas de un conjuro lanzado a ese nivel, con lo que lo cambia (característica del rasgo que lo da,
+ * la clase que lo tiene en su lista, Lanzamiento potente, Ráfaga agónica, Adepto elemental). Lo usan Conjuros y Ataques.
  */
-export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: Derived; s: SpellEntry; set: (patch: Partial<Character>) => void; grant?: Grant & { key: string } }) {
-  const { roll } = useStore.getState();
+export function spellCastFor(c: Character, d: Derived, s: SpellEntry, lv: number, data: PlayerData | null, grant?: Grant) {
   // los propios llevan sus tiradas escritas; los demás se leen del texto
   const r = s.sr ?? spellRoll(s.t);
   const base = s.l || 0;
-  // espacios con los que se puede lanzar: los normales desde su nivel y, con magia de pacto, el de pacto (a su nivel).
-  // Con multiclase valen los dos tipos; la opción «p» es el pacto.
-  const pactLv = d.pact && d.pact.lv >= base ? d.pact.lv : 0;
-  const normal = base === 0 ? [] : d.slots.map((n, i) => (n > 0 && i + 1 >= base ? i + 1 : 0)).filter(Boolean);
-  const options: (number | 'p')[] = base === 0 ? [] : [...normal, ...(pactLv ? ['p' as const] : [])];
-  const [slot, setSlot] = useState<number | 'p'>(0);
-  const pick = options.includes(slot) ? slot : options[0] ?? base;
-  const usePact = pick === 'p';
-  const lv = base === 0 ? 0 : usePact ? pactLv : (pick as number) || base;
-  const who = c.name || 'Personaje';
-  // multiclase: CD y ataque de la clase que tiene el conjuro en su lista
-  const data = usePlayer((x) => x.data);
   // los que da un rasgo (especie, invocación, dote) usan su característica; si no, la de la clase que lo tiene en su lista
   const own = grant?.abil ? { abil: grant.abil, dc: 8 + d.pb + d.mods[grant.abil], atk: d.pb + d.mods[grant.abil] } : null;
   const caster = own || (d.casters.length > 1 && d.casters.find((x) => data?.classes.find((k) => k.id === x.classId)?.spells.includes(s.id))) || d.spell;
@@ -52,6 +39,28 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   // Adepto elemental: en su elemento, cada 1 de los dados cuenta como 2
   const adept = !!cast0.dmg && elementalTypes(c).includes(cast0.dmg.type);
   const cast = adept ? { ...cast0, dmg: { ...cast0.dmg!, min: 2 } } : cast0;
+  return { r, rr, caster, mod, cast };
+}
+
+/**
+ * Tiradas de un conjuro en la hoja: ataque de conjuro, daño o curación con el nivel de espacio elegido (los trucos
+ * mejoran solos con el nivel) y la CD si pide salvación. «Lanzar» gasta el espacio.
+ */
+export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: Derived; s: SpellEntry; set: (patch: Partial<Character>) => void; grant?: Grant & { key: string } }) {
+  const { roll } = useStore.getState();
+  const base = s.l || 0;
+  // espacios con los que se puede lanzar: los normales desde su nivel y, con magia de pacto, el de pacto (a su nivel).
+  // Con multiclase valen los dos tipos; la opción «p» es el pacto.
+  const pactLv = d.pact && d.pact.lv >= base ? d.pact.lv : 0;
+  const normal = base === 0 ? [] : d.slots.map((n, i) => (n > 0 && i + 1 >= base ? i + 1 : 0)).filter(Boolean);
+  const options: (number | 'p')[] = base === 0 ? [] : [...normal, ...(pactLv ? ['p' as const] : [])];
+  const [slot, setSlot] = useState<number | 'p'>(0);
+  const pick = options.includes(slot) ? slot : options[0] ?? base;
+  const usePact = pick === 'p';
+  const lv = base === 0 ? 0 : usePact ? pactLv : (pick as number) || base;
+  const who = c.name || 'Personaje';
+  const data = usePlayer((x) => x.data);
+  const { r, caster, rr, cast } = spellCastFor(c, d, s, lv, data, grant);
   const label = (what: string) => who + ' · ' + s.n + (lv > base ? ' (nivel ' + lv + ')' : '') + ': ' + what;
   // espacio que gasta «Lanzar»
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;

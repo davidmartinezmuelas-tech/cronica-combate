@@ -29,7 +29,7 @@ import ReactionPanel from './ReactionPanel';
 import MetamagicPanel from './MetamagicPanel';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import { KITS } from '../../engine/subclassActions';
-import SpellRolls from './SpellRolls';
+import SpellRolls, { spellCastFor } from './SpellRolls';
 import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
@@ -524,6 +524,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     ...(has("Crusader's Mantle", /^manto del cruzado$/) ? [{ key: 'mantle', n: 'Manto del cruzado', dmg: '1d4', type: 'radiante', atk: 0, conc: true, why: '1d4 radiante en cada golpe con arma (concentración)' }] : []),
     ...(has('Elemental Weapon', /^arma elemental$/) ? [{ key: 'elemental', n: 'Arma elemental', dmg: '1d4', type: '', atk: 1, conc: true, why: '+1 al ataque y 1d4 del tipo elegido con el arma encantada (a nivel 3)' }] : []),
     ...(has('Magic Weapon', /^arma magica$/) ? [{ key: 'magic', n: 'Arma mágica', dmg: '1', type: '', atk: 1, conc: false, why: '+1 al ataque y al daño con el arma encantada (a nivel 2)' }] : []),
+    ...(has('Conjure Minor Elementals', /^conjurar elementales menores$/) ? [{ key: 'minorelem', n: 'Elementales menores', dmg: '2d8', type: '', atk: 0, conc: true, why: '2d8 de ácido, frío, fuego o relámpago (a tu elección) contra criaturas en la emanación' }] : []),
+    ...(has('Enlarge/Reduce', /^agrandar\/reducir$/) ? [{ key: 'enlarge', n: 'Agrandado', dmg: '1d4', type: '', atk: 0, conc: true, why: '1d4 extra con armas mientras estás agrandado' }] : []),
     // rasgos propios (subclase de «Mis creaciones») que suman daño al golpear
     ...features.filter((f) => f.fx?.kind === 'hit' && f.fx.dmg).map((f) => {
       const m = f.fx!.addMod ? hbMod(f.fx!.abil) : 0;
@@ -730,6 +732,19 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     });
   };
   const spellMod = d.spell ? d.mods[d.spell.abil] : 0;
+  // trucos que atacan con tu arma usando tu característica de conjuros: Impacto certero (y su radiante extra en los
+  // niveles 5, 11 y 17) y Shillelagh (garrote o bastón, con un dado mayor según el nivel)
+  const knowsSpell = (en: string, es: RegExp) => spellList.some((x) => x.s!.en === en || es.test(norm(x.s!.n)));
+  const trueStrike = knowsSpell('True Strike', /^impacto certero$/);
+  const shillelagh = knowsSpell('Shillelagh', /^shillelagh$/);
+  const cantripTier = d.level >= 17 ? 3 : d.level >= 11 ? 2 : d.level >= 5 ? 1 : 0;
+  // conjuros que se usan como un ataque: trucos con tirada de ataque y los que atacan cada turno mientras duran
+  const REPEAT = ['Spiritual Weapon', 'Flame Blade', 'Arcane Sword', 'Vampiric Touch'];
+  const spellAttacks = spellList.filter((x) => {
+    const rr = x.s!.sr ?? spellRoll(x.s!.t);
+    return !!rr?.attack && (!(x.s!.l || 0) || REPEAT.includes(x.s!.en || ''));
+  }).map((x) => ({ k: x.k, s: x.s!, grant: x.grant }));
+  const shillDie = ['1d8', '1d10', '1d12', '2d6'][cantripTier];
 
   // móvil: la pestaña de conjuros solo si los lanza; arriba, una barra fija con PG y CA al dejar de ver la franja
   const phone = useMobileTabs((s) => s.phone);
@@ -981,6 +996,33 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               {offParts.length > 0 && <button className="rollbtn dmg" title="Ataque extra de la propiedad «ligera» (acción adicional); el ataque se tira con «Ataque»" onClick={() => dmgRoll(w.name + ': ataque extra', offParts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Acción adicional {partsLabel(offParts)}</button>}
               {poleParts.length > 0 && <button className="rollbtn dmg" title="Maestro en armas de asta: ataque con el otro extremo (acción adicional)" onClick={() => dmgRoll(w.name + ': otro extremo', poleParts, { melee: true, str: abil === 'str', finesse: false }, w.id)}>Otro extremo {partsLabel(poleParts)}</button>}
             </span>
+            {(() => {
+              // con tu característica de conjuros en lugar de Fuerza o Destreza
+              const spAtk = atk - d.mods[abil] + spellMod;
+              const extra = parts.slice(1);
+              const rows: JSX.Element[] = [];
+              if (trueStrike) {
+                const p: { expr: string; type: string; min?: number }[] = [{ expr: w.dmg + sgn(spellMod + (w.bonus || 0)), type: 'radiante' }, ...(cantripTier ? [{ expr: cantripTier + 'd6', type: 'radiante' }] : []), ...extra];
+                rows.push(
+                  <span key="ts" className="rollrow pc-cantrip-atk">
+                    <span className="chip-tag" title="Truco: el ataque y el daño usan tu característica de conjuros; el daño puede ser radiante o el del arma">Impacto certero</span>
+                    <button className="rollbtn" onClick={() => r(w.name + ': Impacto certero', 'attack', d20b(spAtk + buffAtk), { critOn: d.critOn })}>Ataque {fmt(spAtk + buffAtk)}</button>
+                    <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': Impacto certero', p, { melee: w.kind === 'melee', str: false, finesse: true }, w.id)}>Daño {partsLabel(p)}</button>
+                  </span>,
+                );
+              }
+              if (shillelagh && w.kind === 'melee' && /^(garrote|baston)/.test(norm(w.name))) {
+                const p: { expr: string; type: string; min?: number }[] = [{ expr: shillDie + sgn(spellMod + (w.bonus || 0)), type: 'fuerza' }, ...extra];
+                rows.push(
+                  <span key="sh" className="rollrow pc-cantrip-atk">
+                    <span className="chip-tag" title="Truco: con el garrote o el bastón usas tu característica de conjuros y un dado mayor; el daño puede ser de fuerza o el del arma">Shillelagh</span>
+                    <button className="rollbtn" onClick={() => r(w.name + ': Shillelagh', 'attack', d20b(spAtk + buffAtk), { critOn: d.critOn })}>Ataque {fmt(spAtk + buffAtk)}</button>
+                    <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': Shillelagh', p, { melee: true, str: false, finesse: true }, w.id)}>Daño {partsLabel(p)}</button>
+                  </span>,
+                );
+              }
+              return rows;
+            })()}
           </div>
         ))}
         {d.unarmed && (
@@ -995,6 +1037,23 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
             </span>
           </div>
         )}
+        {/* conjuros con tirada de ataque que se usan como un ataque: los trucos y los que atacan turno a turno */}
+        {spellAttacks.map(({ k, s: sp, grant }) => {
+          const { caster, cast } = spellCastFor(c, d, sp, sp.l || 0, data, grant);
+          if (!caster) return null;
+          const atk = caster.atk;
+          return (
+            <div key={'sp' + k} className="pc-attack">
+              <span className="pc-attack-n">{sp.n}<span className="muted small">{sp.l ? 'conjuro de nivel ' + sp.l + ' · ataque cada turno mientras dura' : 'truco'}{sp.r ? ' · ' + sp.r : ''}</span></span>
+              <span className="rollrow">
+                <button className="rollbtn" onClick={() => r(sp.n + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn })}>Ataque {fmt(atk + buffAtk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
+                {cast.dmg && (cast.count > 1
+                  ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: Array.from({ length: cast.count }, () => cast.dmg!) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
+                  : <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': daño', kind: 'damage', who, by: null, parts: [cast.dmg!] })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>)}
+              </span>
+            </div>
+          );
+        })}
         </div>
       </section>
 

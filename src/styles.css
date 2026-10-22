@@ -1215,3 +1215,4 @@ body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}
 .pc-react{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .pc-react li{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid #c2ab80;border-radius:8px;background:#f6efe0}
 .mm-pick{display:flex;flex-direction:column;gap:6px}
+.pc-cantrip-atk{margin-top:4px;padding-top:6px;border-top:1px dashed #c2ab80}
