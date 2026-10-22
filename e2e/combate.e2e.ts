@@ -2308,3 +2308,34 @@ test('reacción: ataque de oportunidad con sus armas, dotes de reacción y la re
   await expect(re).toContainText('usada');
   await expect(re.getByRole('button', { name: 'Usar la reacción' })).toBeDisabled();
 });
+
+test('dotes que cambian la magia: Adepto elemental, metamagia del hechicero y dotes que dan conjuros', async ({ page }) => {
+  await page.goto('/#/jugador');
+  // hechicero 2 con Adepto elemental (escrita como rasgo propio) y Tocado por las hadas
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Vex');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Hechicero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('2');
+  for (const n of ['Adepto elemental', 'Tocado por las hadas']) {
+    await page.getByRole('button', { name: '+ Dote o rasgo propio' }).click();
+    await page.locator('#cf-n').fill(n);
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  }
+  // la dote pide su conjuro de Adivinación o Encantamiento
+  await page.getByLabel('Conjuro de nivel 1 de Adivinación o Encantamiento').selectOption({ label: 'Orden imperiosa' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // conjuros de la dote en la hoja
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  await expect(sp).toContainText('Paso brumoso');
+  await expect(sp).toContainText('Orden imperiosa');
+  // Adepto elemental: elegir el elemento
+  await page.getByLabel('Elemento de Adepto elemental').selectOption('fuego');
+  await expect(page.getByRole('region', { name: 'Dotes', exact: true })).toContainText('fuego: los 1 cuentan como 2');
+  // metamagia: elegir 2 opciones y usar una (gasta 1 punto de hechicería)
+  const mm = page.getByRole('region', { name: 'Metamagia' });
+  await mm.getByRole('button', { name: 'Conjuro sutil' }).click();
+  await mm.getByRole('button', { name: 'Conjuro distante' }).click();
+  await expect(mm).toContainText('Puntos de hechicería 2/2');
+  await mm.getByRole('button', { name: 'Usar (gasta 1)' }).first().click();
+  await expect(mm).toContainText('Puntos de hechicería 1/2');
+});

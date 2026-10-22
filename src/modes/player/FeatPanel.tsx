@@ -3,6 +3,7 @@ import { usePlayer } from '../../store/player';
 import Card from '../../shared/Card';
 import Pips from '../../shared/Pips';
 import { useStore } from '../../store/useStore';
+import { ELEMENTAL_KEY, ELEMENTS, hasElementalAdept } from '../../engine/metamagic';
 
 const LUCK = 'Puntos de suerte';
 const POOL = 'Reserva de recuperación';
@@ -13,7 +14,8 @@ export default function FeatPanel({ c, d, set }: { c: Character; d: Derived; set
   const { roll } = useStore.getState();
   const fx = d.fx;
   const who = c.name || 'Personaje';
-  if (!fx.luck && !fx.recovery && !fx.hdHeal && !fx.parryProf && !fx.armorReduce && !fx.critScore && !fx.piercer) return null;
+  const elemental = hasElementalAdept(c);
+  if (!fx.luck && !fx.recovery && !fx.hdHeal && !fx.parryProf && !fx.armorReduce && !fx.critScore && !fx.piercer && !elemental) return null;
   // curación que se aplica sola a la hoja al acabar la tirada
   const healAfter = (total: number) => {
     const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
@@ -75,6 +77,18 @@ export default function FeatPanel({ c, d, set }: { c: Character; d: Derived; set
                 <option value="dex">Destreza ({c.abil.dex})</option>
               </select>
             </>}><p className="pc-text">Se suma solo al daño de un crítico (tras sacar un 20 en el ataque). Además, tu daño contundente, cortante y perforante ignora la resistencia.</p></Card></li>
+          );
+        })()}
+        {elemental && (() => {
+          const pick = c.choices?.[ELEMENTAL_KEY]?.[0] || '';
+          return (
+            <li><Card name="Adepto elemental" head={<>
+              <select className="input" aria-label="Elemento de Adepto elemental" value={pick} onChange={(e) => set({ choices: { ...(c.choices || {}), [ELEMENTAL_KEY]: e.target.value ? [e.target.value] : [] } })}>
+                <option value="">Elige el elemento</option>
+                {ELEMENTS.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              {pick && <span className="chip-tag">{pick}: los 1 cuentan como 2</span>}
+            </>}><p className="pc-text">{pick ? 'Tus conjuros de daño de ' + pick + ' ignoran la resistencia a ese daño y, al tirar sus dados, cada 1 cuenta como un 2 (se aplica solo en sus botones de daño).' : 'Elige el tipo de daño: tus conjuros de ese elemento ignorarán su resistencia y sus 1 contarán como 2.'}</p></Card></li>
           );
         })()}
         {fx.piercer && <li><Card name="Perforador" head={<span className="muted small">activa «Perforador» en Ataques antes del daño; en un crítico perforante se suma un dado más solo</span>}><p className="pc-text">Una vez por turno puedes repetir un dado de daño perforante: la hoja repite el más bajo si no llega a la mitad.</p></Card></li>}

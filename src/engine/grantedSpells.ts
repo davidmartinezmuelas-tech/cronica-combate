@@ -1,6 +1,7 @@
 import type { Abil } from '../data/player';
 import { classLevel, type Character } from './character';
 import { hasInvocation } from './subclassChoices';
+import { norm } from './util';
 
 /**
  * Conjuros que dan los rasgos sin ser de la clase (reglas 2024 del SRD): invocaciones del brujo, el linaje o legado de
@@ -53,6 +54,24 @@ export const MI_FROM_BACKGROUND: Record<string, string> = { acolyte: 'cleric', s
 export const MI_KEY = 'feat.magic-initiate'; // elección: [clase de la lista, característica, truco, truco, conjuro de nivel 1]
 export const TOME_KEY = 'warlock.tome'; // Pacto del tomo: [truco, truco, truco, ritual, ritual]
 
+/**
+ * Dotes que dan conjuros (reglas 2024): los fijos y los que se eligen (de nivel 1 de ciertas escuelas, o rituales).
+ * Se guarda en `choices[key]`: [característica, ...ids elegidos]. Una vez por descanso largo sin espacio y, si tiene,
+ * también con espacios; los rituales, como ritual.
+ */
+export const FEAT_GRANTS: { key: string; names: string[]; fixed: [string, GrantHow | 'known'][]; pick?: { lv: number; schools?: string[]; ritual?: boolean; count: number | 'pb'; how: GrantHow; label: string } }[] = [
+  { key: 'feat.fey', names: ['Tocado por las hadas', 'Tocado por los feéricos', 'Toque feérico', 'Fey Touched'], fixed: [['Misty Step', 'lr']], pick: { lv: 1, schools: ['Adivinación', 'Encantamiento'], count: 1, how: 'lr', label: 'Conjuro de nivel 1 de Adivinación o Encantamiento' } },
+  { key: 'feat.shadow', names: ['Tocado por las sombras', 'Toque sombrío', 'Shadow Touched'], fixed: [['Invisibility', 'lr']], pick: { lv: 1, schools: ['Ilusión', 'Nigromancia'], count: 1, how: 'lr', label: 'Conjuro de nivel 1 de Ilusión o Nigromancia' } },
+  { key: 'feat.telekinetic', names: ['Telequinético', 'Telekinetic'], fixed: [['Mage Hand', 'known']] },
+  { key: 'feat.telepathic', names: ['Telépata', 'Telepathic'], fixed: [['Detect Thoughts', 'lr']] },
+  { key: 'feat.ritual', names: ['Lanzador de rituales', 'Ritual Caster'], fixed: [], pick: { lv: 1, ritual: true, count: 'pb', how: 'ritual', label: 'Ritual de nivel 1' } },
+];
+/** Las dotes que dan conjuros que tiene (por su nombre, también si es un rasgo propio con ese nombre). */
+export function featGrantsOf(c: Pick<Character, 'feats' | 'customFeats'>) {
+  const have = [...c.feats, ...c.customFeats.map((f) => f.n)];
+  return FEAT_GRANTS.flatMap((g) => { const n = have.find((f) => g.names.some((x) => norm(x) === norm(f))); return n ? [{ ...g, feat: n }] : []; });
+}
+
 export const hasMagicInitiate = (c: Pick<Character, 'feats'>) => c.feats.some((f) => /^iniciado en la magia|^magic initiate/i.test(f));
 
 /** Los conjuros que dan los rasgos de este personaje (con el id del conjuro en la lista). */
@@ -77,6 +96,13 @@ export function grantedSpells(c: Character, list: { id: string; en?: string }[],
     const abil = (['int', 'wis', 'cha'].includes(mi[1]) ? mi[1] : 'int') as Abil;
     mi.slice(2, 4).filter(Boolean).forEach((id) => out.push({ en: '#' + id, how: 'known', src: 'Iniciado en la magia', abil }));
     if (mi[4]) out.push({ en: '#' + mi[4], how: 'lr', src: 'Iniciado en la magia', abil });
+  }
+  // dotes que dan conjuros: los fijos y los elegidos, con la característica elegida (o la mejor)
+  for (const g of featGrantsOf(c)) {
+    const ch = c.choices?.[g.key] || [];
+    const abil = (['int', 'wis', 'cha'].includes(ch[0]) ? ch[0] : (['int', 'wis', 'cha'] as Abil[]).reduce((a, b) => (mods[b] > mods[a] ? b : a), 'int')) as Abil;
+    for (const [en, how] of g.fixed) out.push({ en, how, src: g.feat, abil });
+    if (g.pick) ch.slice(1).filter(Boolean).forEach((id) => out.push({ en: '#' + id, how: g.pick!.how, src: g.feat, abil }));
   }
   // «#id»: elegidos por id (Iniciado en la magia); el resto, por su nombre en inglés
   return out.flatMap((g) => {

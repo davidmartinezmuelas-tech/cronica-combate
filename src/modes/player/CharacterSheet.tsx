@@ -26,6 +26,7 @@ import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel from './FeatPanel';
 import ReactionPanel from './ReactionPanel';
+import MetamagicPanel from './MetamagicPanel';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import { KITS } from '../../engine/subclassActions';
 import SpellRolls from './SpellRolls';
@@ -1006,6 +1007,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         </Fragment>
       ))}
       <FeatPanel c={c} d={d} set={set} />
+      <MetamagicPanel c={c} data={data} set={set} />
       {usable.length > 0 && (
         <section className="panel" aria-label="Rasgos con usos">
           <h3 className="eyebrow">Rasgos con usos</h3>

@@ -5,7 +5,7 @@ import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../.
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
 import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
-import { hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY, SPECIES_ABIL_KEY, speciesHasSpells, TOME_KEY } from '../../engine/grantedSpells';
+import { featGrantsOf, hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY, SPECIES_ABIL_KEY, speciesHasSpells, TOME_KEY } from '../../engine/grantedSpells';
 import { hasInvocation } from '../../engine/subclassChoices';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
@@ -529,6 +529,33 @@ export default function CharacterEditor({ c }: { c: Character }) {
             );
           })()}
           {/* Pacto del tomo: tres trucos y dos rituales de nivel 1 de cualquier lista, en tu Libro de las sombras */}
+          {/* dotes que dan conjuros (Tocado por las hadas, Telequinético, Lanzador de rituales…): su característica y lo que se elige */}
+          {featGrantsOf(c).map((g) => {
+            const ch = c.choices?.[g.key] || [];
+            const put = (i: number, v: string) => { const n = [...ch]; while (n.length <= i) n.push(''); n[i] = v; set({ choices: { ...(c.choices || {}), [g.key]: n } }); };
+            const count = g.pick ? (g.pick.count === 'pb' ? d.pb : g.pick.count) : 0;
+            const opts = g.pick ? spellIdx.list.filter((x) => (x.l || 0) === g.pick!.lv && (!g.pick!.schools || g.pick!.schools.includes(x.esc || '')) && (!g.pick!.ritual || !!x.rit)).sort((a, b) => a.n.localeCompare(b.n, 'es')) : [];
+            return (
+              <fieldset key={g.key} className="fs ce-mi">
+                <legend>{g.feat}</legend>
+                <div className="row2">
+                  <div className="field"><label htmlFor={'ce-' + g.key.replace('.', '-')}>Característica para lanzarlos</label>
+                    <select id={'ce-' + g.key.replace('.', '-')} className="input" value={ch[0] || ''} onChange={(e) => put(0, e.target.value)}>
+                      <option value="">La más alta</option>
+                      {(['int', 'wis', 'cha'] as const).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                    </select></div>
+                </div>
+                {Array.from({ length: count }, (_, i) => (
+                  <div key={i} className="field"><label htmlFor={'ce-' + g.key.replace('.', '-') + i}>{g.pick!.label}{count > 1 ? ' ' + (i + 1) : ''}</label>
+                    <select id={'ce-' + g.key.replace('.', '-') + i} className="input" value={ch[i + 1] || ''} onChange={(e) => put(i + 1, e.target.value)}>
+                      <option value="">Sin elegir</option>
+                      {opts.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
+                    </select></div>
+                ))}
+                <span className="muted small">{g.pick?.how === 'ritual' ? 'Los lanzas como ritual sin gastar espacio.' : 'Una vez por descanso largo sin espacio, y con espacios si los tienes.'} Salen en tus conjuros con la etiqueta de la dote.</span>
+              </fieldset>
+            );
+          })}
           {classEntries(c).some((e) => e.classId === 'warlock') && hasInvocation(c, 'Pacto del tomo') && (() => {
             const tome = c.choices?.[TOME_KEY] || [];
             const put = (i: number, v: string) => { const n = [0, 1, 2, 3, 4].map((j) => tome[j] || ''); n[i] = v; set({ choices: { ...(c.choices || {}), [TOME_KEY]: n } }); };

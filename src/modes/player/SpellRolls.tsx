@@ -7,6 +7,7 @@ import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { hasInvocation } from '../../engine/subclassChoices';
 import { withConc } from '../../engine/concentration';
 import { castOnPatch, debuffOf, spellFx } from '../../engine/spellEffects';
+import { elementalTypes } from '../../engine/metamagic';
 import type { Grant } from '../../engine/grantedSpells';
 import { useRoom } from '../../store/room';
 import { usePlayer } from '../../store/player';
@@ -47,7 +48,10 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   // sin tirada (Escudo, Detectar magia…): solo «Lanzar»
   const none = { attack: null, save: null, half: false, damage: null, heal: null, count: 1, cantrip: null, upDice: '', upCount: false } as const;
   const rr = r || none;
-  const cast = spellCast(rr, base, lv, d.level, agonizing ? d.mods.cha : mod, potent || agonizing);
+  const cast0 = spellCast(rr, base, lv, d.level, agonizing ? d.mods.cha : mod, potent || agonizing);
+  // Adepto elemental: en su elemento, cada 1 de los dados cuenta como 2
+  const adept = !!cast0.dmg && elementalTypes(c).includes(cast0.dmg.type);
+  const cast = adept ? { ...cast0, dmg: { ...cast0.dmg!, min: 2 } } : cast0;
   const label = (what: string) => who + ' · ' + s.n + (lv > base ? ' (nivel ' + lv + ')' : '') + ': ' + what;
   // espacio que gasta «Lanzar»
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;
