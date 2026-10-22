@@ -1,11 +1,12 @@
 import { useEffect, useMemo } from 'react';
 import type { RuleEntry } from '../../engine/rules';
+import type { SpellRoll } from '../../engine/spellRoll';
 import { norm } from '../../engine/util';
 import { useLibrary } from '../../store/library';
 import { useStore } from '../../store/useStore';
 
 /** Conjuro tal como lo muestra la hoja: los 340 del SRD (reglas_es.json) y los de la biblioteca propia. */
-export type SpellEntry = RuleEntry & { classes?: string[]; lib?: boolean };
+export type SpellEntry = RuleEntry & { classes?: string[]; lib?: boolean; own?: boolean; sr?: SpellRoll; cond?: string };
 
 /** Texto de reglas sin marcas: [[id|texto]] -> texto, **negrita** -> negrita, encabezados y tablas en línea. */
 export function plainText(t: string): string {
@@ -26,6 +27,7 @@ export function useSpells() {
     const srdNames = new Set(srd.map((e) => norm(e.n)));
     const extra: SpellEntry[] = lib.filter((s) => !srdNames.has(norm(s.n))).map((s) => ({
       id: s.id, n: s.n, en: '', cat: 'Conjuros', t: s.t, l: s.l, esc: s.esc, ct: s.ct, r: s.r, du: s.du, c: s.c, rit: s.rit, cmp: s.cmp, classes: s.classes, lib: true,
+      ...(s.own ? { own: true, sr: s.sr, cond: s.cond } : {}),
     }));
     const list = [...srd, ...extra];
     const byId = new Map(list.map((e) => [e.id, e]));

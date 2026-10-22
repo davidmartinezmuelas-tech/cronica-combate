@@ -6,12 +6,29 @@ import { validDice, type HbFx } from '../../engine/homebrew';
 import { norm, uid } from '../../engine/util';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
+import HomebrewSpells from './HomebrewSpells';
+import { useSpells } from './spells';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 type Feature = LibSubclass['f'][number];
 
 const KINDS: [HbFx['kind'] | '', string][] = [['', 'Solo texto'], ['attack', 'Tirada de ataque'], ['save', 'Salvación con tu CD'], ['heal', 'Curación'], ['temp', 'PG temporales'], ['hit', 'Daño extra al golpear'], ['bonus', 'Bonificador fijo']];
 const ABIL_OPTS: [NonNullable<HbFx['abil']>, string][] = [['str', 'Fuerza'], ['dex', 'Destreza'], ['best', 'La mejor de Fuerza y Destreza'], ['spell', 'Tu característica de conjuros'], ['con', 'Constitución'], ['int', 'Inteligencia'], ['wis', 'Sabiduría'], ['cha', 'Carisma']];
+
+/** Conjuros que un rasgo deja siempre preparados (del SRD, del libro o propios), desde el nivel del rasgo. */
+function SpellPick({ id, ids, set }: { id: string; ids: string[]; set: (ids: string[]) => void }) {
+  const spells = useSpells();
+  const [q, setQ] = useState('');
+  const found = q.trim().length < 2 ? [] : spells.list.filter((x) => !ids.includes(x.id) && norm(x.n).includes(norm(q))).slice(0, 8);
+  return (
+    <div className="hb-sp">
+      <div className="field"><label htmlFor={id + 'sp'}>Conjuros siempre preparados (opcional)</label>
+        <input id={id + 'sp'} className="input" value={q} placeholder="Busca un conjuro…" onChange={(e) => setQ(e.target.value)} /></div>
+      {found.length > 0 && <div className="chips">{found.map((x) => <button key={x.id} className="chip" onClick={() => { set([...ids, x.id]); setQ(''); }}>+ {x.n} <span className="chip-tag">{x.l ? x.l : 'T'}</span></button>)}</div>}
+      {ids.length > 0 && <div className="chips">{ids.map((k) => <button key={k} className="chip on" title="Quitar" onClick={() => set(ids.filter((x) => x !== k))}>{spells.get(k)?.n || k} ✕</button>)}</div>}
+    </div>
+  );
+}
 
 /** El efecto de un rasgo propio: lo que la hoja sabe tirar o sumar (ataque, salvación, curación, daño extra, bonificador). */
 function FxEditor({ id, fx, set }: { id: string; fx: HbFx | undefined; set: (fx: HbFx | undefined) => void }) {
@@ -110,7 +127,8 @@ export default function HomebrewPanel() {
     return (
       <div className="panel" aria-label="Mis creaciones">
         <div className="panel-head"><h2>Mis creaciones</h2></div>
-        <p className="muted small" style={{ margin: 0 }}>Subclases propias, de tu mesa o de otros libros: escribe sus rasgos nivel a nivel y aparecerán al crear el personaje, al subir de nivel y en su hoja, con sus usos. Se guardan en este dispositivo (y van en «Exportar biblioteca» para pasárselas a tu grupo).</p>
+        <p className="muted small" style={{ margin: 0 }}>Subclases y conjuros propios, de tu mesa o de otros libros: escribe sus rasgos nivel a nivel o lo que hace el conjuro, y funcionarán en el personaje como los demás. Se guardan en este dispositivo (y van en «Exportar biblioteca» para pasárselas a tu grupo).</p>
+        <h3 className="eyebrow">Subclases propias</h3>
         {own.length > 0 && (
           <ul className="hb-list">
             {own.map((s) => (
@@ -125,6 +143,7 @@ export default function HomebrewPanel() {
           </ul>
         )}
         <button className="btn small primary" style={{ alignSelf: 'flex-start' }} disabled={!classes.length} onClick={() => setDraft({ id: 'own-' + uid(), n: '', cls: classes[0]?.id || '', d: '', f: [], own: true })}>Crear subclase</button>
+        <HomebrewSpells />
       </div>
     );
   }
@@ -195,6 +214,7 @@ export default function HomebrewPanel() {
                 );
               })()}
               <FxEditor id={'hb' + i} fx={f.fx} set={(fx) => setF(i, { fx })} />
+              <SpellPick id={'hb' + i} ids={f.sp || []} set={(sp) => setF(i, { sp: sp.length ? sp : undefined })} />
             </div>
           ))}
           <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => add(lv)}>+ Rasgo de nivel {lv}</button>

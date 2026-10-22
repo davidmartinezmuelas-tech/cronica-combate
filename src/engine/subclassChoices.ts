@@ -195,6 +195,9 @@ const words = (t: string) => ' ' + norm(t).replace(/[^a-z0-9]+/g, ' ').trim() + 
  * tierra solo cuenta la tabla del terreno elegido.
  */
 export function subclassSpells(c: Pick<Character, 'classId' | 'subclass' | 'level' | 'choices'>, cls: ClassData | undefined, src: SubclassText | null, spells: { id: string; n: string; l?: number }[]): { id: string; at: number }[] {
+  // subclase propia: los conjuros elegidos en cada rasgo, desde su nivel
+  const picked = (src?.f || []) as { lv?: number; sp?: string[] }[];
+  if (picked.some((f) => f.sp?.length)) return picked.flatMap((f) => (f.sp || []).map((id) => ({ id, at: f.lv || 1 }))).filter((o) => o.at <= c.level);
   const ft = src?.f.find((f) => norm(f.n).startsWith('conjuros') && /preparad/i.test(f.d));
   if (!ft) return [];
   // la tabla empieza en «Nivel de brujo…» (o en el primer terreno) y acaba donde vuelve la prosa («También…»)

@@ -2191,3 +2191,48 @@ test('subclase propia con efectos: ataque, salvación, curación, daño extra al
   // el daño extra sale como etiqueta en los ataques
   await expect(page.getByRole('button', { name: /Garra ardiente/ }).first()).toBeVisible();
 });
+
+test('conjuro propio: su ficha, en la lista de su clase, siempre preparado por una subclase propia y con sus tiradas al lanzarlo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear conjuro' }).click();
+  await page.getByLabel('Nombre del conjuro').fill('Lanza de escarcha');
+  await page.getByRole('button', { name: 'Clérigo', exact: true }).click();
+  await page.getByLabel('Tirada', { exact: true }).selectOption({ label: 'Salvación del objetivo' });
+  await page.getByLabel('Salvación de').selectOption({ label: 'Constitución' });
+  await page.getByLabel('Estado si falla').selectOption('Apresado');
+  await page.getByLabel('Mitad de daño si la supera').check();
+  await page.getByLabel('Daño', { exact: true }).fill('3d8');
+  await page.getByLabel('Tipo de daño').selectOption('frío');
+  await page.locator('#hs-up').fill('1d8');
+  await page.getByRole('button', { name: 'Guardar conjuro' }).click();
+  await expect(page.getByText('nivel 1 · Evocación · Clérigo')).toBeVisible();
+
+  // subclase propia de clérigo que lo deja siempre preparado desde el nivel 3
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByLabel('Nombre de la subclase').fill('Dominio del Invierno');
+  await page.getByRole('button', { name: '+ Rasgo de nivel 3' }).click();
+  await page.getByLabel('Rasgo', { exact: true }).fill('Conjuros del invierno');
+  await page.getByLabel('Conjuros siempre preparados (opcional)').fill('lanza de esc');
+  await page.getByRole('button', { name: /\+ Lanza de escarcha/ }).click();
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Inga');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.locator('#ce-subsel').selectOption({ label: 'Dominio del Invierno (propia)' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // siempre preparado y con sus tiradas
+  const sp = page.locator('.pc-block-sp', { hasText: 'Lanza de escarcha' });
+  await expect(sp).toContainText('siempre');
+  await sp.getByText('Lanza de escarcha').click();
+  const card = page.locator('.pc-block-sp li, .pc-block-sp details').filter({ hasText: 'Lanza de escarcha' }).first();
+  await expect(card).toContainText(/CD \d+ Constitución/);
+  await expect(card.getByRole('button', { name: /^Daño 3d8 frío/ })).toBeVisible();
+  // con un espacio de nivel 2: un dado más
+  await card.getByLabel('Nivel de espacio para Lanza de escarcha').selectOption('2');
+  await expect(card.getByRole('button', { name: /^Daño 4d8 frío/ })).toBeVisible();
+});

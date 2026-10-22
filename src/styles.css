@@ -1185,3 +1185,9 @@ body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}
 .hb-fx{display:flex;flex-wrap:wrap;align-items:flex-end;gap:8px 10px;padding-top:8px;border-top:1px dashed #5c5046}
 .hb-fx .field{flex:1 1 160px}
 .hb-fx .check{flex:0 0 auto}
+.hb-spells{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid #5c5046}
+.hb-title{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:20px;margin:0;color:#e8c062}
+.hb-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px}
+.hb-lab{font-size:13px;font-weight:500;color:#c6bba6}
+.hb-mat{width:auto;flex:1 1 180px}
+.hb-sp{display:flex;flex-direction:column;gap:6px}

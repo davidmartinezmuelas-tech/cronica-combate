@@ -21,7 +21,8 @@ const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Con
  */
 export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: Derived; s: SpellEntry; set: (patch: Partial<Character>) => void; grant?: Grant & { key: string } }) {
   const { roll } = useStore.getState();
-  const r = spellRoll(s.t);
+  // los propios llevan sus tiradas escritas; los demás se leen del texto
+  const r = s.sr ?? spellRoll(s.t);
   const base = s.l || 0;
   // espacios con los que se puede lanzar: los normales desde su nivel y, con magia de pacto, el de pacto (a su nivel).
   // Con multiclase valen los dos tipos; la opción «p» es el pacto.
@@ -102,7 +103,7 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   // con salvación: el daño lleva el efecto (CD, mitad, estados) para mandarlo a la mesa del máster
   const effect0 = rr.save && dc != null ? saveEffectOf(dc, rr.save, rr.half, s.t) : null;
   // los que perjudican sin un estado del juego (Perdición, Ralentizar…): su efecto como estado para quien falla
-  const debuff = debuffOf(s);
+  const debuff = s.cond || debuffOf(s);
   const effect = effect0 && debuff && !effect0.conds.includes(debuff) ? { ...effect0, conds: [...effect0.conds, debuff] } : effect0;
 
   return (
