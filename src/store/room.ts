@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { castOnPatch, fxCond, type SpellBuff } from '../engine/spellEffects';
 import { cloud, useAccount } from './account';
-import { cloudError, type RoomCast, type RoomInfo, type RoomMember, type SaveReply, type SharedRoll, type SheetSummary, type TableEntry } from './cloudAdapter';
+import { cloudError, type RoomCast, type RoomInfo, type RoomMember, type SaveReply, type SharedRoll, type SheetSummary, type TableEntry, type TurnState } from './cloudAdapter';
 import { usePlayer } from './player';
 import { useStore } from './useStore';
 
@@ -35,6 +35,13 @@ export interface RoomState {
   error: string;
   notice: string; // aviso al jugador (el máster le ha cambiado los PG)
   table: TableEntry[]; // lista de iniciativa que comparte el máster
+  turn: TurnState | null; // el jugador: avisos de turno del máster (si los activa)
+  turnsOn: boolean; // el máster: avisar a los jugadores de su turno (apagado: se lleva hablando, como en la mesa)
+  askAt: number; // el máster: cuándo pidió la iniciativa por última vez
+  setTurnsOn: (v: boolean) => void;
+  askInitiative: () => void;
+  /** El jugador termina su turno: al máster le pasa la iniciativa al siguiente. */
+  endTurn: () => void;
   casts: RoomCast[]; // el máster: lanzamientos de los jugadores pendientes de revisar
   replies: SaveReply[]; // el máster: respuestas a sus peticiones de salvación
   saveRequests: { reqId: string; dc: number; abil: number; label: string }[]; // el jugador: salvaciones que le pide el máster
@@ -42,7 +49,7 @@ export interface RoomState {
   sentBuffs: Record<string, SpellBuff>; // el jugador: sus conjuros de concentración mandados a la mesa (por nombre)
   /** El jugador perdió la concentración en ese conjuro: si lo había mandado a otros, se acaba en la mesa y en sus hojas. */
   endBuff: (spell: string) => void;
-  publishTable: (list: TableEntry[]) => void;
+  publishTable: (list: TableEntry[], turn?: TurnState) => void;
   sendCast: (cast: Omit<RoomCast, 'id' | 'uid' | 'who' | 'at'>) => Promise<boolean>;
   dismissCast: (id: string) => void;
   requestSave: (to: string, reqId: string, dc: number, abil: number, label: string) => void;
@@ -64,6 +71,10 @@ let stop: (() => void) | null = null;
 const endsDone = new Set<string>(); // fines de concentración ya aplicados por el máster
 let sheetTimer: ReturnType<typeof setTimeout> | null = null;
 let lastSheet = '';
+
+// el máster: los avisos de turno, encendidos o no, se recuerdan en este dispositivo
+const TURNS_KEY = 'cronica-sala-turnos';
+const savedTurnsOn = () => { try { return !!localStorage.getItem(TURNS_KEY); } catch { return false; } };
 
 export const useRoom = create<RoomState>()((set, get) => {
   const me = () => useAccount.getState().user;
@@ -88,9 +99,18 @@ export const useRoom = create<RoomState>()((set, get) => {
     }, fail);
     const unRolls = a.watchRolls(info.code, (rolls) => set({ rolls }), fail);
     // los jugadores ven la lista de iniciativa; el máster recibe los lanzamientos y las respuestas de salvación
-    const unTable = role === 'player' ? a.watchTable(info.code, (table) => set({ table }), fail) : () => {};
+    const unTable = role === 'player' ? a.watchTable(info.code, (table, turn) => set({ table, turn }), fail) : () => {};
     // el máster: los fines de concentración se aplican solos (quitar el estado en la mesa y el efecto en las hojas); el resto, a revisar
     const unCasts = role === 'dm' ? a.watchCasts(info.code, (casts) => {
+      // un jugador termina su turno: si es el suyo, pasa al siguiente
+      for (const c of casts.filter((x) => x.endTurn && !endsDone.has(x.id))) {
+        endsDone.add(c.id);
+        a.deleteCast(info.code, c.id).catch(() => { /* ya borrado */ });
+        const s = useStore.getState();
+        const act = s.started ? s.combatants.find((x) => x.id === s.activeId) : undefined;
+        const mine = act?.kind === 'pc' && s.roster.find((r) => r.id === act.rosterId)?.roomUid === c.uid;
+        if (mine) { s.step(1); s.showToast(c.who + ' termina su turno'); }
+      }
       for (const c of casts.filter((x) => x.end && x.buff && !endsDone.has(x.id))) {
         endsDone.add(c.id); // una sola vez (la lista vuelve a llegar mientras se borra)
         a.deleteCast(info.code, c.id).catch(() => { /* ya borrado */ });
@@ -100,7 +120,7 @@ export const useRoom = create<RoomState>()((set, get) => {
         const from = me()?.uid || '';
         for (const m of get().members) if (m.role === 'player' && m.uid !== c.uid) a.sendEvent(info.code, { to: m.uid, from, charId: m.sheet?.charId || '', hp: 0, temp: 0, note: '', at: Date.now(), kind: 'unbuff', buff: c.buff!, by: c.who }).catch(fail);
       }
-      set({ casts: casts.filter((x) => !x.end) });
+      set({ casts: casts.filter((x) => !x.end && !x.endTurn) });
     }, fail) : () => {};
     const unReplies = role === 'dm' ? a.watchReplies(info.code, (replies) => set({ replies }), fail) : () => {};
     // cada tirada nueva de la mesa de dados se publica (si se comparte)
@@ -167,11 +187,28 @@ export const useRoom = create<RoomState>()((set, get) => {
 
   return {
     code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', notice: '',
-    table: [], casts: [], replies: [], saveRequests: [], lastAttack: null, sentBuffs: {},
+    table: [], turn: null, turnsOn: savedTurnsOn(), askAt: 0, casts: [], replies: [], saveRequests: [], lastAttack: null, sentBuffs: {},
 
-    publishTable(list) {
+    setTurnsOn(v) {
+      try { localStorage.setItem(TURNS_KEY, v ? '1' : ''); } catch { /* sin almacenamiento */ }
+      set({ turnsOn: v });
+    },
+
+    askInitiative() {
+      set({ askAt: Date.now() });
+    },
+
+    endTurn() {
+      const { code, role, name } = get();
+      const uid = me()?.uid;
+      if (!code || role !== 'player' || !uid) return;
+      set({ turn: get().turn ? { ...get().turn!, uid: null } : null });
+      cloud()?.sendCast(code, { uid, who: name, at: Date.now(), label: 'termina su turno', targets: [], crit: false, parts: [], attack: null, heal: null, effect: null, endTurn: true }).catch((e) => set({ error: cloudError(e) }));
+    },
+
+    publishTable(list, turn) {
       const { code, role } = get();
-      if (code && role === 'dm') cloud()?.publishTable(code, list).catch((e) => set({ error: cloudError(e) }));
+      if (code && role === 'dm') cloud()?.publishTable(code, list, turn).catch((e) => set({ error: cloudError(e) }));
     },
 
     async sendCast(c) {
@@ -278,7 +315,7 @@ export const useRoom = create<RoomState>()((set, get) => {
       const uid = me()?.uid;
       stop?.();
       save(null);
-      set({ code: null, role: null, room: null, members: [], rolls: [], error: '', table: [], casts: [], replies: [], saveRequests: [] });
+      set({ code: null, role: null, room: null, members: [], rolls: [], error: '', table: [], turn: null, casts: [], replies: [], saveRequests: [] });
       if (code && uid) await cloud()?.removeMember(code, uid).catch(() => { /* ya no estaba */ });
     },
 

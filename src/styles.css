@@ -1135,3 +1135,14 @@ body:has(.mtabs) .roll-peek{bottom:calc(76px + env(safe-area-inset-bottom))}
 .lvl-step .lvl-feat,.lvl-step .lvl-sub,.lvl-step .lvl-feats details{background:#342e28}
 @media (max-width:760px){.lvl2 .lvl-main{grid-template-columns:1fr}.lvl2 .lvl-main>.lvl-half{grid-column:1/-1}}
 .paper .lvl-pending{color:#9b2c22}.paper .lvl-ok{color:#3f6b34}
+/* avisos de turno del jugador (si el máster los activa en la sala) */
+.room-turns{display:flex;flex-direction:column;gap:6px}
+.turn-banner{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:70;width:min(440px,calc(100vw - 24px));display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 16px;border-radius:12px;border:1px solid #6d6158;background:#2c2722;color:#f3e6c8;text-align:center;box-shadow:0 16px 40px rgba(0,0,0,.55)}
+.turn-banner.mine{border:2px solid #d4a94f;background:#3a3027;box-shadow:0 0 0 4px rgba(212,169,79,.25),0 16px 40px rgba(0,0,0,.55)}
+.turn-banner-t{font-family:'IM Fell English SC',Georgia,serif;font-size:26px;line-height:1.1;color:#f0c96a}
+.turn-banner-s{font-size:14px;font-weight:700;color:#c6bba6}
+body:has(.mtabs) .turn-banner{top:auto;bottom:calc(84px + env(safe-area-inset-bottom))}
+/* editor: equipo inicial de la clase (una opción por línea) */
+.ce-gear{display:flex;flex-direction:column;gap:6px}
+.ce-gear-opt{justify-content:flex-start;text-align:left;white-space:normal;height:auto;min-height:40px;font-weight:600;line-height:1.3}
+.ce-gear-opt b{flex:none;min-width:18px;color:#8a2a1c;font-weight:800}

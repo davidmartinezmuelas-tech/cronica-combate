@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import SettingsMenu, { SupportButton } from '../../shared/SettingsMenu';
+import TurnBanner from './TurnBanner';
 import PlayerBackup from './PlayerBackup';
 import Tour, { tourPending } from '../../shared/Tour';
 import { playerTour } from '../../shared/tours';
@@ -82,6 +83,7 @@ export default function PlayerApp() {
           {MTABS.map(([k, label]) => <button key={k} className={mt.tab === k ? 'on' : ''} aria-current={mt.tab === k ? 'page' : undefined} onClick={() => mt.setTab(k)}>{label}</button>)}
         </nav>
       )}
+      <TurnBanner />
       {tour && <Tour steps={playerTour(() => setTab('sheet'), () => setTab('library'))} storeKey="jugador" onClose={() => setTour(false)} />}
     </div>
   );

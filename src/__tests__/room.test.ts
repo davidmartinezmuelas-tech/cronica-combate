@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { setCloudAdapter, useAccount } from '../store/account';
 import { cleanCode, newCode, useRoom } from '../store/room';
+import { resetRoomTable, syncMembersToTable, watchTableToPublish } from '../store/roomTable';
 import { useStore } from '../store/useStore';
 import { fakeCloud } from './fakeCloud';
 
@@ -236,5 +237,50 @@ describe('conjuros mandados a la mesa: se recuerdan al recargar', () => {
     await useRoom.getState().leave();
     await useRoom.getState().join(code, 'Ilsa');
     expect(useRoom.getState().sentBuffs).toEqual({});
+  });
+});
+
+describe('avisos de turno (opcionales)', () => {
+  beforeEach(() => {
+    resetRoomTable();
+    useAccount.setState({ status: 'off', user: null, error: '', sync: 'idle', syncError: '' });
+    useRoom.setState({ code: null, role: null, name: '', room: null, members: [], rolls: [], share: true, busy: false, error: '', turnsOn: false, askAt: 0, turn: null });
+    useStore.setState({ roster: [], combatants: [], started: false, activeId: null, round: 0, undoStack: [] });
+  });
+
+  const twoPlayers = () => {
+    const sh = (name: string, init: number) => ({ name, cls: 'Guerrero', level: 3, ac: 16, hp: 20, hpMax: 20, temp: 0, pp: 12, init: 0, conds: [], charId: 'c-' + name, _i: init });
+    syncMembersToTable([{ uid: 'p1', name: 'Laura', role: 'player', sheet: sh('Ana', 18), at: 1 }, { uid: 'p2', name: 'Pablo', role: 'player', sheet: sh('Bruno', 9), at: 1 }]);
+    useStore.setState({ combatants: useStore.getState().combatants.map((c) => ({ ...c, init: c.name === 'Ana' ? 18 : 9 })) });
+    useStore.getState().startCombat();
+  };
+
+  it('lo que se publica: apagado, nada de turnos; encendido, a qué jugador le toca y la lista por orden alfabético', () => {
+    twoPlayers();
+    const got: [string[], { on: boolean; started: boolean; round: number; uid: string | null; ask: number }][] = [];
+    let stop = watchTableToPublish((list, turn) => got.push([list.map((x) => x.name), turn]));
+    expect(got.at(-1)![1]).toEqual({ on: false, started: false, round: 0, uid: null, ask: 0 });
+    stop();
+    stop = watchTableToPublish((list, turn) => got.push([list.map((x) => x.name), turn]), { on: true, ask: 5 });
+    expect(got.at(-1)).toEqual([['Ana', 'Bruno'], { on: true, started: true, round: 1, uid: 'p1', ask: 5 }]);
+    stop();
+  });
+
+  it('el jugador termina su turno: al máster le pasa al siguiente (solo si era el suyo)', async () => {
+    const cloud = fakeCloud({ uid: 'dm1', email: 'dm@x.test', name: null, anon: false });
+    setCloudAdapter(async () => cloud.adapter);
+    expect(await useRoom.getState().create('Máster')).toBe(true);
+    const code = useRoom.getState().code!;
+    twoPlayers();
+    const first = useStore.getState().activeId;
+    const base = { who: 'Pablo', label: 'termina su turno', targets: [], crit: false, parts: [], attack: null, heal: null, effect: null, endTurn: true, at: Date.now() };
+    // no es el turno de Pablo: no pasa nada
+    await cloud.adapter.sendCast(code, { ...base, uid: 'p2' });
+    await vi.waitFor(() => expect(cloud.rooms.get(code)!.casts).toHaveLength(0));
+    expect(useStore.getState().activeId).toBe(first);
+    // Laura (Ana) sí: pasa a Bruno
+    await cloud.adapter.sendCast(code, { ...base, who: 'Laura', uid: 'p1' });
+    await vi.waitFor(() => expect(useStore.getState().combatants.find((c) => c.id === useStore.getState().activeId)!.name).toBe('Bruno'));
+    expect(useRoom.getState().casts).toHaveLength(0);
   });
 });

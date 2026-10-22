@@ -2030,3 +2030,22 @@ test('generador de encuentros sin grupo guardado: jugadores y nivel escritos ah�
   await gen.getByRole('button', { name: 'Proponer' }).click();
   await expect(gen.getByRole('button', { name: 'Añadir al encuentro' })).toBeVisible({ timeout: 15000 });
 });
+
+test('editor: lo que falta arriba y el equipo inicial de la clase se pone solo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  const falta = page.locator('.lvl-pending');
+  await expect(falta).toContainText('nombre');
+  await page.getByLabel('Nombre del personaje').fill('Ivo');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await expect(falta).toContainText('equipo inicial');
+  await expect(falta).toContainText('conjuros');
+  await page.getByRole('button', { name: /^A Camisote de malla, Escudo, Maza/ }).click();
+  await expect(page.getByText('Puesta la opción A')).toBeVisible();
+  await expect(falta).not.toContainText('equipo inicial');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // CA 13 + Des (+0) + escudo 2, la maza en los ataques y el resto en las notas
+  await expect(page.locator('.stat').filter({ hasText: 'CA' }).first()).toContainText('15');
+  await expect(page.getByText('Maza').first()).toBeVisible();
+  await expect(page.locator('#pc-notes')).toHaveValue(/Equipo inicial \(A\): .*Símbolo sagrado.*7 po/);
+});

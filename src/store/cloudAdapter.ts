@@ -15,11 +15,17 @@ export interface RoomEvent {
 }
 /** Entrada de la lista de iniciativa que el máster comparte (sin PG ni números de los monstruos). */
 export interface TableEntry { id: string; name: string; kind: 'monster' | 'pc'; roomUid?: string }
+/**
+ * Avisos de turno para los jugadores (opcional, lo activa el máster): si ha empezado el combate, la ronda, a quién le
+ * toca (su uid en la sala; nadie si es un monstruo) y cuándo pidió la iniciativa. Los jugadores no ven la lista.
+ */
+export interface TurnState { on: boolean; started: boolean; round: number; uid: string | null; ask: number }
 /** Lanzamiento de un jugador sobre objetivos: llega al máster, que lo revisa y lo aplica. */
 export interface RoomCast {
   id: string; uid: string; who: string; label: string; targets: string[]; at: number;
   parts: { type: string; amt: number }[]; crit: boolean; attack: number | null; heal: number | null; effect: SaveEffect | null;
   buff?: SpellBuff | null; // conjuro sobre otros (Bendición, Auxilio…): el máster lo aplica a los objetivos
+  endTurn?: boolean; // el jugador termina su turno (avisos de turno activados)
   end?: boolean; // con buff: quien lo lanzó perdió la concentración (se quita solo, sin revisar)
 }
 /** Respuesta de un jugador a una petición de salvación. */
@@ -73,8 +79,8 @@ export interface CloudAdapter {
   sendEvent: (code: string, ev: Omit<RoomEvent, 'id'>) => Promise<void>;
   watchEvents: (code: string, uid: string, cb: (events: RoomEvent[]) => void, onError: (e: Error) => void) => () => void;
   deleteEvent: (code: string, id: string) => Promise<void>;
-  publishTable: (code: string, list: TableEntry[]) => Promise<void>;
-  watchTable: (code: string, cb: (list: TableEntry[]) => void, onError: (e: Error) => void) => () => void;
+  publishTable: (code: string, list: TableEntry[], turn?: TurnState) => Promise<void>;
+  watchTable: (code: string, cb: (list: TableEntry[], turn: TurnState | null) => void, onError: (e: Error) => void) => () => void;
   sendCast: (code: string, cast: Omit<RoomCast, 'id'>) => Promise<void>;
   watchCasts: (code: string, cb: (casts: RoomCast[]) => void, onError: (e: Error) => void) => () => void;
   deleteCast: (code: string, id: string) => Promise<void>;
@@ -175,8 +181,8 @@ export async function firebaseAdapter(): Promise<CloudAdapter> {
       onError,
     ),
     deleteEvent: (code, id) => F.deleteDoc(F.doc(db, 'rooms', code, 'events', id)),
-    publishTable: (code, list) => F.setDoc(F.doc(db, 'rooms', code, 'table', 'state'), { list: JSON.parse(JSON.stringify(list)), at: Date.now() }),
-    watchTable: (code, cb, onError) => F.onSnapshot(F.doc(db, 'rooms', code, 'table', 'state'), (d) => cb(d.exists() ? ((d.data() as { list: TableEntry[] }).list || []) : []), onError),
+    publishTable: (code, list, turn) => F.setDoc(F.doc(db, 'rooms', code, 'table', 'state'), { list: JSON.parse(JSON.stringify(list)), turn: turn ? { ...turn } : null, at: Date.now() }),
+    watchTable: (code, cb, onError) => F.onSnapshot(F.doc(db, 'rooms', code, 'table', 'state'), (d) => { const x = d.exists() ? (d.data() as { list?: TableEntry[]; turn?: TurnState | null }) : {}; cb(x.list || [], x.turn || null); }, onError),
     sendCast: async (code, cast) => { await F.addDoc(F.collection(db, 'rooms', code, 'casts'), JSON.parse(JSON.stringify(cast))); },
     watchCasts: (code, cb, onError) => F.onSnapshot(F.collection(db, 'rooms', code, 'casts'), (snap) => cb(snap.docs.map((d) => ({ ...(d.data() as Omit<RoomCast, 'id'>), id: d.id })).sort((a, b) => a.at - b.at)), onError),
     deleteCast: (code, id) => F.deleteDoc(F.doc(db, 'rooms', code, 'casts', id)),

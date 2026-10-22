@@ -14,6 +14,7 @@ import { usePlayer } from '../../store/player';
 import { useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
 import AbilityMethods, { BG_ASI_KEY, bgBonus } from './AbilityMethods';
+import { applyGear, GEAR_KEY, gearOptions, gearText, LETTERS } from '../../engine/startingGear';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const DMG_TYPES = ['contundente', 'cortante', 'perforante', 'ácido', 'frío', 'fuego', 'fuerza', 'necrótico', 'psíquico', 'radiante', 'relámpago', 'trueno', 'veneno'];
@@ -98,6 +99,21 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const pool = cls ? (cls.skills.pool.includes('*') ? Object.keys(data.skills) : cls.skills.pool) : [];
   const fromBg = new Set(bg?.skills || []);
   const classPicked = c.skills.filter((s) => !fromBg.has(s) && pool.includes(s)).length;
+  // equipo inicial de la clase y lo que falta por elegir (arriba del editor)
+  const gearOpts = c.className ? [] : gearOptions(c.classId);
+  const gearDone = c.choices?.[GEAR_KEY]?.[0] || '';
+  const asiPending = !!bg?.abil?.length && Array.isArray(c.choices?.[BG_ASI_KEY]) && !c.choices![BG_ASI_KEY].length;
+  const missing = [
+    !c.name.trim() && 'nombre',
+    !c.speciesId && !c.speciesName && 'especie',
+    !c.classId && !c.className && 'clase',
+    !c.backgroundId && !c.backgroundName && 'trasfondo',
+    asiPending && 'aumento del trasfondo',
+    Object.values(c.abil).every((v) => v === 10) && 'características',
+    cls && classPicked < cls.skills.count && 'habilidades de clase (' + classPicked + ' de ' + cls.skills.count + ')',
+    gearOpts.length > 0 && !gearDone && !c.weapons.length && !c.armorId && 'equipo inicial',
+    cls && cls.caster !== 'none' && !c.spells.length && 'conjuros',
+  ].filter(Boolean) as string[];
   const toggleSkill = (k: string) => set({ skills: c.skills.includes(k) ? c.skills.filter((x) => x !== k) : [...c.skills, k], expertise: c.expertise.filter((x) => x !== k || !c.skills.includes(k)) });
   const subSkills = new Set(choiceSkills(c));
   const toggleExp = (k: string) => set({ expertise: c.expertise.includes(k) ? c.expertise.filter((x) => x !== k) : [...c.expertise, k] });
@@ -157,6 +173,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           <h2>{c.name ? 'Editar a ' + c.name : 'Nuevo personaje'}</h2>
           <button className="btn small primary" onClick={finish}>Listo</button>
         </div>
+        {missing.length > 0 ? <p className="small lvl-pending" role="status" style={{ margin: 0 }}>Falta: {missing.join(', ')}.</p> : <p className="small lvl-ok" role="status" style={{ margin: 0 }}>Todo lo básico está elegido.</p>}
         <p className="muted small" style={{ margin: 0 }}>Los cambios se guardan solos. Lo que se puede calcular (CA, PG, salvaciones, habilidades, ataques, CD de conjuros) se calcula a partir de lo que elijas; al final puedes ajustar cualquier número a mano. Las listas traen lo que incluye el SRD 5.2.1 (la parte de las reglas de 2024 de uso libre); lo de otros libros se escribe con «Otro» o como rasgo propio.</p>
 
         <fieldset className="fs">
@@ -266,6 +283,22 @@ export default function CharacterEditor({ c }: { c: Character }) {
             ))}
           </div>
         </fieldset>
+
+        {data && gearOpts.length > 0 && (
+          <fieldset className="fs">
+            <legend>Equipo inicial</legend>
+            {gearDone ? <p className="muted small" style={{ margin: 0 }}>Puesta la opción {gearDone}: armadura, armas y el resto en tus notas. Lo puedes cambiar abajo.</p> : (
+              <>
+                <p className="muted small" style={{ margin: 0 }}>El de tu clase en el SRD. Elige una opción y se pone sola (armadura, escudo y armas; el resto y el oro van a tus notas). El de tu trasfondo, apúntalo en las notas.</p>
+                <div className="ce-gear">
+                  {gearOpts.map((o, i) => (
+                    <button key={i} className="btn small ce-gear-opt" onClick={() => set(applyGear(c, o, LETTERS[i], data, cls))}><b>{LETTERS[i]}</b> {gearText(o, data)}</button>
+                  ))}
+                </div>
+              </>
+            )}
+          </fieldset>
+        )}
 
         <fieldset className="fs">
           <legend>Armadura</legend>

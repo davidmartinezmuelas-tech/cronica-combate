@@ -1,7 +1,7 @@
 import type { Combatant, RosterEntry } from '../data/types';
 import { makePcCombatant } from '../engine/combat';
 import { norm, uid } from '../engine/util';
-import type { RoomCast, RoomMember, SharedRoll } from './cloudAdapter';
+import type { RoomCast, RoomMember, SharedRoll, TurnState } from './cloudAdapter';
 import { useStore } from './useStore';
 
 /**
@@ -109,27 +109,32 @@ export function applyInitiativeRolls(rolls: SharedRoll[], members: RoomMember[])
 
 /** Lista de iniciativa para los jugadores: solo nombres y tipo (sin PG ni números de los monstruos). */
 export function tableOf(combatants: Combatant[], roster: RosterEntry[]) {
+  // por orden alfabético: los jugadores eligen objetivos sin ver el orden de iniciativa
   return combatants.filter((c) => c.kind !== 'lair').map((c) => {
     const roomUid = c.kind === 'pc' ? roster.find((r) => r.id === c.rosterId)?.roomUid : undefined;
     return { id: c.id, name: c.name, kind: c.kind === 'pc' ? 'pc' as const : 'monster' as const, ...(roomUid ? { roomUid } : {}) };
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name, 'es'));
 }
 
 /** El máster publica la lista cada vez que cambia (agrupando los cambios seguidos). */
-export function watchTableToPublish(publish: (list: ReturnType<typeof tableOf>) => void): () => void {
+export function watchTableToPublish(publish: (list: ReturnType<typeof tableOf>, turn: TurnState) => void, opts: { on: boolean; ask: number } = { on: false, ask: 0 }): () => void {
   let last = '';
   let t: ReturnType<typeof setTimeout> | null = null;
   const send = () => {
     const s = useStore.getState();
     const list = tableOf(s.combatants, s.roster);
-    const key = JSON.stringify(list);
+    // con los avisos de turno: si ha empezado, la ronda y a qué jugador de la sala le toca (a nadie si es un monstruo)
+    const act = s.started ? s.combatants.find((c) => c.id === s.activeId) : undefined;
+    const uid = opts.on && act?.kind === 'pc' ? s.roster.find((r) => r.id === act.rosterId)?.roomUid || null : null;
+    const turn: TurnState = { on: opts.on, started: opts.on && s.started, round: opts.on ? s.round : 0, uid, ask: opts.on ? opts.ask : 0 };
+    const key = JSON.stringify([list, turn]);
     if (key === last) return;
     last = key;
-    publish(list);
+    publish(list, turn);
   };
   send();
   const un = useStore.subscribe((s, prev) => {
-    if (s.combatants === prev.combatants && s.roster === prev.roster) return;
+    if (s.combatants === prev.combatants && s.roster === prev.roster && s.started === prev.started && s.activeId === prev.activeId && s.round === prev.round) return;
     if (t) clearTimeout(t);
     t = setTimeout(send, 400);
   });

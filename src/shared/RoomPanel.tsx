@@ -60,7 +60,8 @@ export function applyBuff(c: RoomCast) {
 }
 
 export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
-  const { code, role, room, members, rolls, share, busy, error, notice, casts, saveRequests } = useRoom();
+  const { code, role, room, members, rolls, share, busy, error, notice, casts, saveRequests, turnsOn, askAt } = useRoom();
+  const started = useStore((s) => s.started);
   const { create, join, leave, close, setShare, publishSheet, resume } = useRoom.getState();
   const active = usePlayer(activeCharacter);
   const [codeIn, setCodeIn] = useState('');
@@ -78,7 +79,8 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
   // y lo que el máster cambia en la mesa (daño, curación) llega a la hoja del jugador
   useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableForPlayers((to, charId, hp, temp, fails) => useRoom.getState().sendHp(to, charId, hp, temp, fails)) : undefined), [mode, role]);
   // la lista de iniciativa (solo nombres) para que los jugadores elijan objetivos
-  useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableToPublish((list) => useRoom.getState().publishTable(list)) : undefined), [mode, role]);
+  // y, si están activados, los avisos de turno (empieza el combate, a quién le toca, pedir iniciativa)
+  useEffect(() => (mode === 'dm' && role === 'dm' ? watchTableToPublish((list, turn) => useRoom.getState().publishTable(list, turn), { on: turnsOn, ask: askAt }) : undefined), [mode, role, turnsOn, askAt]);
 
   const defaultName = mode === 'dm' ? 'Máster' : active?.name || '';
 
@@ -119,6 +121,17 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
       <span className="muted small">{room?.name} · {members.length} en la sala</span>
       {notice && <p className="room-notice" role="status">{notice}</p>}
       <label className="check small"><input type="checkbox" checked={share} onChange={(e) => setShare(e.target.checked)} />Compartir mis tiradas{role === 'dm' ? ' (las de los monstruos también)' : ''}</label>
+      {role === 'dm' && (
+        <div className="room-turns">
+          <label className="check small"><input type="checkbox" checked={turnsOn} onChange={(e) => useRoom.getState().setTurnsOn(e.target.checked)} />Avisar a los jugadores de su turno</label>
+          {turnsOn ? (
+            <span className="rollrow">
+              {!started && <button className="btn small" onClick={() => useRoom.getState().askInitiative()}>Pedir iniciativa</button>}
+              <span className="muted small">{started ? 'A quien le toca le sale en su pantalla y puede terminar su turno desde ella.' : 'Al empezar el combate se les avisa; no ven la lista ni el orden.'}</span>
+            </span>
+          ) : <span className="muted small">Apagado: los turnos se llevan hablando, como en la mesa.</span>}
+        </div>
+      )}
       <ul className="room-members">
         {members.map((m) => (
           <li key={m.uid}>

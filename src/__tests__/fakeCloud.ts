@@ -1,5 +1,5 @@
 import type { Character } from '../engine/character';
-import type { CloudAdapter, CloudUser, DmKind, RoomCast, RoomEvent, RoomInfo, RoomMember, SaveReply, SharedRoll, TableEntry } from '../store/cloudAdapter';
+import type { CloudAdapter, CloudUser, DmKind, RoomCast, RoomEvent, RoomInfo, RoomMember, SaveReply, SharedRoll, TableEntry, TurnState } from '../store/cloudAdapter';
 
 /** Nube falsa en memoria con la misma forma que Firebase (personajes, salas, participantes y tiradas). */
 export function fakeCloud(initialUser: CloudUser | null) {
@@ -8,8 +8,8 @@ export function fakeCloud(initialUser: CloudUser | null) {
   const remote = new Map<string, Character>();
   const items: Record<DmKind, Map<string, { id: string }>> = { monsters: new Map(), encounters: new Map(), roster: new Map() };
   const itemWatch = new Map<DmKind, (changed: { id: string }[], removed: string[], first: boolean) => void>();
-  const rooms = new Map<string, { info: RoomInfo; members: Map<string, RoomMember>; rolls: SharedRoll[]; events: RoomEvent[]; table: TableEntry[]; casts: RoomCast[]; replies: SaveReply[] }>();
-  const watch = { table: new Map<string, Set<(l: TableEntry[]) => void>>(), casts: new Map<string, Set<(l: RoomCast[]) => void>>(), replies: new Map<string, Set<(l: SaveReply[]) => void>>() };
+  const rooms = new Map<string, { info: RoomInfo; members: Map<string, RoomMember>; rolls: SharedRoll[]; events: RoomEvent[]; table: TableEntry[]; turn?: TurnState | null; casts: RoomCast[]; replies: SaveReply[] }>();
+  const watch = { table: new Map<string, Set<(l: TableEntry[], t: TurnState | null) => void>>(), casts: new Map<string, Set<(l: RoomCast[]) => void>>(), replies: new Map<string, Set<(l: SaveReply[]) => void>>() };
   const sub = <T,>(m: Map<string, Set<T>>, code: string, cb: T) => { const set = m.get(code) || new Set<T>(); set.add(cb); m.set(code, set); setTimeout(() => notify(code), 0); return () => { set.delete(cb); }; };
   const eventWatch = new Map<string, Set<{ uid: string; cb: (e: RoomEvent[]) => void }>>();
   let charWatcher: ((changed: Character[], removed: string[], first: boolean) => void) | null = null;
@@ -22,7 +22,7 @@ export function fakeCloud(initialUser: CloudUser | null) {
     memberWatch.get(code)?.forEach((cb) => cb(r ? [...r.members.values()] : []));
     rollWatch.get(code)?.forEach((cb) => cb(r ? [...r.rolls].sort((a, b) => b.at - a.at).slice(0, 40) : []));
     eventWatch.get(code)?.forEach((w) => w.cb(r ? r.events.filter((e) => e.to === w.uid) : []));
-    watch.table.get(code)?.forEach((cb) => cb(r ? r.table : []));
+    watch.table.get(code)?.forEach((cb) => cb(r ? r.table : [], r?.turn || null));
     watch.casts.get(code)?.forEach((cb) => cb(r ? [...r.casts] : []));
     watch.replies.get(code)?.forEach((cb) => cb(r ? [...r.replies] : []));
   };
@@ -68,9 +68,9 @@ export function fakeCloud(initialUser: CloudUser | null) {
       return () => set.delete(w);
     },
     deleteEvent: async (code, id) => { const r = rooms.get(code); if (r) r.events = r.events.filter((e) => e.id !== id); notify(code); },
-    publishTable: async (code, list) => { const r = rooms.get(code); if (r) r.table = list; notify(code); },
+    publishTable: async (code, list, turn) => { const r = rooms.get(code); if (r) { r.table = list; r.turn = turn || null; } notify(code); },
     watchTable: (code, cb) => sub(watch.table, code, cb),
-    sendCast: async (code, c) => { rooms.get(code)?.casts.push({ ...c, id: 'c' + ++n }); notify(code); },
+    sendCast: async (code, c) => { rooms.get(code)?.casts.push({ ...c, id: 'c' + ++n + '-' + Math.random().toString(36).slice(2, 7) }); notify(code); },
     watchCasts: (code, cb) => sub(watch.casts, code, cb),
     deleteCast: async (code, id) => { const r = rooms.get(code); if (r) r.casts = r.casts.filter((c) => c.id !== id); notify(code); },
     sendReply: async (code, x) => { rooms.get(code)?.replies.push({ ...x, id: 'q' + ++n }); notify(code); },
