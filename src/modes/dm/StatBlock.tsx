@@ -1,7 +1,7 @@
 import { ABIL, ABIL_LONG, DMG_TYPES, SECTIONS } from '../../data/constants';
 import type { Combatant, Feature, Monster, SectionKey } from '../../data/types';
 import { fmt, modOf, parseExpr, prettyExpr, sgn } from '../../engine/dice';
-import { saveEffectOf } from '../../engine/saveEffect';
+import { conditionsIn, durationIn, saveEffectOf } from '../../engine/saveEffect';
 import { spellRoll } from '../../engine/spellRoll';
 import { nfmt, pbOf } from '../../engine/util';
 import { useStore } from '../../store/useStore';
@@ -60,6 +60,9 @@ function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKe
   const okDmg = !!(f.dmg && f.dmg.length && f.dmg.every((p) => parseExpr(p[0])));
   // con salvación: al tirar el daño (o con «Objetivos» si no hace daño) se eligen objetivos y tiran
   const effect = f.dc ? saveEffectOf(f.dc[0], f.dc[1], !!f.half, f.d, c?.id) : null;
+  // un ataque que pone un estado al impactar (Agarrado, Derribado…) sin salvación: se aplica con su daño
+  const hitConds = f.atk != null && !f.dc && !/salvaci/i.test(f.d) ? conditionsIn(f.d) : [];
+  const onHit = hitConds.length ? { dc: 0, abil: 0, half: false, conds: hitConds, ...durationIn(f.d), by: c?.id } : null;
   const dayMax = c && f.day && !isLR ? (c.inLair && f.dayl ? f.dayl : f.day) : 0;
   return (
     <div className="sb-action">
@@ -77,18 +80,19 @@ function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKe
           </button>
         )}
         {f.dc && <span className="dc-chip">CD {f.dc[0]} {f.dc[1]}{f.half ? ' · mitad si supera' : ''}</span>}
+        {onHit && <span className="dc-chip" title="Se aplica a los objetivos al aplicar el daño">al impactar: {hitConds.join(', ').toLowerCase()}</span>}
         {effect && !okDmg && (
           <button className="rollbtn" title="Elige objetivos y tira sus salvaciones" onClick={() => { useStore.getState().startEffect(who + ' · ' + f.n, effect); if (c && f.rc) setSpent(c.id, key, true); }}>Objetivos{effect.conds.length ? ' (' + effect.conds.join(', ').toLowerCase() + ')' : ''}</button>
         )}
         {okDmg && (
           <button className="rollbtn dmg" onClick={() => {
-            roll({ label: who + ' · ' + f.n + ': daño', kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: f.dmg!.map(([e, t]) => ({ expr: e, type: t })), ...(effect ? { effect } : {}) });
+            roll({ label: who + ' · ' + f.n + ': daño', kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: f.dmg!.map(([e, t]) => ({ expr: e, type: t })), ...(effect ? { effect } : {}), ...(onHit ? { onHit } : {}) });
             if (c && f.rc) setSpent(c.id, key, true);
           }}>Daño {dmgLabel(f.dmg!)}</button>
         )}
         {okDmg && (f.alt || []).filter((a) => a.dmg.every((p) => parseExpr(p[0]))).map((a) => (
           <button key={a.l} className="rollbtn dmg" onClick={() => {
-            roll({ label: who + ' · ' + f.n + ': daño ' + a.l, kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: a.dmg.map(([e, t]) => ({ expr: e, type: t })), ...(effect ? { effect } : {}) });
+            roll({ label: who + ' · ' + f.n + ': daño ' + a.l, kind: 'damage', who, half: !!f.half, by: c?.id ?? null, parts: a.dmg.map(([e, t]) => ({ expr: e, type: t })), ...(onHit ? { onHit } : {}), ...(effect ? { effect } : {}) });
             if (c && f.rc) setSpent(c.id, key, true);
           }}>Daño {a.l}: {dmgLabel(a.dmg)}</button>
         ))}

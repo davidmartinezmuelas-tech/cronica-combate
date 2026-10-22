@@ -1,6 +1,6 @@
 import { modeFromLocation } from '../../app/mode';
 import type { Combatant, RollResult } from '../../data/types';
-import { rollModifiers, type LogDraft } from '../../engine/combat';
+import { addCondition, rollModifiers, type LogDraft } from '../../engine/combat';
 import { combineAdv, rollParts, type AdvMode } from '../../engine/dice';
 import type { Kit } from '../kit';
 import type { DiceSlice, GetState, SetState, State } from '../state';
@@ -41,7 +41,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const totalStr = mods.autoFail ? 'Falla' : String(out.total);
       animate(out.dice, () => {
         const patch: Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] } = {
-          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.heal ? { heal: true } : {}),
+          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.onHit ? { onHit: spec.onHit } : {}), ...(spec.heal ? { heal: true } : {}),
             ...(spec.kind === 'damage' && out.rows.length > 1 ? { rows: out.rows } : {}), ...(spec.tags?.length ? { tags: spec.tags } : {}) },
           // en el historial, los extras entre paréntesis
           logEntry: { label: spec.label + (spec.tags?.length ? ' (' + spec.tags.join(', ') + ')' : ''), total: totalStr, detail: out.detail },
@@ -67,7 +67,19 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const r = s.result;
       if (!r || !Object.keys(s.dmgTargets).length) { get().showToast('Elige al menos un objetivo'); return; }
       get().applyParts(s.dmgTargets, r.parts, !!r.crit);
-      set({ dmgTargets: {}, result: { ...r, isDmg: false, applied: true, note: 'Daño aplicado.' } });
+      // el ataque pone además estados al impactar (Agarrado, Derribado…): a los mismos objetivos, con su duración
+      const fx = r.onHit;
+      if (fx?.conds.length) {
+        const st = get();
+        const ids = new Set(Object.keys(s.dmgTargets));
+        set({ combatants: st.combatants.map((c) => {
+          if (!ids.has(c.id)) return c;
+          let next = c.conds;
+          for (const k of fx.conds) next = addCondition(next, k, fx.rounds, { at: fx.until ? 'end' : st.condAt, by: fx.until === 'caster' && fx.by ? fx.by : c.id, activeId: st.started ? st.activeId : null, holderId: c.id });
+          return next === c.conds ? c : { ...c, conds: next };
+        }) });
+      }
+      set({ dmgTargets: {}, result: { ...r, isDmg: false, applied: true, note: 'Daño aplicado' + (fx?.conds.length ? ' y ' + fx.conds.join(', ').toLowerCase() : '') + '.' } });
     },
   };
 }

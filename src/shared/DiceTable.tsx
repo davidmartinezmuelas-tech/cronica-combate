@@ -59,7 +59,7 @@ function Targets() {
           );
         })}
       </div>
-      <button className="btn small primary" style={{ alignSelf: 'flex-start' }} onClick={applyRolled}>Aplicar daño</button>
+      <button className="btn small primary" style={{ alignSelf: 'flex-start' }} onClick={applyRolled}>Aplicar daño{r.onHit?.conds.length ? ' y ' + r.onHit.conds.join(', ').toLowerCase() : ''}</button>
     </div>
   );
 }

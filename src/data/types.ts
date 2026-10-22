@@ -187,6 +187,7 @@ export interface RollResult {
   applied?: boolean;
   crit?: boolean;
   effect?: SaveEffect; // efecto con salvación: se eligen objetivos, tiran y se aplica daño y estados
+  onHit?: SaveEffect; // estados que pone el ataque al impactar (sin salvación): se aplican con el daño
   heal?: boolean; // es una curación (para mandarla a la mesa)
   rows?: { src: string; type: string; sub: number; dice: string }[]; // daño por partes (arma, Furia, castigo…)
   tags?: string[]; // extras de la tirada (Atacante salvaje, Marca del cazador…)

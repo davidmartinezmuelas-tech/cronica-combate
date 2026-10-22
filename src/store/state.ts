@@ -21,6 +21,7 @@ export interface RollSpec {
   adv?: string; // ventaja por un rasgo (motivo: «Furia», «Sentir el peligro»…)
   critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
   effect?: SaveEffect; // daño de un efecto con salvación (objetivos, salvaciones, mitad y estados)
+  onHit?: SaveEffect; // daño de un ataque que además pone estados al impactar (Agarrado…): se aplican con el daño
   heal?: boolean; // es una curación
   tags?: string[]; // extras que se ven como etiquetas en el resultado (Atacante salvaje, Castigo divino…)
   critBonus?: RollPart[]; // daño que solo se suma si este daño es de un crítico (Perforador, Don del ataque imparable)
