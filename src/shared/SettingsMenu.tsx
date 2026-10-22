@@ -6,7 +6,7 @@ import AccountBox from './AccountBox';
 import { InfoDialog } from './Card';
 import { hasWebGL } from './Dice3D';
 import Legal, { feedbackHref } from './Legal';
-import { canInstall, installApp, motionPref, onInstallChange, reducedMotion, setMotionPref } from './prefs';
+import { canInstall, installApp, motionPref, onInstallChange, reducedMotion, setMotionPref, setWizardPref, wizardPref } from './prefs';
 
 declare const __APP_VERSION__: string;
 declare const __BUILD_DATE__: string;
@@ -21,6 +21,7 @@ export default function SettingsMenu({ mode, backup, onTour, onKeys }: { mode: '
   const dice3d = useStore((s) => s.dice3d);
   const can3d = hasWebGL();
   const [motion, setMotion] = useState(motionPref);
+  const [wizard, setWizard] = useState(wizardPref);
   const [install, setInstall] = useState(canInstall);
   useEffect(() => onInstallChange(() => setInstall(canInstall())), []);
   const use3d = can3d && (dice3d ?? !reducedMotion());
@@ -49,6 +50,7 @@ export default function SettingsMenu({ mode, backup, onTour, onKeys }: { mode: '
               <h3>Preferencias</h3>
               <label className="check"><input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => useStore.getState().set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (este navegador no tiene gráficos 3D)'}</label>
               <label className="check"><input type="checkbox" checked={motion} onChange={(e) => { setMotionPref(e.target.checked); setMotion(e.target.checked); }} />Animaciones reducidas (para móviles lentos o si te marean)</label>
+              {mode === 'player' && <label className="check"><input type="checkbox" checked={wizard} onChange={(e) => { setWizardPref(e.target.checked); setWizard(e.target.checked); }} />Crear personajes paso a paso (si no, todo en una página)</label>}
             </section>
             <section aria-label="Ayuda">
               <h3>Ayuda</h3>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
 import { asClass, classEntries, derive, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
@@ -39,6 +39,11 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const [askSpell, setAskSpell] = useState<{ id: string; n: string } | null>(null);
   const [nonCasterOk, setNonCasterOk] = useState(false);
   const [newFeat, setNewFeat] = useState<CustomFeat | null>(null);
+  // personaje nuevo: asistente paso a paso (las secciones del editor, una por paso)
+  const wizard = usePlayer((s) => s.creating) === c.id;
+  const [step, setStep] = useState(0);
+  const topRef = useRef<HTMLDivElement>(null);
+  const go = (n: number) => { setStep(n); topRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' }); };
   const set = (patch: Partial<Character>) => {
     // si un cambio sube los PG máximos (nivel, Constitución, Duro…), los actuales suben lo mismo; si los baja, no pasan del nuevo máximo
     // (un personaje recién creado, con 0 PG, empieza con el máximo al terminar)
@@ -166,18 +171,30 @@ export default function CharacterEditor({ c }: { c: Character }) {
     setEditing(false);
   };
 
-  return (
-    <div className="pc">
-      <div className="panel">
-        <div className="panel-head">
-          <h2>{c.name ? 'Editar a ' + c.name : 'Nuevo personaje'}</h2>
-          <button className="btn small primary" onClick={finish}>Listo</button>
-        </div>
-        {missing.length > 0 ? <p className="small lvl-pending" role="status" style={{ margin: 0 }}>Falta: {missing.join(', ')}.</p> : <p className="small lvl-ok" role="status" style={{ margin: 0 }}>Todo lo básico está elegido.</p>}
-        <p className="muted small" style={{ margin: 0 }}>Los cambios se guardan solos. Lo que se puede calcular (CA, PG, salvaciones, habilidades, ataques, CD de conjuros) se calcula a partir de lo que elijas; al final puedes ajustar cualquier número a mano. Las listas traen lo que incluye el SRD 5.2.1 (la parte de las reglas de 2024 de uso libre); lo de otros libros se escribe con «Otro» o como rasgo propio.</p>
+  const caster = !!cls && cls.caster !== 'none';
+  const STEPS = ['Quién eres', 'Trasfondo', 'Características', 'Habilidades', 'Equipo', caster || c.spells.length ? 'Conjuros y dotes' : 'Dotes', 'Repaso'];
+  const last = STEPS.length - 1;
 
-        <fieldset className="fs">
-          <legend>Identidad</legend>
+  return (
+    <div className="pc" ref={topRef}>
+      <div className={wizard ? 'panel ce-wiz' : 'panel'} data-step={wizard ? step : undefined}>
+        <div className="panel-head">
+          <h2>{wizard ? 'Nuevo personaje' : c.name ? 'Editar a ' + c.name : 'Nuevo personaje'}</h2>
+          {wizard ? <button className="btn small ghost" onClick={() => usePlayer.getState().setCreating(null)}>Ver todo en una página</button>
+            : <button className="btn small primary" onClick={finish}>Listo</button>}
+        </div>
+        {wizard && (
+          <nav className="ce-steps" aria-label="Pasos para crear el personaje">
+            {STEPS.map((n, i) => <button key={n} className={i === step ? 'ce-step on' : i < step ? 'ce-step done' : 'ce-step'} aria-current={i === step ? 'step' : undefined} onClick={() => go(i)}><span className="ce-step-n">{i + 1}</span>{n}</button>)}
+          </nav>
+        )}
+        {wizard && <p className="ce-step-title">Paso {step + 1} de {STEPS.length}: {STEPS[step]}</p>}
+        {missing.length > 0 ? <p className="small lvl-pending" role="status" data-wstep="s6" style={{ margin: 0 }}>Falta: {missing.join(', ')}.</p> : <p className="small lvl-ok" role="status" data-wstep="s6" style={{ margin: 0 }}>Todo lo básico está elegido.</p>}
+        <p className="muted small" data-wstep="x" style={{ margin: 0 }}>Los cambios se guardan solos. Lo que se puede calcular (CA, PG, salvaciones, habilidades, ataques, CD de conjuros) se calcula a partir de lo que elijas; al final puedes ajustar cualquier número a mano. Las listas traen lo que incluye el SRD 5.2.1 (la parte de las reglas de 2024 de uso libre); lo de otros libros se escribe con «Otro» o como rasgo propio.</p>
+
+        <fieldset className="fs" data-wstep="s0 s1">
+          <legend>{wizard && step === 1 ? 'Trasfondo' : 'Identidad'}</legend>
+          <div className="ce-part" data-wstep="s0">
           <div className="row2">
             <div className="field"><label htmlFor="ce-name">Nombre del personaje</label><input id="ce-name" className="input" value={c.name} onChange={(e) => set({ name: e.target.value })} /></div>
             <div className="field"><label htmlFor="ce-player">Jugador</label><input id="ce-player" className="input" value={c.player} onChange={(e) => set({ player: e.target.value })} /></div>
@@ -253,6 +270,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
             <button className="btn small" disabled={totalLevel(c) >= 20} onClick={() => setMulti([...multi, { classId: '', className: '', level: 1, subclass: '' }])}>Añadir otra clase (multiclase)</button>
             {multi.length > 0 && <span className="muted small">Nivel total {totalLevel(c)}. La primera clase da las salvaciones y el dado de golpe completo del nivel 1.</span>}
           </div>
+          </div>
+          <div className="ce-part" data-wstep="s1">
           <div className="row2">
             <div className="field"><label htmlFor="ce-bg">Trasfondo</label>
               <select id="ce-bg" className="input" value={c.backgroundId} onChange={(e) => chooseBackground(e.target.value)}>
@@ -264,14 +283,15 @@ export default function CharacterEditor({ c }: { c: Character }) {
           </div>
           {bg ? <p className="muted small" style={{ margin: 0 }}>{bg.n}: +2 a una y +1 a otra (o +1 a las tres) entre {bg.abil.map((a) => ABIL_N[a]).join(', ')}; competencia en {bg.skills.map((s) => data.skills[s]).join(' y ')}; dote de origen {bg.feat}.</p>
             : <p className="muted small" style={{ margin: 0 }}>Cualquier clase puede llevar cualquier trasfondo. El SRD solo trae cuatro (Acólito, Criminal, Sabio y Soldado); los de tu libro puedes añadirlos en «Biblioteca». Con otro, marca tú sus habilidades y elige o escribe su dote de origen abajo.</p>}
+          </div>
         </fieldset>
 
-        <fieldset className="fs">
+        <fieldset className="fs" data-wstep="s2">
           <legend>Características</legend>
           <AbilityMethods c={c} cls={cls} set={set} bgAbil={bg?.abil} bgName={bg?.n} />
         </fieldset>
 
-        <fieldset className="fs">
+        <fieldset className="fs" data-wstep="s3">
           <legend>Habilidades</legend>
           <span className="muted small">{cls ? cls.n + ': elige ' + cls.skills.count + (cls.skills.pool.includes('*') ? ' cualesquiera' : ' de las resaltadas') + ' (llevas ' + classPicked + ').' : ''}{bg ? ' El trasfondo ya da ' + bg.skills.map((s) => data.skills[s]).join(' y ') + '.' : ''} Marca «P» para pericia.</span>
           <div className="ce-skills">
@@ -285,7 +305,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
         </fieldset>
 
         {data && gearOpts.length > 0 && (
-          <fieldset className="fs">
+          <fieldset className="fs" data-wstep="s4">
             <legend>Equipo inicial</legend>
             {gearDone ? <p className="muted small" style={{ margin: 0 }}>Puesta la opción {gearDone}: armadura, armas y el resto en tus notas. Lo puedes cambiar abajo.</p> : (
               <>
@@ -300,7 +320,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           </fieldset>
         )}
 
-        <fieldset className="fs">
+        <fieldset className="fs" data-wstep="s4">
           <legend>Armadura</legend>
           <div className="row2">
             <div className="field"><label htmlFor="ce-armor">Armadura</label>
@@ -328,7 +348,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           <span className="muted small">CA calculada: {d.ac} ({d.acNote}).</span>
         </fieldset>
 
-        <fieldset className="fs">
+        <fieldset className="fs" data-wstep="s4">
           <legend>Armas y ataques</legend>
           <div className="rollrow">
             <select className="input" aria-label="Arma para añadir" value={weaponPick} onChange={(e) => setWeaponPick(e.target.value)} style={{ flex: '1 1 200px', width: 'auto' }}>
@@ -368,7 +388,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           ))}
         </fieldset>
 
-        <fieldset className="fs">
+        <fieldset className="fs" data-wstep={caster || c.spells.length ? 's5' : 'x'}>
           <legend>Conjuros</legend>
           {subCaster && !cls?.spells.length && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: conjuros de mago. Lanzas con Inteligencia.</p>}
           {preps.length > 0 && (
@@ -434,7 +454,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           )}
         </fieldset>
 
-        <fieldset className="fs">
+        <fieldset className="fs" data-wstep="s5">
           <legend>Dotes, estilos de combate y rasgos propios</legend>
           <span className="muted small">{lib.feats.length ? 'Dotes del SRD y de tu biblioteca.' : 'El SRD trae 4 dotes de origen, 2 generales, 4 estilos de combate y 7 dones épicos. Las de tu libro puedes añadirlas en «Biblioteca» o aquí como dote propia.'}</span>
           {featGroups.map(([cat, title]) => {
@@ -541,7 +561,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           )}
         </fieldset>
 
-        <fieldset className="fs">
+        <fieldset className="fs" data-wstep="x">
           <legend>Ajustes a mano</legend>
           <span className="muted small">Déjalos vacíos para usar el cálculo. Útil para objetos mágicos o rasgos que la app no aplica sola.</span>
           <div className="row4f">
@@ -552,7 +572,29 @@ export default function CharacterEditor({ c }: { c: Character }) {
           </div>
         </fieldset>
 
-        <div className="rollrow" style={{ justifyContent: 'space-between' }}>
+        {wizard && (
+          <fieldset className="fs ce-review" data-wstep="s6">
+            <legend>Repaso</legend>
+            <p className="ce-review-t"><b>{c.name || 'Sin nombre'}</b> · {[data.species.find((x) => x.id === c.speciesId)?.n || c.speciesName, (cls?.n || c.className) + ' ' + c.level, bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</p>
+            <div className="ce-review-stats">
+              <span><b>{d.ac}</b> CA</span><span><b>{d.hpMax}</b> PG</span><span><b>{(d.init >= 0 ? '+' : '') + d.init}</b> Iniciativa</span><span><b>{d.speed}</b> pies</span>
+              {ABILS.map((a) => <span key={a}><b>{c.abil[a]}</b> {ABIL_N[a].slice(0, 3)}</span>)}
+            </div>
+            <p className="muted small" style={{ margin: 0 }}>{c.weapons.length ? 'Ataques: ' + d.attacks.map((x) => x.w.name + ' ' + (x.atk >= 0 ? '+' : '') + x.atk).join(', ') + '. ' : 'Sin armas. '}{caster ? (c.spells.length ? c.spells.length + ' conjuros y trucos elegidos.' : 'Aún sin conjuros.') : ''}</p>
+            <p className="muted small" style={{ margin: 0 }}>Todo se puede cambiar luego en «Editar hoja».</p>
+          </fieldset>
+        )}
+
+        {wizard && (
+          <div className="ce-wiz-nav">
+            <button className="btn" disabled={step === 0} onClick={() => go(step - 1)}>Anterior</button>
+            <span className="muted small">Paso {step + 1} de {STEPS.length}</span>
+            {step < last ? <button className="btn primary" onClick={() => go(step + 1)}>Siguiente</button>
+              : <button className="btn primary" onClick={finish}>Crear personaje</button>}
+          </div>
+        )}
+
+        <div className="rollrow" data-wstep="x" style={{ justifyContent: 'space-between' }}>
           <button className="btn primary" onClick={finish}>Listo</button>
           <button className="btn small ghost" onClick={() => { if (confirmDel) remove(c.id); else setConfirmDel(true); }}>{confirmDel ? '¿Seguro? Borrar personaje' : 'Borrar personaje'}</button>
         </div>

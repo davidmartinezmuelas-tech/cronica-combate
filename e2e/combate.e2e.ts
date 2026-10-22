@@ -2049,3 +2049,46 @@ test('editor: lo que falta arriba y el equipo inicial de la clase se pone solo',
   await expect(page.getByText('Maza').first()).toBeVisible();
   await expect(page.locator('#pc-notes')).toHaveValue(/Equipo inicial \(A\): .*Símbolo sagrado.*7 po/);
 });
+
+test.describe('asistente para crear personaje', () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+  test('paso a paso: quién eres, trasfondo, características, habilidades, equipo, conjuros y repaso', async ({ page }) => {
+    await page.goto('/#/jugador');
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    const steps = page.getByRole('navigation', { name: 'Pasos para crear el personaje' });
+    await expect(steps).toBeVisible();
+    // paso 1: no se ven las demás secciones
+    await expect(page.getByLabel('Trasfondo', { exact: true })).toBeHidden();
+    await page.getByLabel('Nombre del personaje').fill('Mira');
+    await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Humano' });
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    // paso 2: trasfondo
+    await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Acólito' });
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    // paso 3: características con el aumento del trasfondo
+    await page.getByRole('button', { name: /Matriz estándar/ }).click();
+    await page.getByLabel('+2 a').selectOption({ label: 'Sabiduría' });
+    await page.getByLabel('+1 a').selectOption({ label: 'Carisma' });
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    // paso 4: habilidades
+    await page.locator('.ce-skill', { hasText: 'Historia' }).locator('input').first().check();
+    await page.locator('.ce-skill', { hasText: 'Medicina' }).locator('input').first().check();
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    // paso 5: equipo inicial
+    await page.getByRole('button', { name: /^A Camisote de malla/ }).click();
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    // paso 6: conjuros y dotes (se ve la sección de conjuros)
+    await expect(page.getByRole('group', { name: 'Conjuros' }).or(page.locator('fieldset', { hasText: 'Buscar conjuro' })).first()).toBeVisible();
+    await page.getByRole('button', { name: 'Siguiente' }).click();
+    // repaso
+    await expect(page.locator('.ce-review')).toContainText('Mira');
+    await expect(page.locator('.ce-review')).toContainText('CA');
+    await expect(page.locator('.lvl-pending')).toContainText('conjuros');
+    await page.getByRole('button', { name: 'Crear personaje' }).click();
+    await expect(page.getByRole('heading', { name: 'Mira' })).toBeVisible();
+    // «Editar hoja» ya no usa el asistente
+    await page.getByRole('button', { name: 'Editar hoja' }).click();
+    await expect(steps).toHaveCount(0);
+  });
+});

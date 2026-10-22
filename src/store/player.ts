@@ -1,4 +1,5 @@
 import { createStore, del, entries, set as idbSet } from 'idb-keyval';
+import { wizardPref } from '../shared/prefs';
 import { create } from 'zustand';
 import type { PlayerData } from '../data/player';
 import { blankCharacter, type Character } from '../engine/character';
@@ -18,6 +19,8 @@ export interface PlayerState {
   characters: Character[];
   activeId: string | null;
   editing: boolean; // creando o editando la hoja activa
+  creating: string | null; // el personaje recién creado que va por el asistente paso a paso
+  setCreating: (id: string | null) => void;
   init: () => Promise<void>;
   loadData: () => Promise<void>;
   select: (id: string | null) => void;
@@ -50,7 +53,7 @@ function save(c: Character) {
 let dataLoading: Promise<void> | null = null;
 
 export const usePlayer = create<PlayerState>()((set, get) => ({
-  data: null, dataError: '', loaded: false, characters: [], activeId: null, editing: false,
+  data: null, dataError: '', loaded: false, characters: [], activeId: null, editing: false, creating: null,
 
   async init() {
     if (get().loaded) return;
@@ -81,7 +84,7 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
 
   create() {
     const c = blankCharacter();
-    set({ characters: [c, ...get().characters], activeId: c.id, editing: true });
+    set({ characters: [c, ...get().characters], activeId: c.id, editing: true, creating: wizardPref() ? c.id : null });
     rememberActive(c.id);
     save(c);
     return c;
@@ -112,8 +115,12 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     set({ characters: chars, activeId: active, editing: false });
   },
 
+  setCreating(id) {
+    set({ creating: id });
+  },
+
   setEditing(v) {
-    set({ editing: v });
+    set(v ? { editing: v } : { editing: v, creating: null });
   },
 
   applyRemote(changed, removed) {

@@ -9,6 +9,8 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'list',
   use: {
     baseURL: 'http://localhost:4173', locale: 'es-ES', trace: 'retain-on-failure',
+    // las pruebas crean personajes con el editor entero (el asistente paso a paso tiene su propia prueba)
+    storageState: { cookies: [], origins: [{ origin: 'http://localhost:4173', localStorage: [{ name: 'cronica-asistente', value: 'no' }] }] },
     // WebGL por software para probar los dados 3D también sin GPU (CI)
     launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
   },

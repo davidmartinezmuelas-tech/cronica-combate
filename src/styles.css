@@ -1146,3 +1146,26 @@ body:has(.mtabs) .turn-banner{top:auto;bottom:calc(84px + env(safe-area-inset-bo
 .ce-gear{display:flex;flex-direction:column;gap:6px}
 .ce-gear-opt{justify-content:flex-start;text-align:left;white-space:normal;height:auto;min-height:40px;font-weight:600;line-height:1.3}
 .ce-gear-opt b{flex:none;min-width:18px;color:#8a2a1c;font-weight:800}
+/* asistente para crear personaje: las secciones del editor, una por paso (como las pestañas del móvil) */
+.ce-wiz[data-step="0"] [data-wstep]:not([data-wstep~=s0]),
+.ce-wiz[data-step="1"] [data-wstep]:not([data-wstep~=s1]),
+.ce-wiz[data-step="2"] [data-wstep]:not([data-wstep~=s2]),
+.ce-wiz[data-step="3"] [data-wstep]:not([data-wstep~=s3]),
+.ce-wiz[data-step="4"] [data-wstep]:not([data-wstep~=s4]),
+.ce-wiz[data-step="5"] [data-wstep]:not([data-wstep~=s5]),
+.ce-wiz[data-step="6"] [data-wstep]:not([data-wstep~=s6]){display:none !important}
+.ce-part{display:contents}
+.ce-steps{display:flex;flex-wrap:wrap;gap:6px}
+.ce-step{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:4px 10px 4px 4px;border:1px solid #c2ab80;border-radius:999px;background:#f6efe0;color:#5a4632;font:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.ce-step-n{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#d8c49b;color:#5a4632;font-size:13px;font-weight:800}
+.ce-step.done .ce-step-n{background:#3f6b34;color:#f6efe0}
+.ce-step.on{border-color:#8a2a1c;background:#fbf6ea;color:#7a1f14;box-shadow:inset 0 0 0 1px #8a2a1c}
+.ce-step.on .ce-step-n{background:#8a2a1c;color:#fbf6ea}
+.ce-wiz-nav{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0 4px;background:inherit;border-top:1px solid #c2ab80}
+.ce-review-t{margin:0;font-size:17px}
+.ce-review-stats{display:flex;flex-wrap:wrap;gap:6px}
+.ce-review-stats span{padding:6px 10px;border:1px solid #c2ab80;border-radius:8px;background:#f6efe0;font-size:14px}
+.ce-review-stats b{font-size:17px}
+.ce-step-title{display:none;margin:0;font-weight:800;color:#7a1f14}
+@media (max-width:560px){.ce-steps{gap:4px}.ce-step{padding:3px;font-size:0;gap:0;min-height:32px}.ce-step .ce-step-n{font-size:13px}.ce-step-title{display:block}.ce-wiz-nav{padding-right:68px}.ce-wiz-nav .muted{display:none}}
+body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}

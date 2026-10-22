@@ -33,6 +33,15 @@ export async function installApp() {
   installListeners.forEach((f) => f());
 }
 
+// crear personajes con el asistente paso a paso (si no, el editor entero en una página)
+const WIZ_KEY = 'cronica-asistente';
+export function wizardPref(): boolean {
+  try { return localStorage.getItem(WIZ_KEY) !== 'no'; } catch { return true; }
+}
+export function setWizardPref(on: boolean) {
+  try { if (on) localStorage.removeItem(WIZ_KEY); else localStorage.setItem(WIZ_KEY, 'no'); } catch { /* solo esta visita */ }
+}
+
 /** Al arrancar: aplica la preferencia de animaciones y escucha el aviso de instalación. */
 export function initPrefs() {
   if (typeof window === 'undefined') return;
