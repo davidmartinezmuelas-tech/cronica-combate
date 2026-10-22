@@ -168,3 +168,23 @@ describe('fichas de jugador: notas y hoja en PDF', () => {
     expect(r2.roster![0].pdf).toBeNull();
   });
 });
+
+describe('forja: estados de las acciones', () => {
+  it('el estado de una salvación lo aplica la mesa (con su duración) y el de un ataque sale con su CD de escape', async () => {
+    const { newFeat } = await import('../engine/forge');
+    const { saveEffectOf } = await import('../engine/saveEffect');
+    const srd = data as unknown as SrdData;
+    const f = blankForge();
+    f.name = 'Bruja';
+    const sv = { ...newFeat('ac_'), name: 'Mirada', kind: 'save' as const, sab: 'SAB', dc: '13', d1: '2d6', t1: 'psíquico', cond: 'Asustado', condDur: 'minRepeat' as const };
+    const at = { ...newFeat('ac_'), name: 'Garra', kind: 'melee' as const, atk: '5', d1: '1d8+3', t1: 'cortante', cond: 'Agarrado', escDc: '13' };
+    f.feats = [sv, at];
+    const m = forgeToMonster(f, 'c-9', srd.sp);
+    const mirada = m.ac_!.find((x) => x.n === 'Mirada')!;
+    const eff = saveEffectOf(mirada.dc![0], mirada.dc![1], false, mirada.d)!;
+    expect(eff.conds).toEqual(['Asustado']);
+    expect(eff.rounds).toBe(10);
+    expect(eff.repeat).toBe(true);
+    expect(m.ac_!.find((x) => x.n === 'Garra')!.d).toContain('tiene la condición Agarrado (CD de escape 13)');
+  });
+});

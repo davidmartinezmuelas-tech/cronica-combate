@@ -30,6 +30,9 @@ export interface ForgeFeat {
   cost: string;
   desc: string;
   raw: boolean;
+  cond?: string; // estado que pone (al fallar la salvación o al impactar)
+  condDur?: '' | 'turn' | 'min' | 'minRepeat'; // cuánto dura
+  escDc?: string; // CD para escapar (Agarrado, Apresado) en un ataque
   spAb: string;
   spDc: string;
   spAtk: string;
@@ -67,6 +70,14 @@ export const newFeat = (sec: SectionKey = 'ac_'): ForgeFeat => ({
   k: uid(), sec, name: '', kind: sec === 'tr' ? 'text' : 'melee', atk: '', reach: 'alcance 5 pies', d1: '', t1: 'cortante', d2: '', t2: 'fuego',
   altL: '', altD1: '', altT1: 'cortante', altD2: '', altT2: 'fuego', sab: 'DES', dc: '', half: true, area: '', usage: 'none', cost: '1', desc: '', raw: false, spAb: 'Carisma', spDc: '', spAtk: '', spWill: '', spDay1: '', spDay2: '', spDay3: '',
 });
+
+/** La duración del estado, con las frases que entiende la mesa (rondas, de quién es el turno, repetir la salvación). */
+function condDurText(d: ForgeFeat['condDur']): string {
+  if (d === 'turn') return ' hasta el final de su siguiente turno';
+  if (d === 'min') return ' durante 1 minuto';
+  if (d === 'minRepeat') return ' durante 1 minuto. Repite la tirada de salvación al final de cada uno de sus turnos y el efecto termina si la supera';
+  return '';
+}
 
 export const blankForge = (): ForgeState => ({
   name: '', size: 'Mediano', type: 'monstruosidad', align: 'sin alineamiento', ac: '12', hpDice: '4d8+4', speed: '30 pies', ini: '',
@@ -130,12 +141,15 @@ export function forgeToMonster(f: ForgeState, id: string, spells: Record<string,
     if (ft.kind === 'melee' || ft.kind === 'ranged') {
       const b = parseInt(ft.atk, 10) || 0;
       o.atk = b;
-      auto = 'Tirada de ataque ' + (ft.kind === 'ranged' ? 'a distancia' : 'cuerpo a cuerpo') + ': ' + fmt(b) + ', ' + (ft.reach || 'alcance 5 pies') + '.' + (parts.length ? ' Impacto: ' + dmgText(parts) + '.' + altText : '');
+      const cond = ft.cond ? ' ' + (parts.length ? 'Además, el' : 'Impacto: el') + ' objetivo tiene la condición ' + ft.cond + (ft.escDc && /agarrado|apresado/i.test(ft.cond) ? ' (CD de escape ' + ft.escDc + ')' : '') + condDurText(ft.condDur) + '.' : '';
+      auto = 'Tirada de ataque ' + (ft.kind === 'ranged' ? 'a distancia' : 'cuerpo a cuerpo') + ': ' + fmt(b) + ', ' + (ft.reach || 'alcance 5 pies') + '.' + (parts.length ? ' Impacto: ' + dmgText(parts) + '.' + altText : '') + cond;
     } else if (ft.kind === 'save') {
       const dc = parseInt(ft.dc, 10) || 10;
       o.dc = [dc, ft.sab];
       if (ft.half) o.half = 1;
-      auto = 'Tirada de salvación de ' + ABIL_LONG[ABIL_INDEX[ft.sab] ?? 0] + ': CD ' + dc + (ft.area ? ', ' + ft.area : '') + '.' + (parts.length ? ' Fallo: ' + dmgText(parts) + '.' + altText : '') + (ft.half && parts.length ? ' Éxito: mitad de daño.' : '');
+      // el estado, con la frase que reconoce la mesa (se aplica solo a quien falla)
+      const cond = ft.cond ? (parts.length ? ' Además, el objetivo' : ' Fallo: el objetivo') + ' tiene la condición ' + ft.cond + condDurText(ft.condDur) + '.' : '';
+      auto = 'Tirada de salvación de ' + ABIL_LONG[ABIL_INDEX[ft.sab] ?? 0] + ': CD ' + dc + (ft.area ? ', ' + ft.area : '') + '.' + (parts.length ? ' Fallo: ' + dmgText(parts) + '.' + altText : '') + cond + (ft.half && parts.length ? ' Éxito: mitad de daño.' : '');
     } else if (ft.kind === 'spells') {
       const sp: [string, string, string][] = [];
       const lines: string[] = [];

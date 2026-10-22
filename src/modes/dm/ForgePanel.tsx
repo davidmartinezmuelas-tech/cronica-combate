@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ABIL, ABIL_LONG, CONDITION_IMMUNITIES, CR_LIST, DMG_TYPES, SIZES, XP_BY_CR } from '../../data/constants';
+import { ABIL, ABIL_LONG, CONDITION_IMMUNITIES, CONDITIONS, CR_LIST, DMG_TYPES, SIZES, XP_BY_CR } from '../../data/constants';
 import type { SectionKey } from '../../data/types';
 import { fmt, modOf, parseExpr } from '../../engine/dice';
 import { forgeToMonster, newFeat, type ForgeFeat, type ForgeState } from '../../engine/forge';
@@ -119,6 +119,24 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
           </select></div>
         {ft.sec === 'lg' && <div className="field"><label htmlFor={id('c')}>Coste legendario</label><input id={id('c')} type="number" min={1} max={3} className="input" value={ft.cost} onChange={on('cost')} /></div>}
       </div>
+      {(isAtk || ft.kind === 'save') && (
+        <div className="row3">
+          <div className="field"><label htmlFor={id('co')}>{ft.kind === 'save' ? 'Estado si falla' : 'Estado al impactar'}</label>
+            <select id={id('co')} className="input" value={ft.cond || ''} onChange={(e) => setForge({ feats: feats().map((x) => (x.k === ft.k ? { ...x, cond: e.target.value } : x)) })}>
+              <option value="">Ninguno</option>{CONDITIONS.map(([n]) => <option key={n} value={n}>{n}</option>)}
+            </select></div>
+          {!!ft.cond && <div className="field"><label htmlFor={id('cd')}>Duración</label>
+            <select id={id('cd')} className="input" value={ft.condDur || ''} onChange={(e) => setForge({ feats: feats().map((x) => (x.k === ft.k ? { ...x, condDur: e.target.value as ForgeFeat['condDur'] } : x)) })}>
+              <option value="">Hasta que se quite</option>
+              <option value="turn">Hasta el final de su siguiente turno</option>
+              <option value="min">1 minuto</option>
+              {ft.kind === 'save' && <option value="minRepeat">1 minuto (repite la salvación cada turno)</option>}
+            </select></div>}
+          {isAtk && /agarrado|apresado/i.test(ft.cond || '') && <div className="field"><label htmlFor={id('ce')}>CD de escape</label>
+            <input id={id('ce')} type="number" className="input" value={ft.escDc || ''} onChange={(e) => setForge({ feats: feats().map((x) => (x.k === ft.k ? { ...x, escDc: e.target.value } : x)) })} /></div>}
+        </div>
+      )}
+      {!!ft.cond && ft.raw && <span className="muted small">Con «tal cual», escribe tú el estado en el texto («el objetivo tiene la condición {ft.cond}»).</span>}
       <div className="field"><label htmlFor={id('de')}>{ft.kind === 'text' ? 'Descripción' : ft.raw ? 'Descripción completa' : 'Efecto adicional (se añade al texto generado)'}</label>
         <textarea id={id('de')} className="input" rows={3} value={ft.desc} onChange={on('desc')} /></div>
       {ft.kind !== 'text' && <label className="check"><input type="checkbox" checked={ft.raw} onChange={on('raw')} />Usar este texto tal cual (no generar)</label>}
