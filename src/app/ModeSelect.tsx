@@ -17,10 +17,12 @@ export default function ModeSelect() {
           <button className="mode-card" onClick={() => chooseMode('dm')}>
             <span className="mode-card-title">Soy el máster</span>
             <span className="muted">Iniciativa y combate, bestiario del SRD, tu grupo, la forja de monstruos y las reglas.</span>
+            <span className="mode-card-dev">En ordenador o tablet (no en el móvil)</span>
           </button>
           <button className="mode-card" onClick={() => chooseMode('player')}>
             <span className="mode-card-title">Soy jugador</span>
             <span className="muted">Tu hoja de personaje con tiradas de ataques, salvaciones y habilidades, los dados y las reglas.</span>
+            <span className="mode-card-dev">En el móvil, la tablet o el ordenador</span>
           </button>
         </div>
         <section className="panel mode-account" aria-label="Cuenta">

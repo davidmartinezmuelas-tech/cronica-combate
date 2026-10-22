@@ -16,10 +16,14 @@ export default function EncounterGenerator() {
   const [type, setType] = useState('');
   const [prop, setProp] = useState<Proposal | null>(null);
   const [msg, setMsg] = useState('');
+  // sin grupo guardado ni jugadores en el encuentro: cuántos y de qué nivel, escrito aquí mismo
+  const [quickN, setQuickN] = useState(4);
+  const [quickLv, setQuickLv] = useState(3);
 
   // los jugadores ya en el encuentro; si no hay, todo el grupo guardado
   const inCombat = combatants.filter((c) => c.kind === 'pc');
-  const levels = inCombat.length ? inCombat.map((c) => c.level || 1) : roster.map((r) => parseInt(r.level, 10) || 1);
+  const noParty = !inCombat.length && !roster.length;
+  const levels = inCombat.length ? inCombat.map((c) => c.level || 1) : roster.length ? roster.map((r) => parseInt(r.level, 10) || 1) : Array<number>(quickN).fill(quickLv);
   const habitats = useMemo(() => Array.from(new Set(srd.flatMap((m) => m.hab || []))).sort((a, b) => a.localeCompare(b, 'es')), [srd]);
   const budget = partyBudget(levels);
   const range = targetRange(budget, diff);
@@ -43,11 +47,20 @@ export default function EncounterGenerator() {
     <section className="gen" aria-label="Generador de encuentro">
       <div className="panel-head">
         <span className="eyebrow">Generador de encuentro</span>
-        <span className="muted small">{levels.length ? levels.length + ' PJ (niv. ' + levels.join(', ') + ')' : 'sin jugadores'}</span>
+        {!noParty && <span className="muted small">{levels.length + ' PJ (niv. ' + levels.join(', ') + ')'}</span>}
       </div>
-      {!levels.length ? (
-        <p className="muted small" style={{ margin: 0 }}>Guarda a tus jugadores en Grupo (con su nivel) para que proponga monstruos a su medida.</p>
-      ) : (
+      {noParty && (
+        <div className="gen-quick">
+          <label className="field">Jugadores
+            <input className="input" type="number" min={1} max={8} value={quickN} onChange={(e) => { setQuickN(Math.max(1, Math.min(8, parseInt(e.target.value, 10) || 1))); setProp(null); }} />
+          </label>
+          <label className="field">de nivel
+            <input className="input" type="number" min={1} max={20} value={quickLv} onChange={(e) => { setQuickLv(Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1))); setProp(null); }} />
+          </label>
+          <span className="muted small">o guarda a tus jugadores en Grupo y se tomarán de ahí.</span>
+        </div>
+      )}
+      {levels.length > 0 && (
         <>
           <div className="gen-controls">
             <div className="segbox" role="group" aria-label="Dificultad">

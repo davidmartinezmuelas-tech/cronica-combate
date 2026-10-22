@@ -8,6 +8,7 @@ import ForgePanel from './ForgePanel';
 import RulesPanel from '../../shared/RulesPanel';
 import CenterPanel from './CenterPanel';
 import DiceTable from '../../shared/DiceTable';
+import { chooseMode } from '../../app/mode';
 import RoomPanel from '../../shared/RoomPanel';
 import Attribution from '../../shared/Attribution';
 import { InfoDialog } from '../../shared/Card';
@@ -83,8 +84,11 @@ function PhoneNote() {
   if (hidden) return null;
   return (
     <div className="phone-note" role="note">
-      <span>El modo máster está pensado para tablet u ordenador. En el móvil funciona, pero se ve mejor en una pantalla grande.</span>
-      <button className="btn small" onClick={() => { try { localStorage.setItem(NOTE, '1'); } catch { /* nada */ } setHidden(true); }}>Entendido</button>
+      <span><b>El modo máster no está hecho para el móvil.</b> Úsalo en un ordenador o una tablet: aquí no cabe y muchas cosas se verán mal. Si vas a jugar, entra como jugador.</span>
+      <span className="rollrow">
+        <button className="btn small primary" onClick={() => chooseMode('player')}>Entrar como jugador</button>
+        <button className="btn small ghost" onClick={() => { try { localStorage.setItem(NOTE, '1'); } catch { /* nada */ } setHidden(true); }}>Seguir igualmente</button>
+      </span>
     </div>
   );
 }

@@ -1996,3 +1996,37 @@ test('probar con un ejemplo: encuentro de muestra para el máster y personaje de
   await expect(page.getByText('Clérigo 3').first()).toBeVisible();
   await expect(page.getByRole('button', { name: /Llama sagrada/ }).first()).toBeVisible();
 });
+
+test('trasfondo: el +2/+1 se suma solo, se mantiene al cambiar el reparto y se quita al cambiar de trasfondo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ivo');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Acólito' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  const wis = page.locator('#ce-ab-wis');
+  const base = Number(await wis.inputValue());
+  await page.getByLabel('+2 a').selectOption({ label: 'Sabiduría' });
+  await page.getByLabel('+1 a').selectOption({ label: 'Carisma' });
+  await expect(page.locator('.abil-edit', { has: wis })).toContainText('+2 = ' + (base + 2));
+  // al cambiar el reparto, la base cambia y el +2 sigue
+  await wis.selectOption('8');
+  await expect(page.locator('.abil-edit', { has: wis })).toContainText('+2 = 10');
+  // +1 a las tres
+  await page.getByRole('button', { name: '+1 a las tres' }).click();
+  await expect(page.locator('.abil-edit', { has: wis })).toContainText('+1 = 9');
+  // otro trasfondo: el aumento se quita
+  await page.getByLabel('Trasfondo', { exact: true }).selectOption({ label: 'Soldado' });
+  await expect(page.locator('.abil-edit', { has: wis })).not.toContainText('+1 =');
+  await expect(wis).toHaveValue('8');
+});
+
+test('generador de encuentros sin grupo guardado: jugadores y nivel escritos ahí mismo', async ({ page }) => {
+  await open(page);
+  const gen = page.getByRole('region', { name: 'Generador de encuentro' });
+  await gen.getByLabel('Jugadores').fill('5');
+  await gen.getByLabel('de nivel').fill('7');
+  await expect(gen).toContainText('PX de monstruos');
+  await gen.getByRole('button', { name: 'Proponer' }).click();
+  await expect(gen.getByRole('button', { name: 'Añadir al encuentro' })).toBeVisible({ timeout: 15000 });
+});

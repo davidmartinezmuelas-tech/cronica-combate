@@ -13,7 +13,7 @@ import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
-import AbilityMethods from './AbilityMethods';
+import AbilityMethods, { BG_ASI_KEY, bgBonus } from './AbilityMethods';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const DMG_TYPES = ['contundente', 'cortante', 'perforante', 'ácido', 'frío', 'fuego', 'fuerza', 'necrótico', 'psíquico', 'radiante', 'relámpago', 'trueno', 'veneno'];
@@ -90,7 +90,10 @@ export default function CharacterEditor({ c }: { c: Character }) {
     const old = allBgs.find((x) => x.id === c.backgroundId);
     const skills = c.skills.filter((s) => !old?.skills.includes(s)).concat(b?.skills || []).filter((s, i, a) => a.indexOf(s) === i);
     const feats = c.feats.filter((f) => f !== old?.feat).concat(b?.feat && !c.feats.includes(b.feat) ? [b.feat] : []);
-    set({ backgroundId: id, backgroundName: '', skills, feats });
+    // el aumento de características del trasfondo anterior se quita (el nuevo se elige en «Características»)
+    const bonus = bgBonus(c);
+    const abil = Object.fromEntries(Object.entries(c.abil).map(([a, v]) => [a, v - bonus[a as Abil]])) as Character['abil'];
+    set({ backgroundId: id, backgroundName: '', skills, feats, abil, choices: { ...(c.choices || {}), [BG_ASI_KEY]: [] } });
   };
   const pool = cls ? (cls.skills.pool.includes('*') ? Object.keys(data.skills) : cls.skills.pool) : [];
   const fromBg = new Set(bg?.skills || []);
@@ -248,7 +251,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <fieldset className="fs">
           <legend>Características</legend>
-          <AbilityMethods c={c} cls={cls} set={set} />
+          <AbilityMethods c={c} cls={cls} set={set} bgAbil={bg?.abil} bgName={bg?.n} />
         </fieldset>
 
         <fieldset className="fs">

@@ -12,6 +12,17 @@ export const POINT_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12
 
 type Method = 'standard' | 'points' | 'roll' | 'manual';
 
+/** Aumento de características del trasfondo (2024): +2 a una y +1 a otra, o +1 a las tres. Se guarda como «str:2». */
+export const BG_ASI_KEY = 'bg.asi';
+export function bgBonus(c: Pick<Character, 'choices'>): Record<Abil, number> {
+  const out = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 } as Record<Abil, number>;
+  for (const x of c.choices?.[BG_ASI_KEY] || []) {
+    const [a, n] = x.split(':');
+    if (a in out) out[a as Abil] += parseInt(n, 10) || 0;
+  }
+  return out;
+}
+
 /** Orden de reparto propuesto: las características principales de la clase, luego Constitución y el resto. */
 const suggested = (cls: ClassData | undefined) => [...(cls?.primary || []), ...(['con', 'dex', 'wis', 'cha', 'int', 'str'] as Abil[])].filter((a, i, arr) => arr.indexOf(a) === i) as Abil[];
 
@@ -19,27 +30,41 @@ const suggested = (cls: ClassData | undefined) => [...(cls?.primary || []), ...(
  * Las tres formas de generar características (más a mano): matriz estándar y tiradas se reparten eligiendo qué valor
  * va a cada característica (al elegir uno ya usado, se intercambian); la compra de puntos cuenta los 27 puntos.
  */
-export default function AbilityMethods({ c, cls, set }: { c: Character; cls: ClassData | undefined; set: (p: Partial<Character>) => void }) {
+export default function AbilityMethods({ c, cls, set, bgAbil, bgName }: { c: Character; cls: ClassData | undefined; set: (p: Partial<Character>) => void; bgAbil?: Abil[]; bgName?: string }) {
   const [method, setMethod] = useState<Method>('manual');
   const [rolls, setRolls] = useState<number[]>([]);
-  const points = ABILS.reduce((t, a) => t + (POINT_COST[c.abil[a]] ?? NaN), 0);
-  const setAbil = (a: Abil, v: number) => set({ abil: { ...c.abil, [a]: Math.max(1, Math.min(30, v || 1)) } });
+  // los métodos trabajan con la puntuación base (sin el trasfondo); al guardar se le vuelve a sumar
+  const bonus = bgBonus(c);
+  const base = Object.fromEntries(ABILS.map((a) => [a, c.abil[a] - bonus[a]])) as Record<Abil, number>;
+  const setBase = (b: Record<Abil, number>) => set({ abil: Object.fromEntries(ABILS.map((a) => [a, b[a] + bonus[a]])) as Record<Abil, number> });
+  const points = ABILS.reduce((t, a) => t + (POINT_COST[base[a]] ?? NaN), 0);
+  const setAbil = (a: Abil, v: number) => setBase({ ...base, [a]: Math.max(1, Math.min(30, v || 1)) });
+  // el aumento del trasfondo: cambiarlo quita el anterior y suma el nuevo
+  const asi = c.choices?.[BG_ASI_KEY] || [];
+  const asiMode: 'two' | 'three' = asi.length === 3 ? 'three' : 'two';
+  const plus2 = asi.find((x) => x.endsWith(':2'))?.split(':')[0] as Abil | undefined;
+  const plus1 = asiMode === 'two' ? (asi.find((x) => x.endsWith(':1'))?.split(':')[0] as Abil | undefined) : undefined;
+  const setAsi = (next: string[]) => {
+    const nb = bgBonus({ choices: { [BG_ASI_KEY]: next } });
+    set({ abil: Object.fromEntries(ABILS.map((a) => [a, base[a] + nb[a]])) as Record<Abil, number>, choices: { ...(c.choices || {}), [BG_ASI_KEY]: next } });
+  };
+  const pickTwo = (two: Abil | '', one: Abil | '') => setAsi([...(two ? [two + ':2'] : []), ...(one && one !== two ? [one + ':1'] : [])]);
 
   // repartir valores de un conjunto (matriz o tiradas): cada característica elige uno; si ya lo tenía otra, se cambian
   const pool = method === 'standard' ? STANDARD : rolls;
   const assign = (a: Abil, v: number) => {
-    const other = ABILS.find((x) => x !== a && c.abil[x] === v);
-    set({ abil: { ...c.abil, [a]: v, ...(other ? { [other]: c.abil[a] } : {}) } });
+    const other = ABILS.find((x) => x !== a && base[x] === v);
+    setBase({ ...base, [a]: v, ...(other ? { [other]: base[a] } : {}) });
   };
   const fill = (vals: number[]) => {
     const order = suggested(cls);
     const sorted = [...vals].sort((x, y) => y - x);
-    set({ abil: Object.fromEntries(order.map((a, i) => [a, sorted[i] ?? 10])) as Record<Abil, number> });
+    setBase(Object.fromEntries(order.map((a, i) => [a, sorted[i] ?? 10])) as Record<Abil, number>);
   };
   const choose = (m: Method) => {
     setMethod(m);
     if (m === 'standard') fill(STANDARD);
-    if (m === 'points') set({ abil: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 } });
+    if (m === 'points') setBase({ str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 });
   };
   // 4d6 descartando el menor, en el tapete; cuando están las seis, se reparten solas (y se pueden cambiar)
   const rollOne = () => {
@@ -76,22 +101,44 @@ export default function AbilityMethods({ c, cls, set }: { c: Character; cls: Cla
             <label htmlFor={'ce-ab-' + a}>{SHORT(a)}</label>
             {method === 'points' ? (
               <span className="stepper abil-step">
-                <button className="step" aria-label={'Bajar ' + ABIL_N[a]} disabled={c.abil[a] <= 8} onClick={() => setAbil(a, c.abil[a] - 1)}>−</button>
-                <span className="qty" id={'ce-ab-' + a}>{c.abil[a]}</span>
-                <button className="step" aria-label={'Subir ' + ABIL_N[a]} disabled={c.abil[a] >= 15 || points + ((POINT_COST[c.abil[a] + 1] ?? 99) - (POINT_COST[c.abil[a]] ?? 0)) > 27} onClick={() => setAbil(a, c.abil[a] + 1)}>+</button>
+                <button className="step" aria-label={'Bajar ' + ABIL_N[a]} disabled={base[a] <= 8} onClick={() => setAbil(a, base[a] - 1)}>−</button>
+                <span className="qty" id={'ce-ab-' + a}>{base[a]}</span>
+                <button className="step" aria-label={'Subir ' + ABIL_N[a]} disabled={base[a] >= 15 || points + ((POINT_COST[base[a] + 1] ?? 99) - (POINT_COST[base[a]] ?? 0)) > 27} onClick={() => setAbil(a, base[a] + 1)}>+</button>
               </span>
             ) : (method === 'standard' || (method === 'roll' && rolls.length === 6)) ? (
-              <select id={'ce-ab-' + a} className="input" value={c.abil[a]} onChange={(e) => assign(a, parseInt(e.target.value, 10))}>
-                {[...new Set([c.abil[a], ...pool])].sort((x, y) => y - x).map((v) => <option key={v} value={v}>{v}</option>)}
+              <select id={'ce-ab-' + a} className="input" value={base[a]} onChange={(e) => assign(a, parseInt(e.target.value, 10))}>
+                {[...new Set([base[a], ...pool])].sort((x, y) => y - x).map((v) => <option key={v} value={v}>{v}</option>)}
               </select>
             ) : (
-              <input id={'ce-ab-' + a} type="number" min={1} max={30} className="input" value={c.abil[a]} onChange={(e) => setAbil(a, parseInt(e.target.value, 10))} />
+              <input id={'ce-ab-' + a} type="number" min={1} max={30} className="input" value={base[a]} onChange={(e) => setAbil(a, parseInt(e.target.value, 10))} />
             )}
-            <span className="muted small">{fmt(mod(c.abil[a]))}</span>
+            <span className="muted small">{bonus[a] ? <b className="abil-bg">+{bonus[a]} = {c.abil[a]} · </b> : null}{fmt(mod(c.abil[a]))}</span>
           </div>
         ))}
       </div>
-      <span className="muted small">{method === 'standard' || method === 'roll' ? 'Elige qué valor va a cada característica: al escoger uno que ya tiene otra, se intercambian. ' : ''}Suma aquí los bonificadores del trasfondo y las mejoras de característica.</span>
+      {bgAbil && bgAbil.length > 0 && (
+        <div className="abil-bgasi" role="group" aria-label="Aumento del trasfondo">
+          <span className="eyebrow">Trasfondo{bgName ? ' (' + bgName + ')' : ''}</span>
+          <div className="segbox">
+            <button className={asiMode === 'two' ? 'seg on' : 'seg'} aria-pressed={asiMode === 'two'} onClick={() => asiMode !== 'two' && setAsi([])}>+2 a una y +1 a otra</button>
+            <button className={asiMode === 'three' ? 'seg on' : 'seg'} aria-pressed={asiMode === 'three'} onClick={() => asiMode !== 'three' && setAsi(bgAbil.map((a) => a + ':1'))}>+1 a las tres</button>
+          </div>
+          {asiMode === 'two' && (
+            <div className="row2">
+              <div className="field"><label htmlFor="ce-bg2">+2 a</label>
+                <select id="ce-bg2" className="input" value={plus2 || ''} onChange={(e) => pickTwo(e.target.value as Abil, plus1 || '')}>
+                  <option value="">Elige</option>{bgAbil.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                </select></div>
+              <div className="field"><label htmlFor="ce-bg1">+1 a</label>
+                <select id="ce-bg1" className="input" value={plus1 || ''} onChange={(e) => pickTwo(plus2 || '', e.target.value as Abil)}>
+                  <option value="">Elige</option>{bgAbil.filter((a) => a !== plus2).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                </select></div>
+            </div>
+          )}
+          {asiMode === 'three' && <span className="muted small">{bgAbil.map((a) => ABIL_N[a]).join(', ')}: +1 cada una.</span>}
+        </div>
+      )}
+      <span className="muted small">{method === 'standard' || method === 'roll' ? 'Elige qué valor va a cada característica: al escoger uno que ya tiene otra, se intercambian. ' : ''}{bgAbil?.length ? 'El aumento del trasfondo se suma solo (arriba, la puntuación base). Las mejoras de nivel llegan al «Subir de nivel» o súmalas aquí.' : 'Suma aquí los bonificadores del trasfondo y las mejoras de característica.'}</span>
     </div>
   );
 }
