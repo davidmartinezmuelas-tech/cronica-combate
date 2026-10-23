@@ -1,6 +1,7 @@
 {
   "name": "cronica-combate",
   "private": true,
+  "license": "UNLICENSED",
   "version": "1.0.0",
   "description": "Gestor de combate para la 5.ª edición (2024): iniciativa, bestiario SRD en español, hojas de monstruo y dados animados.",
   "type": "module",

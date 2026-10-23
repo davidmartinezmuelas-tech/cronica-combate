@@ -1,0 +1,27 @@
+Copyright (c) 2026 David Martínez Muelas. Todos los derechos reservados.
+
+Crónica de Combate (https://cronicadecombate.com)
+
+El código fuente, el diseño, los textos propios y los demás elementos originales de esta aplicación son
+obra de David Martínez Muelas y están protegidos por la legislación de propiedad intelectual. Que este
+repositorio sea visible no concede ninguna licencia: no está permitido copiar, modificar, distribuir,
+publicar, sublicenciar ni usar este código, en todo o en parte, para crear otras aplicaciones o
+servicios sin permiso previo y por escrito del autor. Contacto: hola@cronicadecombate.com
+
+Se exceptúa el material de terceros incluido en el repositorio, que conserva su propia licencia
+(ver «Licencias y atribución» en README.md):
+
+- Contenido del System Reference Document 5.2.1 de Wizards of the Coast LLC y la traducción
+  translate-dnd5e-sdr2-es de foundryvtt-sinregistrar: Creative Commons Attribution 4.0 International.
+- three.js y cannon-es (MIT), PDF.js (Apache-2.0) y las fuentes Alegreya, Alegreya Sans e IM Fell
+  English SC (SIL Open Font License 1.1).
+
+---
+
+Copyright (c) 2026 David Martínez Muelas. All rights reserved.
+
+The source code, design, original texts and other original elements of this application are the work of
+David Martínez Muelas. This repository being publicly visible does not grant any license: copying,
+modifying, distributing, publishing, sublicensing or using this code, in whole or in part, to build
+other applications or services is not permitted without the author's prior written permission.
+Third-party material included in the repository keeps its own license (see README.md).

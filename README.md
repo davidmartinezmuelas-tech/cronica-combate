@@ -54,7 +54,7 @@ Para otro alojamiento (Netlify, Vercel, Cloudflare Pages) basta con publicar la 
 
 ## Licencias y atribución
 
-El código de la aplicación es del autor del repositorio.
+© 2026 David Martínez Muelas. Todos los derechos reservados: el código, el diseño y los textos propios de la aplicación no se pueden copiar, modificar ni reutilizar sin permiso por escrito del autor (ver [`LICENSE`](LICENSE)). El material de terceros que se cita a continuación conserva su propia licencia.
 
 This work includes material from the System Reference Document 5.2.1 ("SRD 5.2.1") by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
 
