@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
+import { applyFeatAsi, featAsi, featAsiOptions } from '../../engine/featAsi';
 import { asClass, classEntries, derive, totalLevel, type Character, type ClassEntry } from '../../engine/character';
 import { activeChoices, choiceCount, spellSwapRules, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { classAlwaysSpells } from '../../engine/spellPrep';
@@ -39,6 +40,7 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const owned = classEntries(c).filter((e) => e.classId);
   const [classId, setClassId] = useState(c.classId || owned[0]?.classId || '');
   const [hp, setHp] = useState<{ mode: 'avg' | 'roll'; roll?: number }>({ mode: 'avg' });
+  const [featAbil, setFeatAbil] = useState('');
   const [asi, setAsi] = useState<{ mode: '2' | '11' | 'feat'; a: Abil; b: Abil; feat: string }>({ mode: '2', a: 'str', b: 'dex', feat: '' });
   const [sub, setSub] = useState('');
   const [picks, setPicks] = useState<string[]>([]);
@@ -93,6 +95,10 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   // dones épicos (nivel 19) junto a las dotes generales
   const epic = total + 1 >= 19 ? [...data.feats.filter((f) => f.cat === 'epic-boon'), ...lib.feats.filter((f) => f.cat === 'epic-boon' && !data.feats.some((x) => norm(x.n) === norm(f.n)))] : [];
   const featText = (n: string) => data.feats.find((f) => f.n === n)?.d || lib.feats.find((f) => f.n === n)?.d || '';
+  // la mejora de característica de la dote elegida (Atleta: Fuerza o Destreza; Resiliente: una sin competencia en su salvación…)
+  const featFa = asi.feat ? featAsi(featText(asi.feat)) : null;
+  const faOpts = featFa ? featAsiOptions(featFa, c, data) : [];
+  const faPick = (faOpts.includes(featAbil as Abil) ? featAbil : faOpts[0]) as Abil | undefined;
   // Estilo de combate (guerrero 1, paladín 2, explorador 2) y Pericia (bardo 2 y 9, pícaro 1 y 6, explorador 9)
   const styles = [...data.feats.filter((f) => f.cat === 'fighting-style'), ...lib.feats.filter((f) => f.cat === 'fighting-style' && !data.feats.some((x) => norm(x.n) === norm(f.n)))];
   const needStyle = newFeatures.some((f) => norm(f.n) === 'estilo de combate') && !c.feats.some((n) => styles.some((f) => f.n === n));
@@ -141,7 +147,7 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
     if (asiLevel) {
       if (asi.mode === '2') n = { ...n, abil: { ...n.abil, [asi.a]: raise(asi.a, 2) } };
       else if (asi.mode === '11') n = { ...n, abil: { ...n.abil, [asi.a]: raise(asi.a, 1), [asi.b]: raise(asi.b, 1) } };
-      else if (asi.feat) n = { ...n, feats: [...n.feats, asi.feat] };
+      else if (asi.feat) n = { ...n, feats: [...n.feats, asi.feat], ...(featFa && faPick ? applyFeatAsi(n, asi.feat, featFa, faPick, data) : {}) };
     }
     if (hp.mode === 'roll' && hp.roll != null) n = { ...n, hpRolls: { ...(n.hpRolls || {}), [classId + ':' + newLv]: hp.roll } };
     if (picks.length) n = { ...n, spells: [...n.spells, ...picks.filter((id) => !n.spells.includes(id))] };
@@ -319,11 +325,16 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
                 </div>
               ) : (
                 <>
-                  <select className="input" aria-label="Dote" value={asi.feat} onChange={(e) => setAsi({ ...asi, feat: e.target.value })}>
+                  <select className="input" aria-label="Dote" value={asi.feat} onChange={(e) => { setFeatAbil(''); setAsi({ ...asi, feat: e.target.value }); }}>
                     <option value="">Elige una dote</option>
                     {[...feats, ...epic].filter((f) => !c.feats.includes(f.n)).map((f) => <option key={f.n} value={f.n}>{f.n}{epic.includes(f) ? ' (don épico)' : ''}</option>)}
                   </select>
                   {asi.feat && <p className="pc-text small lvl-feat-d" style={{ margin: 0 }}>{plainText(featText(asi.feat))}</p>}
+                  {featFa && (faOpts.length
+                    ? <select className="input" aria-label="Característica que sube la dote" value={faPick} onChange={(e) => setFeatAbil(e.target.value)} disabled={faOpts.length === 1}>
+                      {faOpts.map((a) => <option key={a} value={a}>{ABIL_N[a]} {c.abil[a]} → {Math.min(featFa.max, c.abil[a] + 1)}{featFa.save ? ' (y competencia en su salvación)' : ''}</option>)}
+                    </select>
+                    : <p className="warn small" role="status" style={{ margin: 0 }}>Ninguna de sus características se puede subir ya: se añade la dote sin la mejora.</p>)}
                 </>
               )}
               {asi.mode === '11' && asi.a === asi.b && <p className="warn small" style={{ margin: 0 }}>Elige dos características distintas.</p>}

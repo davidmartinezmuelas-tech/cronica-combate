@@ -15,6 +15,7 @@ import { plainText, useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
 import AbilityMethods, { BG_ASI_KEY, bgBonus } from './AbilityMethods';
 import { FxEditor } from './HomebrewPanel';
+import { applyFeatAsi, featAsi, featAsiOptions, removeFeatAsi } from '../../engine/featAsi';
 import { applyGear, GEAR_KEY, gearOptions, gearText, LETTERS } from '../../engine/startingGear';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
@@ -42,6 +43,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const [newFeat, setNewFeat] = useState<CustomFeat | null>(null);
   // antes de elegir una dote o un conjuro, su texto en una ventana
   const [featInfo, setFeatInfo] = useState<{ n: string; cat: string } | null>(null);
+  const [featAbil, setFeatAbil] = useState('');
   const [spellInfo, setSpellInfo] = useState<string | null>(null);
   // personaje nuevo: asistente paso a paso (las secciones del editor, una por paso)
   const wizard = usePlayer((s) => s.creating) === c.id;
@@ -163,7 +165,14 @@ export default function CharacterEditor({ c }: { c: Character }) {
     .slice(0, useClassList && !spellQ ? 80 : 16);
 
   const featGroups = FEAT_CATS.filter(([cat]) => cat !== 'other' && (cat !== 'fighting-style' || STYLE_CLASSES.includes(c.classId) || c.feats.some((f) => allFeats.find((x) => x.n === f)?.cat === cat)) && (cat !== 'epic-boon' || c.level >= 19));
-  const toggleFeat = (f: { n: string }) => set({ feats: c.feats.includes(f.n) ? c.feats.filter((x) => x !== f.n) : [...c.feats, f.n] });
+  // elegir una dote aplica su mejora de característica (la que elige el jugador); quitarla la deshace
+  const toggleFeat = (f: { n: string }, text = '') => {
+    if (c.feats.includes(f.n)) { set({ feats: c.feats.filter((x) => x !== f.n), ...removeFeatAsi(c, f.n) }); return; }
+    const fa = text ? featAsi(text) : null;
+    const opts = fa ? featAsiOptions(fa, c, data) : [];
+    const pick = (opts.includes(featAbil as Abil) ? featAbil : opts[0]) as Abil | undefined;
+    set({ feats: [...c.feats, f.n], ...(fa && pick ? applyFeatAsi(c, f.n, fa, pick, data) : {}) });
+  };
   const saveCustomFeat = () => {
     if (!newFeat || !newFeat.n.trim()) return;
     const exists = c.customFeats.some((f) => f.id === newFeat.id);
@@ -489,7 +498,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
             return (
               <Picker key={cat} title={title} summary={mine.join(', ')}>
                 <div className="chips">
-                  {list.map((f) => <button key={f.id} className={c.feats.includes(f.n) ? 'chip on' : 'chip'} aria-pressed={c.feats.includes(f.n)} onClick={() => setFeatInfo({ n: f.n, cat })}>{f.n}</button>)}
+                  {list.map((f) => <button key={f.id} className={c.feats.includes(f.n) ? 'chip on' : 'chip'} aria-pressed={c.feats.includes(f.n)} onClick={() => { setFeatAbil(''); setFeatInfo({ n: f.n, cat }); }}>{f.n}</button>)}
                 </div>
               </Picker>
             );
@@ -660,12 +669,22 @@ export default function CharacterEditor({ c }: { c: Character }) {
           const text = data.feats.find((f) => f.n === featInfo.n)?.d || lib.feats.find((f) => f.n === featInfo.n)?.d || '';
           const req = lib.feats.find((f) => f.n === featInfo.n)?.req;
           const has = c.feats.includes(featInfo.n);
+          const fa = featAsi(text);
+          const opts = fa ? featAsiOptions(fa, c, data) : [];
+          const pickA = (opts.includes(featAbil as Abil) ? featAbil : opts[0]) as Abil | undefined;
           return (
             <InfoDialog title={featInfo.n} onClose={() => setFeatInfo(null)}>
               <p className="muted small" style={{ margin: 0 }}>{CAT_ONE[featInfo.cat as FeatCat] || 'Dote'}{req ? ' · Requisito: ' + req : ''}</p>
               {text ? <div className="pc-text info-text">{plainText(text)}</div> : <p className="muted small">Sin texto en este dispositivo.</p>}
+              {fa && !has && (opts.length ? (
+                <div className="field"><label htmlFor="ce-featasi">Mejora de característica{fa.save ? ' y competencia en su salvación' : ''}</label>
+                  <select id="ce-featasi" className="input" value={pickA} onChange={(e) => setFeatAbil(e.target.value)} disabled={opts.length === 1}>
+                    {opts.map((a) => <option key={a} value={a}>{ABIL_N[a]} {c.abil[a]} → {Math.min(fa.max, c.abil[a] + 1)}</option>)}
+                  </select></div>
+              ) : <p className="warn small" role="status" style={{ margin: 0 }}>Ninguna de sus características se puede subir ya: se añade la dote sin la mejora.</p>)}
+              {fa && has && <p className="muted small" style={{ margin: 0 }}>Al quitarla, se deshace la mejora de característica que dio desde aquí.</p>}
               <div className="rollrow">
-                <button className={has ? 'btn small' : 'btn small primary'} onClick={() => { toggleFeat({ n: featInfo.n }); setFeatInfo(null); }}>{has ? 'Quitar dote' : 'Elegir dote'}</button>
+                <button className={has ? 'btn small' : 'btn small primary'} onClick={() => { toggleFeat({ n: featInfo.n }, text); setFeatInfo(null); }}>{has ? 'Quitar dote' : 'Elegir dote'}</button>
                 <button className="btn small ghost" onClick={() => setFeatInfo(null)}>Volver</button>
               </div>
             </InfoDialog>

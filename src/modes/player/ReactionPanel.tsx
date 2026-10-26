@@ -2,6 +2,9 @@ import type { Character, Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Pips from '../../shared/Pips';
+import { firstSentence } from '../../engine/actionKind';
+import { QuickCard, type QuickRow } from './QuickActions';
+import { plainText } from './spells';
 import { useStore } from '../../store/useStore';
 
 /** Clave del uso de la reacción en la hoja (se recupera al empezar tu turno). */
@@ -22,8 +25,11 @@ const REACTIONS: { n: string[]; what: string; roll?: (d: Derived) => { label: st
   { n: ['Duelista defensivo', 'Defensive Duelist'], what: 'Con un arma sutil, +competencia a la CA contra un ataque cuerpo a cuerpo hasta el principio de tu siguiente turno.' },
 ];
 
+/** Nombres de las dotes con reacción de esta lista (no repetirlas como tarjeta genérica). */
+export const REACTION_FEATS = REACTIONS.flatMap((x) => x.n.map(norm));
+
 /** Las reacciones del personaje: ataque de oportunidad, sus dotes y sus conjuros de reacción, con el uso de la reacción. */
-export default function ReactionPanel({ c, d, set, spells }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string }[] }) {
+export default function ReactionPanel({ c, d, set, spells, extra = [] }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string }[]; extra?: QuickRow[] }) {
   const { roll } = useStore.getState();
   const who = c.name || 'Personaje';
   // las dotes elegidas y los rasgos propios con el mismo nombre (una dote de otro libro escrita a mano)
@@ -59,6 +65,11 @@ export default function ReactionPanel({ c, d, set, spells }: { c: Character; d: 
               {f.roll ? <button className="rollbtn" disabled={!!used} onClick={() => { spend(); const x = f.roll!(d); roll({ label: who + ' · ' + x.label, kind: 'free', parts: [{ expr: x.expr }] }); }}>Tirar {f.roll(d).expr}</button>
                 : <button className="btn small" disabled={!!used} onClick={spend}>Usar la reacción</button>}
             </span>
+          </li>
+        ))}
+        {extra.filter((r) => r.kind !== 'bonus').map((r) => (
+          <li key={r.key} className="rx">
+            <QuickCard r={r} head={<><p className="muted small" style={{ margin: 0 }}>{firstSentence(plainText(r.d))}</p><button className="btn small" disabled={!!used} onClick={spend}>Usar la reacción</button></>} />
           </li>
         ))}
         {castable.length > 0 && (

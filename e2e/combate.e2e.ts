@@ -2365,3 +2365,43 @@ test('trucos que atacan con el arma: Impacto certero y Shillelagh salen en Ataqu
   await expect(row.getByRole('button', { name: 'Ataque ' + (cha + 3 >= 0 ? '+' : '−') + Math.abs(cha + 3) })).toBeVisible();
   await expect(row.getByRole('button', { name: /^Daño 1d4[+−]\d+ radiante \+ 1d6 radiante/ })).toBeVisible();
 });
+
+test('dotes: la mejora de característica se elige al tomar la dote y se deshace al quitarla', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Lug');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('4');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  const open = async () => {
+    const pk = page.locator('details.picker', { hasText: 'Dotes generales' });
+    if (!(await pk.evaluate((e) => (e as HTMLDetailsElement).open))) await pk.locator('summary').click();
+    await page.getByRole('button', { name: 'Luchador', exact: true }).click();
+  };
+  await open();
+  const sel = page.getByLabel('Mejora de característica');
+  const before = await sel.locator('option', { hasText: 'Destreza' }).textContent();
+  await sel.selectOption({ label: before! });
+  await page.getByRole('button', { name: 'Elegir dote' }).click();
+  // con la dote puesta, Destreza ya es una más
+  await page.getByRole('button', { name: 'Luchador', exact: true }).click();
+  await expect(page.getByText('Al quitarla, se deshace la mejora de característica')).toBeVisible();
+  await page.getByRole('button', { name: 'Quitar dote' }).click();
+  await open();
+  await expect(page.getByLabel('Mejora de característica').locator('option', { hasText: 'Destreza' })).toHaveText(before!);
+});
+
+test('rasgos con acción adicional o reacción sin otra tarjeta salen en la hoja: Acción astuta y Esquiva asombrosa', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Nim');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Pícaro' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByRole('region', { name: 'Acción adicional' })).toContainText('Acción astuta');
+  const re = page.getByRole('region', { name: 'Reacción' });
+  await expect(re).toContainText('Esquiva asombrosa');
+  await re.getByRole('button', { name: 'Usar la reacción' }).first().click();
+  await expect(re).toContainText('usada');
+});

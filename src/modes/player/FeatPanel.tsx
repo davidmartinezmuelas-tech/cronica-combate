@@ -5,6 +5,9 @@ import Pips from '../../shared/Pips';
 import { useStore } from '../../store/useStore';
 import { ELEMENTAL_KEY, ELEMENTS, hasElementalAdept } from '../../engine/metamagic';
 
+/** Dotes que ya tienen su tarjeta aquí (no repetirlas como tarjeta genérica de acción adicional o reacción). */
+export const FEAT_PANEL_NAMES = ['afortunado', 'lucky', 'don de la recuperacion', 'resistente', 'durable', 'duelista defensivo', 'maestro en armaduras pesadas', 'don del ataque imparable', 'adepto elemental', 'perforador'];
+
 const LUCK = 'Puntos de suerte';
 const POOL = 'Reserva de recuperación';
 const LAST = 'Última defensa';
