@@ -69,7 +69,13 @@ export default function ReactionPanel({ c, d, set, spells, extra = [] }: { c: Ch
         ))}
         {extra.filter((r) => r.kind !== 'bonus').map((r) => (
           <li key={r.key} className="rx">
-            <QuickCard r={r} head={<><p className="muted small" style={{ margin: 0 }}>{firstSentence(plainText(r.d))}</p><button className="btn small" disabled={!!used} onClick={spend}>Usar la reacción</button></>} />
+            <QuickCard r={r} head={<>
+              <p className="muted small" style={{ margin: 0 }}>{firstSentence(plainText(r.d))}</p>
+              {/* si la reacción es un ataque cuerpo a cuerpo (Represalia…), un botón por arma */}
+              {/ataque cuerpo a cuerpo|ataque de oportunidad/.test(norm(r.d).slice(0, 420)) && melee.length > 0
+                ? <span className="rollrow">{melee.map((a) => <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + r.n + ': ' + a.w.name, kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}>{a.w.name} {fmt(a.atk)}</button>)}</span>
+                : <button className="btn small" disabled={!!used} onClick={spend}>Usar la reacción</button>}
+            </>} />
           </li>
         ))}
         {castable.length > 0 && (

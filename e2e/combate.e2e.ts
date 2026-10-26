@@ -2405,3 +2405,32 @@ test('rasgos con acción adicional o reacción sin otra tarjeta salen en la hoja
   await re.getByRole('button', { name: 'Usar la reacción' }).first().click();
   await expect(re).toContainText('usada');
 });
+
+test('rasgos con número: Furia implacable sube la CD, Caída lenta y Hechicería encarnada', async ({ page }) => {
+  await page.goto('/#/jugador');
+  const make = async (name: string, cls: string, lv: string) => {
+    await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+    await page.getByLabel('Nombre del personaje').fill(name);
+    await page.getByLabel('Clase', { exact: true }).selectOption({ label: cls });
+    await page.getByLabel('Nivel', { exact: true }).fill(lv);
+    await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  };
+  // bárbaro 11: Furia implacable con CD 10, y 15 tras usarla
+  await make('Gron', 'Bárbaro', '11');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const card = page.locator('.card', { hasText: 'Furia implacable' }).first();
+  await expect(card).toContainText('CD 10');
+  await card.getByRole('button', { name: /^Salvación CON/ }).click();
+  await expect(card).toContainText('CD 15');
+  // monje 4: Caída lenta reduce 20
+  await make('Lin', 'Monje', '4');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByRole('region', { name: 'Reacción' })).toContainText('−20 al daño de caída');
+  // hechicero 7: gasta 2 puntos de hechicería sin usos de Hechicería innata
+  await make('Vel', 'Hechicero', '7');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const mm = page.getByRole('region', { name: 'Metamagia' });
+  await expect(mm).toContainText('Puntos de hechicería 7/7');
+  await mm.getByRole('button', { name: /Hechicería innata sin usos/ }).click();
+  await expect(mm).toContainText('Puntos de hechicería 5/7');
+});

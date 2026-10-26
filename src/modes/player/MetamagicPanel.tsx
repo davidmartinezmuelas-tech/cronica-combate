@@ -1,4 +1,4 @@
-import { asClass, classEntries, usesMax, type Character } from '../../engine/character';
+import { asClass, classEntries, classLevel, usesMax, type Character } from '../../engine/character';
 import { METAMAGIC, MM_FEAT_KEY, MM_FEAT_POOL, MM_KEY, SORC_POOL, metamagicSlots } from '../../engine/metamagic';
 import type { PlayerData } from '../../data/player';
 import Card from '../../shared/Card';
@@ -48,6 +48,12 @@ export default function MetamagicPanel({ c, data, set }: { c: Character; data: P
           {sorcMax > 0 && <span className="muted small">Puntos de hechicería {left.sorc}/{sorcMax}</span>}
         </span>
       </div>
+      {classLevel(c, 'sorcerer') >= 7 && sorcMax > 0 && (
+        <div className="rollrow">
+          <button className="btn small" disabled={left.sorc < 2} title="Hechicería encarnada (nivel 7): si no te quedan usos de Hechicería innata, la activas gastando 2 puntos de hechicería" onClick={() => set({ uses: { ...c.uses, [SORC_POOL]: used(SORC_POOL) + 2 } })}>Hechicería innata sin usos: gasta 2 puntos</button>
+          <span className="muted small">Con ella activa, hasta dos opciones de Metamagia por conjuro.</span>
+        </div>
+      )}
       {slots.sorc > 0 && picked(MM_KEY).length < slots.sorc && chooser(MM_KEY, slots.sorc, 'Opciones de hechicero')}
       {slots.feat > 0 && picked(MM_FEAT_KEY).length < slots.feat && chooser(MM_FEAT_KEY, slots.feat, 'Adepto de metamagia')}
       {mine.length > 0 && (

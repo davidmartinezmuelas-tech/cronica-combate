@@ -26,7 +26,7 @@ import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel, { FEAT_PANEL_NAMES } from './FeatPanel';
 import ReactionPanel, { REACTION_FEATS } from './ReactionPanel';
-import QuickActions, { quickRows } from './QuickActions';
+import QuickActions, { quickRows, quickTag, RELENTLESS } from './QuickActions';
 import MetamagicPanel from './MetamagicPanel';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import { KITS } from '../../engine/subclassActions';
@@ -129,7 +129,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const usable = features.filter((f) => (f.max || (f.fx && f.fx.kind !== 'bonus' && f.fx.kind !== 'hit')) && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));
   const usableKeys = new Set(usable.map((f) => f.key));
   // rasgos con acción adicional o reacción (por su texto) que no tienen otra tarjeta: Acción astuta, Esquiva asombrosa…
-  const quick = quickRows(features, (r) => usableKeys.has(r.key) || panelKeys.has(r.key) || panelKeys.has(r.n) || REACTION_FEATS.includes(norm(r.n)) || FEAT_PANEL_NAMES.includes(norm(r.n)) || ['Furia', 'Castigo del paladín'].includes(r.key));
+  const quick = quickRows(features, (r) => usableKeys.has(r.key) || panelKeys.has(r.key) || panelKeys.has(r.n) || REACTION_FEATS.includes(norm(r.n)) || FEAT_PANEL_NAMES.includes(norm(r.n)) || ['Furia', 'Castigo del paladín'].includes(r.key) || r.n === RELENTLESS, (n) => quickTag(c, n));
   // subclases escritas que no son del SRD, ni de la biblioteca de este dispositivo, ni de las que la app ya conoce
   const missingSubs = views.map(({ v }) => v.subclass).filter((n, i) => !!n && !subclassText(views[i].v, views[i].dv.cls, lib.subclasses)
     && !KITS.some((k) => k.subs.some((x) => norm(x) === norm(n))) && norm(n) !== 'otra subclase');
@@ -1061,7 +1061,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       </section>
 
       <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => x.s!)} extra={quick} />
-      <QuickActions rows={quick} />
+      <QuickActions rows={quick} c={c} d={d} set={set} />
 
       {views.map(({ v, dv }, i) => (
         <Fragment key={i}>
@@ -1130,7 +1130,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
                 const res = views.flatMap(({ v }) => choiceResources(v, data, lib));
                 // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)
                 const one = new Set([...res.filter((r) => r.now === 'sr1').map((r) => r.key), 'Furia', 'Forma salvaje', 'Segundo aliento', 'Canalizar Divinidad', 'Canalización divina']);
-                const all = [...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
+                const all = [RELENTLESS, ...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
                 const rested = shortRest(c, all);
                 // los que recuperan uno en descanso corto (dados psiónicos, Canalizar divinidad)
                 one.forEach((k) => { if (rested.uses[k]) rested.uses[k] -= 1; });
