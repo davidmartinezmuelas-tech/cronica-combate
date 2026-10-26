@@ -4,7 +4,7 @@ import type { LibBackground } from '../../engine/bookImport';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import HomebrewPanel from './HomebrewPanel';
-import { NO_TEXT, NO_TEXT_HELP, readBook, type BookResult } from '../../store/bookReader';
+import { NO_TEXT, NO_TEXT_HELP, readBook, readItemBook, type BookResult } from '../../store/bookReader';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
@@ -29,6 +29,7 @@ export default function LibraryPanel() {
   const rules = useStore((s) => s.rules);
   const pdfRef = useRef<HTMLInputElement>(null);
   const jsonRef = useRef<HTMLInputElement>(null);
+  const dmgRef = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<[number, number] | null>(null);
   const [found, setFound] = useState<BookResult | null>(null);
   const [msg, setMsg] = useState('');
@@ -68,6 +69,27 @@ export default function LibraryPanel() {
     setProgress(null);
     if (pdfRef.current) pdfRef.current.value = '';
   };
+  // Guía del Dungeon Master (inglés): objetos mágicos, directos a la biblioteca
+  const importDmg = async (f: File | undefined) => {
+    if (!f) return;
+    setMsg('');
+    cancel.current = { cancelled: false };
+    try {
+      const r = await readItemBook(f, (p, t) => setProgress([p, t]), cancel.current);
+      if (!r.items.length) setMsg('No se ha encontrado el capítulo «Magic Items A–Z». El importador está hecho para la Guía del Dungeon Master 2024 en inglés con texto (no un PDF de imágenes).');
+      else {
+        const merge = <T extends { id: string }>(a: T[], b: T[]) => [...a.filter((x) => !b.some((y) => y.id === x.id)), ...b];
+        await lib.save({ items: merge(lib.items, r.items) });
+        setMsg('Guardados ' + r.items.length + ' objetos mágicos en tu biblioteca. Salen en «Ejemplos…» del panel de objetos mágicos de la hoja; los que cambian números (CA, características, armas +N…) ya llevan sus efectos y el resto queda como texto.');
+      }
+    } catch (e) {
+      const m = (e as Error).message;
+      if (m === NO_TEXT) setMsg(NO_TEXT_HELP);
+      else if (m !== 'cancelado') setMsg('No se pudo leer el PDF (' + m + ').');
+    }
+    setProgress(null);
+    if (dmgRef.current) dmgRef.current.value = '';
+  };
   const setBg = (i: number, patch: Partial<LibBackground>) => found && setFound({ ...found, backgrounds: found.backgrounds.map((b, j) => (j === i ? { ...b, ...patch } : b)) });
   const saveFound = () => {
     if (!found) return;
@@ -90,25 +112,28 @@ export default function LibraryPanel() {
     if (jsonRef.current) jsonRef.current.value = '';
   };
 
-  const total = lib.feats.length + lib.backgrounds.length + lib.spells.length + lib.subclasses.length;
+  const total = lib.feats.length + lib.backgrounds.length + lib.spells.length + lib.subclasses.length + lib.items.length;
   return (
     <div className="pc">
       <div data-tour="library" className="panel">
         <div className="panel-head"><h2>Tu biblioteca</h2><span className="muted small">{lib.source || 'vacía'}</span></div>
-        <p className="muted small" style={{ margin: 0 }}>Aquí puedes añadir las dotes, los trasfondos y los conjuros de tu Manual del Jugador 2024 que no están en el SRD. Se leen de tu PDF dentro de este navegador y se guardan solo en este dispositivo: no se suben a ningún sitio ni forman parte de la app. Si exportas el archivo para tu grupo, que sea para quien tenga el libro.</p>
+        <p className="muted small" style={{ margin: 0 }}>Aquí puedes añadir las dotes, los trasfondos y los conjuros de tu Manual del Jugador 2024 que no están en el SRD, y los objetos mágicos de tu Guía del Dungeon Master 2024 (en inglés). Se leen de tu PDF dentro de este navegador y se guardan solo en este dispositivo: no se suben a ningún sitio ni forman parte de la app. Si exportas el archivo para tu grupo, que sea para quien tenga el libro.</p>
         <div className="pc-stats lib-stats">
           <div className="stat"><span className="stat-k">Subclases</span><span className="stat-v">{lib.subclasses.length}</span></div>
           <div className="stat"><span className="stat-k">Dotes</span><span className="stat-v">{lib.feats.length}</span></div>
           <div className="stat"><span className="stat-k">Trasfondos</span><span className="stat-v">{lib.backgrounds.length}</span></div>
           <div className="stat"><span className="stat-k">Conjuros</span><span className="stat-v">{lib.spells.length}</span></div>
+          <div className="stat"><span className="stat-k">Objetos</span><span className="stat-v">{lib.items.length}</span></div>
         </div>
         <div className="rollrow">
           <button className="btn small primary" disabled={!!progress} onClick={() => pdfRef.current?.click()}>Importar del Manual del Jugador (PDF)</button>
+          <button className="btn small" disabled={!!progress} onClick={() => dmgRef.current?.click()}>Importar objetos de la Guía del DM (PDF)</button>
           <button className="btn small" disabled={!total} onClick={exportFile}>Exportar biblioteca</button>
           <button className="btn small" onClick={() => jsonRef.current?.click()}>Cargar archivo de biblioteca</button>
           {total > 0 && <button className="btn small ghost" onClick={() => { if (confirmClear) { void lib.clear(); setConfirmClear(false); setMsg('Biblioteca vaciada.'); } else setConfirmClear(true); }}>{confirmClear ? '¿Seguro? Vaciar' : 'Vaciar'}</button>}
         </div>
         <input ref={pdfRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual del Jugador" onChange={(e) => void importPdf(e.target.files?.[0])} />
+        <input ref={dmgRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF de la Guía del Dungeon Master" onChange={(e) => void importDmg(e.target.files?.[0])} />
         <input ref={jsonRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Archivo de biblioteca" onChange={(e) => void importFile(e.target.files?.[0])} />
         {progress && (
           <div className="sub" role="status">

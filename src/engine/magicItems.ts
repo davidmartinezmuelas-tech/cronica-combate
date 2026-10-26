@@ -20,7 +20,7 @@ export const MOD_LABEL: Record<ModKey, string> = {
 
 export type ItemKind = 'armor' | 'weapon' | 'ring' | 'wondrous' | 'potion' | 'staff' | 'other';
 export const KIND_LABEL: Record<ItemKind, string> = { armor: 'Armadura o escudo', weapon: 'Arma', ring: 'Anillo', wondrous: 'Objeto maravilloso', potion: 'Poción o consumible', staff: 'Vara, bastón o varita', other: 'Otro' };
-export const RARITIES = ['común', 'poco común', 'raro', 'muy raro', 'legendario', 'artefacto'];
+export const RARITIES = ['común', 'poco común', 'raro', 'muy raro', 'legendario', 'artefacto', 'varía'];
 
 export interface MagicItem {
   id: string;
@@ -37,6 +37,9 @@ export interface MagicItem {
   weapon?: string; // id del arma de la hoja a la que ligan los efectos del arma (wBonus, wExtra)
   spells?: { id: string; cost: number }[]; // conjuros que lanza el objeto: cada lanzamiento gasta `cost` cargas
 }
+
+/** Objeto de la biblioteca (importado del libro del usuario): la plantilla de un objeto, sin estar puesto ni sintonizado. */
+export type LibItem = Omit<MagicItem, 'worn' | 'attuned'>;
 
 /** Máximo de objetos sintonizados a la vez. */
 export const ATTUNE_MAX = 3;

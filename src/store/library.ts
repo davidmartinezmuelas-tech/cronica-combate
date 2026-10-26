@@ -1,6 +1,7 @@
 import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { create } from 'zustand';
 import type { LibBackground, LibFeat, LibSpell, LibSubclass } from '../engine/bookImport';
+import type { LibItem } from '../engine/magicItems';
 import { setOwnSubclasses } from '../engine/homebrew';
 import { ownSelfFx, setOwnSpellFx } from '../engine/spellEffects';
 
@@ -19,6 +20,7 @@ export interface LibraryData {
   backgrounds: LibBackground[];
   spells: LibSpell[];
   subclasses: LibSubclass[];
+  items: LibItem[]; // objetos mágicos de la Guía del Dungeon Master del usuario
 }
 
 export interface LibraryState extends LibraryData {
@@ -46,7 +48,7 @@ function withGuests(d: LibraryData): LibraryData {
 // lectura inicial única: guardar o importar la esperan, para no pisar lo que ya había en el dispositivo
 let loading: Promise<void> | null = null;
 
-const empty = (): LibraryData => ({ v: 1, source: '', feats: [], backgrounds: [], spells: [], subclasses: [] });
+const empty = (): LibraryData => ({ v: 1, source: '', feats: [], backgrounds: [], spells: [], subclasses: [], items: [] });
 
 function persist(d: LibraryData) {
   void idbSet(KEY, d, store()).catch(() => { /* sin IndexedDB: dura esta visita */ });
@@ -102,13 +104,14 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     const merge = <T extends { id: string }>(a: T[], b: T[]) => [...a.filter((x) => !b.some((y) => y.id === x.id)), ...b];
     const cur = pick(get());
     const subs = Array.isArray(d.subclasses) ? d.subclasses : [];
-    await get().save({ source: d.source || cur.source, feats: merge(cur.feats, d.feats), backgrounds: merge(cur.backgrounds, d.backgrounds), spells: merge(cur.spells, d.spells), subclasses: merge(cur.subclasses, subs) });
-    return 'Biblioteca cargada: ' + subs.length + ' subclases, ' + d.feats.length + ' dotes, ' + d.backgrounds.length + ' trasfondos y ' + d.spells.length + ' conjuros.';
+    const items = Array.isArray(d.items) ? d.items : [];
+    await get().save({ source: d.source || cur.source, feats: merge(cur.feats, d.feats), backgrounds: merge(cur.backgrounds, d.backgrounds), spells: merge(cur.spells, d.spells), subclasses: merge(cur.subclasses, subs), items: merge(cur.items, items) });
+    return 'Biblioteca cargada: ' + (items.length ? items.length + ' objetos, ' : '') + subs.length + ' subclases, ' + d.feats.length + ' dotes, ' + d.backgrounds.length + ' trasfondos y ' + d.spells.length + ' conjuros.';
   },
 }));
 
 // lo propio del dispositivo (sin lo que llega de paso de la sala)
-const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats.filter((x) => !x.guest), backgrounds: s.backgrounds.filter((x) => !x.guest), spells: s.spells.filter((x) => !x.guest), subclasses: (s.subclasses || []).filter((x) => !x.guest) });
+const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats.filter((x) => !x.guest), backgrounds: s.backgrounds.filter((x) => !x.guest), spells: s.spells.filter((x) => !x.guest), subclasses: (s.subclasses || []).filter((x) => !x.guest), items: s.items || [] });
 
 // los rasgos propios con bonificadores fijos entran en el cálculo de la hoja
 useLibrary.subscribe((s, prev) => {

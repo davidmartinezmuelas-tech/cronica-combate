@@ -2498,3 +2498,24 @@ test('objetos mágicos: el arma ligada suma ataque y daño y el objeto con carga
   await expect(page.getByLabel('Arma de tu hoja')).toBeVisible();
   await page.getByRole('button', { name: 'Cancelar' }).click();
 });
+
+test('biblioteca: los objetos importados salen en los ejemplos del panel de objetos mágicos', async ({ page }) => {
+  const lib = {
+    app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'Pruebas', feats: [], backgrounds: [], spells: [], subclasses: [],
+    items: [{ id: 'lib-it-prueba', n: 'Brazal de prueba', kind: 'wondrous', rarity: 'raro', attune: true, d: 'Texto de prueba.', mods: [{ k: 'ac', v: 1 }] }],
+  };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'biblioteca.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: '1 objetos' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ira');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const panel = page.getByRole('region', { name: 'Objetos mágicos' });
+  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Brazal de prueba' });
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(panel).toContainText('Brazal de prueba');
+});

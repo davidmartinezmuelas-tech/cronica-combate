@@ -7,6 +7,7 @@ import { ATTUNE_MAX, attunedCount, isActive, ITEM_PRESETS, itemEffects, itemKey,
 import { uid } from '../../engine/util';
 import Card, { InfoDialog } from '../../shared/Card';
 import Pips from '../../shared/Pips';
+import { useLibrary } from '../../store/library';
 import { useStore } from '../../store/useStore';
 import { plainText } from './spells';
 
@@ -100,6 +101,7 @@ function ItemForm({ item, weapons, spells, onSave, onClose }: { item: MagicItem;
 
 /** Objetos mágicos del personaje: puestos y sintonizados cambian solos la CA, las salvaciones, las características y demás. */
 export default function MagicItemsPanel({ c, set, spells }: { c: Character; set: (patch: Partial<Character>) => void; spells: SpellOpt[] }) {
+  const libItems = useLibrary((s) => s.items);
   const items = c.magicItems || [];
   const [form, setForm] = useState<MagicItem | null>(null);
   const [preset, setPreset] = useState('');
@@ -122,9 +124,10 @@ export default function MagicItemsPanel({ c, set, spells }: { c: Character; set:
         <span className={att > ATTUNE_MAX ? 'chip-tag warn' : 'chip-tag'} title="Un personaje solo puede estar sintonizado con tres objetos a la vez">Sintonía {att}/{ATTUNE_MAX}</span>
       </div>
       <div className="rollrow">
-        <select className="input" style={{ maxWidth: 260 }} aria-label="Objeto de ejemplo" value={preset} onChange={(e) => { setPreset(''); const p = ITEM_PRESETS[Number(e.target.value)]; if (p) setForm({ ...blank(), ...p, mods: p.mods.map((m) => ({ ...m })) }); }}>
+        <select className="input" style={{ maxWidth: 260 }} aria-label="Objeto de ejemplo" value={preset} onChange={(e) => { setPreset(''); const v = e.target.value; const p = v.startsWith('lib:') ? libItems.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setForm({ ...blank(), ...p, id: 'mi-' + uid(), mods: p.mods.map((m) => ({ ...m })) }); }}>
           <option value="">Ejemplos…</option>
           {ITEM_PRESETS.map((p, i) => <option key={p.n} value={i}>{p.n}</option>)}
+          {libItems.length > 0 && <optgroup label="De tu biblioteca">{libItems.map((x) => <option key={x.id} value={'lib:' + x.id}>{x.n}</option>)}</optgroup>}
         </select>
         <button className="btn small" onClick={() => setForm(blank())}>+ Objeto</button>
       </div>
