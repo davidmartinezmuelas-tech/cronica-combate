@@ -2434,3 +2434,41 @@ test('rasgos con número: Furia implacable sube la CD, Caída lenta y Hechicerí
   await mm.getByRole('button', { name: /Hechicería innata sin usos/ }).click();
   await expect(mm).toContainText('Puntos de hechicería 5/7');
 });
+
+test('objetos mágicos: un ejemplo cambia la CA al ponerlo y sintonizarlo, la sintonía tiene tope y la poción gasta su carga', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Orla');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const ac = async () => Number(await page.locator('.stat-ac .stat-v').textContent());
+  const base = await ac();
+  const panel = page.getByRole('region', { name: 'Objetos mágicos' });
+  const add = async (name: string) => {
+    await panel.getByLabel('Objeto de ejemplo').selectOption({ label: name });
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  };
+  // Anillo de protección: +1 CA, pero solo con la sintonía
+  await add('Anillo de protección');
+  expect(await ac()).toBe(base);
+  await panel.getByLabel('Sintonizado: Anillo de protección').check();
+  await expect.poll(ac).toBe(base + 1);
+  await panel.getByLabel('Puesto: Anillo de protección').uncheck();
+  await expect.poll(ac).toBe(base);
+  await panel.getByLabel('Puesto: Anillo de protección').check();
+  // tope de tres sintonizados
+  await add('Capa de protección');
+  await panel.getByLabel('Sintonizado: Capa de protección').check();
+  await add('Diadema de intelecto');
+  await panel.getByLabel('Sintonizado: Diadema de intelecto').check();
+  await add('Amuleto de salud');
+  await expect(panel).toContainText('Sintonía 3/3');
+  await expect(panel.getByLabel('Sintonizado: Amuleto de salud')).toBeDisabled();
+  await expect.poll(ac).toBe(base + 2);
+  // poción de curación: gasta su única carga
+  await add('Poción de curación');
+  await panel.getByRole('button', { name: /Usar: tirar 2d4\+2/ }).click();
+  await expect(panel.getByRole('button', { name: /Usar: tirar 2d4\+2/ })).toBeDisabled();
+});

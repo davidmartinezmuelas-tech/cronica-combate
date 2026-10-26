@@ -5,6 +5,7 @@ import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { featCatOf, splitFeatText } from './featText';
 import { choiceSkills, subclassCaster } from './subclassChoices';
 import { ownFeatures, type HbFx } from './homebrew';
+import { itemAbilities, itemEffects, type MagicItem } from './magicItems';
 import { norm, uid } from './util';
 
 /** Arma (o ataque) del personaje: de la lista del SRD o propia. */
@@ -90,6 +91,7 @@ export interface Character {
   inspiration: boolean;
   feats: string[]; // dotes del SRD (por nombre)
   customFeats: CustomFeat[];
+  magicItems?: MagicItem[]; // objetos mágicos: sus efectos se suman solos mientras estén puestos (y sintonizados)
   choices?: Record<string, string[]>; // elecciones de subclase (maniobras, habilidades…) por id de elección
   langs: string;
   tools: string;
@@ -225,7 +227,8 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   // rasgos de clase con efecto en los números (Aura de protección, Aprendiz de todo, Furia…)
   const cfx = classEffects({ entries, choices: c.choices, conds: c.conds, cha: mod(c.abil.cha) });
   // aumentos de clase: +N hasta un máximo de 25 (no bajan una puntuación que ya pase de 25)
-  const abil = Object.fromEntries(ABILS.map((a) => { const b = cfx.abil[a] || 0; const v = c.abil[a]; return [a, b ? Math.max(v, Math.min(25, v + b)) : v]; })) as Record<Abil, number>;
+  const ifx = itemEffects(c.magicItems);
+  const abil = itemAbilities(Object.fromEntries(ABILS.map((a) => { const b = cfx.abil[a] || 0; const v = c.abil[a]; return [a, b ? Math.max(v, Math.min(25, v + b)) : v]; })) as Record<Abil, number>, ifx);
   const mods = Object.fromEntries(ABILS.map((a) => [a, mod(abil[a])])) as Record<Abil, number>;
   // dotes con efecto en los números (Tiro con arco, Duelo, Defensa, Alerta, Duro…)
   const fx = featEffects([...c.feats, ...expandCustomFeats(c.customFeats).map((f) => f.n)]);
@@ -246,10 +249,10 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   };
   const draconic = lvOf('sorcerer') >= 3 && ['hechiceria draconica', 'draconic sorcery'].includes(subOf('sorcerer'));
   const saveProf = new Set<Abil>([...(cls?.saves || []), ...c.saveExtra, ...(cfx.saveProfAll ? ABILS : []), ...cfx.saveProf.map((x) => x.abil)]);
-  const saveFlat = cfx.saveBonus?.n || 0;
+  const saveFlat = (cfx.saveBonus?.n || 0) + ifx.saves;
   const saves = Object.fromEntries(ABILS.map((a) => [a, {
     bonus: mods[a] + (saveProf.has(a) ? pb : 0) + saveFlat, prof: saveProf.has(a),
-    ...(cfx.saveAdv[a] ? { adv: cfx.saveAdv[a] } : {}), ...(saveFlat ? { why: cfx.saveBonus!.why + ' ' + (saveFlat > 0 ? '+' : '') + saveFlat } : {}),
+    ...(cfx.saveAdv[a] ? { adv: cfx.saveAdv[a] } : {}), ...(saveFlat ? { why: [cfx.saveBonus ? cfx.saveBonus.why + ' ' + (cfx.saveBonus.n > 0 ? '+' : '') + cfx.saveBonus.n : '', ifx.saves ? 'objetos mágicos ' + (ifx.saves > 0 ? '+' : '') + ifx.saves : ''].filter(Boolean).join(', ') } : {}),
   }])) as Derived['saves'];
   // conjuros activos sobre el personaje (los de concentración, solo mientras dura)
   const effects = liveEffects(c.active, c.conds);
@@ -297,6 +300,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   // rasgos propios (subclase de «Mis creaciones») con un bonificador fijo
   const own = [...ownFeatures(entries), ...c.customFeats.filter((f) => f.fx).map((f) => ({ n: f.n, fx: f.fx! }))].filter((f) => f.fx.kind === 'bonus');
   for (const f of own) if (f.fx.ac) { ac += f.fx.ac; acNote += ' + ' + f.n; }
+  if (ifx.ac) { ac += ifx.ac; acNote += ' + objetos mágicos'; }
   for (const e of effects) if (e.fx.ac?.min && ac < e.fx.ac.min) { ac = e.fx.ac.min; acNote = e.n + ' (mínimo ' + e.fx.ac.min + ')'; }
 
   const hdDie = cls?.hd || 8;
@@ -320,7 +324,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   }, {})).map(([die, n]) => ({ die: Number(die), n })).sort((a, b) => b.die - a.die);
   // Robustez enana: +1 PG por nivel; Resiliencia dracónica: +1 por nivel de hechicero
   const fxHp = effects.reduce((t, e) => t + (e.fx.hpMax ? e.fx.hpMax(e.lv) : 0), 0);
-  const hpMax = Math.max(1, classHp + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvOf('sorcerer') : 0) + fxHp);
+  const hpMax = Math.max(1, classHp + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvOf('sorcerer') : 0) + fxHp + ifx.hp);
 
   // lanzadores: cada clase con su característica (y el Caballero arcano / Embaucador arcano, con Inteligencia)
   const casterOf = (e: ClassEntry) => {
@@ -331,7 +335,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     return { e, cd, kind, abil };
   };
   const castersAll = entries.map(casterOf).filter((x) => x.kind && x.abil);
-  const casters = castersAll.map(({ e, cd, abil }) => ({ classId: e.classId, n: cd?.n || e.className, abil: abil as Abil, dc: 8 + pb + mods[abil as Abil], atk: pb + mods[abil as Abil] }));
+  const casters = castersAll.map(({ e, cd, abil }) => ({ classId: e.classId, n: cd?.n || e.className, abil: abil as Abil, dc: 8 + pb + mods[abil as Abil] + ifx.spellDc, atk: pb + mods[abil as Abil] + ifx.spellAtk }));
   const spell = casters.length ? { abil: casters[0].abil, dc: casters[0].dc, atk: casters[0].atk } : null;
   if (spell && c.ov.spellDc != null) spell.dc = c.ov.spellDc;
   if (spell && c.ov.spellAtk != null) spell.atk = c.ov.spellAtk;
@@ -397,10 +401,10 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     critOn: ['campeon', 'champion'].includes(subOf('fighter')) ? (lvOf('fighter') >= 15 ? 18 : lvOf('fighter') >= 3 ? 19 : 20) : 20,
     scale,
     ac: c.ov.ac ?? ac, acNote: c.ov.ac != null ? 'Ajustada a mano' : acNote,
-    init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : half),
+    init: c.ov.init ?? mods.dex + (featOf('initProf').length ? pb : half) + ifx.init,
     initAdv: cfx.initAdv,
-    speed: c.ov.speed ?? effects.reduce((v, e) => (v + (e.fx.speed?.add || 0)) * (e.fx.speed?.mul || 1), (species?.speed ?? 30) + sum('speed') + speedBonus + own.reduce((t, f) => t + (f.fx.speed || 0), 0) + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0)),
-    resist: [...speciesResist(c.speciesId, c.choices), ...cfx.resist, ...own.filter((f) => f.fx.resist).map((f) => ({ type: f.fx.resist!, why: f.n })), ...effects.flatMap((e) => (e.fx.resist || []).map((type) => ({ type, why: e.n })))],
+    speed: c.ov.speed ?? effects.reduce((v, e) => (v + (e.fx.speed?.add || 0)) * (e.fx.speed?.mul || 1), (species?.speed ?? 30) + sum('speed') + speedBonus + ifx.speed + own.reduce((t, f) => t + (f.fx.speed || 0), 0) + cfx.speed.reduce((t, x) => t + (x.noHeavy && heavyArmor ? 0 : x.n), 0)),
+    resist: [...speciesResist(c.speciesId, c.choices), ...cfx.resist, ...own.filter((f) => f.fx.resist).map((f) => ({ type: f.fx.resist!, why: f.n })), ...effects.flatMap((e) => (e.fx.resist || []).map((type) => ({ type, why: e.n }))), ...ifx.resist],
     effects, bless: effects.some((e) => e.fx.bless), fxHp,
     cfx,
     abil,

@@ -28,6 +28,8 @@ import FeatPanel, { FEAT_PANEL_NAMES } from './FeatPanel';
 import ReactionPanel, { REACTION_FEATS } from './ReactionPanel';
 import QuickActions, { quickRows, quickTag, RELENTLESS } from './QuickActions';
 import MetamagicPanel from './MetamagicPanel';
+import MagicItemsPanel from './MagicItemsPanel';
+import { itemKey } from '../../engine/magicItems';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import { KITS } from '../../engine/subclassActions';
 import SpellRolls, { spellCastFor } from './SpellRolls';
@@ -1071,6 +1073,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       ))}
       <FeatPanel c={c} d={d} set={set} />
       <MetamagicPanel c={c} data={data} set={set} />
+      <MagicItemsPanel c={c} set={set} />
       {usable.length > 0 && (
         <section className="panel" aria-label="Rasgos con usos">
           <h3 className="eyebrow">Rasgos con usos</h3>
@@ -1130,7 +1133,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
                 const res = views.flatMap(({ v }) => choiceResources(v, data, lib));
                 // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)
                 const one = new Set([...res.filter((r) => r.now === 'sr1').map((r) => r.key), 'Furia', 'Forma salvaje', 'Segundo aliento', 'Canalizar Divinidad', 'Canalización divina']);
-                const all = [RELENTLESS, ...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
+                const all = [RELENTLESS, ...(c.magicItems || []).filter((i) => i.charges?.per === 'sr').map(itemKey), ...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
                 const rested = shortRest(c, all);
                 // los que recuperan uno en descanso corto (dados psiónicos, Canalizar divinidad)
                 one.forEach((k) => { if (rested.uses[k]) rested.uses[k] -= 1; });
