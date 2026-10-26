@@ -24,6 +24,8 @@ export interface SheetData {
   abil: Partial<Record<AbilKey, number>>; // puntuaciones de característica
   saveBonus: Partial<Record<AbilKey, number>>; // bonificadores de salvación escritos en la hoja
   skillBonus: Record<string, number>; // bonificadores de habilidad (claves acr, ath…)
+  spellNames?: string[]; // nombres de los conjuros escritos en la hoja (solo la oficial de 2024 los trae en campos propios)
+  feats?: string; // bloque de dotes de la hoja («LUCKY (origen): …», una por línea), si la hoja lo tiene aparte
 }
 
 type AbilKey = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
@@ -207,6 +209,7 @@ export function readSheet(fields: SheetField[]): SheetData | null {
   const data: SheetData = {
     template, name: get('name'), cls: cls && level && !classes.length ? cls + ' ' + level : cls, level, ...(classes.length ? { classes } : {}), ac: number(get('ac')), hp: number(get('hp')),
     initb: init, pp, res: findResistances(traitText), extras, abil, saveBonus, skillBonus,
+    ...(official ? { spellNames: fields.filter((f) => /^Text106(\.\d+)?$/.test(f.name)).map((f) => clean(f.value)).filter((v) => v && v !== 'Off'), feats: fields.find((f) => f.name === 'Text58')?.value || '' } : {}),
   };
   const useful = [data.name, data.cls, data.ac, data.hp, data.initb, data.pp].filter(Boolean).length + data.extras.length;
   return useful ? data : null;

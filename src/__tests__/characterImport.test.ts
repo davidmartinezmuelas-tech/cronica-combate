@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlayerData } from '../data/player';
 import { derive } from '../engine/character';
-import { offListSpells, sheetToCharacter } from '../engine/characterImport';
+import { offListSpells, sheetToCharacter, unknownSpells } from '../engine/characterImport';
 import { readSheet, splitClasses, type SheetField } from '../engine/sheetImport';
 
 const data = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/jugador_es.json'), 'utf8')) as PlayerData;
@@ -81,5 +81,32 @@ describe('conjuros al importar', () => {
     expect(names).toContain('Rayo inventado');
     expect(names).not.toContain('Descarga de fuego');
     expect(offListSpells(f, sheet, data, lib).map((s) => s.n)).toEqual(['Descarga de fuego']); // el escudo del equipo no se propone
+  });
+});
+
+describe('hoja oficial de 2024 de un hechicero dracónico (con aclaraciones entre paréntesis y dotes en bloque)', () => {
+  const fields = JSON.parse(readFileSync(resolve(process.cwd(), 'src/__tests__/fixtures/hoja-oficial-hechicero.json'), 'utf8')) as SheetField[];
+  const sheet = readSheet(fields)!;
+  const c = sheetToCharacter(fields, sheet, data, spells, 'hechicero.pdf');
+  it('reconoce la subclase aunque lleve «(rayo)» y toma de ahí la Afinidad elemental', () => {
+    expect(c.subclass).toBe('Hechicería dracónica');
+    expect(c.choices?.['draconic.affinity']).toEqual(['relámpago']);
+    expect(derive(c, data).resist.some((r) => r.type === 'relámpago')).toBe(true);
+  });
+  it('lee el bloque de dotes: Adepto elemental con su elemento y las demás como dotes propias', () => {
+    expect(c.customFeats.map((f) => f.n)).toEqual(expect.arrayContaining(['Lucky', 'Tough', 'Elemental adept', 'Resilient']));
+    expect(c.customFeats.find((f) => f.n === 'Lucky')?.cat).toBe('origin');
+    expect(c.choices?.['feat.elemental']).toEqual(['relámpago']);
+  });
+  it('el conjuro Escudo no se toma por un escudo del equipo, y la CA sale sola (18 con la Resiliencia dracónica)', () => {
+    expect(c.shield).toBe(false);
+    expect(c.ov.ac).toBeUndefined();
+    expect(derive(c, data).ac).toBe(18);
+  });
+  it('avisa de los conjuros que no están en el SRD', () => {
+    expect(unknownSpells(sheet, spells).sort()).toEqual(['Mind Sliver', 'Storm Sphere', 'Synaptic Static', 'Witch Bolt']);
+  });
+  it('los conjuros dracónicos no se ofrecen como «de fuera de tu lista» (los pone la subclase)', () => {
+    expect(c.spells.length).toBeGreaterThan(15);
   });
 });

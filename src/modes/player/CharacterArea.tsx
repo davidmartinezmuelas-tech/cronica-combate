@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { offListSpells, sheetToCharacter, type SpellRef } from '../../engine/characterImport';
+import { offListSpells, sheetToCharacter, unknownSpells, type SpellRef } from '../../engine/characterImport';
+import { subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { sampleCharacter } from '../../engine/sample';
 import { norm } from '../../engine/util';
 import { InfoDialog } from '../../shared/Card';
@@ -32,7 +33,7 @@ export default function CharacterArea() {
   };
   const [msg, setMsg] = useState('');
   // conjuros de la hoja importada que no son de la lista de su clase: se pregunta antes de añadirlos
-  const [askSpells, setAskSpells] = useState<{ charId: string; cls: string; list: SpellRef[] } | null>(null);
+  const [askSpells, setAskSpells] = useState<{ charId: string; cls: string; list: SpellRef[]; missing: string[] } | null>(null);
 
   useEffect(() => { void init(); void loadData(); void useLibrary.getState().init(); }, [init, loadData]);
   // la pestaña del personaje activo, siempre a la vista (con muchos personajes la fila se desplaza)
@@ -55,11 +56,17 @@ export default function CharacterArea() {
     const srdNames = new Set(srd.map((x) => norm(x.n)));
     const spells: SpellRef[] = [...srd, ...useLibrary.getState().spells.filter((x) => !srdNames.has(norm(x.n))).map((x) => ({ id: x.id, n: x.n, en: '', classes: x.classes }))];
     const base = create();
-    const ch = { ...sheetToCharacter(fields, sheet, d, spells, f.name), id: base.id };
+    const made = sheetToCharacter(fields, sheet, d, spells, f.name);
+    // los conjuros que no están en ningún sitio se anotan en la hoja para no perderlos
+    const missing = unknownSpells(sheet, spells);
+    const ch = { ...made, id: base.id, ...(missing.length ? { notes: made.notes + '\nConjuros de la hoja que no se encontraron: ' + missing.join(', ') + '.' } : {}) };
     replace(ch);
     setEditing(true);
-    const off = offListSpells(fields, sheet, d, spells).filter((x) => !ch.spells.includes(x.id));
-    if (off.length) setAskSpells({ charId: ch.id, cls: d.classes.find((k) => k.id === ch.classId)?.n || 'tu clase', list: off });
+    // los siempre preparados de la subclase (Conjuros dracónicos…) no son «de fuera de tu lista»
+    const cls = d.classes.find((k) => k.id === ch.classId);
+    const always = new Set(subclassSpells(ch, cls, subclassText(ch, cls, useLibrary.getState().subclasses), spells.map((s) => ({ id: s.id, n: s.n, l: 0 }))).map((x) => x.id));
+    const off = offListSpells(fields, sheet, d, spells).filter((x) => !ch.spells.includes(x.id) && !always.has(x.id));
+    if (off.length || missing.length) setAskSpells({ charId: ch.id, cls: cls?.n || 'tu clase', list: off, missing });
   };
 
   // pestañas del móvil: solo con una hoja a la vista (no en el editor ni sin personajes)
@@ -103,15 +110,17 @@ export default function CharacterArea() {
         <PlayerBackup />
       </div>
       {askSpells && (
-        <InfoDialog title="Conjuros de fuera de tu lista" onClose={() => setAskSpells(null)}>
-          <p style={{ marginTop: 0 }}>La hoja tiene conjuros que no son de la lista de {askSpells.cls}: <b>{askSpells.list.map((x) => x.n).join(', ')}</b>.</p>
-          <p className="muted small">Puede ser por una dote (Iniciado en la magia), un rasgo de tu especie o un objeto. ¿Los añado a la hoja?</p>
+        <InfoDialog title={askSpells.list.length ? 'Conjuros de fuera de tu lista' : 'Conjuros que no se encontraron'} onClose={() => setAskSpells(null)}>
+          {askSpells.missing.length > 0 && <p style={{ marginTop: 0 }}>Estos conjuros de la hoja no están en el SRD ni en tu biblioteca: <b>{askSpells.missing.join(', ')}</b>. Importa tu Manual del Jugador en «Biblioteca» y vuelve a importar la hoja, o créalos en «Mis creaciones». Quedan anotados en las notas del personaje.</p>}
+          {askSpells.list.length > 0 && <p style={{ marginTop: 0 }}>La hoja tiene conjuros que no son de la lista de {askSpells.cls}: <b>{askSpells.list.map((x) => x.n).join(', ')}</b>.</p>}
+          {askSpells.list.length > 0 && <p className="muted small">Puede ser por una dote (Iniciado en la magia), un rasgo de tu especie o un objeto. ¿Los añado a la hoja?</p>}
           <div className="rollrow">
-            <button className="btn small primary" onClick={() => {
+            {askSpells.list.length === 0 && <button className="btn small primary" onClick={() => setAskSpells(null)}>Entendido</button>}
+            {askSpells.list.length > 0 && <button className="btn small primary" onClick={() => {
               const cur = usePlayer.getState().characters.find((x) => x.id === askSpells.charId);
               if (cur) usePlayer.getState().update(cur.id, { spells: [...cur.spells, ...askSpells.list.map((x) => x.id).filter((id) => !cur.spells.includes(id))] });
               setAskSpells(null);
-            }}>Sí, añadirlos</button>
+            }}>Sí, añadirlos</button>}
           </div>
         </InfoDialog>
       )}

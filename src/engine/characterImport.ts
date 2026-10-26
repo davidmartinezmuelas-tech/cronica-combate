@@ -2,6 +2,7 @@ import { ABILS, type Abil, type ClassData, type PlayerData } from '../data/playe
 import { blankCharacter, derive, mod, profBonus, weaponFromData, type Character, type CustomFeat } from './character';
 import type { SheetData, SheetField } from './sheetImport';
 import { featCatOf, splitFeatText } from './featText';
+import { ELEMENTAL_KEY } from './metamagic';
 import { norm, uid } from './util';
 
 export interface SpellRef {
@@ -33,6 +34,18 @@ export function offListSpells(fields: SheetField[], sheet: SheetData, data: Play
   return matchSpells([...new Set(lines.map(tidy))].filter((l) => l.length > 1), cls, spells).offList;
 }
 
+const ELEM: Record<string, string> = { rayo: 'relámpago', relampago: 'relámpago', lightning: 'relámpago', fuego: 'fuego', fire: 'fuego', frio: 'frío', cold: 'frío', acido: 'ácido', acid: 'ácido', trueno: 'trueno', thunder: 'trueno', veneno: 'veneno', poison: 'veneno' };
+/** El tipo de daño (en español) que nombra un texto («rayo, dragón azul»), si lo hay. */
+const elementOf = (s: string) => norm(s).split(/[^a-z]+/).map((w) => ELEM[w]).find(Boolean) || '';
+const subBase = (raw: string) => raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+const subParen = (raw: string) => /\(([^)]*)\)\s*$/.exec(raw)?.[1] || '';
+
+/** Conjuros escritos en la hoja que no están en el SRD ni en la biblioteca de este dispositivo (se avisa de ellos al importar). */
+export function unknownSpells(sheet: SheetData, spells: SpellRef[]): string[] {
+  const known = new Set(spells.flatMap((s) => [norm(s.n), norm(s.en || '')]).filter(Boolean));
+  return [...new Set((sheet.spellNames || []).map((n) => n.replace(/\s*\([^)]*\)\s*$/, '').trim()).filter((n) => n.length > 1 && !known.has(norm(n))))];
+}
+
 /** Nombre limpio de una línea de la hoja: sin «S/P», sin paréntesis finales ni signos sueltos. */
 const tidy = (s: string) => norm(s.replace(/\bS\/P\b/gi, '').replace(/\(.*?\)\s*$/, '').replace(/[*•·:]+$/, '')).replace(/\s+/g, ' ').trim();
 
@@ -51,7 +64,8 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   const cls = data.classes.find((k) => same(clsName, k.n, k.en));
   const level = Math.max(1, Math.min(20, mc ? mc[0].level : parseInt(sheet.level, 10) || 1));
   const total = mc ? Math.max(1, Math.min(20, mc.reduce((t, x) => t + x.level, 0))) : level;
-  const subName = (k: (typeof data.classes)[number] | undefined, raw: string, lv: number) => (k?.sub && raw && same(raw, k.sub.n, k.sub.en) ? k.sub.n : raw || (k?.sub && lv >= k.sub.lv ? k.sub.n : ''));
+  // la subclase puede traer una aclaración entre paréntesis («Hechicería Dracónica (rayo)»): se reconoce sin ella
+  const subName = (k: (typeof data.classes)[number] | undefined, raw: string, lv: number) => (k?.sub && raw && same(subBase(raw), k.sub.n, k.sub.en) ? k.sub.n : raw || (k?.sub && lv >= k.sub.lv ? k.sub.n : ''));
   const multi = mc?.slice(1).map((x) => {
     const k = data.classes.find((y) => same(x.cls, y.n, y.en));
     return { classId: k?.id || '', className: k ? '' : x.cls, level: x.level, subclass: subName(k, x.sub, x.level) };
@@ -59,7 +73,7 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   const species = data.species.find((s) => same(extra('Especie'), s.n, s.en)) || data.species.find((s) => norm(extra('Especie')).length > 2 && norm(s.n).startsWith(norm(extra('Especie'))));
   const bg = data.backgrounds.find((b) => same(extra('Trasfondo'), b.n, b.en));
   const subRaw = mc?.[0].sub || extra('Subclase');
-  const subclass = cls?.sub && subRaw && same(subRaw, cls.sub.n, cls.sub.en) ? cls.sub.n : subRaw || (cls?.sub && level >= cls.sub.lv ? cls.sub.n : '');
+  const subclass = cls?.sub && subRaw && same(subBase(subRaw), cls.sub.n, cls.sub.en) ? cls.sub.n : subRaw || (cls?.sub && level >= cls.sub.lv ? cls.sub.n : '');
 
   const abil = Object.fromEntries(ABILS.map((a) => [a, sheet.abil[a] ?? 10])) as Record<Abil, number>;
   const pb = profBonus(total);
@@ -81,9 +95,10 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
 
   const weapons = data.weapons.filter((w) => tidyLines.includes(norm(w.n)) || tidyLines.includes(norm(w.en))).map((w) => weaponFromData(w, cls));
   const armor = data.armor.find((a) => a.type !== 'shl' && (tidyLines.includes(norm(a.n)) || tidyLines.includes(norm(a.en))));
-  const shield = fields.some((f) => /shield|escudo/i.test(f.name) && /^(yes|on|true|1)$/i.test(String(f.value))) || tidyLines.includes('shield') || tidyLines.includes('escudo');
   // conjuros: los de la lista de su clase (o de la biblioteca marcados para su clase); los de fuera se devuelven aparte
   const { inList } = matchSpells(tidyLines, cls, spells);
+  // «Shield» en la hoja puede ser el conjuro Escudo (si su clase lo tiene) y no el escudo del equipo
+  const shield = fields.some((f) => /shield|escudo/i.test(f.name) && /^(yes|on|true|1)$/i.test(String(f.value))) || (!inList.some(isShield) && (tidyLines.includes('shield') || tidyLines.includes('escudo')));
   const spellIds = inList.map((s) => s.id);
 
   // dotes: la primera línea de cada bloque («Savage Attacker (soldier)», «Protection (Fighting Style)»)
@@ -115,8 +130,27 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
     }
   }
 
+  // bloque de dotes de la hoja («LUCKY (origen, trasfondo): efecto», una por línea): las del SRD, por su nombre; el resto, como dote propia
+  const choices: Record<string, string[]> = {};
+  for (const line of (sheet.feats || '').split(/\r?\n/)) {
+    const m = /^\s*([^:(]{2,60}?)\s*(?:\(([^)]*)\))?\s*:\s*(.*)$/.exec(line);
+    if (!m) continue;
+    const name = m[1].trim();
+    const srd = data.feats.find((x) => same(name, x.n, x.en));
+    if (srd) { if (!feats.includes(srd.n)) feats.push(srd.n); continue; }
+    if (customFeats.some((x) => norm(x.n) === norm(name))) continue;
+    const pretty = name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
+    const paren = norm(m[2] || '');
+    const cat = featCatOf(name) || (/\borigen\b|\borigin\b/.test(paren) ? 'origin' : /\bepic|epico/.test(paren) ? 'epic-boon' : /\bgeneral\b/.test(paren) ? 'general' : /estilo de combate|fighting style/.test(paren) ? 'fighting-style' : 'other');
+    customFeats.push({ id: 'f-' + uid(), n: pretty, d: m[3].trim(), cat, max: null, per: '' });
+    // Adepto elemental: el elemento escrito entre paréntesis
+    if (['elemental adept', 'adepto elemental'].includes(norm(name)) && elementOf(m[2] || '')) choices[ELEMENTAL_KEY] = [elementOf(m[2])];
+  }
+  // hechicero dracónico: el elemento de la subclase escrito entre paréntesis es su Afinidad elemental
+  if (cls?.id === 'sorcerer' && same(subBase(subRaw), 'Hechicería dracónica', 'Draconic Sorcery') && elementOf(subParen(subRaw))) choices['draconic.affinity'] = [elementOf(subParen(subRaw))];
+
   const c: Character = {
-    ...blankCharacter(), name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName, level, subclass, ...(multi?.length ? { multi } : {}),
+    ...blankCharacter(), choices, name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName, level, subclass, ...(multi?.length ? { multi } : {}),
     speciesId: species?.id || '', speciesName: species ? '' : extra('Especie'), backgroundId: bg?.id || '', backgroundName: bg ? '' : extra('Trasfondo'),
     abil, skills, expertise, saveExtra, weapons, armorId: armor?.id || '', shield, spells: spellIds, feats, customFeats, langs: extra('Idiomas'),
     notes: (fileName ? 'Importado de ' + fileName + '. ' : '') + 'Revisa la hoja: lo que no se ha podido reconocer está en el PDF original.',
