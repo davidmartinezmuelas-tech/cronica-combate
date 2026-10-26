@@ -2472,3 +2472,29 @@ test('objetos mágicos: un ejemplo cambia la CA al ponerlo y sintonizarlo, la si
   await panel.getByRole('button', { name: /Usar: tirar 2d4\+2/ }).click();
   await expect(panel.getByRole('button', { name: /Usar: tirar 2d4\+2/ })).toBeDisabled();
 });
+
+test('objetos mágicos: el arma ligada suma ataque y daño y el objeto con cargas lanza un conjuro', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Kael');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Hechicero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const panel = page.getByRole('region', { name: 'Objetos mágicos' });
+  // objeto propio: bastón con 10 cargas que lanza Bola de fuego (3 cargas)
+  await panel.getByRole('button', { name: '+ Objeto' }).click();
+  await page.getByLabel('Nombre', { exact: true }).fill('Bastón de fuego');
+  await page.getByLabel('Cargas', { exact: true }).fill('10');
+  await page.getByRole('button', { name: '+ Conjuro' }).click();
+  await page.getByLabel('Conjuro', { exact: true }).selectOption({ label: 'Bola de fuego' });
+  await page.getByLabel('Cargas por lanzamiento').fill('3');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await expect(panel).toContainText('Bastón de fuego');
+  await page.getByRole('button', { name: /Bola de fuego/ }).first().click();
+  await expect(page.getByRole('button', { name: 'Lanzar (3 cargas)' })).toBeVisible();
+  // el efecto de arma pide el arma de la hoja
+  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Arma +1' });
+  await expect(page.getByLabel('Arma de tu hoja')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar' }).click();
+});

@@ -227,7 +227,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   // rasgos de clase con efecto en los números (Aura de protección, Aprendiz de todo, Furia…)
   const cfx = classEffects({ entries, choices: c.choices, conds: c.conds, cha: mod(c.abil.cha) });
   // aumentos de clase: +N hasta un máximo de 25 (no bajan una puntuación que ya pase de 25)
-  const ifx = itemEffects(c.magicItems);
+  const ifx = itemEffects(c.magicItems, !(c.armorId === 'custom' || (armor && armor.type !== 'shl')) && !c.shield);
   const abil = itemAbilities(Object.fromEntries(ABILS.map((a) => { const b = cfx.abil[a] || 0; const v = c.abil[a]; return [a, b ? Math.max(v, Math.min(25, v + b)) : v]; })) as Record<Abil, number>, ifx);
   const mods = Object.fromEntries(ABILS.map((a) => [a, mod(abil[a])])) as Record<Abil, number>;
   // dotes con efecto en los números (Tiro con arco, Duelo, Defensa, Alerta, Duro…)
@@ -259,14 +259,14 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   for (const e of effects) for (const a of e.fx.saveAdv || []) if (!saves[a].adv) saves[a] = { ...saves[a], adv: e.n };
   // Aprendiz de todo: la mitad de la competencia (hacia abajo) en las pruebas sin competencia
   const half = cfx.halfProf ? Math.floor(pb / 2) : 0;
-  const checks = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + half, ...(cfx.checkAdv[a] ? { adv: cfx.checkAdv[a] } : {}) }])) as Derived['checks'];
+  const checks = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + half + ifx.checks, ...(cfx.checkAdv[a] ? { adv: cfx.checkAdv[a] } : {}) }])) as Derived['checks'];
   // habilidades de las elecciones de subclase de cada clase (multiclase: todas)
   const subSkills = new Set(entries.flatMap((e, i) => choiceSkills(i === 0 ? c : asClass(c, e))));
   const skills = Object.fromEntries(Object.entries(SKILL_ABIL).map(([k, ab]) => {
     const prof = c.skills.includes(k) || subSkills.has(k);
     const exp = prof && c.expertise.includes(k);
     const adv = cfx.skillAdv[k] || cfx.checkAdv[ab as Abil];
-    return [k, { bonus: mods[ab] + (prof ? pb * (exp ? 2 : 1) : half), prof, exp, abil: ab, ...(adv ? { adv } : {}), ...(prof && cfx.reliable ? { min10: true } : {}) }];
+    return [k, { bonus: mods[ab] + (prof ? pb * (exp ? 2 : 1) : half) + ifx.checks, prof, exp, abil: ab, ...(adv ? { adv } : {}), ...(prof && cfx.reliable ? { min10: true } : {}) }];
   })) as Derived['skills'];
 
   // CA: armadura (con el límite de Destreza), defensa sin armadura del bárbaro o del monje, o 10 + Destreza
@@ -361,13 +361,17 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     // arma cuerpo a cuerpo arrojadiza (daga, jabalina): el bonificador solo cuando se lanza
     const thrownMelee = w.kind === 'melee' && has('arrojadiza') ? add('dmgThrown', sum('dmgThrown'), 'al daño si la lanzas') : 0;
     const heavy = has('pesada') && featOf('dmgHeavyProf').length ? add('dmgHeavyProf', pb, 'al daño') : 0;
-    const base = mods[ab] + (w.bonus || 0) + thrown + heavy;
+    const iw = ifx.weapons[w.id];
+    const wb = (w.bonus || 0) + (iw?.bonus || 0);
+    if (iw?.bonus) notes.push(iw.why.join(', ') + ' ' + (iw.bonus > 0 ? '+' : '') + iw.bonus + ' al ataque y al daño');
+    const base = mods[ab] + wb + thrown + heavy;
     const dmg = withBonus(w.dmg, base + oneHand);
     const ver = w.ver ? withBonus(w.ver, base) : '';
     // Combate con armas a dos manos: los 1 y 2 de los dados del arma cuentan como 3 al empuñarla con las dos manos
     const min2h = fx.reduce((t, f) => Math.max(t, f.e.minDie2h || 0), 0);
     if (min2h && w.kind === 'melee' && (twoHanded || w.ver)) notes.push(featOf('minDie2h').join(', ') + ': los 1 y 2 cuentan como 3 a dos manos');
-    const extra = (w.extra || []).filter((e) => e.dmg.trim()).map((e) => ({ expr: e.dmg.trim(), type: e.type }));
+    const extra = [...(w.extra || []), ...(iw?.extra || [])].filter((e) => e.dmg.trim()).map((e) => ({ expr: e.dmg.trim(), type: e.type }));
+    if (iw?.extra.length) notes.push(iw.why.join(', ') + ' ' + iw.extra.map((e) => '+' + e.dmg + ' ' + e.type).join(', '));
     const main = (expr: string, two: boolean) => ({ expr, type: w.type, ...(min2h && two && w.kind === 'melee' ? { min: min2h } : {}) });
     // Golpes radiantes (paladín 11): +1d8 radiante con armas cuerpo a cuerpo
     if (radiant && w.kind === 'melee') { extra.push({ expr: '1d8', type: 'radiante' }); notes.push('Golpes radiantes +1d8 radiante'); }
@@ -379,9 +383,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     // Maestro en armas de asta: bastón, lanza o arma con «gran alcance» y «pesada»
     const poleOk = all.pole && w.kind === 'melee' && (/^(baston|lanza)( |$)/.test(norm(w.name)) || ((has('gran alcance') || has('alcance')) && has('pesada')));
     return {
-      w, abil: ab, atk: mods[ab] + (w.prof ? pb : 0) + (w.bonus || 0) + atkFeat, dmg, ver, notes,
-      offParts: offOk ? [{ expr: withBonus(w.dmg, offMod + (w.bonus || 0)), type: w.type }, ...extra] : [],
-      poleParts: poleOk ? [{ expr: withBonus('1d4', mods[ab] + (w.bonus || 0)), type: 'contundente' }] : [],
+      w, abil: ab, atk: mods[ab] + (w.prof ? pb : 0) + wb + atkFeat, dmg, ver, notes,
+      offParts: offOk ? [{ expr: withBonus(w.dmg, offMod + wb), type: w.type }, ...extra] : [],
+      poleParts: poleOk ? [{ expr: withBonus('1d4', mods[ab] + wb), type: 'contundente' }] : [],
       parts: [main(dmg, twoHanded), ...extra], verParts: ver ? [main(ver, true), ...extra] : [],
       throwParts: thrownMelee ? [{ expr: withBonus(w.dmg, base + thrownMelee), type: w.type }, ...extra] : [],
     };

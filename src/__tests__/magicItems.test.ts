@@ -50,4 +50,27 @@ describe('objetos mágicos', () => {
     expect(itemEffects(undefined).ac).toBe(0);
     for (const p of ITEM_PRESETS) expect(p.n.length).toBeGreaterThan(2);
   });
+  it('condicional sin armadura, pruebas de característica, arma ligada y conjuros con cargas', async () => {
+    const braz = item('Brazales de defensa', { mods: [{ k: 'ac', v: 2, when: 'noArmor' }] });
+    const base = derive(pj([]), data);
+    expect(derive(pj([braz]), data).ac).toBe(base.ac + 2);
+    expect(derive(pj([braz], { shield: true }), data).ac).toBe(derive(pj([], { shield: true }), data).ac);
+    const luck = item('Piedra', { mods: [{ k: 'checks', v: 1 }] });
+    expect(derive(pj([luck]), data).skills.prc.bonus).toBe(base.skills.prc.bonus + 1);
+    expect(derive(pj([luck]), data).checks.str.bonus).toBe(base.checks.str.bonus + 1);
+    const w = { id: 'w1', name: 'Espada', dmg: '1d8', type: 'cortante', abil: 'auto' as const, kind: 'melee' as const, finesse: false, prof: true, bonus: 0 };
+    const sword = item('Espada +1 flamígera', { attune: false, weapon: 'w1', mods: [{ k: 'wBonus', v: 1 }, { k: 'wExtra', dice: '1d6', type: 'fuego' }] });
+    const a0 = derive(pj([], { weapons: [w] }), data).attacks[0];
+    const a1 = derive(pj([sword], { weapons: [w] }), data).attacks[0];
+    expect(a1.atk).toBe(a0.atk + 1);
+    expect(a1.dmg).not.toBe(a0.dmg);
+    expect(a1.parts.some((p) => p.expr === '1d6' && p.type === 'fuego')).toBe(true);
+    expect(derive(pj([{ ...sword, weapon: 'otra' }], { weapons: [w] }), data).attacks[0].atk).toBe(a0.atk);
+    const { grantedSpells } = await import('../engine/grantedSpells');
+    const staff = item('Bastón', { charges: { max: 10, per: 'lr' }, spells: [{ id: 'sp-x', cost: 3 }] });
+    const g = grantedSpells(pj([staff]), [{ id: 'sp-x', en: 'X' }], derive(pj([]), data).mods);
+    expect(g).toHaveLength(1);
+    expect(g[0].charge).toEqual({ key: 'item.mi-Bastón', cost: 3, max: 10 });
+    expect(grantedSpells(pj([{ ...staff, worn: false }]), [{ id: 'sp-x', en: 'X' }], derive(pj([]), data).mods)).toHaveLength(0);
+  });
 });

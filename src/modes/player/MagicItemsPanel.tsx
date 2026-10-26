@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { DMG_TYPES } from '../../data/constants';
 import { ABILS, type Abil } from '../../data/player';
-import type { Character } from '../../engine/character';
+import type { CharWeapon, Character } from '../../engine/character';
 import { validDice } from '../../engine/homebrew';
 import { ATTUNE_MAX, attunedCount, isActive, ITEM_PRESETS, itemEffects, itemKey, KIND_LABEL, MOD_LABEL, modText, RARITIES, type ItemKind, type ItemMod, type MagicItem, type ModKey } from '../../engine/magicItems';
 import { uid } from '../../engine/util';
@@ -11,15 +11,19 @@ import { useStore } from '../../store/useStore';
 import { plainText } from './spells';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
+export type SpellOpt = { id: string; n: string; l?: number };
 const blank = (): MagicItem => ({ id: 'mi-' + uid(), n: '', kind: 'wondrous', rarity: 'poco común', attune: false, attuned: false, worn: true, d: '', mods: [] });
 
 /** Formulario de un objeto: nombre, texto, sintonización, cargas y los efectos que se aplican solos a la hoja. */
-function ItemForm({ item, onSave, onClose }: { item: MagicItem; onSave: (i: MagicItem) => void; onClose: () => void }) {
+function ItemForm({ item, weapons, spells, onSave, onClose }: { item: MagicItem; weapons: CharWeapon[]; spells: SpellOpt[]; onSave: (i: MagicItem) => void; onClose: () => void }) {
   const [it, setIt] = useState<MagicItem>(item);
   const setMod = (i: number, patch: Partial<ItemMod>) => setIt({ ...it, mods: it.mods.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
   const addMod = () => setIt({ ...it, mods: [...it.mods, { k: 'ac', v: 1 }] });
   const needAbil = (k: ModKey) => k === 'abilSet' || k === 'abilAdd';
   const badRoll = !!it.roll && !validDice(it.roll);
+  const wmod = it.mods.some((m) => m.k === 'wBonus' || m.k === 'wExtra');
+  const badExtra = it.mods.some((m) => m.k === 'wExtra' && (!m.dice || !validDice(m.dice)));
+  const spellSet = (i: number, patch: Partial<{ id: string; cost: number }>) => setIt({ ...it, spells: (it.spells || []).map((s, j) => (j === i ? { ...s, ...patch } : s)) });
   return (
     <InfoDialog title={item.n ? 'Editar ' + item.n : 'Objeto mágico'} onClose={onClose}>
       <div className="field"><label htmlFor="mi-n">Nombre</label><input id="mi-n" className="input" value={it.n} onChange={(e) => setIt({ ...it, n: e.target.value })} autoFocus /></div>
@@ -37,19 +41,27 @@ function ItemForm({ item, onSave, onClose }: { item: MagicItem; onSave: (i: Magi
         {it.mods.map((m, i) => (
           <div key={i} className="row3 hb-fx">
             <div className="field"><label htmlFor={'mi-mk' + i}>Efecto</label>
-              <select id={'mi-mk' + i} className="input" value={m.k} onChange={(e) => setMod(i, { k: e.target.value as ModKey, abil: needAbil(e.target.value as ModKey) ? m.abil || 'str' : undefined, type: e.target.value === 'resist' ? m.type || 'fuego' : undefined })}>
+              <select id={'mi-mk' + i} className="input" value={m.k} onChange={(e) => setMod(i, { k: e.target.value as ModKey, abil: needAbil(e.target.value as ModKey) ? m.abil || 'str' : undefined, type: e.target.value === 'resist' || e.target.value === 'wExtra' ? m.type || 'fuego' : undefined, dice: e.target.value === 'wExtra' ? m.dice || '1d6' : undefined })}>
                 {(Object.keys(MOD_LABEL) as ModKey[]).map((k) => <option key={k} value={k}>{MOD_LABEL[k]}</option>)}</select></div>
             {needAbil(m.k) && <div className="field"><label htmlFor={'mi-ma' + i}>Característica</label>
               <select id={'mi-ma' + i} className="input" value={m.abil || 'str'} onChange={(e) => setMod(i, { abil: e.target.value as Abil })}>{ABILS.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}</select></div>}
-            {m.k === 'resist'
+            {m.k === 'wExtra' && <div className="field"><label htmlFor={'mi-md' + i}>Dados</label>
+              <input id={'mi-md' + i} className="input" value={m.dice || ''} placeholder="1d6" aria-invalid={!!m.dice && !validDice(m.dice)} onChange={(e) => setMod(i, { dice: e.target.value })} /></div>}
+            {m.k === 'resist' || m.k === 'wExtra'
               ? <div className="field"><label htmlFor={'mi-mt' + i}>Tipo de daño</label>
                 <select id={'mi-mt' + i} className="input" value={m.type || 'fuego'} onChange={(e) => setMod(i, { type: e.target.value })}>{DMG_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select></div>
               : <div className="field"><label htmlFor={'mi-mv' + i}>{m.k === 'abilSet' ? 'Valor' : 'Cantidad'}</label>
                 <input id={'mi-mv' + i} type="number" className="input" value={m.v ?? ''} onChange={(e) => setMod(i, { v: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })} /></div>}
+            {m.k === 'ac' && <label className="check small"><input type="checkbox" checked={m.when === 'noArmor'} onChange={(e) => setMod(i, { when: e.target.checked ? 'noArmor' : undefined })} /> Solo sin armadura ni escudo</label>}
             <button className="btn small ghost" aria-label="Quitar efecto" onClick={() => setIt({ ...it, mods: it.mods.filter((_, j) => j !== i) })}>Quitar</button>
           </div>
         ))}
         <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={addMod}>+ Efecto</button>
+        {wmod && <div className="field"><label htmlFor="mi-w">Arma de tu hoja</label>
+          <select id="mi-w" className="input" value={it.weapon || ''} onChange={(e) => setIt({ ...it, weapon: e.target.value || undefined })}>
+            <option value="">Elige un arma…</option>{weapons.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select>
+          {!weapons.length && <span className="muted small">Añade antes el arma en «Equipo» de la hoja.</span>}</div>}
+        {badExtra && <span className="warn small">El daño adicional necesita dados (1d6).</span>}
       </fieldset>
       <fieldset className="fs">
         <legend>Cargas o usos</legend>
@@ -63,9 +75,23 @@ function ItemForm({ item, onSave, onClose }: { item: MagicItem; onSave: (i: Magi
             <input id="mi-ro" className="input" value={it.roll || ''} placeholder="2d4+2" aria-invalid={badRoll} onChange={(e) => setIt({ ...it, roll: e.target.value })} /></div>}
         </div>
         {badRoll && <span className="warn small">Escribe dados como 2d4+2.</span>}
+        {it.charges && <>
+          <span className="muted small">Conjuros que lanza el objeto con sus cargas.</span>
+          {(it.spells || []).map((s, i) => (
+            <div key={i} className="row3">
+              <div className="field"><label htmlFor={'mi-sp' + i}>Conjuro</label>
+                <select id={'mi-sp' + i} className="input" value={s.id} onChange={(e) => spellSet(i, { id: e.target.value })}>
+                  <option value="">Elige…</option>{spells.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}</select></div>
+              <div className="field"><label htmlFor={'mi-sc' + i}>Cargas por lanzamiento</label>
+                <input id={'mi-sc' + i} type="number" min={1} className="input" value={s.cost} onChange={(e) => spellSet(i, { cost: Math.max(1, parseInt(e.target.value, 10) || 1) })} /></div>
+              <button className="btn small ghost" aria-label="Quitar conjuro" onClick={() => setIt({ ...it, spells: (it.spells || []).filter((_, j) => j !== i) })}>Quitar</button>
+            </div>
+          ))}
+          <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setIt({ ...it, spells: [...(it.spells || []), { id: '', cost: 1 }] })}>+ Conjuro</button>
+        </>}
       </fieldset>
       <div className="rollrow">
-        <button className="btn small primary" disabled={!it.n.trim() || badRoll} onClick={() => onSave({ ...it, n: it.n.trim(), roll: it.charges && it.roll?.trim() ? it.roll.trim() : undefined })}>Guardar</button>
+        <button className="btn small primary" disabled={!it.n.trim() || badRoll || badExtra} onClick={() => onSave({ ...it, n: it.n.trim(), roll: it.charges && it.roll?.trim() ? it.roll.trim() : undefined, spells: it.charges && it.spells?.some((s) => s.id) ? it.spells.filter((s) => s.id) : undefined, weapon: wmod ? it.weapon : undefined })}>Guardar</button>
         <button className="btn small ghost" onClick={onClose}>Cancelar</button>
       </div>
     </InfoDialog>
@@ -73,7 +99,7 @@ function ItemForm({ item, onSave, onClose }: { item: MagicItem; onSave: (i: Magi
 }
 
 /** Objetos mágicos del personaje: puestos y sintonizados cambian solos la CA, las salvaciones, las características y demás. */
-export default function MagicItemsPanel({ c, set }: { c: Character; set: (patch: Partial<Character>) => void }) {
+export default function MagicItemsPanel({ c, set, spells }: { c: Character; set: (patch: Partial<Character>) => void; spells: SpellOpt[] }) {
   const items = c.magicItems || [];
   const [form, setForm] = useState<MagicItem | null>(null);
   const [preset, setPreset] = useState('');
@@ -136,7 +162,7 @@ export default function MagicItemsPanel({ c, set }: { c: Character; set: (patch:
           );
         })}
       </ul>
-      {form && <ItemForm item={form} onClose={() => setForm(null)} onSave={(it) => { save(items.some((x) => x.id === it.id) ? items.map((x) => (x.id === it.id ? it : x)) : [...items, it]); setForm(null); }} />}
+      {form && <ItemForm item={form} weapons={c.weapons} spells={spells} onClose={() => setForm(null)} onSave={(it) => { save(items.some((x) => x.id === it.id) ? items.map((x) => (x.id === it.id ? it : x)) : [...items, it]); setForm(null); }} />}
     </section>
   );
 }

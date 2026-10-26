@@ -1,13 +1,14 @@
 import type { Abil } from '../data/player';
 import { classLevel, type Character } from './character';
 import { hasInvocation } from './subclassChoices';
+import { isActive, itemKey } from './magicItems';
 import { norm } from './util';
 
 /**
  * Conjuros que dan los rasgos sin ser de la clase (reglas 2024 del SRD): invocaciones del brujo, el linaje o legado de
  * la especie y la dote Iniciado en la magia. Se lanzan sin gastar espacio: a voluntad o una vez por descanso largo.
  */
-export type GrantHow = 'will' | 'lr' | 'pb' | 'ritual';
+export type GrantHow = 'will' | 'lr' | 'pb' | 'ritual' | 'charges';
 export interface Grant {
   en: string; // conjuro (nombre en inglés del SRD)
   src: string; // de dónde sale (para la etiqueta)
@@ -15,6 +16,7 @@ export interface Grant {
   abil?: Abil; // característica para lanzarlo (si no es la de la clase)
   self?: boolean; // solo sobre ti
   max?: boolean; // Vigor infernal: los PG temporales al máximo, sin tirar
+  charge?: { key: string; cost: number; max: number }; // objeto mágico: cada lanzamiento gasta `cost` de sus cargas
   noFx?: boolean; // su efecto ya está en la hoja (Armadura de sombras)
 }
 
@@ -104,6 +106,8 @@ export function grantedSpells(c: Character, list: { id: string; en?: string }[],
     for (const [en, how] of g.fixed) out.push({ en, how, src: g.feat, abil });
     if (g.pick) ch.slice(1).filter(Boolean).forEach((id) => out.push({ en: '#' + id, how: g.pick!.how, src: g.feat, abil }));
   }
+  // objetos mágicos en vigor que lanzan conjuros con sus cargas
+  for (const it of c.magicItems || []) if (isActive(it) && it.charges) for (const sp of it.spells || []) out.push({ en: '#' + sp.id, how: 'charges', src: it.n, charge: { key: itemKey(it), cost: Math.max(1, sp.cost || 1), max: it.charges.max } });
   // «#id»: elegidos por id (Iniciado en la magia); el resto, por su nombre en inglés
   return out.flatMap((g) => {
     const s = g.en.startsWith('#') ? list.find((x) => x.id === g.en.slice(1)) : list.find((x) => x.en === g.en);

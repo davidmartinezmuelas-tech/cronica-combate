@@ -79,14 +79,15 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
     if (ok) { setTargets(null); setSentNote('Enviado al máster: lo aplica a los objetivos.'); }
   };
   // sin espacio, por el rasgo: a voluntad, una vez por descanso largo o tantas como el bonificador por competencia
-  const freeMax = !grant || grant.how === 'known' ? 0 : grant.how === 'will' || grant.how === 'ritual' ? Infinity : grant.how === 'lr' ? 1 : d.pb;
-  const freeUsed = grant ? c.uses[grant.key] || 0 : 0;
+  const freeMax = grant?.charge ? grant.charge.max : !grant || grant.how === 'known' ? 0 : grant.how === 'will' || grant.how === 'ritual' ? Infinity : grant.how === 'lr' ? 1 : d.pb;
+  const freeUsed = grant ? c.uses[grant.charge?.key || grant.key] || 0 : 0;
+  const freeCost = grant?.charge?.cost || 1;
   const spendSlot = (onMe = false, free = false) => {
     // un conjuro de concentración la empieza (y termina la de otro)
     const conds = s.c ? withConc(c.conds, s.n) : c.conds;
     const patch: Partial<Character> = { conds };
     const castLv = free ? Math.max(1, base) : lv;
-    if (free) { if (freeMax !== Infinity) patch.uses = { ...c.uses, [grant!.key]: freeUsed + 1 }; }
+    if (free) { if (freeMax !== Infinity) patch.uses = { ...c.uses, [grant!.charge?.key || grant!.key]: freeUsed + freeCost }; }
     else if (usePact) patch.pactUsed = c.pactUsed + 1;
     else { const u = c.slotsUsed.slice(); u[lv - 1] = (u[lv - 1] || 0) + 1; patch.slotsUsed = u; }
     if (onMe && fx && !grant?.noFx) {
@@ -146,8 +147,8 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
       )}
       {freeMax > 0 && (
         <>
-          {freeMax !== Infinity && <span className="muted small">{Math.max(0, freeMax - freeUsed)} de {freeMax} sin espacio</span>}
-          <button className="btn small" disabled={freeUsed >= freeMax} title={grant!.src + ': sin gastar espacio' + (fx && !grant!.noFx ? '; lo aplica en tu hoja: ' + fx.fx.note : '')} onClick={() => spendSlot(true, true)}>{grant!.how === 'ritual' ? 'Lanzar como ritual (sin espacio, 10 min más)' : freeMax === Infinity ? 'Lanzar (a voluntad)' : 'Lanzar sin espacio'}</button>
+          {freeMax !== Infinity && <span className="muted small">{Math.max(0, freeMax - freeUsed)} de {freeMax} {grant!.charge ? 'cargas' : 'sin espacio'}</span>}
+          <button className="btn small" disabled={freeUsed + freeCost > freeMax} title={grant!.src + ': sin gastar espacio' + (fx && !grant!.noFx ? '; lo aplica en tu hoja: ' + fx.fx.note : '')} onClick={() => spendSlot(true, true)}>{grant!.how === 'ritual' ? 'Lanzar como ritual (sin espacio, 10 min más)' : grant!.charge ? 'Lanzar (' + freeCost + (freeCost === 1 ? ' carga)' : ' cargas)') : freeMax === Infinity ? 'Lanzar (a voluntad)' : 'Lanzar sin espacio'}</button>
         </>
       )}
       {base > 0 && grant?.how !== 'will' && (d.pact || d.slots.length > 0) && (fx ? (
