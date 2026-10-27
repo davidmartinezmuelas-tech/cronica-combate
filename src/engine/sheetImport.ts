@@ -7,7 +7,7 @@ export interface SheetField {
   value: string;
 }
 
-export type SheetTemplate = 'oficial-2024' | 'fifthedition' | 'generica';
+export type SheetTemplate = 'oficial-2024' | 'fifthedition' | 'ddb' | 'italiana' | 'generica';
 
 export interface SheetData {
   template: SheetTemplate;
@@ -24,6 +24,8 @@ export interface SheetData {
   abil: Partial<Record<AbilKey, number>>; // puntuaciones de característica
   saveBonus: Partial<Record<AbilKey, number>>; // bonificadores de salvación escritos en la hoja
   skillBonus: Record<string, number>; // bonificadores de habilidad (claves acr, ath…)
+  saveProf?: AbilKey[]; // salvaciones con casilla de competencia marcada (hojas que no escriben el bonificador)
+  skillProf?: string[]; // habilidades con casilla de competencia marcada
   spellNames?: string[]; // nombres de los conjuros escritos en la hoja (solo la oficial de 2024 los trae en campos propios)
   feats?: string; // bloque de dotes de la hoja («LUCKY (origen): …», una por línea), si la hoja lo tiene aparte
 }
@@ -40,11 +42,11 @@ const OFICIAL_SKILL: Record<string, string> = {
 };
 /** Otras hojas: nombres de campo en inglés o en español (normalizados, sin espacios). */
 const ABIL_SYN: Record<AbilKey, string[]> = {
-  str: ['strscore', 'strsore', 'strength', 'strengthscore', 'str', 'fuerza', 'fue'],
-  dex: ['dexscore', 'dexterity', 'dexterityscore', 'dex', 'destreza', 'des'],
-  con: ['conscore', 'constitution', 'constitutionscore', 'con', 'constitucion'],
-  int: ['intscore', 'intelligence', 'intelligencescore', 'int', 'inteligencia'],
-  wis: ['wisscore', 'wisdom', 'wisdomscore', 'wis', 'sabiduria', 'sab'],
+  str: ['strscore', 'strsore', 'strength', 'strengthscore', 'str', 'fuerza', 'fue', 'forza1', 'forza'],
+  dex: ['dexscore', 'dexterity', 'dexterityscore', 'dex', 'destreza', 'des', 'destrezza'],
+  con: ['conscore', 'constitution', 'constitutionscore', 'con', 'constitucion', 'costituzione'],
+  int: ['intscore', 'intelligence', 'intelligencescore', 'int', 'inteligencia', 'intelligenza'],
+  wis: ['wisscore', 'wisdom', 'wisdomscore', 'wis', 'sabiduria', 'sab', 'saggezza'],
   cha: ['chascore', 'charisma', 'charismascore', 'cha', 'carisma', 'car'],
 };
 const SAVE_SYN: Record<AbilKey, string[]> = {
@@ -72,26 +74,42 @@ const OFICIAL_2024_TRAITS = ['Text54', 'Text55', 'Text57', 'Text58'];
 
 /** Nombres de campo habituales en otras hojas (FIFTHEDITION, la oficial de 2014, exportaciones…). */
 const SYNONYMS: Record<string, string[]> = {
-  name: ['name', 'charactername', 'charname', 'nombre', 'nombredelpersonaje', 'personaje'],
-  cls: ['class', 'classlevel', 'clase', 'claseynivel'],
+  name: ['name', 'charactername', 'charname', 'nombre', 'nombredelpersonaje', 'personaje', 'nome'],
+  cls: ['class', 'classlevel', 'clase', 'claseynivel', 'classeelivello'],
   level: ['level', 'nivel', 'characterlevel'],
   subclass: ['subclass', 'subclase', 'archetype'],
-  species: ['species', 'race', 'especie', 'raza'],
+  species: ['species', 'race', 'especie', 'raza', 'razza'],
   background: ['background', 'trasfondo'],
-  ac: ['ac', 'armorclass', 'ca', 'clasedearmadura'],
-  hp: ['maxhp', 'hpmax', 'hitpointmaximum', 'pgmax', 'puntosdegolpemaximos', 'hpmaximum'],
+  ac: ['ac', 'armorclass', 'ca', 'clasedearmadura', 'classearmatura'],
+  hp: ['maxhp', 'hpmax', 'hitpointmaximum', 'pgmax', 'puntosdegolpemaximos', 'hpmaximum', 'puntiferititotali', 'puntiferitatotali'],
   init: ['init', 'initiative', 'iniciativa'],
   pp: ['passive', 'passiveperception', 'passivewisdom', 'percepcionpasiva', 'passiveperceptionwisdom'],
   perception: ['perception', 'percepcion'],
-  speed: ['speed', 'velocidad'],
+  speed: ['speed', 'velocidad', 'movimentobase'],
   size: ['size', 'tamano'],
   darkvision: ['darkvision', 'visionenlaoscuridad'],
   senses: ['senses', 'sentidos'],
-  languages: ['languages', 'idiomas', 'proficiencieslang', 'languagesandproficiencies'],
+  languages: ['languages', 'idiomas', 'proficiencieslang', 'languagesandproficiencies', 'lingue0'],
 };
+/** Hoja exportada de D&D Beyond («details_str_score», «details_acrobatics_total»…). */
+const DDB_SYN: Record<string, string[]> = {
+  name: ['detailscharactername'], background: ['detailsbackground'], ac: ['detailsarmorclass'], hp: ['detailshpmax'], init: ['detailsinitiative'],
+  pp: ['detailspassiveperceptiontotal'], speed: ['detailsspeedwalking'], darkvision: ['detailsvision'],
+};
+/** Hoja italiana (campos «Forza 1», «Saggezza ts», «Intelligenza storia»…) con casillas de competencia. */
+const IT_ABIL: Record<AbilKey, string> = { str: 'forza', dex: 'destrezza', con: 'costituzione', int: 'intelligenza', wis: 'saggezza', cha: 'carisma' };
+const IT_SKILL: Record<string, [AbilKey, string]> = {
+  acr: ['dex', 'acrobazia'], slt: ['dex', 'rapiditamano'], ste: ['dex', 'furtivita'], ath: ['str', 'atletica'], arc: ['int', 'arcano'], his: ['int', 'storia'],
+  inv: ['int', 'investigare'], nat: ['int', 'natura'], rel: ['int', 'religione'], ani: ['wis', 'empatiaanimale'], ins: ['wis', 'intuizione'], med: ['wis', 'medicina'],
+  prc: ['wis', 'percezione'], sur: ['wis', 'sopravvivenza'], dec: ['cha', 'ingannare'], itm: ['cha', 'intimidire'], prf: ['cha', 'intrattenere'], per: ['cha', 'persuadere'],
+};
+for (const a of ABIL_KEYS) { ABIL_SYN[a].push('details' + a + 'score'); SAVE_SYN[a].push('details' + a + 'savetotal'); }
+for (const syn of Object.values(SKILL_SYN)) syn.push('details' + syn[0] + 'total');
+const ON = /^(yes|on|true|1|si|s)$/i;
 const TRAIT_FIELDS = /trait|feature|feat|rasgo|dote/i;
 
 const CLASSES: Record<string, string> = {
+  paladina: 'Paladín', guerriero: 'Guerrero', guerriera: 'Guerrero', chierico: 'Clérigo', mago: 'Mago', maga: 'Mago', ladro: 'Pícaro', barbaro: 'Bárbaro', stregone: 'Hechicero',
   barbarian: 'Bárbaro', bard: 'Bardo', cleric: 'Clérigo', druid: 'Druida', fighter: 'Guerrero', monk: 'Monje', paladin: 'Paladín',
   ranger: 'Explorador', rogue: 'Pícaro', sorcerer: 'Hechicero', warlock: 'Brujo', wizard: 'Mago', artificer: 'Artífice',
 };
@@ -145,6 +163,20 @@ export function findResistances(text: string): string[] {
   return [...out];
 }
 
+/** D&D Beyond: cada conjuro es «spells_N:k_:Clase:i»; los preparados llevan la casilla «prepare_N:k_:Clase:i». Se toman los trucos, los preparados y los que no tienen casilla. */
+function ddbSpellNames(fields: SheetField[]): string[] {
+  const prepared = new Map(fields.filter((f) => f.name.startsWith('prepare_')).map((f) => [f.name.slice('prepare_'.length), ON.test(clean(f.value))]));
+  const out: string[] = [];
+  for (const f of fields) {
+    const m = /^spells_(\d+):(.+)$/.exec(f.name);
+    const v = clean(f.value);
+    if (!m || !v) continue;
+    const k = m[1] + ':' + m[2];
+    if (m[1] === '0' || !prepared.has(k) || prepared.get(k)) out.push(v);
+  }
+  return out;
+}
+
 /** Interpreta los campos de una hoja de personaje. Devuelve null si no hay nada aprovechable. */
 export function readSheet(fields: SheetField[]): SheetData | null {
   const byName = new Map<string, string>();
@@ -158,13 +190,32 @@ export function readSheet(fields: SheetField[]): SheetData | null {
   const official = ['Text1', 'Text13', 'Text26', 'Text29'].every((n) => fields.some((f) => f.name === n));
   const get = (k: string): string => {
     if (official && OFICIAL_2024[k]) return byName.get(OFICIAL_2024[k]) || '';
-    for (const s of SYNONYMS[k] || []) { const v = byKey.get(s); if (v) return v; }
+    for (const s of [...(ddb ? DDB_SYN[k] || [] : []), ...(SYNONYMS[k] || [])]) { const v = byKey.get(s); if (v) return v; }
     return '';
   };
-  const template: SheetTemplate = official ? 'oficial-2024' : fields.some((f) => f.name === 'Max HP' && fields.some((g) => g.name === 'Subclass')) ? 'fifthedition' : 'generica';
+  const ddb = !official && fields.some((f) => f.name === 'details_character_name');
+  const italiana = !official && !ddb && byKey.has('classeelivello') && byKey.has('forza1');
+  const template: SheetTemplate = official ? 'oficial-2024' : ddb ? 'ddb' : italiana ? 'italiana' : fields.some((f) => f.name === 'Max HP' && fields.some((g) => g.name === 'Subclass')) ? 'fifthedition' : 'generica';
 
   let cls = get('cls');
   let level = number(get('level'));
+  let subHint = '';
+  let speciesHint = '';
+  if (ddb) {
+    // «Level 12 High Elf Druid, Circle of the Moon»
+    const m = /^Level\s+(\d+)\s+([^,]*?)(?:,\s*(.*))?$/i.exec(byName.get('details_build') || '');
+    if (m) {
+      level = m[1];
+      const words = m[2].split(/\s+/);
+      const ci = words.findIndex((w) => CLASSES[w.toLowerCase()]);
+      if (ci >= 0) { cls = words[ci]; speciesHint = words.slice(0, ci).join(' '); }
+      subHint = m[3] || '';
+    }
+  } else if (italiana) {
+    // «Paladina la Redención 13»: la clase es la primera palabra y lo demás, la subclase
+    const m = /^(\S+)\s*(.*?)\s*(\d{1,2})$/.exec(cls);
+    if (m) { cls = m[1]; level = m[3]; subHint = m[2].replace(/^(?:la|del|de la|di|de)\s+/i, ''); }
+  }
   // multiclase en el campo de clase: «Paladín 3 / Brujo 5»
   const classes = splitClasses(cls);
   if (classes.length) {
@@ -177,14 +228,15 @@ export function readSheet(fields: SheetField[]): SheetData | null {
   }
   const init = bonus(get('init'));
   let pp = number(get('pp'));
-  if (!pp && get('perception')) pp = String(10 + Number(bonus(get('perception')) || 0));
+  if (italiana) pp = number(byKey.get('percezione') || '');
+  else if (!pp && get('perception')) pp = String(10 + Number(bonus(get('perception')) || 0));
   const traitText = official
     ? OFICIAL_2024_TRAITS.map((n) => byName.get(n) || '').join('\n')
     : fields.filter((f) => TRAIT_FIELDS.test(f.name)).map((f) => f.value).join('\n');
 
   const speed = get('speed');
   const extras = [
-    ['Especie', get('species')], ['Subclase', get('subclass')], ['Trasfondo', get('background')],
+    ['Especie', get('species') || speciesHint], ['Subclase', get('subclass') || subHint], ['Trasfondo', get('background')],
     ['Velocidad', /^\d+$/.test(speed) ? speed + ' pies' : speed], ['Tamaño', get('size')], ['Visión en la oscuridad', get('darkvision')], ['Sentidos', get('senses')], ['Idiomas', get('languages')],
   ].filter(([, v]) => v).map(([label, value]) => ({ label, value }));
 
@@ -211,6 +263,15 @@ export function readSheet(fields: SheetField[]): SheetData | null {
     initb: init, pp, res: findResistances(traitText), extras, abil, saveBonus, skillBonus,
     ...(official ? { spellNames: fields.filter((f) => /^Text106(\.\d+)?$/.test(f.name)).map((f) => clean(f.value)).filter((v) => v && v !== 'Off'), feats: fields.find((f) => f.name === 'Text58')?.value || '' } : {}),
   };
+  if (ddb) data.spellNames = ddbSpellNames(fields);
+  else if (!official) {
+    const names = fields.filter((f) => /^(nombre ?conjuro|spell ?name)/i.test(f.name.trim())).map((f) => clean(f.value)).filter((v) => v && v !== 'Off');
+    if (names.length) data.spellNames = names;
+  }
+  if (italiana) {
+    data.saveProf = ABIL_KEYS.filter((a) => ON.test(byKey.get(IT_ABIL[a] + 'ts') || ''));
+    data.skillProf = Object.entries(IT_SKILL).filter(([, [a, n]]) => ON.test(byKey.get(IT_ABIL[a] + n) || '')).map(([k]) => k);
+  }
   const useful = [data.name, data.cls, data.ac, data.hp, data.initb, data.pp].filter(Boolean).length + data.extras.length;
   return useful ? data : null;
 }

@@ -26,11 +26,19 @@ function matchSpells(tidyLines: string[], cls: ClassData | undefined, spells: Sp
   return { inList: found.filter(ok), offList: found.filter((s) => !ok(s) && !isShield(s)) };
 }
 
+/** Líneas de texto de la hoja para reconocer por su nombre armas, armaduras, conjuros y dotes. En D&D Beyond los conjuros solo son los preparados. */
+function sheetLines(fields: SheetField[], sheet: SheetData): string[] {
+  const ddb = sheet.template === 'ddb';
+  const src = ddb ? fields.filter((f) => !/^spells_\d/.test(f.name)) : fields;
+  const vals = [...src.map((f) => String(f.value || '')), ...(ddb ? sheet.spellNames || [] : [])];
+  return vals.flatMap((v) => v.split(/\r?\n|,|\s\/\s/)).map((l) => l.trim()).filter((l) => l && !/^(yes|on|off|sí|si)$/i.test(l));
+}
+
 /** Los conjuros de la hoja que no son de la lista de su clase (para preguntar si se añaden). */
 export function offListSpells(fields: SheetField[], sheet: SheetData, data: PlayerData, spells: SpellRef[]): SpellRef[] {
   const clsName = sheet.classes && sheet.classes.length > 1 ? sheet.classes[0].cls : sheet.cls.replace(/\s*\d+\s*$/, '');
   const cls = data.classes.find((k) => norm(clsName) === norm(k.n) || norm(clsName) === norm(k.en));
-  const lines = fields.flatMap((f) => String(f.value || '').split(/\r?\n|,/)).map((l) => l.trim()).filter((l) => l && l !== 'Yes' && l !== 'Off');
+  const lines = sheetLines(fields, sheet);
   return matchSpells([...new Set(lines.map(tidy))].filter((l) => l.length > 1), cls, spells).offList;
 }
 
@@ -43,11 +51,12 @@ const subParen = (raw: string) => /\(([^)]*)\)\s*$/.exec(raw)?.[1] || '';
 /** Conjuros escritos en la hoja que no están en el SRD ni en la biblioteca de este dispositivo (se avisa de ellos al importar). */
 export function unknownSpells(sheet: SheetData, spells: SpellRef[]): string[] {
   const known = new Set(spells.flatMap((s) => [norm(s.n), norm(s.en || '')]).filter(Boolean));
-  return [...new Set((sheet.spellNames || []).map((n) => n.replace(/\s*\([^)]*\)\s*$/, '').trim()).filter((n) => n.length > 1 && !known.has(norm(n))))];
+  const names = (sheet.spellNames || []).flatMap((n) => n.split(/\s*\/\s*/)).map((n) => n.replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+[A-Z]$/, '').trim());
+  return [...new Set(names.filter((n) => n.length > 1 && !/^on-?off$/i.test(n) && !known.has(norm(n))))];
 }
 
 /** Nombre limpio de una línea de la hoja: sin «S/P», sin paréntesis finales ni signos sueltos. */
-const tidy = (s: string) => norm(s.replace(/\bS\/P\b/gi, '').replace(/\(.*?\)\s*$/, '').replace(/[*•·:]+$/, '')).replace(/\s+/g, ' ').trim();
+const tidy = (s: string) => norm(s.replace(/\bS\/P\b/gi, '').replace(/\(.*?\)\s*$/, '').replace(/\s+[A-Z]$/, '').replace(/[*•·:]+$/, '')).replace(/\s+/g, ' ').trim();
 
 /**
  * Convierte una hoja PDF leída en un personaje: datos básicos, características, competencias (deducidas de los
@@ -70,7 +79,9 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
     const k = data.classes.find((y) => same(x.cls, y.n, y.en));
     return { classId: k?.id || '', className: k ? '' : x.cls, level: x.level, subclass: subName(k, x.sub, x.level) };
   });
-  const species = data.species.find((s) => same(extra('Especie'), s.n, s.en)) || data.species.find((s) => norm(extra('Especie')).length > 2 && norm(s.n).startsWith(norm(extra('Especie'))));
+  const species = data.species.find((s) => same(extra('Especie'), s.n, s.en)) || data.species.find((s) => norm(extra('Especie')).length > 2 && norm(s.n).startsWith(norm(extra('Especie'))))
+    // «High Elf» / «Elfo alto» -> «Elfo, alto»: las mismas palabras en otro orden
+    || data.species.find((s) => [s.n, s.en].some((x) => { const w = norm(x || '').split(/[^a-z]+/).filter(Boolean); const e = norm(extra('Especie')).split(/[^a-z]+/); return w.length > 1 && w.every((y) => e.includes(y)); }));
   const bg = data.backgrounds.find((b) => same(extra('Trasfondo'), b.n, b.en));
   const subRaw = mc?.[0].sub || extra('Subclase');
   const subclass = cls?.sub && subRaw && same(subBase(subRaw), cls.sub.n, cls.sub.en) ? cls.sub.n : subRaw || (cls?.sub && level >= cls.sub.lv ? cls.sub.n : '');
@@ -86,19 +97,22 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
     if (sheet.abil[skillAbil[k]] == null) continue;
     if (diff >= 2 * pb) { skills.push(k); expertise.push(k); } else if (diff >= pb) skills.push(k);
   }
-  for (const s of bg?.skills || []) if (!skills.includes(s)) skills.push(s);
-  const saveExtra = ABILS.filter((a) => sheet.saveBonus[a] != null && sheet.abil[a] != null && sheet.saveBonus[a]! - mod(abil[a]) >= pb && !cls?.saves.includes(a));
+  for (const s of [...(sheet.skillProf || []), ...(bg?.skills || [])]) if (!skills.includes(s)) skills.push(s);
+  const saveExtra = ABILS.filter((a) => !cls?.saves.includes(a) && ((sheet.saveBonus[a] != null && sheet.abil[a] != null && sheet.saveBonus[a]! - mod(abil[a]) >= pb) || sheet.saveProf?.includes(a)));
 
   // líneas de texto de toda la hoja, para reconocer armas, armaduras, conjuros y dotes por su nombre
-  const lines = fields.flatMap((f) => String(f.value || '').split(/\r?\n|,/)).map((l) => l.trim()).filter((l) => l && l !== 'Yes' && l !== 'Off');
+  const lines = sheetLines(fields, sheet);
   const tidyLines = [...new Set(lines.map(tidy))].filter((l) => l.length > 1);
 
   const weapons = data.weapons.filter((w) => tidyLines.includes(norm(w.n)) || tidyLines.includes(norm(w.en))).map((w) => weaponFromData(w, cls));
-  const armor = data.armor.find((a) => a.type !== 'shl' && (tidyLines.includes(norm(a.n)) || tidyLines.includes(norm(a.en))));
+  // armadura: por su nombre en cualquier línea o, si no, por un campo de armadura equipada («Leather» -> Armadura de cuero)
+  const armorHint = fields.filter((f) => /armor|armadura/i.test(f.name) && /equip|worn|puesta/i.test(f.name) && norm(f.value).length >= 4).map((f) => norm(f.value));
+  const armor = data.armor.find((a) => a.type !== 'shl' && (tidyLines.includes(norm(a.n)) || tidyLines.includes(norm(a.en))))
+    || data.armor.find((a) => a.type !== 'shl' && armorHint.some((h) => norm(a.en).startsWith(h) || norm(a.n).startsWith(h)));
   // conjuros: los de la lista de su clase (o de la biblioteca marcados para su clase); los de fuera se devuelven aparte
   const { inList } = matchSpells(tidyLines, cls, spells);
   // «Shield» en la hoja puede ser el conjuro Escudo (si su clase lo tiene) y no el escudo del equipo
-  const shield = fields.some((f) => /shield|escudo/i.test(f.name) && /^(yes|on|true|1)$/i.test(String(f.value))) || (!inList.some(isShield) && (tidyLines.includes('shield') || tidyLines.includes('escudo')));
+  const shield = fields.some((f) => /shield|escudo/i.test(f.name) && !/^(ligera|media|pesada|escudo)$/i.test(f.name.trim()) && (/^(yes|on|true|1|sí|si)$/i.test(String(f.value)) || (/equipped.?shield/i.test(f.name) && norm(String(f.value)).length >= 4))) || (!inList.some(isShield) && (tidyLines.includes('shield') || tidyLines.includes('escudo')));
   const spellIds = inList.map((s) => s.id);
 
   // dotes: la primera línea de cada bloque («Savage Attacker (soldier)», «Protection (Fighting Style)»)
