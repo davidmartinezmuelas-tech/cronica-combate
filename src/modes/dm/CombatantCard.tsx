@@ -159,7 +159,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
       )}
       {/* quitar va al final: es poco frecuente y así no comparte fila con el nombre */}
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="btn small ghost" onClick={() => confirm('rm-' + c.id, () => removeCombatant(c.id))}>{confirmKey === 'rm-' + c.id ? '¿Seguro? Pulsa otra vez' : 'Quitar del combate'}</button>
+        <button className="btn small ghost danger" onClick={() => confirm('rm-' + c.id, () => removeCombatant(c.id))}>{confirmKey === 'rm-' + c.id ? '¿Seguro? Pulsa otra vez' : 'Quitar del combate'}</button>
       </div>
     </div>
   );

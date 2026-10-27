@@ -168,7 +168,7 @@ function Sheet({ r, inCombat, open, onToggle, onZoom }: { r: RosterEntry; inComb
                   <button className="btn small" disabled={busy} onClick={() => void readStored()}>{busy ? 'Leyendo…' : 'Leer datos de la hoja'}</button>
                   <button className="btn small ghost" onClick={() => void openNewTab()}>Abrir en otra pestaña</button>
                   <button className="btn small ghost" onClick={() => file.current?.click()}>Cambiar PDF</button>
-                  <button className="btn small ghost" onClick={() => confirm('pdf-' + r.id, () => removePdf(r.id))}>{confirmKey === 'pdf-' + r.id ? '¿Seguro? Quitar' : 'Quitar PDF'}</button>
+                  <button className="btn small ghost danger" onClick={() => confirm('pdf-' + r.id, () => removePdf(r.id))}>{confirmKey === 'pdf-' + r.id ? '¿Seguro? Quitar' : 'Quitar PDF'}</button>
                 </div>
               </>
             ) : (

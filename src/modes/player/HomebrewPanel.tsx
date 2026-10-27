@@ -136,7 +136,7 @@ export default function HomebrewPanel() {
                 <span><b>{s.n}</b> <span className="muted small">subclase de {clsName(s.cls)} · {s.f.length} {s.f.length === 1 ? 'rasgo' : 'rasgos'}</span></span>
                 <span className="rollrow">
                   <button className="btn small" onClick={() => setDraft(s)}>Editar</button>
-                  <button className="btn small ghost" onClick={() => { if (confirmDel === s.id) { void lib.save({ subclasses: lib.subclasses.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+                  <button className="btn small ghost danger" onClick={() => { if (confirmDel === s.id) { void lib.save({ subclasses: lib.subclasses.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
                 </span>
               </li>
             ))}

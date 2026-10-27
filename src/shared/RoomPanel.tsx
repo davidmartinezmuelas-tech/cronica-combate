@@ -129,7 +129,7 @@ export default function RoomPanel({ mode }: { mode: 'dm' | 'player' }) {
         <span className="rollrow">
           {role === 'dm' && <button className="btn small ghost" title="Copiar el código" onClick={() => { try { void navigator.clipboard.writeText(code); } catch { /* sin portapapeles */ } }}>Copiar código</button>}
           <button className="btn small ghost" onClick={() => void leave()}>Salir</button>
-          {role === 'dm' && <button className="btn small ghost" onClick={() => { if (confirmClose) void close(); else setConfirmClose(true); }}>{confirmClose ? '¿Seguro? Cerrar sala' : 'Cerrar sala'}</button>}
+          {role === 'dm' && <button className="btn small ghost danger" onClick={() => { if (confirmClose) void close(); else setConfirmClose(true); }}>{confirmClose ? '¿Seguro? Cerrar sala' : 'Cerrar sala'}</button>}
         </span>
       </div>
       <span className="muted small">{room?.name} · {members.length} en la sala</span>

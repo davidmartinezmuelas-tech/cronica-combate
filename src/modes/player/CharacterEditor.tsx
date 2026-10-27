@@ -714,7 +714,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <div className="rollrow" data-wstep="x" style={{ justifyContent: 'space-between' }}>
           <button className="btn primary" onClick={finish}>Listo</button>
-          <button className="btn small ghost" onClick={() => { if (confirmDel) remove(c.id); else setConfirmDel(true); }}>{confirmDel ? '¿Seguro? Borrar personaje' : 'Borrar personaje'}</button>
+          <button className="btn small ghost danger" onClick={() => { if (confirmDel) remove(c.id); else setConfirmDel(true); }}>{confirmDel ? '¿Seguro? Borrar personaje' : 'Borrar personaje'}</button>
         </div>
       </div>
     </div>

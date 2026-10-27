@@ -103,7 +103,7 @@ function Encounters() {
               </span>
               <span style={{ display: 'flex', gap: 6 }}>
                 <button className="btn small" onClick={() => loadEncounter(e.id)}>Cargar</button>
-                <button className="btn small ghost" onClick={() => deleteEncounter(e.id)}>{confirmKey === 'enc-' + e.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+                <button className="btn small ghost danger" onClick={() => deleteEncounter(e.id)}>{confirmKey === 'enc-' + e.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
               </span>
             </li>
           ))}
@@ -172,8 +172,8 @@ export default function InitiativePanel() {
       <Encounters />
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, borderTop: '1px solid #4b4138', paddingTop: 12 }}>
         {!combatants.some((c) => c.kind === 'lair') && <button className="btn small ghost" onClick={addLairCombatant}>Añadir acciones de guarida (ini 20)</button>}
-        {started && <button className="btn small ghost" onClick={() => confirm('end', endCombat)}>{confirmKey === 'end' ? '¿Seguro? Pulsa otra vez' : 'Terminar combate'}</button>}
-        {combatants.length > 0 && <button className="btn small ghost" onClick={() => confirm('clear', clearAll)}>{confirmKey === 'clear' ? '¿Seguro? Pulsa otra vez' : 'Vaciar encuentro'}</button>}
+        {started && <button className="btn small ghost danger" onClick={() => confirm('end', endCombat)}>{confirmKey === 'end' ? '¿Seguro? Pulsa otra vez' : 'Terminar combate'}</button>}
+        {combatants.length > 0 && <button className="btn small ghost danger" onClick={() => confirm('clear', clearAll)}>{confirmKey === 'clear' ? '¿Seguro? Pulsa otra vez' : 'Vaciar encuentro'}</button>}
       </div>
       </details>
     </div>

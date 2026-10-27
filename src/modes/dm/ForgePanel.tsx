@@ -38,7 +38,7 @@ function Feat({ ft, i }: { ft: ForgeFeat; i: number }) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
         <div className="field" style={{ flex: 1 }}><label htmlFor={id('n')}>Nombre</label><input id={id('n')} className="input" value={ft.name} onChange={on('name')} /></div>
         <button className="btn small ghost icon" aria-label="Subir" disabled={i === 0} onClick={() => { const a = feats().slice(); [a[i - 1], a[i]] = [a[i], a[i - 1]]; setForge({ feats: a }); }}><ChevronUp /></button>
-        <button className="btn small ghost" onClick={() => confirm('feat-' + ft.k, () => setForge({ feats: feats().filter((x) => x.k !== ft.k) }))}>{confirmKey === 'feat-' + ft.k ? '¿Seguro? Quitar' : 'Quitar'}</button>
+        <button className="btn small ghost danger" onClick={() => confirm('feat-' + ft.k, () => setForge({ feats: feats().filter((x) => x.k !== ft.k) }))}>{confirmKey === 'feat-' + ft.k ? '¿Seguro? Quitar' : 'Quitar'}</button>
       </div>
       <div className="row2">
         <div className="field"><label htmlFor={id('s')}>Sección</label>

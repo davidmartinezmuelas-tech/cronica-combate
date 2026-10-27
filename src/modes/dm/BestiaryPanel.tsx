@@ -39,7 +39,7 @@ function Beast({ m }: { m: Monster }) {
         {m.custom ? (
           <>
             <button className="btn small ghost" onClick={() => editMonster(m, true)}>Editar</button>
-            <button className="btn small ghost" onClick={() => deleteCustom(m.id)}>{confirmKey === 'del-' + m.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+            <button className="btn small ghost danger" onClick={() => deleteCustom(m.id)}>{confirmKey === 'del-' + m.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
           </>
         ) : (
           <button className="btn small ghost" title="Abrir en la Forja como base de una criatura nueva" onClick={() => editMonster(m, false)}>Variante</button>
@@ -99,7 +99,7 @@ function BookImport() {
       <div className="rollrow">
         <button className="btn small primary" disabled={!!progress} onClick={() => fileRef.current?.click()}>{count ? 'Volver a importar (PDF)' : 'Importar mi Manual de Monstruos (PDF)'}</button>
         {pending > 0 && <button className="btn small" disabled={!!progress} onClick={() => setReview(true)}>Revisar {pending === 1 ? '1 ficha' : pending + ' fichas'}</button>}
-        {count > 0 && <button className="btn small ghost" onClick={() => { if (sure) { useStore.getState().setBook([]); setSure(false); setMsg({ ok: true, t: 'Criaturas del Manual quitadas del bestiario.' }); } else setSure(true); }}>{sure ? '¿Seguro? Quitar' : 'Quitar del bestiario'}</button>}
+        {count > 0 && <button className="btn small ghost danger" onClick={() => { if (sure) { useStore.getState().setBook([]); setSure(false); setMsg({ ok: true, t: 'Criaturas del Manual quitadas del bestiario.' }); } else setSure(true); }}>{sure ? '¿Seguro? Quitar' : 'Quitar del bestiario'}</button>}
       </div>
       <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual de Monstruos" onChange={(e) => void run(e.target.files?.[0])} />
       <input ref={reviewRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual para revisar" onChange={(e) => { const f = e.target.files?.[0]; if (f) setBookFile(f); e.target.value = ''; }} />

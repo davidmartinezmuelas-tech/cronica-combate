@@ -213,7 +213,7 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div className="panel-head"><span className="eyebrow">Historial</span>{log.length > 0 && <button className="btn small ghost" onClick={() => useStore.getState().confirm('clear-log', () => set({ log: [] }))}>{confirmKey === 'clear-log' ? '¿Seguro? Borrar todo' : 'Limpiar'}</button>}</div>
+        <div className="panel-head"><span className="eyebrow">Historial</span>{log.length > 0 && <button className="btn small ghost danger" onClick={() => useStore.getState().confirm('clear-log', () => set({ log: [] }))}>{confirmKey === 'clear-log' ? '¿Seguro? Borrar todo' : 'Limpiar'}</button>}</div>
         <ol className="log">
           {log.map((l) => (
             <li key={l.id}>

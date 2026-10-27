@@ -146,7 +146,7 @@ export default function LibraryPanel() {
           {lib.items.some((x) => !x.dEn && !x.es) && <button className="btn small" disabled={!!progress || !!trans} title={canTranslate() ? 'Traduce en tu dispositivo, sin enviar nada' : NO_TRANSLATOR} onClick={() => void translateAll()}>Traducir objetos al español</button>}
           <button className="btn small" disabled={!total} onClick={exportFile}>Exportar biblioteca</button>
           <button className="btn small" onClick={() => jsonRef.current?.click()}>Cargar archivo de biblioteca</button>
-          {total > 0 && <button className="btn small ghost" onClick={() => { if (confirmClear) { void lib.clear(); setConfirmClear(false); setMsg('Biblioteca vaciada.'); } else setConfirmClear(true); }}>{confirmClear ? '¿Seguro? Vaciar' : 'Vaciar'}</button>}
+          {total > 0 && <button className="btn small ghost danger" onClick={() => { if (confirmClear) { void lib.clear(); setConfirmClear(false); setMsg('Biblioteca vaciada.'); } else setConfirmClear(true); }}>{confirmClear ? '¿Seguro? Vaciar' : 'Vaciar'}</button>}
         </div>
         <input ref={pdfRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual del Jugador" onChange={(e) => void importPdf(e.target.files?.[0])} />
         <input ref={dmgRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF de la Guía del Dungeon Master" onChange={(e) => void importDmg(e.target.files?.[0])} />

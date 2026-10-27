@@ -48,7 +48,7 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .btn.gold:hover{background:#e0b85e}
 .btn.small{min-height:36px;padding:6px 11px;font-size:14px}
 .btn.ghost{background:transparent}
-.btn.ghost:hover{background:#433a32}
+.btn.ghost:hover{background:#433a32}.btn.danger{color:#e9a99c;border-color:#7a3a30}.btn.danger:hover{background:#3a1814;border-color:#a14a3c;color:#fbe6dc}
 .btn.icon{width:42px;padding:0}
 .field{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:500;color:#c6bba6;min-width:0}
 .input{background:#26211d;border:1px solid #5c5046;color:#f3e6c8;border-radius:6px;padding:8px 10px;font:inherit;font-size:15px;min-height:40px;width:100%}
@@ -67,7 +67,7 @@ input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:#d4a94f}
 .chip.on,.chip.immune{background:#4e433a;color:#ffefcc;border-color:#8a7652;border-left-color:#f0c870}
 .chip.half,.chip.resist{background:#1c2b3a;color:#e6f0f8;border-color:#3f6585;border-left-color:#8fc0e6}
 .chip.vuln{background:#3a1814;color:#fbe6dc;border-color:#8a3a2c;border-left-color:#e06a52}
-.chip-tag{font-size:11px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:4px;background:rgba(0,0,0,.35)}
+.chip-tag{font-size:12px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:4px;background:rgba(0,0,0,.35)}
 .fs{border:1px solid #574c42;border-radius:8px;padding:12px 14px 14px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
 .fs legend{padding:0 6px;font-family:'IM Fell English SC',Georgia,serif;font-size:18px;line-height:1.15;color:#d4a94f}
 .sub{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:#2c2722;border:1px solid #4b4138}
@@ -82,8 +82,8 @@ input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:#d4a94f}
 .init-row.lair .init-badge{border-color:#4d8a44}
 .init-row.active .init-badge{border-color:#d4a94f;color:#e8c062}
 .init-in{width:52px;flex:none;align-self:center;min-height:36px;padding:4px 6px;text-align:center;font-weight:800;font-size:15px;border-color:#d4a94f}
-.turn-flag{flex:none;white-space:nowrap;font-size:10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#171412;background:#d4a94f;border-radius:4px;padding:2px 6px}
-.pc-flag{flex:none;font-size:11px;font-weight:800;letter-spacing:.08em;color:#cfe2f0;border:1px solid #5a86a8;border-radius:4px;padding:1px 5px}
+.turn-flag{flex:none;white-space:nowrap;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#171412;background:#d4a94f;border-radius:4px;padding:2px 6px}
+.pc-flag{flex:none;font-size:12px;font-weight:800;letter-spacing:.08em;color:#cfe2f0;border:1px solid #5a86a8;border-radius:4px;padding:1px 5px}
 .hpbar{display:block;height:6px;background:#26211d;border-radius:3px;overflow:hidden}
 .hpfill{display:block;height:100%;background:#6aa152;transition:width .4s ease}
 .hpfill.mid{background:#c9962f}.hpfill.low{background:#c0513c}
@@ -115,7 +115,7 @@ button.pip::after{content:'';position:absolute;inset:-6px;border-radius:50%}
 .beast-main{all:unset;cursor:pointer;display:flex;flex-direction:column;gap:2px;border-radius:6px;padding:2px}
 .beast-main:focus-visible{outline:2px solid #d4a94f;outline-offset:2px}
 .beast-name{font-family:'IM Fell English SC',Georgia,serif;font-size:20px;color:#f3e6c8;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.tag{font-family:'Alegreya Sans',sans-serif;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#171412;background:#d4a94f;border-radius:4px;padding:1px 6px}
+.tag{font-family:'Alegreya Sans',sans-serif;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#171412;background:#d4a94f;border-radius:4px;padding:1px 6px}
 .tag.leg{background:#9b2c22;color:#fbf1dc}
 .tag.lair{background:#35503d;color:#e5f2e2}
 .tag.book{background:#4a3a5e;color:#eadff5}
@@ -186,9 +186,9 @@ button.pip::after{content:'';position:absolute;inset:-6px;border-radius:50%}
 .sb-action{display:flex;flex-direction:column;gap:3px;margin-bottom:9px}
 .sb-desc{margin:0;white-space:pre-line}
 .sb-tag{font-family:'Alegreya Sans',sans-serif;font-size:12px;font-weight:800;color:#7a1f14;border:1px solid #7a1f14;border-radius:4px;padding:0 6px;margin-left:6px;white-space:nowrap}
-.en-note{font-family:'Alegreya Sans',sans-serif;font-size:11px;color:#756558;font-style:italic;margin-left:6px}
+.en-note{font-family:'Alegreya Sans',sans-serif;font-size:12px;color:#756558;font-style:italic;margin-left:6px}
 .rollrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:3px 0 0}
-.rollbtn{font-family:'Alegreya Sans',sans-serif;font-weight:800;font-size:14px;padding:6px 12px;min-height:36px;border-radius:6px;border:1px solid #7a1f14;background:#7a1f14;color:#fbf1dc;display:inline-flex;align-items:center;gap:8px}
+.rollbtn{font-family:'Alegreya Sans',sans-serif;font-weight:800;font-size:14px;padding:6px 12px;min-height:36px;border-radius:8px;border:1px solid #7a1f14;background:#7a1f14;color:#fbf1dc;display:inline-flex;align-items:center;gap:8px}
 .rollbtn:hover{background:#932717}
 .rollbtn.dmg{background:transparent;color:#7a1f14}
 .rollbtn.dmg:hover{background:#ead8b2}
@@ -203,11 +203,11 @@ button.sb-tag-roll:disabled{background:transparent;cursor:default;opacity:.75}
 .spell{font-family:'Alegreya',Georgia,serif;font-style:italic;font-size:15px;border:1px solid #c0b093;background:#f8f0dc;color:#3c342d;border-radius:6px;padding:3px 9px;min-height:32px;display:inline-flex;align-items:center;gap:6px}
 .spell:hover{border-color:#7a1f14}
 .spell.on{background:#7a1f14;color:#fbf1dc;border-color:#7a1f14}
-.spell-lv{font-style:normal;font-family:'Alegreya Sans',sans-serif;font-size:11px;font-weight:800;opacity:.8}
+.spell-lv{font-style:normal;font-family:'Alegreya Sans',sans-serif;font-size:12px;font-weight:800;opacity:.8}
 .spellcard{background:#f8f0dc;color:#3c342d;border:1px solid #c0b093;border-left:0;border-radius:6px;padding:16px 18px;font-family:'Alegreya',Georgia,serif;max-width:780px;width:100%;display:flex;flex-direction:column;gap:6px}
 .spellcard h3{margin:0;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;color:#7a1f14;font-size:24px}
 
-.seg{border:0;background:transparent;color:#c6bba6;font-weight:700;font-size:13px;padding:6px 10px;border-radius:6px;min-height:34px}
+.seg{border:0;background:transparent;color:#c6bba6;font-weight:700;font-size:13px;padding:6px 10px;border-radius:8px;min-height:34px}
 .seg.on{background:#d4a94f;color:#171412}
 .segbox{display:flex;gap:2px;padding:3px;border-radius:8px;background:#26211d;border:1px solid #574c42;flex-wrap:wrap}
 .rim{border-radius:16px;padding:12px;background:linear-gradient(160deg,#605348,#38302a);box-shadow:inset 0 2px 0 rgba(255,255,255,.1),inset 0 -2px 0 rgba(0,0,0,.4),0 12px 26px rgba(0,0,0,.5)}
@@ -544,9 +544,9 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-stats .stat{min-height:0;padding:6px 10px;flex:1 1 auto}
 .pc-stats .stat-v{font-size:28px}
 .pc-stats .stat-lv{flex:1 1 80px;align-items:center;text-align:center}
-.stat-xp{display:flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#b2a691}
+.stat-xp{display:flex;align-items:center;gap:4px;font-size:12px;font-weight:800;color:#b2a691}
 .stat-xp .input{width:60px;padding:2px 6px;min-height:26px;font-size:13px}
-.stat-xp-next{font-size:11px;white-space:nowrap}
+.stat-xp-next{font-size:12px;white-space:nowrap}
 .stat-xp-next.on{color:#e8c062;font-weight:800}
 .paper .stat-xp-next.on{color:#9c6a12}
 .lvl-ready{animation:lvl-glow 1.6s ease-in-out infinite}
@@ -614,9 +614,9 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-abil-mod{grid-area:mod;display:inline-flex;align-items:baseline;gap:6px;justify-self:start;padding:2px 10px;border-radius:8px;border:1px solid #61554a;background:transparent;color:inherit;font:inherit;cursor:pointer}
 .pc-abil-mod:hover{border-color:#d4a94f}
 .pc-abil-mod b{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:28px;line-height:1}
-.pc-abil-mod-k{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#b2a691}
+.pc-abil-mod-k{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#b2a691}
 .pc-abil-score{grid-area:score;min-width:40px;text-align:center;font-weight:800;font-size:16px;padding:3px 8px;border:1px solid #61554a;border-radius:6px}
-.pc-abil-s{font-size:11px;color:#b2a691;margin-left:4px}
+.pc-abil-s{font-size:12px;color:#b2a691;margin-left:4px}
 .pc-abil-k{grid-area:k;font-weight:800;color:#d4a94f;letter-spacing:.06em;text-transform:uppercase;font-size:13px}
 
 .pc-skills{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px}
@@ -637,7 +637,7 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .sp-tab{border:1px solid #b39c74;border-bottom:0;border-radius:6px 6px 0 0;background:#d8c59f;color:#50463c;font:inherit;font-weight:700;font-size:13px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;position:relative;top:1px}
 .sp-tab:hover{background:#e7d8b8}
 .sp-tab.on{background:#f1e6cc;color:#7a1f14;border-color:#a0865c}
-.sp-tab-n{font-size:11px;font-weight:800;color:#8a7458}
+.sp-tab-n{font-size:12px;font-weight:800;color:#8a7458}
 /* conjuros y rasgos en bloques (por nivel / por origen) repartidos en columnas, como las características */
 .pc-blocks{display:grid;gap:10px;align-items:start}
 .pc-block-col{display:flex;flex-direction:column;gap:10px;min-width:0}
@@ -649,13 +649,13 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .sp-row-head b{flex:1;min-width:0;font-size:15px}
 .sp-row-head:hover b,.sp-row-head:focus-visible b{text-decoration:underline;text-underline-offset:3px}
 .sp-caret{width:12px;flex:none;font-size:12px;color:#b2a691}
-.sp-mark{flex:none;font-size:10px;font-weight:800;line-height:1.3;padding:0 4px;border:1px solid currentColor;border-radius:3px;color:#b2a691}
+.sp-mark{flex:none;font-size:12px;font-weight:800;line-height:1.3;padding:0 4px;border:1px solid currentColor;border-radius:3px;color:#b2a691}
 .sp-row.open{border-color:#d4a94f}
 .sp-row-body{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:0 8px 8px 26px}
 .sp-row-meta{flex-basis:100%}
 .ft-list .card{padding:4px 8px;gap:2px 8px;flex-wrap:nowrap;min-height:32px}
 .ft-list .card-title{flex:1 1 auto;flex-basis:auto;min-width:0;font-size:15px}
-.ft-lv{flex:none;font-size:11px;font-weight:800;color:#b2a691;min-width:18px;text-align:right}
+.ft-lv{flex:none;font-size:12px;font-weight:800;color:#b2a691;min-width:18px;text-align:right}
 .sp-tab.on .sp-tab-n{color:#7a1f14}
 .smite-pick{display:inline-flex;align-items:center;gap:6px;font-weight:700}
 /* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
@@ -807,7 +807,7 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .btn{background:#e9dcbe;border-color:#bfa983;color:#2b2118}
 .paper .btn:hover{background:#e0d0ae}
 .paper .btn.ghost{background:transparent}
-.paper .btn.ghost:hover{background:#e9dcbe}
+.paper .btn.ghost:hover{background:#e9dcbe}.paper .btn.danger{color:#8a2a1c;border-color:#b07a6c}.paper .btn.danger:hover{background:#f0d2c8;border-color:#8a2a1c;color:#6b1a10}
 .paper .btn.primary{background:#9b2c22;border-color:#b8442f;color:#fbf1dc}
 .paper .btn.primary:hover{background:#ad3428}
 .paper .btn.heal{background:#2f5a2a;border-color:#4d8a44;color:#eef8ea}
@@ -831,7 +831,7 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .abil-edit{background:#ecdfc4;border-color:#b39c74}
 .paper .abil-edit label{color:#8a2a1c}
 /* ventaja por un rasgo (Furia, Sentir el peligro…) en el botón que tira */
-.adv-mark{display:inline-grid;place-items:center;min-width:16px;height:16px;margin-left:5px;padding:0 3px;border-radius:4px;background:#2f5a2a;color:#eef8ea;font-size:10px;font-weight:800;letter-spacing:0;vertical-align:middle}
+.adv-mark{display:inline-grid;place-items:center;min-width:16px;height:16px;margin-left:5px;padding:0 3px;border-radius:4px;background:#2f5a2a;color:#eef8ea;font-size:12px;font-weight:800;letter-spacing:0;vertical-align:middle}
 .pc-resist{color:#9cc4e4;font-weight:700}
 .paper .pc-resist{color:#2c5f8a}
 .pc-dmg-type{width:auto;max-width:150px}

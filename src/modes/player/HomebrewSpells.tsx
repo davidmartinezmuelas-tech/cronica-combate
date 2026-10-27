@@ -69,7 +69,7 @@ export default function HomebrewSpells() {
                 <span><b>{s.n}</b> <span className="muted small">{s.l ? 'nivel ' + s.l : 'truco'} · {s.esc}{s.classes.length ? ' · ' + s.classes.map((k) => casters.find((x) => x.id === k)?.n || k).join(', ') : ''}</span></span>
                 <span className="rollrow">
                   <button className="btn small" onClick={() => setD(toDraft(s))}>Editar</button>
-                  <button className="btn small ghost" onClick={() => { if (confirmDel === s.id) { void lib.save({ spells: lib.spells.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+                  <button className="btn small ghost danger" onClick={() => { if (confirmDel === s.id) { void lib.save({ spells: lib.spells.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
                 </span>
               </li>
             ))}
