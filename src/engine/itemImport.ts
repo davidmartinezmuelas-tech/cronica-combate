@@ -100,9 +100,14 @@ export function parseItems(lines: Line[]): LibItem[] {
 
 const KINDS_ES: [RegExp, ItemKind][] = [[/^armadura\b/i, 'armor'], [/^arma\b/i, 'weapon'], [/^objeto maravilloso\b/i, 'wondrous'], [/^anillo\b/i, 'ring'], [/^poci[oó]n\b/i, 'potion'], [/^(vara|varita|bast[oó]n)\b/i, 'staff'], [/^pergamino\b/i, 'other']];
 const RARITY_ES: [RegExp, string][] = [[/muy rar[oa]/i, 'muy raro'], [/infrecuente/i, 'poco común'], [/\bcom[uú]n\b/i, 'común'], [/\brar[oa]\b/i, 'raro'], [/legendari[oa]/i, 'legendario'], [/artefacto/i, 'artefacto'], [/var[ií]a|variable/i, 'varía']];
-const HEAD_ES = /^(Armadura|Arma|Objeto maravilloso|Anillo|Poci[oó]n|Vara|Varita|Bast[oó]n|Pergamino)\b[^.]{0,170}?(com[uú]n|infrecuente|rar[oa]|muy rar[oa]|legendari[oa]|artefacto|rareza variable|var[ií]a)\b/i;
+const HEAD_ES = /^(Armadura|Arma|Objeto maravilloso|Anillo|Poci[oó]n|Vara|Varita|Bast[oó]n|Pergamino)(?!\p{L})[^.]{0,170}?,\s*(com[uú]n|infrecuente|muy rar[oa]|rar[oa]|legendari[oa]|artefacto|rareza variable|var[ií]a)(?!\p{L})/iu;
 const ABIL_ES: Record<string, 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'> = { fuerza: 'str', destreza: 'dex', constitucion: 'con', inteligencia: 'int', sabiduria: 'wis', carisma: 'cha' };
-const LINK = /^(DE|DEL|LA|LAS|LOS|EL|Y|O|CON|PARA|EN|A|POR|SIN|CONTRA|ELEMENTALES|\()\b/;
+const LINK = /^(?:(?:DE|DEL|LA|LAS|LOS|EL|Y|O|CON|PARA|EN|A|POR|SIN|CONTRA|ELEMENTALES)(?!\p{L})|\()/u;
+/** Un título aunque el OCR haya estropeado las mayúsculas («EscoBA VOLADORA»): corto, sin puntuación final y con varias mayúsculas. */
+const titleish = (t: string) => isCaps(t) || (t.length >= 3 && t.length <= 60 && !/[.,:;]$/.test(t) && t.split(' ').length <= 8 && t.replace(/[^A-ZÁÉÍÓÚÑ]/g, '').length >= 1 && !/\d{3}/.test(t));
+/** Correcciones del OCR y nombres propios (que el texto en mayúsculas pierde al pasar a minúsculas). */
+const NAME_FIX: Record<string, string> = { escupo: 'escudo', loun: 'Ioun', iggwwilv: 'Iggwilv', heward: 'Heward', kwalish: 'Kwalish', baba: 'Baba', yaga: 'Yaga', daern: 'Daern', keoghtom: 'Keoghtom', nolzur: 'Nolzur', quaal: 'Quaal', iggwilv: 'Iggwilv', vecna: 'Vecna', orcus: 'Orcus', bilarro: 'Bilarro', ehlonna: 'Ehlonna', kas: 'Kas', valhalla: 'Valhalla', ioun: 'Ioun', mechanus: 'Mechanus' };
+const fixName = (t: string) => titleCase(t).replace(/\p{L}+/gu, (w) => NAME_FIX[w.toLowerCase()] || w).replace(/^\p{L}/u, (c) => c.toUpperCase());
 
 /** Los efectos que se leen del texto en español. */
 export function guessModsEs(text: string, kind: ItemKind): { mods: ItemMod[]; charges?: LibItem['charges']; roll?: string } {
@@ -148,19 +153,22 @@ export function parseItemsEs(lines: Line[]): LibItem[] {
   const heads: { h: number; name: number }[] = [];
   for (let i = 1; i < ts.length; i++) {
     if (!HEAD_ES.test(ts[i]) || /[.]$/.test(ts[i - 1])) continue;
-    if (!isCaps(ts[i - 1]) || /\d{3}/.test(ts[i - 1])) continue;
+    if (!titleish(ts[i - 1]) || /\d{3}/.test(ts[i - 1])) continue;
     // el título puede ocupar varias líneas: «ANILLO DE ALMACENAMIENTO» + «DE CONJUROS»
     let s = i - 1;
-    while (s > 0 && isCaps(ts[s - 1]) && i - s < 3 && !HEAD_ES.test(ts[s - 1]) && LINK.test(ts[s])) s--;
+    while (s > 0 && titleish(ts[s - 1]) && i - s < 3 && !HEAD_ES.test(ts[s - 1]) && LINK.test(ts[s])) s--;
     heads.push({ h: i, name: s });
   }
   const out: LibItem[] = [];
   heads.forEach(({ h, name }, k) => {
-    const raw = ts.slice(name, h).join(' ');
+    let raw = ts.slice(name, h).join(' ');
     // la línea de tipo puede seguir en la siguiente: «(requiere sintonización por parte de …)»
     let type = ts[h];
     let bodyFrom = h + 1;
     while (bodyFrom < ts.length && bodyFrom - h < 3 && (/\([^)]*$/.test(type) || /^(\(requiere|o (muy )?rar)/i.test(ts[bodyFrom]))) type += ' ' + ts[bodyFrom++];
+    // el final del título a veces se cuela en la línea de tipo: «…, infrecuente FLOTANTE»
+    const tail = /(com[uú]n|infrecuente|rar[oa]|legendari[oa]|artefacto)\s+([A-ZÁÉÍÓÚÑ]{4,}(?:\s+[A-ZÁÉÍÓÚÑ]{2,})*)$/.exec(type);
+    if (tail) { raw += ' ' + tail[2]; type = type.slice(0, type.length - tail[2].length).trim(); }
     const end = k + 1 < heads.length ? heads[k + 1].name : ts.length;
     const d = bodyEs(ts.slice(bodyFrom, end).filter((t) => !(isCaps(t) && t.length < 60 && !/\d/.test(t))));
     const kind = KINDS_ES.find(([re]) => re.test(type))?.[1] || 'other';
@@ -168,7 +176,7 @@ export function parseItemsEs(lines: Line[]): LibItem[] {
     const variants = /^(.*?),? \+1, \+2 [O0o] \+3$/i.exec(raw);
     const byType = !variants && kind === 'staff' && /\(\+1\).*\(\+2\).*\(\+3\)/.test(type);
     if ((variants || byType) && (kind === 'weapon' || kind === 'armor' || kind === 'staff')) {
-      const base = titleCase(variants ? variants[1] : raw);
+      const base = fixName(variants ? variants[1] : raw);
       const rar = [...type.matchAll(/(muy rar[oa]|infrecuente|rar[oa]|legendari[oa])\s*\(\+(\d)\)/gi)].reduce<Record<string, string>>((acc, m) => ({ ...acc, [m[2]]: m[1] }), {});
       for (const b of [1, 2, 3]) {
         const rarity = RARITY_ES.find(([re]) => re.test(rar[String(b)] || ''))?.[1] || ((kind === 'armor' ? ['raro', 'muy raro', 'legendario'] : ['poco común', 'raro', 'muy raro'])[b - 1]);
@@ -177,7 +185,16 @@ export function parseItemsEs(lines: Line[]): LibItem[] {
       return;
     }
     const rarity = RARITY_ES.find(([re]) => re.test(type))?.[1] || 'poco común';
-    out.push({ id: 'lib-it-' + slug(raw), n: titleCase(raw), kind, rarity, attune, d, es: true, ...guessModsEs(d, kind) });
+    out.push({ id: 'lib-it-' + slug(raw), n: fixName(raw), kind, rarity, attune, d, es: true, ...guessModsEs(d, kind) });
   });
-  return out.filter((x, i) => out.findIndex((y) => y.id === x.id) === i);
+  // las pociones de curación vienen en una tabla («Poción de curación (mayor) 4d4 +4 Infrecuente»): una por fila
+  const heal: LibItem[] = [];
+  for (const t of ts) {
+    const m = /^Poci[oó]n de curaci[oó]n(?: \((mayor|superior|suprema)\))? (\d+d\d+) ?\+ ?(\d+) (Com[uú]n|Infrecuente|Rara|Muy ?rara)$/i.exec(t);
+    if (!m) continue;
+    const n = 'Poción de curación' + (m[1] ? ' (' + m[1].toLowerCase() + ')' : '');
+    heal.push({ id: 'lib-it-' + slug(n), n, kind: 'potion', rarity: RARITY_ES.find(([re]) => re.test(m[4].replace(/muyr/i, 'muy r')))?.[1] || 'común', attune: false, d: 'Recuperas ' + m[2] + ' +' + m[3] + ' puntos de golpe al beberla.', es: true, mods: [], charges: { max: 1, per: '' }, roll: m[2] + '+' + m[3] });
+  }
+  const all = heal.length ? [...out.filter((x) => x.id !== 'lib-it-pociones-de-curacion'), ...heal] : out;
+  return all.filter((x, i) => all.findIndex((y) => y.id === x.id) === i);
 }
