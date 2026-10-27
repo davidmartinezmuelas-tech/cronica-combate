@@ -1,6 +1,6 @@
 import { isCaps, titleCase, type Line } from './bookImport';
 import { DMG_TYPES } from '../data/constants';
-import type { ItemKind, ItemMod, LibItem } from './magicItems';
+import type { ItemKind, ItemMod, ItemPick, LibItem } from './magicItems';
 import { norm } from './util';
 
 /**
@@ -93,7 +93,7 @@ export function parseItems(lines: Line[]): LibItem[] {
     out.push({ id: 'lib-it-' + slug(n), n, kind, rarity, attune, d, ...g });
   });
   // nombres repetidos (tablas de variantes): el primero
-  return out.filter((x, i) => out.findIndex((y) => y.id === x.id) === i);
+  return addPicks(out.filter((x, i) => out.findIndex((y) => y.id === x.id) === i));
 }
 
 // ---- Guía del Dungeon Master 2024 en español ----
@@ -196,5 +196,28 @@ export function parseItemsEs(lines: Line[]): LibItem[] {
     heal.push({ id: 'lib-it-' + slug(n), n, kind: 'potion', rarity: RARITY_ES.find(([re]) => re.test(m[4].replace(/muyr/i, 'muy r')))?.[1] || 'común', attune: false, d: 'Recuperas ' + m[2] + ' +' + m[3] + ' puntos de golpe al beberla.', es: true, mods: [], charges: { max: 1, per: '' }, roll: m[2] + '+' + m[3] });
   }
   const all = heal.length ? [...out.filter((x) => x.id !== 'lib-it-pociones-de-curacion'), ...heal] : out;
-  return all.filter((x, i) => all.findIndex((y) => y.id === x.id) === i);
+  return addPicks(all.filter((x, i) => all.findIndex((y) => y.id === x.id) === i));
+}
+
+const GIANTS: { es: string; en: string; v: number; belt: string; potion: string }[] = [
+  { es: 'colinas', en: 'Hill', v: 21, belt: 'raro', potion: 'poco común' },
+  { es: 'escarcha o piedra', en: 'Frost or Stone', v: 23, belt: 'muy raro', potion: 'raro' },
+  { es: 'fuego', en: 'Fire', v: 25, belt: 'muy raro', potion: 'raro' },
+  { es: 'nubes', en: 'Cloud', v: 27, belt: 'legendario', potion: 'muy raro' },
+  { es: 'tormentas', en: 'Storm', v: 29, belt: 'legendario', potion: 'legendario' },
+];
+
+/** Las variantes de los objetos que traen una tabla (gigantes) o un tipo de daño a elegir (resistencia): se elige al añadirlos. */
+export function addPicks(items: LibItem[]): LibItem[] {
+  return items.map((it) => {
+    const giant = /fuerza de gigante|giant strength/i.test(it.n);
+    const res = /(de resistencia|of resistance)$/i.test(it.n) && it.kind !== 'wondrous';
+    if (!giant && !res) return it;
+    const es = !!it.es;
+    const potion = it.kind === 'potion';
+    const pick: ItemPick = giant
+      ? { label: es ? 'Tipo de gigante' : 'Giant type', base: it.n, opts: GIANTS.map((g) => ({ n: es ? g.es : g.en, rarity: potion ? g.potion : g.belt, mods: [{ k: 'abilSet' as const, abil: 'str' as const, v: g.v }] })) }
+      : { label: 'Tipo de daño', base: it.n, opts: DMG_TYPES.filter((t) => !['contundente', 'cortante', 'perforante'].includes(t)).map((t) => ({ n: t, mods: [{ k: 'resist' as const, type: t }] })) };
+    return { ...it, mods: [], pick };
+  });
 }

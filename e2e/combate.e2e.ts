@@ -2553,3 +2553,38 @@ test('objetos mágicos: el formulario de «+ Objeto» también deja partir de un
   }
   await expect(panel.getByLabel('Objeto de ejemplo')).toBeVisible();
 });
+
+test('objetos mágicos: al elegir uno de la biblioteca se leen sus conjuros con cargas y se elige la variante', async ({ page }) => {
+  const lib = {
+    app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'Pruebas', feats: [], backgrounds: [], spells: [], subclasses: [],
+    items: [
+      { id: 'lib-it-b', n: 'Bastón de prueba', kind: 'staff', rarity: 'raro', attune: true, d: 'Conjuro Coste en cargas Bola de fuego 3 Manos ardientes 1 Recuperar cargas.', mods: [], charges: { max: 10, per: 'lr' }, es: true },
+      { id: 'lib-it-g', n: 'Cinturón de fuerza de gigante', kind: 'wondrous', rarity: 'varía', attune: true, d: 'Tu Fuerza cambia.', mods: [], es: true,
+        pick: { label: 'Tipo de gigante', base: 'Cinturón de fuerza de gigante', opts: [{ n: 'colinas', rarity: 'raro', mods: [{ k: 'abilSet', abil: 'str', v: 21 }] }, { n: 'nubes', rarity: 'legendario', mods: [{ k: 'abilSet', abil: 'str', v: 27 }] }] } },
+    ],
+  };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ira');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const panel = page.getByRole('region', { name: 'Objetos mágicos' });
+  // bastón: los conjuros salen solos, con su coste
+  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Bastón de prueba' });
+  await expect(page.getByLabel('Conjuro', { exact: true }).first()).toHaveValue(/Fireball|Bola|sp-/);
+  await expect(page.getByLabel('Cargas por lanzamiento').first()).toHaveValue('3');
+  await expect(page.getByLabel('Cargas por lanzamiento')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  // cinturón: hay que elegir el tipo antes de guardar
+  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Cinturón de fuerza de gigante' });
+  await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
+  await page.getByLabel(/Tipo de gigante/).selectOption({ label: 'nubes · legendario' });
+  await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Cinturón de fuerza de gigante (nubes)');
+  await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+  await panel.getByLabel('Sintonizado: Cinturón de fuerza de gigante (nubes)').check();
+  await expect(page.getByText('27', { exact: true }).first()).toBeVisible();
+});

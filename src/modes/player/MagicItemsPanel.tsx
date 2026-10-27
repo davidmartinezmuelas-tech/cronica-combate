@@ -3,7 +3,7 @@ import { DMG_TYPES } from '../../data/constants';
 import { ABILS, type Abil } from '../../data/player';
 import type { CharWeapon, Character } from '../../engine/character';
 import { validDice } from '../../engine/homebrew';
-import { ATTUNE_MAX, attunedCount, isActive, ITEM_PRESETS, itemEffects, itemKey, KIND_LABEL, MOD_LABEL, modText, RARITIES, type ItemKind, type ItemMod, type LibItem, type MagicItem, type ModKey } from '../../engine/magicItems';
+import { applyPick, ATTUNE_MAX, attunedCount, detectItemSpells, isActive, ITEM_PRESETS, itemEffects, itemKey, KIND_LABEL, MOD_LABEL, modText, RARITIES, type ItemKind, type ItemMod, type LibItem, type MagicItem, type ModKey } from '../../engine/magicItems';
 import { uid } from '../../engine/util';
 import Card, { InfoDialog } from '../../shared/Card';
 import Pips from '../../shared/Pips';
@@ -12,7 +12,9 @@ import { useStore } from '../../store/useStore';
 import { plainText } from './spells';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
-export type SpellOpt = { id: string; n: string; l?: number };
+export type SpellOpt = { id: string; n: string; en?: string; l?: number };
+/** Un objeto nuevo a partir de un ejemplo o de la biblioteca: sus conjuros con cargas se leen de su texto. */
+const fromTemplate = (p: Omit<MagicItem, 'id' | 'worn' | 'attuned'>, book: boolean, spells: SpellOpt[], id?: string): MagicItem => ({ ...blank(), ...p, ...(id ? { id } : {}), mods: p.mods.map((m) => ({ ...m })), ...(p.charges && !p.spells?.length ? { spells: detectItemSpells(p.d, spells, p.charges.max) } : {}), ...(book ? { book: true } : {}) });
 const blank = (): MagicItem => ({ id: 'mi-' + uid(), n: '', kind: 'wondrous', rarity: 'poco común', attune: false, attuned: false, worn: true, d: '', mods: [] });
 
 /** Formulario de un objeto: nombre, texto, sintonización, cargas y los efectos que se aplican solos a la hoja. */
@@ -29,10 +31,17 @@ function ItemForm({ item, isNew, lib, weapons, spells, onSave, onClose }: { item
     <InfoDialog title={item.n ? 'Editar ' + item.n : 'Objeto mágico'} onClose={onClose}>
       {isNew && (
         <div className="field"><label htmlFor="mi-from">Partir de un objeto</label>
-          <select id="mi-from" className="input" value="" onChange={(e) => { const v = e.target.value; const p = v.startsWith('lib:') ? lib.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setIt({ ...blank(), ...p, id: it.id, mods: p.mods.map((m) => ({ ...m })), ...(v.startsWith('lib:') ? { book: true } : {}) }); }}>
+          <select id="mi-from" className="input" value="" onChange={(e) => { const v = e.target.value; const p = v.startsWith('lib:') ? lib.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setIt(fromTemplate(p, v.startsWith('lib:'), spells, it.id)); }}>
             <option value="">Ejemplos y tu biblioteca…</option>
             {ITEM_PRESETS.map((p, i) => <option key={p.n} value={i}>{p.n}</option>)}
             {lib.length > 0 && <optgroup label="De tu biblioteca">{lib.map((x) => <option key={x.id} value={'lib:' + x.id}>{x.n}</option>)}</optgroup>}
+          </select></div>
+      )}
+      {it.pick && (
+        <div className="field"><label htmlFor="mi-pick">{it.pick.label}: elige el que tienes</label>
+          <select id="mi-pick" className="input" value={it.pick.sel ?? ''} onChange={(e) => e.target.value !== '' && setIt(applyPick(it, Number(e.target.value)))}>
+            <option value="">Elige…</option>
+            {it.pick.opts.map((o, i) => <option key={o.n} value={i}>{o.n}{o.rarity ? ' · ' + o.rarity : ''}</option>)}
           </select></div>
       )}
       <div className="field"><label htmlFor="mi-n">Nombre</label><input id="mi-n" className="input" value={it.n} onChange={(e) => setIt({ ...it, n: e.target.value })} autoFocus /></div>
@@ -86,6 +95,7 @@ function ItemForm({ item, isNew, lib, weapons, spells, onSave, onClose }: { item
         {badRoll && <span className="warn small">Escribe dados como 2d4+2.</span>}
         {it.charges && <>
           <span className="muted small">Conjuros que lanza el objeto con sus cargas.</span>
+          {it.d && <button className="btn small ghost" style={{ alignSelf: 'flex-start' }} onClick={() => { const f = detectItemSpells(it.d, spells, it.charges?.max); if (f.length) setIt({ ...it, spells: [...(it.spells || []).filter((s) => s.id && !f.some((x) => x.id === s.id)), ...f] }); }}>Buscar los conjuros en el texto</button>}
           {(it.spells || []).map((s, i) => (
             <div key={i} className="row3">
               <div className="field"><label htmlFor={'mi-sp' + i}>Conjuro</label>
@@ -100,7 +110,7 @@ function ItemForm({ item, isNew, lib, weapons, spells, onSave, onClose }: { item
         </>}
       </fieldset>
       <div className="rollrow">
-        <button className="btn small primary" disabled={!it.n.trim() || badRoll || badExtra} onClick={() => onSave({ ...it, n: it.n.trim(), roll: it.charges && it.roll?.trim() ? it.roll.trim() : undefined, spells: it.charges && it.spells?.some((s) => s.id) ? it.spells.filter((s) => s.id) : undefined, weapon: wmod ? it.weapon : undefined })}>Guardar</button>
+        <button className="btn small primary" disabled={!it.n.trim() || badRoll || badExtra || (!!it.pick && it.pick.sel == null)} onClick={() => onSave({ ...it, pick: undefined, n: it.n.trim(), roll: it.charges && it.roll?.trim() ? it.roll.trim() : undefined, spells: it.charges && it.spells?.some((s) => s.id) ? it.spells.filter((s) => s.id) : undefined, weapon: wmod ? it.weapon : undefined })}>Guardar</button>
         <button className="btn small ghost" onClick={onClose}>Cancelar</button>
       </div>
     </InfoDialog>
@@ -133,7 +143,7 @@ export default function MagicItemsPanel({ c, set, spells, readOnly = false }: { 
         <span className={att > ATTUNE_MAX ? 'chip-tag warn' : 'chip-tag'} title="Un personaje solo puede estar sintonizado con tres objetos a la vez">Sintonía {att}/{ATTUNE_MAX}</span>
       </div>
       {!readOnly && <div className="rollrow">
-        <select className="input" style={{ maxWidth: 260 }} aria-label="Objeto de ejemplo" value={preset} onChange={(e) => { setPreset(''); const v = e.target.value; const p = v.startsWith('lib:') ? libItems.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setForm({ ...blank(), ...p, id: 'mi-' + uid(), mods: p.mods.map((m) => ({ ...m })), ...(v.startsWith('lib:') ? { book: true } : {}) }); }}>
+        <select className="input" style={{ maxWidth: 260 }} aria-label="Objeto de ejemplo" value={preset} onChange={(e) => { setPreset(''); const v = e.target.value; const p = v.startsWith('lib:') ? libItems.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setForm(fromTemplate(p, v.startsWith('lib:'), spells, 'mi-' + uid())); }}>
           <option value="">Ejemplos…</option>
           {ITEM_PRESETS.map((p, i) => <option key={p.n} value={i}>{p.n}</option>)}
           {libItems.length > 0 && <optgroup label="De tu biblioteca">{libItems.map((x) => <option key={x.id} value={'lib:' + x.id}>{x.n}</option>)}</optgroup>}

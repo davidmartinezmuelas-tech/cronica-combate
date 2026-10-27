@@ -22,6 +22,9 @@ export type ItemKind = 'armor' | 'weapon' | 'ring' | 'wondrous' | 'potion' | 'st
 export const KIND_LABEL: Record<ItemKind, string> = { armor: 'Armadura o escudo', weapon: 'Arma', ring: 'Anillo', wondrous: 'Objeto maravilloso', potion: 'Poción o consumible', staff: 'Vara, bastón o varita', other: 'Otro' };
 export const RARITIES = ['común', 'poco común', 'raro', 'muy raro', 'legendario', 'artefacto', 'varía'];
 
+/** Variantes de un objeto: cada una cambia el nombre, los efectos y a veces la rareza. */
+export interface ItemPick { label: string; base: string; sel?: number; opts: { n: string; rarity?: string; mods: ItemMod[] }[] }
+
 export interface MagicItem {
   id: string;
   n: string;
@@ -35,6 +38,7 @@ export interface MagicItem {
   charges?: { max: number; per: 'lr' | 'sr' | '' }; // cargas o usos; '' = no se recargan (una poción)
   roll?: string; // lo que tira al usarlo (2d4+2): se gasta una carga
   weapon?: string; // id del arma de la hoja a la que ligan los efectos del arma (wBonus, wExtra)
+  pick?: ItemPick; // objeto con variantes (Cinturón de fuerza de gigante, Anillo de resistencia): se elige cuál es al añadirlo
   book?: boolean; // viene del libro del usuario (biblioteca): su texto no sale del dispositivo
   spells?: { id: string; cost: number }[]; // conjuros que lanza el objeto: cada lanzamiento gasta `cost` cargas
 }
@@ -144,3 +148,34 @@ export const ITEM_PRESETS: Omit<MagicItem, 'id' | 'worn' | 'attuned'>[] = [
   { n: 'Poción de curación', kind: 'potion', rarity: 'común', attune: false, d: 'Recuperas 2d4+2 puntos de golpe al beberla.', mods: [], charges: { max: 1, per: '' }, roll: '2d4+2' },
   { n: 'Poción de curación mayor', kind: 'potion', rarity: 'poco común', attune: false, d: 'Recuperas 4d4+4 puntos de golpe al beberla.', mods: [], charges: { max: 1, per: '' }, roll: '4d4+4' },
 ];
+
+/** Aplica la variante elegida: el nombre con la variante, sus efectos y su rareza. */
+export function applyPick<T extends Pick<MagicItem, 'n' | 'rarity' | 'mods' | 'pick'>>(it: T, sel: number): T {
+  const p = it.pick;
+  const o = p?.opts[sel];
+  if (!p || !o) return it;
+  return { ...it, n: p.base + ' (' + o.n + ')', rarity: o.rarity || it.rarity, mods: o.mods.map((m) => ({ ...m })), pick: { ...p, sel } };
+}
+
+const norm0 = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]+/g, ' ').replace(/ +/g, ' ').trim();
+const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Conjuros que lanza un objeto con cargas, leídos de su texto: las filas de su tabla («Bola de fuego 3») o las varitas
+ * («gastar hasta 3 cargas para lanzar bola de fuego», que cuesta 1 en su nivel base). Se buscan entre los conjuros que se conocen.
+ */
+export function detectItemSpells(text: string, spells: { id: string; n: string; en?: string }[], maxCost = 9): { id: string; cost: number }[] {
+  const t = ' ' + norm0(text) + ' ';
+  const found: { id: string; cost: number; at: number }[] = [];
+  for (const sp of [...spells].sort((a, b) => b.n.length - a.n.length)) {
+    for (const name of [sp.n, sp.en || ''].filter((x) => x.length > 2)) {
+      const n = esc(norm0(name));
+      const wand = new RegExp('(?:cargas?|charges?) (?:para|to) (?:lanzar|cast) (?:el conjuro |the spell )?' + n + '(?![a-z])').exec(t);
+      const row = new RegExp(' ' + n + ' (\\d{1,2})(?![0-9a-z])').exec(t);
+      const hit = wand ? { cost: 1, at: wand.index } : row ? { cost: Number(row[1]), at: row.index } : null;
+      // un coste que no cabe en las cargas del objeto es un número suelto del texto
+      if (hit && hit.cost >= 1 && hit.cost <= maxCost && !found.some((f) => f.id === sp.id)) found.push({ id: sp.id, ...hit });
+    }
+  }
+  return found.sort((a, b) => a.at - b.at).map(({ id, cost }) => ({ id, cost }));
+}

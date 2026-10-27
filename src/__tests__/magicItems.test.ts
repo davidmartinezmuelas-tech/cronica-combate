@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlayerData } from '../data/player';
 import { blankCharacter, derive, type Character } from '../engine/character';
-import { attunedCount, itemEffects, ITEM_PRESETS, type MagicItem } from '../engine/magicItems';
+import { addPicks } from '../engine/itemImport';
+import { applyPick, attunedCount, detectItemSpells, itemEffects, ITEM_PRESETS, type MagicItem } from '../engine/magicItems';
 
 const data = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/jugador_es.json'), 'utf8')) as PlayerData;
 const item = (n: string, over: Partial<MagicItem>): MagicItem => ({ id: 'mi-' + n, n, kind: 'wondrous', rarity: 'raro', attune: true, attuned: true, worn: true, d: '', mods: [], ...over });
@@ -72,5 +73,22 @@ describe('objetos mágicos', () => {
     expect(g).toHaveLength(1);
     expect(g[0].charge).toEqual({ key: 'item.mi-Bastón', cost: 3, max: 10 });
     expect(grantedSpells(pj([{ ...staff, worn: false }]), [{ id: 'sp-x', en: 'X' }], derive(pj([]), data).mods)).toHaveLength(0);
+  });
+  it('lee los conjuros con cargas de la tabla o de la varita', () => {
+    const spells = [{ id: 'fb', n: 'Bola de fuego', en: 'Fireball' }, { id: 'bh', n: 'Manos ardientes' }, { id: 'wf', n: 'Muro de fuego' }, { id: 'cw', n: 'Curar heridas' }, { id: 'cm', n: 'Curar heridas en masa' }];
+    expect(detectItemSpells('Conjuro Coste en cargas Bola de fuego 3 Muro de fuego 4 Manos ardientes 1 Recuperar cargas.', spells)).toEqual([{ id: 'fb', cost: 3 }, { id: 'wf', cost: 4 }, { id: 'bh', cost: 1 }]);
+    expect(detectItemSpells('Mientras la sostengas, puedes gastar hasta 3 cargas para lanzar bola de fuego (CD 15) desde ella.', spells)).toEqual([{ id: 'fb', cost: 1 }]);
+    expect(detectItemSpells('You can expend 1 charge to cast Fireball from it.', spells)).toEqual([{ id: 'fb', cost: 1 }]);
+    // «Curar heridas en masa 5» no cuenta como «Curar heridas»
+    expect(detectItemSpells('Conjuro Curar heridas en masa 5 Restablecimiento menor 2', spells)).toEqual([{ id: 'cm', cost: 5 }]);
+  });
+  it('los objetos con variantes (gigantes, resistencia) se eligen: cambian nombre, efecto y rareza', () => {
+    const base = { id: 'x', n: 'Cinturón de fuerza de gigante', kind: 'wondrous' as const, rarity: 'varía', attune: true, d: '', mods: [], es: true };
+    const [belt, ring] = addPicks([base, { ...base, id: 'y', n: 'Anillo de resistencia', kind: 'ring' }]);
+    expect(belt.pick!.opts).toHaveLength(5);
+    const chosen = applyPick({ ...belt, worn: true, attuned: true }, 3);
+    expect(chosen).toMatchObject({ n: 'Cinturón de fuerza de gigante (nubes)', rarity: 'legendario', mods: [{ k: 'abilSet', abil: 'str', v: 27 }] });
+    expect(derive(pj([chosen]), data).abil.str).toBe(27);
+    expect(applyPick({ ...ring, worn: true, attuned: true }, 2).mods).toEqual([{ k: 'resist', type: 'fuego' }]);
   });
 });
