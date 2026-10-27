@@ -2535,3 +2535,21 @@ test('biblioteca: traducir los objetos con el traductor del navegador (simulado)
   await expect(page.getByRole('status').filter({ hasText: 'Traducidos 1 objetos' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Traducir objetos al español' })).toHaveCount(0);
 });
+
+test('objetos mágicos: el formulario de «+ Objeto» también deja partir de un ejemplo, varias veces seguidas', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ira');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const panel = page.getByRole('region', { name: 'Objetos mágicos' });
+  for (const n of ['Anillo de protección', 'Capa de protección', 'Anillo de resistencia']) {
+    await panel.getByRole('button', { name: '+ Objeto' }).click();
+    await page.getByLabel('Partir de un objeto').selectOption({ label: n });
+    await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue(n);
+    await page.getByRole('button', { name: 'Guardar', exact: true }).click();
+    await expect(panel.getByRole('button', { name: n, exact: true })).toBeVisible();
+  }
+  await expect(panel.getByLabel('Objeto de ejemplo')).toBeVisible();
+});

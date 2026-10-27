@@ -3,7 +3,7 @@ import { DMG_TYPES } from '../../data/constants';
 import { ABILS, type Abil } from '../../data/player';
 import type { CharWeapon, Character } from '../../engine/character';
 import { validDice } from '../../engine/homebrew';
-import { ATTUNE_MAX, attunedCount, isActive, ITEM_PRESETS, itemEffects, itemKey, KIND_LABEL, MOD_LABEL, modText, RARITIES, type ItemKind, type ItemMod, type MagicItem, type ModKey } from '../../engine/magicItems';
+import { ATTUNE_MAX, attunedCount, isActive, ITEM_PRESETS, itemEffects, itemKey, KIND_LABEL, MOD_LABEL, modText, RARITIES, type ItemKind, type ItemMod, type LibItem, type MagicItem, type ModKey } from '../../engine/magicItems';
 import { uid } from '../../engine/util';
 import Card, { InfoDialog } from '../../shared/Card';
 import Pips from '../../shared/Pips';
@@ -16,7 +16,7 @@ export type SpellOpt = { id: string; n: string; l?: number };
 const blank = (): MagicItem => ({ id: 'mi-' + uid(), n: '', kind: 'wondrous', rarity: 'poco común', attune: false, attuned: false, worn: true, d: '', mods: [] });
 
 /** Formulario de un objeto: nombre, texto, sintonización, cargas y los efectos que se aplican solos a la hoja. */
-function ItemForm({ item, weapons, spells, onSave, onClose }: { item: MagicItem; weapons: CharWeapon[]; spells: SpellOpt[]; onSave: (i: MagicItem) => void; onClose: () => void }) {
+function ItemForm({ item, isNew, lib, weapons, spells, onSave, onClose }: { item: MagicItem; isNew: boolean; lib: LibItem[]; weapons: CharWeapon[]; spells: SpellOpt[]; onSave: (i: MagicItem) => void; onClose: () => void }) {
   const [it, setIt] = useState<MagicItem>(item);
   const setMod = (i: number, patch: Partial<ItemMod>) => setIt({ ...it, mods: it.mods.map((m, j) => (j === i ? { ...m, ...patch } : m)) });
   const addMod = () => setIt({ ...it, mods: [...it.mods, { k: 'ac', v: 1 }] });
@@ -27,6 +27,14 @@ function ItemForm({ item, weapons, spells, onSave, onClose }: { item: MagicItem;
   const spellSet = (i: number, patch: Partial<{ id: string; cost: number }>) => setIt({ ...it, spells: (it.spells || []).map((s, j) => (j === i ? { ...s, ...patch } : s)) });
   return (
     <InfoDialog title={item.n ? 'Editar ' + item.n : 'Objeto mágico'} onClose={onClose}>
+      {isNew && (
+        <div className="field"><label htmlFor="mi-from">Partir de un objeto</label>
+          <select id="mi-from" className="input" value="" onChange={(e) => { const v = e.target.value; const p = v.startsWith('lib:') ? lib.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setIt({ ...blank(), ...p, id: it.id, mods: p.mods.map((m) => ({ ...m })) }); }}>
+            <option value="">Ejemplos y tu biblioteca…</option>
+            {ITEM_PRESETS.map((p, i) => <option key={p.n} value={i}>{p.n}</option>)}
+            {lib.length > 0 && <optgroup label="De tu biblioteca">{lib.map((x) => <option key={x.id} value={'lib:' + x.id}>{x.n}</option>)}</optgroup>}
+          </select></div>
+      )}
       <div className="field"><label htmlFor="mi-n">Nombre</label><input id="mi-n" className="input" value={it.n} onChange={(e) => setIt({ ...it, n: e.target.value })} autoFocus /></div>
       <div className="row2">
         <div className="field"><label htmlFor="mi-k">Tipo</label>
@@ -165,7 +173,7 @@ export default function MagicItemsPanel({ c, set, spells }: { c: Character; set:
           );
         })}
       </ul>
-      {form && <ItemForm item={form} weapons={c.weapons} spells={spells} onClose={() => setForm(null)} onSave={(it) => { save(items.some((x) => x.id === it.id) ? items.map((x) => (x.id === it.id ? it : x)) : [...items, it]); setForm(null); }} />}
+      {form && <ItemForm key={form.id} item={form} isNew={!items.some((x) => x.id === form.id)} lib={libItems} weapons={c.weapons} spells={spells} onClose={() => setForm(null)} onSave={(it) => { save(items.some((x) => x.id === it.id) ? items.map((x) => (x.id === it.id ? it : x)) : [...items, it]); setForm(null); }} />}
     </section>
   );
 }
