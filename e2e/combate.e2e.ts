@@ -2519,3 +2519,19 @@ test('biblioteca: los objetos importados salen en los ejemplos del panel de obje
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(panel).toContainText('Brazal de prueba');
 });
+
+test('biblioteca: traducir los objetos con el traductor del navegador (simulado)', async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as unknown as { Translator: unknown }).Translator = { availability: async () => 'available', create: async () => ({ translate: async (t: string) => 'ES ' + t }) };
+  });
+  const lib = {
+    app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'Pruebas', feats: [], backgrounds: [], spells: [], subclasses: [],
+    items: [{ id: 'lib-it-t', n: 'Brazal de prueba', kind: 'wondrous', rarity: 'raro', attune: false, d: 'Test text.', mods: [] }],
+  };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'biblioteca.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await page.getByRole('button', { name: 'Traducir objetos al español' }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Traducidos 1 objetos' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Traducir objetos al español' })).toHaveCount(0);
+});

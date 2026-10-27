@@ -39,7 +39,7 @@ export interface MagicItem {
 }
 
 /** Objeto de la biblioteca (importado del libro del usuario): la plantilla de un objeto, sin estar puesto ni sintonizado. */
-export type LibItem = Omit<MagicItem, 'worn' | 'attuned'>;
+export type LibItem = Omit<MagicItem, 'worn' | 'attuned'> & { dEn?: string }; // dEn: el texto original en inglés, si se ha traducido
 
 /** Máximo de objetos sintonizados a la vez. */
 export const ATTUNE_MAX = 3;

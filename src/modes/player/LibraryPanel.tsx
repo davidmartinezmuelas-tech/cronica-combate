@@ -6,6 +6,7 @@ import Picker from '../../shared/Picker';
 import HomebrewPanel from './HomebrewPanel';
 import { NO_TEXT, NO_TEXT_HELP, readBook, readItemBook, type BookResult } from '../../store/bookReader';
 import { useLibrary } from '../../store/library';
+import { canTranslate, NO_TRANSLATOR, translateItems } from '../../store/translate';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 
@@ -33,6 +34,7 @@ export default function LibraryPanel() {
   const [progress, setProgress] = useState<[number, number] | null>(null);
   const [found, setFound] = useState<BookResult | null>(null);
   const [msg, setMsg] = useState('');
+  const [trans, setTrans] = useState<[number, number, number?] | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [renaming, setRenaming] = useState<number | null>(null);
   const cancel = useRef({ cancelled: false });
@@ -90,6 +92,19 @@ export default function LibraryPanel() {
     setProgress(null);
     if (dmgRef.current) dmgRef.current.value = '';
   };
+  // traduce el texto de los objetos con el traductor del navegador (en el dispositivo; hay que pedirlo con un clic)
+  const translateAll = async () => {
+    setMsg('');
+    cancel.current = { cancelled: false };
+    try {
+      const n = await translateItems(lib.items, (d, t, pct) => setTrans([d, t, pct]), (done) => {
+        const cur = useLibrary.getState().items;
+        void lib.save({ items: cur.map((x) => done.find((y) => y.id === x.id) || x) });
+      }, cancel.current);
+      setMsg(cancel.current.cancelled ? 'Traducción detenida: lo ya traducido queda guardado.' : n ? 'Traducidos ' + n + ' objetos. Es traducción automática: revisa los textos importantes. El original sigue guardado.' : 'No hay objetos por traducir.');
+    } catch (e) { setMsg((e as Error).message || 'No se pudo traducir.'); }
+    setTrans(null);
+  };
   const setBg = (i: number, patch: Partial<LibBackground>) => found && setFound({ ...found, backgrounds: found.backgrounds.map((b, j) => (j === i ? { ...b, ...patch } : b)) });
   const saveFound = () => {
     if (!found) return;
@@ -128,6 +143,7 @@ export default function LibraryPanel() {
         <div className="rollrow">
           <button className="btn small primary" disabled={!!progress} onClick={() => pdfRef.current?.click()}>Importar del Manual del Jugador (PDF)</button>
           <button className="btn small" disabled={!!progress} onClick={() => dmgRef.current?.click()}>Importar objetos de la Guía del DM (PDF)</button>
+          {lib.items.some((x) => !x.dEn) && <button className="btn small" disabled={!!progress || !!trans} title={canTranslate() ? 'Traduce en tu dispositivo, sin enviar nada' : NO_TRANSLATOR} onClick={() => void translateAll()}>Traducir objetos al español</button>}
           <button className="btn small" disabled={!total} onClick={exportFile}>Exportar biblioteca</button>
           <button className="btn small" onClick={() => jsonRef.current?.click()}>Cargar archivo de biblioteca</button>
           {total > 0 && <button className="btn small ghost" onClick={() => { if (confirmClear) { void lib.clear(); setConfirmClear(false); setMsg('Biblioteca vaciada.'); } else setConfirmClear(true); }}>{confirmClear ? '¿Seguro? Vaciar' : 'Vaciar'}</button>}
@@ -140,6 +156,12 @@ export default function LibraryPanel() {
             <span className="small">Leyendo el libro: página {progress[0]} de {progress[1]}…</span>
             <span className="hpbar"><span className="hpfill" style={{ width: Math.round((progress[0] / progress[1]) * 100) + '%' }} /></span>
             <button className="btn small ghost" style={{ alignSelf: 'flex-start' }} onClick={() => { cancel.current.cancelled = true; }}>Cancelar</button>
+          </div>
+        )}
+        {trans && (
+          <div className="sub" role="status">
+            <span className="small">{trans[1] === 1 && trans[0] === 0 ? 'Descargando el idioma' + (trans[2] != null ? ' (' + Math.round(trans[2] * 100) + '%)' : '') + '…' : 'Traduciendo: objeto ' + trans[0] + ' de ' + trans[1] + '…'}</span>
+            <button className="btn small ghost" style={{ alignSelf: 'flex-start' }} onClick={() => { cancel.current.cancelled = true; }}>Detener</button>
           </div>
         )}
         {msg && <p className="warn" role="status" style={{ margin: 0 }}>{msg}</p>}
