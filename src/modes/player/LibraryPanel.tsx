@@ -140,13 +140,17 @@ export default function LibraryPanel() {
           <div className="stat"><span className="stat-k">Conjuros</span><span className="stat-v">{lib.spells.length}</span></div>
           <div className="stat"><span className="stat-k">Objetos</span><span className="stat-v">{lib.items.length}</span></div>
         </div>
+        <h3 className="eyebrow">Importar de tus libros</h3>
         <div className="rollrow">
-          <button className="btn small primary" disabled={!!progress} onClick={() => pdfRef.current?.click()}>Importar del Manual del Jugador (PDF)</button>
+          <button className={'btn small' + (total === 0 ? ' primary' : '')} disabled={!!progress} onClick={() => pdfRef.current?.click()}>Importar del Manual del Jugador (PDF)</button>
           <button className="btn small" disabled={!!progress} onClick={() => dmgRef.current?.click()}>Importar objetos de la Guía del DM (PDF)</button>
           {lib.items.some((x) => !x.dEn && !x.es) && <button className="btn small" disabled={!!progress || !!trans} title={canTranslate() ? 'Traduce en tu dispositivo, sin enviar nada' : NO_TRANSLATOR} onClick={() => void translateAll()}>Traducir objetos al español</button>}
+        </div>
+        <h3 className="eyebrow">Copia de la biblioteca</h3>
+        <div className="rollrow">
           <button className="btn small" disabled={!total} onClick={exportFile}>Exportar biblioteca</button>
           <button className="btn small" onClick={() => jsonRef.current?.click()}>Cargar archivo de biblioteca</button>
-          {total > 0 && <button className="btn small ghost danger" onClick={() => { if (confirmClear) { void lib.clear(); setConfirmClear(false); setMsg('Biblioteca vaciada.'); } else setConfirmClear(true); }}>{confirmClear ? '¿Seguro? Vaciar' : 'Vaciar'}</button>}
+          {total > 0 && <button className="btn small ghost danger" style={{ marginLeft: 'auto' }} onClick={() => { if (confirmClear) { void lib.clear(); setConfirmClear(false); setMsg('Biblioteca vaciada.'); } else setConfirmClear(true); }}>{confirmClear ? '¿Seguro? Vaciar' : 'Vaciar'}</button>}
         </div>
         <input ref={pdfRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF del Manual del Jugador" onChange={(e) => void importPdf(e.target.files?.[0])} />
         <input ref={dmgRef} type="file" accept="application/pdf,.pdf" className="sr-only" aria-label="PDF de la Guía del Dungeon Master" onChange={(e) => void importDmg(e.target.files?.[0])} />

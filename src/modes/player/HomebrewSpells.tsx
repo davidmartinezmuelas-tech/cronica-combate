@@ -75,7 +75,7 @@ export default function HomebrewSpells() {
             ))}
           </ul>
         )}
-        <button className="btn small primary" style={{ alignSelf: 'flex-start' }} onClick={() => setD(blank())}>Crear conjuro</button>
+        <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setD(blank())}>Crear conjuro</button>
       </div>
     );
   }

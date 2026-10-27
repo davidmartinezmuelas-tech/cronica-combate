@@ -142,7 +142,7 @@ export default function HomebrewPanel() {
             ))}
           </ul>
         )}
-        <button className="btn small primary" style={{ alignSelf: 'flex-start' }} disabled={!classes.length} onClick={() => setDraft({ id: 'own-' + uid(), n: '', cls: classes[0]?.id || '', d: '', f: [], own: true })}>Crear subclase</button>
+        <button className="btn small" style={{ alignSelf: 'flex-start' }} disabled={!classes.length} onClick={() => setDraft({ id: 'own-' + uid(), n: '', cls: classes[0]?.id || '', d: '', f: [], own: true })}>Crear subclase</button>
         <HomebrewSpells />
       </div>
     );
