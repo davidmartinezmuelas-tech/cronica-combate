@@ -1,6 +1,6 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseFeats, parseSpells, parseSubclasses, type Line, type LibBackground, type LibFeat, type LibSpell, type LibSubclass, type TextItem } from '../engine/bookImport';
-import { parseItems } from '../engine/itemImport';
+import { parseItems, parseItemsEs } from '../engine/itemImport';
 import type { LibItem } from '../engine/magicItems';
 import { parseMonsters } from '../engine/monsterImport';
 import type { Monster, Spell } from '../data/types';
@@ -71,14 +71,15 @@ export async function readMonsterBook(file: Blob, spells: Record<string, Spell>,
 }
 
 /**
- * Lee el capítulo «Magic Items A–Z» de la Guía del Dungeon Master 2024 (en inglés) del usuario en su navegador y extrae
- * los objetos mágicos. Solo se lee ese capítulo: desde su primera página hasta la de «Random Magic Items».
+ * Lee la Guía del Dungeon Master 2024 del usuario (en inglés o en español) en su navegador y extrae los objetos mágicos.
+ * En inglés solo se lee el capítulo «Magic Items A–Z»: desde su primera página hasta la de «Random Magic Items».
  */
 export async function readItemBook(file: Blob, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<{ items: LibItem[]; pages: number }> {
   const pages: { text: string; lines: Line[] }[] = [];
   const n = await readPages(file, (items, width) => { pages.push({ text: items.map((x) => x.str).join(' '), lines: pageLines(items, width) }); }, onProgress, signal);
   const start = pages.findIndex((p) => /Magic Items A.Z/i.test(p.text) && /presented in alphabetical order/i.test(p.text));
-  if (start < 0) return { items: [], pages: n };
+  // sin el capítulo en inglés: la guía en español, que se lee entera (los objetos se reconocen por su título y su línea de tipo)
+  if (start < 0) return { items: parseItemsEs(pages.flatMap((p) => p.lines)), pages: n };
   let end = pages.findIndex((p, i) => i > start && /Random Magic Items/.test(p.text) && /Use the tables in this section/.test(p.text));
   if (end < 0) end = Math.min(pages.length, start + 140);
   return { items: parseItems(pages.slice(start, end).flatMap((p) => p.lines)), pages: n };

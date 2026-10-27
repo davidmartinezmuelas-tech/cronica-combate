@@ -29,7 +29,7 @@ export async function translateItems(items: LibItem[], onProgress: (done: number
   const pair = { sourceLanguage: 'en', targetLanguage: 'es' };
   if ((await T.availability(pair)) === 'unavailable') throw new Error('Tu navegador no tiene el par de idiomas inglés a español.');
   const tr = await T.create({ ...pair, monitor: (m) => m.addEventListener('downloadprogress', (e) => onProgress(0, 1, (e as unknown as { loaded: number }).loaded)) });
-  const todo = items.filter((i) => !i.dEn && i.d.trim());
+  const todo = items.filter((i) => !i.dEn && !i.es && i.d.trim());
   let batch: LibItem[] = [];
   try {
     for (let k = 0; k < todo.length; k++) {

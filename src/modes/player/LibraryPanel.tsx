@@ -78,7 +78,7 @@ export default function LibraryPanel() {
     cancel.current = { cancelled: false };
     try {
       const r = await readItemBook(f, (p, t) => setProgress([p, t]), cancel.current);
-      if (!r.items.length) setMsg('No se ha encontrado el capítulo «Magic Items A–Z». El importador está hecho para la Guía del Dungeon Master 2024 en inglés con texto (no un PDF de imágenes).');
+      if (!r.items.length) setMsg('No se han encontrado objetos mágicos. El importador está hecho para la Guía del Dungeon Master 2024, en español o en inglés, con texto (no un PDF de imágenes).');
       else {
         const merge = <T extends { id: string }>(a: T[], b: T[]) => [...a.filter((x) => !b.some((y) => y.id === x.id)), ...b];
         await lib.save({ items: merge(lib.items, r.items) });
@@ -132,7 +132,7 @@ export default function LibraryPanel() {
     <div className="pc">
       <div data-tour="library" className="panel">
         <div className="panel-head"><h2>Tu biblioteca</h2><span className="muted small">{lib.source || 'vacía'}</span></div>
-        <p className="muted small" style={{ margin: 0 }}>Aquí puedes añadir las dotes, los trasfondos y los conjuros de tu Manual del Jugador 2024 que no están en el SRD, y los objetos mágicos de tu Guía del Dungeon Master 2024 (en inglés). Se leen de tu PDF dentro de este navegador y se guardan solo en este dispositivo: no se suben a ningún sitio ni forman parte de la app. Si exportas el archivo para tu grupo, que sea para quien tenga el libro.</p>
+        <p className="muted small" style={{ margin: 0 }}>Aquí puedes añadir las dotes, los trasfondos y los conjuros de tu Manual del Jugador 2024 que no están en el SRD, y los objetos mágicos de tu Guía del Dungeon Master 2024 (en español o en inglés). Se leen de tu PDF dentro de este navegador y se guardan solo en este dispositivo: no se suben a ningún sitio ni forman parte de la app. Si exportas el archivo para tu grupo, que sea para quien tenga el libro.</p>
         <div className="pc-stats lib-stats">
           <div className="stat"><span className="stat-k">Subclases</span><span className="stat-v">{lib.subclasses.length}</span></div>
           <div className="stat"><span className="stat-k">Dotes</span><span className="stat-v">{lib.feats.length}</span></div>
@@ -143,7 +143,7 @@ export default function LibraryPanel() {
         <div className="rollrow">
           <button className="btn small primary" disabled={!!progress} onClick={() => pdfRef.current?.click()}>Importar del Manual del Jugador (PDF)</button>
           <button className="btn small" disabled={!!progress} onClick={() => dmgRef.current?.click()}>Importar objetos de la Guía del DM (PDF)</button>
-          {lib.items.some((x) => !x.dEn) && <button className="btn small" disabled={!!progress || !!trans} title={canTranslate() ? 'Traduce en tu dispositivo, sin enviar nada' : NO_TRANSLATOR} onClick={() => void translateAll()}>Traducir objetos al español</button>}
+          {lib.items.some((x) => !x.dEn && !x.es) && <button className="btn small" disabled={!!progress || !!trans} title={canTranslate() ? 'Traduce en tu dispositivo, sin enviar nada' : NO_TRANSLATOR} onClick={() => void translateAll()}>Traducir objetos al español</button>}
           <button className="btn small" disabled={!total} onClick={exportFile}>Exportar biblioteca</button>
           <button className="btn small" onClick={() => jsonRef.current?.click()}>Cargar archivo de biblioteca</button>
           {total > 0 && <button className="btn small ghost" onClick={() => { if (confirmClear) { void lib.clear(); setConfirmClear(false); setMsg('Biblioteca vaciada.'); } else setConfirmClear(true); }}>{confirmClear ? '¿Seguro? Vaciar' : 'Vaciar'}</button>}
