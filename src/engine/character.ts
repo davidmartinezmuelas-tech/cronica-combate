@@ -257,6 +257,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   // conjuros activos sobre el personaje (los de concentración, solo mientras dura)
   const effects = liveEffects(c.active, c.conds);
   for (const e of effects) for (const a of e.fx.saveAdv || []) if (!saves[a].adv) saves[a] = { ...saves[a], adv: e.n };
+  for (const e of effects) if (e.fx.saves) for (const a of ABILS) saves[a] = { ...saves[a], bonus: saves[a].bonus + e.fx.saves, why: [saves[a].why, e.n + ' ' + (e.fx.saves > 0 ? '+' : '') + e.fx.saves].filter(Boolean).join(', ') };
   // Aprendiz de todo: la mitad de la competencia (hacia abajo) en las pruebas sin competencia
   const half = cfx.halfProf ? Math.floor(pb / 2) : 0;
   const checks = Object.fromEntries(ABILS.map((a) => [a, { bonus: mods[a] + half + ifx.checks, ...(cfx.checkAdv[a] ? { adv: cfx.checkAdv[a] } : {}) }])) as Derived['checks'];
@@ -268,6 +269,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     const adv = cfx.skillAdv[k] || cfx.checkAdv[ab as Abil];
     return [k, { bonus: mods[ab] + (prof ? pb * (exp ? 2 : 1) : half) + ifx.checks, prof, exp, abil: ab, ...(adv ? { adv } : {}), ...(prof && cfx.reliable ? { min10: true } : {}) }];
   })) as Derived['skills'];
+  for (const e of effects) for (const [k, v] of Object.entries(e.fx.skills || {})) if (skills[k]) skills[k] = { ...skills[k], bonus: skills[k].bonus + v };
 
   // CA: armadura (con el límite de Destreza), defensa sin armadura del bárbaro o del monje, o 10 + Destreza
   let ac = 10 + mods.dex;

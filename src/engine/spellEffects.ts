@@ -15,6 +15,8 @@ export interface SpellFx {
   speed?: { add?: number; mul?: number };
   resist?: string[];
   saveAdv?: Abil[];
+  saves?: number; // bonificador fijo a todas las salvaciones
+  skills?: Record<string, number>; // bonificador a habilidades (clave de la hoja: ste, prc…)
   bless?: boolean; // +1d4 a ataques y salvaciones
   cond?: string; // estado que pone (de la lista de estados)
   instant?: boolean; // solo el efecto al lanzarlo (no queda activo)
@@ -50,6 +52,31 @@ const FX: { keys: string[]; fx: SpellFx }[] = [
   { keys: ['Spider Climb', 'trepar cual aracnido'], fx: { note: 'velocidad de trepar igual a tu velocidad, también boca abajo' } },
   { keys: ['Water Walk', 'caminar sobre el agua'], fx: { note: 'caminas sobre líquidos' } },
   { keys: ['Jump', 'salto'], fx: { note: 'tus saltos llegan el triple de lejos' } },
+  { keys: ['Aura of Life', 'aura de vida'], fx: { resist: ['necrótico'], note: 'tú y tus aliados en el aura (30 pies) tenéis resistencia al daño necrótico y vuestros PG máximos no bajan; quien tenga 0 PG recupera 1 al empezar su turno' } },
+  { keys: ['Holy Aura', 'aura sagrada'], fx: { saveAdv: ['str', 'dex', 'con', 'int', 'wis', 'cha'], note: 'ventaja en todas las salvaciones; los ataques contra ti tienen desventaja; los infernales y muertos vivientes que te golpeen quedan cegados' } },
+  { keys: ['Beacon of Hope', 'senal de esperanza'], fx: { saveAdv: ['wis'], note: 'ventaja en salvaciones de Sabiduría y contra la muerte; las curaciones que recibas dan el máximo posible' } },
+  { keys: ['Gaseous Form', 'forma gaseosa'], fx: { resist: ['contundente', 'cortante', 'perforante'], note: 'te vuelves gas: resistencia al daño físico no mágico, vuelo de 10 pies y puedes pasar por rendijas; no puedes hablar ni lanzar conjuros con componentes' } },
+  { keys: ['Mind Blank', 'mente en blanco'], fx: { resist: ['psíquico'], note: 'inmune al daño psíquico, a la adivinación y a que lean tu mente; dura 24 horas' } },
+  { keys: ['Protection from Poison', 'proteccion contra veneno'], fx: { resist: ['veneno'], note: 'resistencia al daño de veneno y ventaja en salvaciones contra ser envenenado; se acaba el veneno que sufrieras' } },
+  { keys: ['Warding Bond', 'vinculo protector'], fx: { ac: { add: 1 }, saves: 1, note: '+1 a la CA y a las salvaciones y resistencia a todo el daño mientras estés a 60 pies de quien lo lanzó, que sufre el mismo daño que tú' } },
+  { keys: ['Pass without Trace', 'pasar sin rastro'], fx: { skills: { ste: 10 }, note: '+10 a las pruebas de Sigilo para ti y los que estén a 30 pies; no os pueden rastrear sin magia' } },
+  { keys: ['Foresight', 'presciencia'], fx: { saveAdv: ['str', 'dex', 'con', 'int', 'wis', 'cha'], note: 'ventaja en ataques, pruebas y salvaciones; los ataques contra ti tienen desventaja; dura 8 horas' } },
+  { keys: ['Enhance Ability', 'potenciar caracteristica'], fx: { note: 'ventaja en las pruebas de una característica a elegir al lanzarlo, con un extra según la elegida' } },
+  { keys: ['Enlarge/Reduce', 'agrandar/reducir'], fx: { note: 'Agrandar: tamaño superior, ventaja en pruebas y salvaciones de Fuerza y +1d4 al daño con armas; Reducir: lo contrario, −1d4 al daño' } },
+  { keys: ['Alter Self', 'alterar el propio aspecto'], fx: { self: true, note: 'una de tres: respirar bajo el agua y nadar, cambiar tu aspecto o armas naturales (1d6, mágicas)' } },
+  { keys: ['Protection from Energy', 'proteccion contra energia'], fx: { note: 'resistencia a un tipo de daño a elegir: ácido, frío, fuego, relámpago o trueno' } },
+  { keys: ['Antilife Shell', 'caparazon antivida'], fx: { self: true, note: 'barrera de 10 pies: las criaturas (salvo constructos y muertos vivientes) no pueden atravesarla' } },
+  { keys: ['Globe of Invulnerability', 'globo de invulnerabilidad'], fx: { self: true, note: 'los conjuros de nivel 5 o menos no afectan a nadie dentro de la esfera de 10 pies' } },
+  { keys: ['Antimagic Field', 'campo antimagia'], fx: { self: true, note: 'emanación de 10 pies: sin conjuros ni objetos mágicos ni efectos mágicos dentro' } },
+  { keys: ['Spirit Guardians', 'espiritus guardianes'], fx: { self: true, note: 'emanación de 15 pies: tu terreno difícil para los enemigos, que sufren daño al entrar o empezar el turno ahí (salvación de Sabiduría)' } },
+  { keys: ['Blink', 'desplazamiento'], fx: { self: true, note: 'al final de cada uno de tus turnos tiras 1d6: con 4 o más desapareces al Plano Etéreo y vuelves al empezar tu siguiente turno' } },
+  { keys: ['Guidance', 'guia'], fx: { note: '+1d4 a una prueba de característica que haga durante el conjuro (una vez)' } },
+  { keys: ['Resistance', 'resistencia'], fx: { note: '+1d4 a una tirada de salvación que haga durante el conjuro (una vez)' } },
+  { keys: ['Magic Weapon', 'arma magica'], fx: { note: 'el arma tocada es mágica y da +1 al ataque y al daño (+2 con espacio de nivel 4, +3 con nivel 6)' } },
+  { keys: ['Regenerate', 'regenerar'], fx: { note: 'curación inmediata 4d8+15 y +1 PG al empezar cada turno; recupera miembros perdidos' } },
+  { keys: ['Disguise Self', 'disfrazarse'], fx: { self: true, note: 'cambias tu aspecto durante 1 hora; una inspección física o una prueba de Investigación lo descubre' } },
+  { keys: ['Etherealness', 'excursion etérea'], fx: { self: true, note: 'estás en el Plano Etéreo hasta 8 horas; no ves ni te ven desde el Plano Material' } },
+  { keys: ['Glibness', 'labia'], fx: { self: true, note: 'mínimo 15 en las pruebas de Carisma; la magia no detecta que mientes' } },
 ];
 
 /**
