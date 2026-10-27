@@ -1073,7 +1073,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       ))}
       <FeatPanel c={c} d={d} set={set} />
       <MetamagicPanel c={c} data={data} set={set} />
-      <MagicItemsPanel c={c} set={set} spells={spellIdx.list} />
+      <MagicItemsPanel c={c} set={set} spells={spellIdx.list} readOnly={readOnly} />
       {usable.length > 0 && (
         <section className="panel" aria-label="Rasgos con usos">
           <h3 className="eyebrow">Rasgos con usos</h3>

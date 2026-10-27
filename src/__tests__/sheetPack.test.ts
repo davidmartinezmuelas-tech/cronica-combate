@@ -22,6 +22,16 @@ describe('la hoja que el jugador manda a la sala', () => {
     expect(JSON.stringify(p)).not.toContain('derechos');
   });
 
+  it('los objetos mágicos del libro salen sin texto ni traducción y los propios, enteros', () => {
+    const base = { n: 'x', kind: 'ring' as const, rarity: 'raro', attune: true, attuned: true, worn: true, mods: [{ k: 'ac' as const, v: 1 }] };
+    const c = { ...blankCharacter(), name: 'Ana', magicItems: [{ ...base, id: 'mi-1', n: 'Del libro', d: 'Texto con derechos.', dEn: 'English text', book: true }, { ...base, id: 'mi-2', n: 'Mío', d: 'Lo escribí yo.' }] };
+    const p = buildPack(c, null, { subclasses: [], spells: [], backgrounds: [], feats: [] }, []);
+    expect(p.char.magicItems![0]).toMatchObject({ n: 'Del libro', d: '', mods: [{ k: 'ac', v: 1 }] });
+    expect(JSON.stringify(p)).not.toContain('derechos');
+    expect(JSON.stringify(p)).not.toContain('English text');
+    expect(p.char.magicItems![1].d).toBe('Lo escribí yo.');
+  });
+
   it('en el máster, lo que llega de paso no se guarda ni se exporta y se va al quitarlo', async () => {
     await useLibrary.getState().init();
     await useLibrary.getState().save({ subclasses: [], spells: [] });

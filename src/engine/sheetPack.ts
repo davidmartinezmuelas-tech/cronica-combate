@@ -47,5 +47,7 @@ export function buildPack(c: Character, data: PlayerData | null, lib: Lib, spell
   });
   const bgs = lib.backgrounds.filter((b) => b.id === c.backgroundId).map((b) => ({ ...b, d: '', equip: '' }));
   const feats = lib.feats.filter((f) => c.feats.includes(f.n)).map((f) => ({ ...f, d: '' }));
-  return { char: { ...c, notes: '' }, subs, spells, bgs, feats };
+  // objetos mágicos: los del libro, solo con sus números (efectos, cargas, tirada), sin el texto ni su traducción
+  const magicItems = c.magicItems?.map((i) => (i.book ? { ...i, d: '', dEn: undefined } : i));
+  return { char: { ...c, notes: '', ...(magicItems ? { magicItems } : {}) }, subs, spells, bgs, feats };
 }

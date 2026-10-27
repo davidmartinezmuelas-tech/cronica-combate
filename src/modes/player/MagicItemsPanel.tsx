@@ -29,7 +29,7 @@ function ItemForm({ item, isNew, lib, weapons, spells, onSave, onClose }: { item
     <InfoDialog title={item.n ? 'Editar ' + item.n : 'Objeto mágico'} onClose={onClose}>
       {isNew && (
         <div className="field"><label htmlFor="mi-from">Partir de un objeto</label>
-          <select id="mi-from" className="input" value="" onChange={(e) => { const v = e.target.value; const p = v.startsWith('lib:') ? lib.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setIt({ ...blank(), ...p, id: it.id, mods: p.mods.map((m) => ({ ...m })) }); }}>
+          <select id="mi-from" className="input" value="" onChange={(e) => { const v = e.target.value; const p = v.startsWith('lib:') ? lib.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setIt({ ...blank(), ...p, id: it.id, mods: p.mods.map((m) => ({ ...m })), ...(v.startsWith('lib:') ? { book: true } : {}) }); }}>
             <option value="">Ejemplos y tu biblioteca…</option>
             {ITEM_PRESETS.map((p, i) => <option key={p.n} value={i}>{p.n}</option>)}
             {lib.length > 0 && <optgroup label="De tu biblioteca">{lib.map((x) => <option key={x.id} value={'lib:' + x.id}>{x.n}</option>)}</optgroup>}
@@ -108,7 +108,7 @@ function ItemForm({ item, isNew, lib, weapons, spells, onSave, onClose }: { item
 }
 
 /** Objetos mágicos del personaje: puestos y sintonizados cambian solos la CA, las salvaciones, las características y demás. */
-export default function MagicItemsPanel({ c, set, spells }: { c: Character; set: (patch: Partial<Character>) => void; spells: SpellOpt[] }) {
+export default function MagicItemsPanel({ c, set, spells, readOnly = false }: { c: Character; set: (patch: Partial<Character>) => void; spells: SpellOpt[]; readOnly?: boolean }) {
   const libItems = useLibrary((s) => s.items);
   const items = c.magicItems || [];
   const [form, setForm] = useState<MagicItem | null>(null);
@@ -125,23 +125,24 @@ export default function MagicItemsPanel({ c, set, spells }: { c: Character; set:
     set({ uses: { ...c.uses, [itemKey(i)]: used + 1 } });
     if (i.roll) useStore.getState().roll({ label: who + ' · ' + i.n, kind: 'free', who, parts: [{ expr: i.roll }] });
   };
+  if (readOnly && !items.length) return null;
   return (
     <section className="panel" aria-label="Objetos mágicos" data-sec="rasgos">
       <div className="panel-head">
         <h3 className="eyebrow">Objetos mágicos</h3>
         <span className={att > ATTUNE_MAX ? 'chip-tag warn' : 'chip-tag'} title="Un personaje solo puede estar sintonizado con tres objetos a la vez">Sintonía {att}/{ATTUNE_MAX}</span>
       </div>
-      <div className="rollrow">
-        <select className="input" style={{ maxWidth: 260 }} aria-label="Objeto de ejemplo" value={preset} onChange={(e) => { setPreset(''); const v = e.target.value; const p = v.startsWith('lib:') ? libItems.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setForm({ ...blank(), ...p, id: 'mi-' + uid(), mods: p.mods.map((m) => ({ ...m })) }); }}>
+      {!readOnly && <div className="rollrow">
+        <select className="input" style={{ maxWidth: 260 }} aria-label="Objeto de ejemplo" value={preset} onChange={(e) => { setPreset(''); const v = e.target.value; const p = v.startsWith('lib:') ? libItems.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setForm({ ...blank(), ...p, id: 'mi-' + uid(), mods: p.mods.map((m) => ({ ...m })), ...(v.startsWith('lib:') ? { book: true } : {}) }); }}>
           <option value="">Ejemplos…</option>
           {ITEM_PRESETS.map((p, i) => <option key={p.n} value={i}>{p.n}</option>)}
           {libItems.length > 0 && <optgroup label="De tu biblioteca">{libItems.map((x) => <option key={x.id} value={'lib:' + x.id}>{x.n}</option>)}</optgroup>}
         </select>
         <button className="btn small" onClick={() => setForm(blank())}>+ Objeto</button>
-      </div>
+      </div>}
       {fixed.length > 0 && <p className="warn small" role="status" style={{ margin: 0 }}>Tienes {fixed.join(', ')} fijado(s) a mano en «Editar hoja»: los objetos no lo cambian. Quita el valor fijado para que se sume solo.</p>}
       {att > ATTUNE_MAX && <p className="warn small" role="status" style={{ margin: 0 }}>Estás sintonizado con más de tres objetos: las reglas no lo permiten.</p>}
-      {items.length === 0 && <p className="muted small" style={{ margin: 0 }}>Añade un objeto a mano o parte de un ejemplo: sus efectos (CA, salvaciones, características…) se suman solos mientras esté puesto y sintonizado.</p>}
+      {items.length === 0 && !readOnly && <p className="muted small" style={{ margin: 0 }}>Añade un objeto a mano o parte de un ejemplo: sus efectos (CA, salvaciones, características…) se suman solos mientras esté puesto y sintonizado.</p>}
       <ul className="pc-features grid acts">
         {items.map((i) => {
           const used = i.charges ? Math.min(i.charges.max, c.uses[itemKey(i)] || 0) : 0;
@@ -152,19 +153,19 @@ export default function MagicItemsPanel({ c, set, spells }: { c: Character; set:
                 <span className="muted small">{KIND_LABEL[i.kind]} · {i.rarity}{i.attune ? ' · sintonía' : ''}</span>
                 {i.mods.length > 0 && <span className="chip-tag" style={on ? undefined : { opacity: 0.55 }}>{i.mods.map(modText).join(' · ')}</span>}
                 <span className="rollrow">
-                  <label className="check small"><input type="checkbox" checked={i.worn} aria-label={'Puesto: ' + i.n} onChange={(e) => upd(i.id, { worn: e.target.checked })} /> Puesto</label>
-                  {i.attune && <label className="check small"><input type="checkbox" checked={i.attuned} disabled={!i.attuned && att >= ATTUNE_MAX} aria-label={'Sintonizado: ' + i.n} onChange={(e) => upd(i.id, { attuned: e.target.checked })} /> Sintonizado</label>}
+                  <label className="check small"><input type="checkbox" checked={i.worn} disabled={readOnly} aria-label={'Puesto: ' + i.n} onChange={(e) => upd(i.id, { worn: e.target.checked })} /> Puesto</label>
+                  {i.attune && <label className="check small"><input type="checkbox" checked={i.attuned} disabled={readOnly || (!i.attuned && att >= ATTUNE_MAX)} aria-label={'Sintonizado: ' + i.n} onChange={(e) => upd(i.id, { attuned: e.target.checked })} /> Sintonizado</label>}
                 </span>
                 {i.charges && (
                   <span className="rollrow">
                     <Pips max={i.charges.max} used={used} label={'Cargas de ' + i.n} onSet={(v) => set({ uses: { ...c.uses, [itemKey(i)]: Math.max(0, Math.min(i.charges!.max, v)) } })} />
-                    <button className="btn small" disabled={used >= i.charges.max} onClick={() => useCharge(i)}>{i.roll ? 'Usar: tirar ' + i.roll : 'Usar (gasta una carga)'}</button>
+                    <button className="btn small" disabled={readOnly || used >= i.charges.max} onClick={() => useCharge(i)}>{i.roll ? 'Usar: tirar ' + i.roll : 'Usar (gasta una carga)'}</button>
                   </span>
                 )}
-                <span className="rollrow">
+                {!readOnly && <span className="rollrow">
                   <button className="btn small ghost" onClick={() => setForm(i)}>Editar</button>
                   <button className="btn small ghost" onClick={() => save(items.filter((x) => x.id !== i.id))}>Quitar</button>
-                </span>
+                </span>}
               </>}>
                 {i.d && <p className="pc-text">{plainText(i.d)}</p>}
                 {i.charges && <p className="muted small">{i.charges.per === 'lr' ? 'Se recuperan en descanso largo.' : i.charges.per === 'sr' ? 'Se recuperan en descanso corto.' : 'No se recuperan.'}</p>}

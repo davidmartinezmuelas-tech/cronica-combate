@@ -35,6 +35,7 @@ export interface MagicItem {
   charges?: { max: number; per: 'lr' | 'sr' | '' }; // cargas o usos; '' = no se recargan (una poción)
   roll?: string; // lo que tira al usarlo (2d4+2): se gasta una carga
   weapon?: string; // id del arma de la hoja a la que ligan los efectos del arma (wBonus, wExtra)
+  book?: boolean; // viene del libro del usuario (biblioteca): su texto no sale del dispositivo
   spells?: { id: string; cost: number }[]; // conjuros que lanza el objeto: cada lanzamiento gasta `cost` cargas
 }
 
