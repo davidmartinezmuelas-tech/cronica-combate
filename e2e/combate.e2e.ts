@@ -2736,3 +2736,27 @@ test('grupo: el formulario de jugador nuevo va plegado y se abre y se cierra con
   await page.getByRole('button', { name: 'Cancelar' }).click();
   await expect(page.getByLabel('Personaje', { exact: true })).toHaveCount(0);
 });
+
+test('guion: «Añadir encuentro» escribe el bloque en la línea del cursor y guarda el encuentro con su botón de combate', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByLabel('Subir guion (.txt o .md)').setInputFiles({ name: 'sesion2.txt', mimeType: 'text/plain', buffer: Buffer.from(['Primera escena.', 'Segunda escena.'].join('\n'), 'utf8') });
+  await page.getByRole('button', { name: 'Editar', exact: true }).click();
+  const area = page.getByLabel('Texto del guion');
+  // cursor al final de la primera línea
+  await area.evaluate((el: HTMLTextAreaElement) => { el.focus(); el.setSelectionRange(15, 15); });
+  await page.getByRole('button', { name: 'Añadir encuentro' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Añadir encuentro al guion' });
+  await expect(dlg.getByRole('button', { name: 'Insertar en el guion' })).toBeDisabled();
+  await dlg.getByLabel('Nombre del encuentro').fill('Emboscada del puente');
+  await dlg.getByLabel('Añadir criatura').fill('guerrero goblin');
+  await dlg.getByRole('button', { name: 'Añadir Guerrero goblin' }).click();
+  await dlg.getByRole('button', { name: 'Una más de Guerrero goblin' }).click();
+  await dlg.getByRole('button', { name: 'Insertar en el guion' }).click();
+  await expect(area).toHaveValue(/^Primera escena\.\n\n```encuentro\nformato: 1\nnombre: Emboscada del puente\nguarida: no\n- 2 x Guerrero goblin\n```\n\nSegunda escena\.$/);
+  // el encuentro ya está guardado: el botón de combate sale en la lista y en el texto
+  await page.getByRole('button', { name: 'Leer', exact: true }).click();
+  await expect(page.locator('.script-combat-btn', { hasText: 'Emboscada del puente' })).toBeVisible();
+  await page.getByRole('button', { name: 'Ir al combate: Emboscada del puente' }).click();
+  await expect(page.locator('.init-row')).toHaveCount(2);
+});

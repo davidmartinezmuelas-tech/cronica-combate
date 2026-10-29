@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Encounter } from '../../data/types';
 import { findDice, linkEncounters, parseMarkdown, type Block, type Inline } from '../../engine/script';
 import { extractBlocks, type ImportPlan } from '../../engine/scriptBlocks';
@@ -6,6 +6,7 @@ import { InfoDialog } from '../../shared/Card';
 import PagedColumns from '../../shared/PagedColumns';
 import { D20Icon } from '../../shared/Icons';
 import { useStore } from '../../store/useStore';
+import EncounterInsert from './EncounterInsert';
 
 /** Texto con tiradas: «2d10 fuego» o «1d20+5» son botones que tiran en la mesa de dados, como los ataques. */
 function Dice({ text }: { text: string }) {
@@ -117,6 +118,9 @@ export default function ScriptView() {
   const script = scripts.find((x) => x.id === scriptId) || scripts[0] || null;
   const [edit, setEdit] = useState(false);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const [adding, setAdding] = useState(false);
+  const area = useRef<HTMLTextAreaElement>(null);
+  const caret = useRef(0); // dónde estaba el cursor al abrir el formulario de encuentro
   // dos columnas como en un libro (se recuerda en este dispositivo)
   const [cols2, setCols2] = useState(() => { try { return localStorage.getItem('cronica-guion-columnas') === '2'; } catch { return false; } });
   const toggleCols = () => { const v = !cols2; setCols2(v); try { localStorage.setItem('cronica-guion-columnas', v ? '2' : '1'); } catch { /* nada */ } };
@@ -124,6 +128,20 @@ export default function ScriptView() {
   // al cambiar de guion: vacío = a escribir; con texto = a leer
   useEffect(() => { setEdit(!!script && !script.text.trim()); }, [script?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const blocks = useMemo(() => parseMarkdown(script?.text || ''), [script?.text]);
+
+  /** Escribe el bloque en el cursor (con línea en blanco alrededor) y guarda ya ese encuentro, para que su botón de combate aparezca ahí. */
+  const insertBlock = (block: string) => {
+    if (!script) return;
+    const at = Math.min(caret.current, script.text.length);
+    const before = script.text.slice(0, at), after = script.text.slice(at);
+    // una línea en blanco a cada lado del bloque (sin duplicar las que ya haya)
+    const blanks = (s: string, end: boolean) => (end ? /\n\n$/.test(s) : /^\n\n/.test(s)) ? '' : (end ? /\n$/.test(s) : /^\n/.test(s)) ? '\n' : '\n\n';
+    const pre = before ? blanks(before, true) : '';
+    const post = after ? blanks(after, false) : '\n';
+    patchScript(script.id, { text: before + pre + block + post + after });
+    const { planScriptBlocks, applyScriptBlocks } = useStore.getState();
+    applyScriptBlocks(planScriptBlocks(block));
+  };
 
   if (!script) {
     return (
@@ -140,13 +158,14 @@ export default function ScriptView() {
         <input className="input" aria-label="Título del guion" style={{ flex: '0 1 340px', minWidth: 160, fontWeight: 700 }} value={script.title} onChange={(e) => patchScript(script.id, { title: e.target.value })} />
         <div className="rollrow">
           {nBlocks > 0 && <button className="btn small gold" title="Crea las criaturas y los encuentros de los bloques del guion" onClick={() => setPlan(useStore.getState().planScriptBlocks(script.text))}>Cargar combates del guion</button>}
+          {edit && <button className="btn small gold" title="Escribe un bloque de encuentro en el punto del texto donde está el cursor" onClick={() => { caret.current = area.current?.selectionStart ?? script.text.length; setAdding(true); }}>Añadir encuentro</button>}
           {!edit && <button className="btn small ghost" aria-pressed={cols2} title="Leer en dos columnas pasando páginas, como un libro" onClick={toggleCols}>{cols2 ? 'Una columna' : 'Dos columnas'}</button>}
           <button className="btn small" onClick={() => setEdit(!edit)}>{edit ? 'Leer' : 'Editar'}</button>
           <button className="btn small ghost danger" onClick={() => deleteScript(script.id)}>{confirmKey === 'script-' + script.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
         </div>
       </div>
       {edit ? (
-        <textarea className="input" aria-label="Texto del guion" rows={22} style={{ minHeight: 360, lineHeight: 1.5 }} value={script.text} placeholder="Escribe o pega aquí tu guion. Admite Markdown (# títulos, **negrita**, - listas). El nombre de un encuentro guardado se convierte en un botón."
+        <textarea ref={area} className="input" aria-label="Texto del guion" rows={22} style={{ minHeight: 360, lineHeight: 1.5 }} value={script.text} placeholder="Escribe o pega aquí tu guion. Admite Markdown (# títulos, **negrita**, - listas). El nombre de un encuentro guardado se convierte en un botón."
           onChange={(e) => patchScript(script.id, { text: e.target.value })} />
       ) : (
         <>
@@ -156,6 +175,7 @@ export default function ScriptView() {
           {!encounters.length && <p className="muted small" style={{ margin: 0 }}>Aún no tienes encuentros guardados. Prepáralos en <button className="linkbtn" onClick={() => set({ tab: 'combat' })}>Combate</button> con «Guardar encuentro» y escribe su nombre en el guion.</p>}
         </>
       )}
+      {adding && <EncounterInsert onClose={() => setAdding(false)} onInsert={(block) => insertBlock(block)} />}
       {plan && <PlanDialog plan={plan} onApply={() => useStore.getState().applyScriptBlocks(plan)} onClose={() => setPlan(null)} />}
     </div>
   );
