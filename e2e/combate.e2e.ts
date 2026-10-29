@@ -26,11 +26,12 @@ async function addMonsters(page: Page, search: string, name: string, qty: number
 
 async function addPlayer(page: Page, name: string, init: string) {
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo jugador' }).click();
   await page.getByLabel('Personaje').fill(name);
   await page.getByLabel('Nivel total').fill('5');
   await page.getByLabel('PG máx.').fill('40');
   await page.getByRole('button', { name: 'Guardar jugador' }).click();
-  await page.locator('li.beast', { hasText: name }).getByRole('button', { name: 'Al combate' }).click();
+  await page.locator('li.roster-card', { hasText: name }).getByRole('button', { name: 'Al combate' }).click();
   await page.getByRole('button', { name: 'Combate', exact: true }).click();
   await page.getByLabel('Iniciativa de ' + name).fill(init);
   await page.getByLabel('Iniciativa de ' + name).press('Enter');
@@ -293,6 +294,7 @@ function formPdf(fields: Record<string, string>) {
 test('fichas del grupo: los datos de una hoja rellenable se copian solo tras confirmarlos', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo jugador' }).click();
   await page.getByLabel('Personaje').fill('Draxx');
   await page.getByLabel('PG máx.').fill('20');
   await page.getByRole('button', { name: 'Guardar jugador' }).click();
@@ -332,6 +334,7 @@ test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en
   test.slow();
   await open(page);
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo jugador' }).click();
   await page.getByLabel('Personaje').fill('Jimena');
   await page.getByRole('button', { name: 'Guardar jugador' }).click();
   const head = page.locator('.pc-sheet-head', { hasText: 'Jimena' });
@@ -435,6 +438,7 @@ test('generador de encuentro: propone monstruos de la dificultad elegida y los a
   await open(page);
   await page.getByRole('button', { name: 'Grupo', exact: true }).click();
   for (const n of ['Aria', 'Bram', 'Cora']) {
+    await page.getByRole('button', { name: 'Nuevo jugador' }).click();
     await page.getByLabel('Personaje').fill(n);
     await page.getByLabel('Nivel total').fill('3');
     await page.getByRole('button', { name: 'Guardar jugador' }).click();
@@ -2720,4 +2724,15 @@ test('iniciativa a mano: botones subir/bajar y arrastrar cambian el orden, y Ord
   await expect.poll(names).toEqual(['Beto', 'Ana', 'Cris']);
   await page.getByRole('button', { name: 'Orden automático' }).click();
   await expect.poll(names).toEqual(['Ana', 'Beto', 'Cris']);
+});
+
+test('grupo: el formulario de jugador nuevo va plegado y se abre y se cierra con su botón', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Grupo', exact: true }).click();
+  await expect(page.getByLabel('Personaje', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Nuevo jugador' }).click();
+  await expect(page.getByLabel('Personaje', { exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Subir hoja PDF' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.getByLabel('Personaje', { exact: true })).toHaveCount(0);
 });

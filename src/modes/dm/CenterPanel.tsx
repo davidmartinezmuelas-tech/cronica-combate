@@ -169,10 +169,10 @@ export default function CenterPanel() {
   const forgeM = useMemo(() => (tab === 'forge' ? forgeToMonster(forge, 'preview', spells) : null), [tab, forge, spells]);
 
   const isCombat = tab === 'combat';
-  let sheet: { m: NonNullable<typeof viewM>; label: string; c: typeof sel } | null = null;
-  if (isCombat && sel && sel.kind === 'monster' && selM) sheet = { m: selM, label: 'Hoja de ' + sel.name, c: sel };
-  else if (tab === 'bestiary' && viewM) sheet = { m: viewM, label: viewM.custom ? 'Bestiario · creación propia' : viewM.id.startsWith('mm-') ? 'Bestiario · tu Manual de Monstruos' : 'Bestiario · SRD 5.2.1', c: null };
-  else if (tab === 'forge' && forgeM) sheet = { m: forgeM, label: 'Vista previa en vivo', c: null };
+  let sheet: { m: NonNullable<typeof viewM>; c: typeof sel } | null = null;
+  if (isCombat && sel && sel.kind === 'monster' && selM) sheet = { m: selM, c: sel };
+  else if (tab === 'bestiary' && viewM) sheet = { m: viewM, c: null };
+  else if (tab === 'forge' && forgeM) sheet = { m: forgeM, c: null };
 
   // un jugador de la sala: su hoja entera (la que manda desde su dispositivo), en lugar de nada
   const roomUid = useStore((s) => (isCombat && sel?.kind === 'pc' && sel.rosterId ? s.roster.find((r) => r.id === sel.rosterId)?.roomUid : undefined));
@@ -205,7 +205,6 @@ export default function CenterPanel() {
         )}
         {sheet && (
           <div className="sheet-col">
-            <span className="eyebrow">{sheet.label}</span>
             <StatBlock m={sheet.m} c={sheet.c} />
             <SpellCard />
           </div>

@@ -134,12 +134,13 @@ function Sheet({ r, inCombat, open, onToggle, onZoom }: { r: RosterEntry; inComb
     <li className={open ? 'pc-sheet open' : 'pc-sheet'}>
       <button className="pc-sheet-head" aria-expanded={open} aria-controls={id} onClick={onToggle}>
         <span className="pc-sheet-chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
+        <span className="pc-sheet-medal" aria-hidden="true">{(r.name.trim()[0] || '?').toUpperCase()}</span>
         <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
           <span className="pc-sheet-name">{r.name}{inCombat && <span className="tag">En combate</span>}{r.pdf && <span className="tag pdf">PDF</span>}</span>
           <span className="pc-sheet-sub">{[r.cls, 'Nivel ' + (r.level || 1), r.player ? 'Jugador: ' + r.player : ''].filter(Boolean).join(' · ')}</span>
         </span>
         <span className="pc-sheet-stats">
-          <span><b>CA</b> {r.ac || '—'}</span><span><b>PG</b> {r.hp || '—'}</span><span><b>Ini</b> {fmt(parseInt(r.initb, 10) || 0)}</span>
+          <span><b>CA</b>{r.ac || '—'}</span><span><b>PG</b>{r.hp || '—'}</span><span><b>Ini</b>{fmt(parseInt(r.initb, 10) || 0)}</span>
         </span>
       </button>
       {open && (

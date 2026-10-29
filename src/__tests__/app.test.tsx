@@ -43,6 +43,7 @@ describe('flujo completo de un combate', { timeout: 30000 }, () => {
 
     // 3. Jugador guardado
     fireEvent.click(screen.getByRole('button', { name: 'Grupo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Nuevo jugador' }));
     fireEvent.change(screen.getByLabelText('Personaje'), { target: { value: 'Jimena' } });
     fireEvent.change(screen.getByLabelText('Nivel total'), { target: { value: '8' } });
     fireEvent.change(screen.getByLabelText('PG máx.'), { target: { value: '60' } });

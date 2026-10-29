@@ -1420,3 +1420,39 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .init-move-btn { background: transparent; border: 1px solid #4b4138; color: var(--text-2); border-radius: 4px; font-size: 9px; line-height: 1; padding: 3px 5px; cursor: pointer; }
 .init-move-btn:hover:not(:disabled) { color: var(--text, #eee); border-color: var(--gold, #d4a24c); }
 .init-move-btn:disabled { opacity: .3; cursor: default; }
+
+/* grupo: fichas premium en la columna oscura y formulario plegado */
+.roster-cards{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.roster-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,var(--surface-dim),var(--bg));box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+.roster-card.editing{border-color:var(--gold)}
+.roster-medal{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:2px solid var(--gold);color:var(--gold-hi);font-family:'IM Fell English SC',Georgia,serif;font-size:22px;background:radial-gradient(circle at 30% 30%,#4a3f34,#2a2420)}
+.roster-main{display:flex;flex-direction:column;gap:2px;min-width:0}
+.roster-name{font-family:'IM Fell English SC',Georgia,serif;font-size:20px;line-height:1.15;color:var(--text-hi);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.roster-sub{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.roster-stats{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.roster-stats span{display:flex;flex-direction:column;align-items:center;padding:4px 2px;border-radius:8px;background:#ead8b2;color:#2b2118;font-weight:800;font-size:17px;line-height:1.2}
+.roster-stats b{font-family:'Alegreya Sans',sans-serif;font-size:12px;letter-spacing:.06em;color:#8a2a22}
+.roster-extra{grid-column:1/-1;font-size:12px;color:var(--text-2)}
+.roster-card .roster-actions{grid-column:1/-1;justify-content:flex-start}
+.new-pc-btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border:1px dashed var(--muted-2);border-radius:12px;background:transparent;color:var(--gold);font-family:'IM Fell English SC',Georgia,serif;font-size:18px;cursor:pointer}
+.new-pc-btn:hover{border-color:var(--gold);background:rgba(212,162,76,.08)}
+.new-pc-btn span{font-size:22px;line-height:1}
+.new-pc-pdf{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px;border:1px dashed var(--muted-2);border-radius:10px}
+.new-pc-pdf .muted{flex:1 1 140px;overflow-wrap:anywhere}
+
+/* fichas del grupo: medallón y casillas de estadísticas como en la hoja del jugador */
+.pc-sheet-medal{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:50%;border:2px solid var(--gold);color:var(--gold-hi);font-family:'IM Fell English SC',Georgia,serif;font-size:21px;background:radial-gradient(circle at 30% 30%,#4a3f34,#2a2420)}
+.pc-sheet-stats{gap:6px}
+.pc-sheet-stats span{display:flex;flex-direction:column;align-items:center;min-width:44px;padding:3px 8px;border-radius:8px;background:#ead8b2;color:#2b2118;font-weight:800;font-size:16px;line-height:1.2}
+.pc-sheet-stats b{font-family:'Alegreya Sans',sans-serif;font-size:11px;letter-spacing:.06em;color:#8a2a22}
+.paper .pc-sheet{box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 2px 6px rgba(74,54,28,.12)}
+.paper .pc-sheet-medal{background:radial-gradient(circle at 30% 30%,#f3e6c8,#e0cc9c);border-color:var(--garnet);color:var(--garnet)}
+.paper .pc-sheet-stats span{background:#f3e6c8;border:1px solid var(--paper-line)}
+@media (max-width:560px){.pc-sheet-stats span{min-width:38px;padding:2px 6px}}
+
+/* lectura por páginas: el libro ocupa toda la altura disponible y los botones de página quedan abajo del todo */
+@media (min-width:801px){
+  .rule-book:has(.paged),.script-page.is-paged{height:100%;min-height:0;display:flex;flex-direction:column;padding-bottom:14px;box-sizing:border-box}
+  .rule-book:has(.paged) .paged,.script-page.is-paged .paged{flex:1 1 0;min-height:0}
+  .rule-book:has(.paged) .paged-view,.script-page.is-paged .paged-view{flex:1 1 0;height:auto;min-height:320px}
+}
