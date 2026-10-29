@@ -1253,3 +1253,14 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .script-combat{border:1px solid var(--paper-line);border-radius:3px;background:rgba(90,60,30,.08)}
 .script-combat summary{cursor:pointer;padding:6px 10px;font-weight:700;color:var(--garnet)}
 .script-combat .script-pre{margin:0;border:0;border-top:1px solid var(--paper-line);border-radius:0}
+/* la hoja aprovecha el ancho como las de un libro: dos columnas con el título a lo ancho, sin huecos a los lados */
+.script-page{display:block;max-width:940px;padding:26px 40px 30px;font-size:19px;line-height:1.5}
+.script-page.cols2{max-width:1120px;column-width:340px;column-gap:40px;column-rule:1px solid rgba(180,154,108,.55);column-fill:balance}
+.script-page>*{margin:0 0 9px}
+.script-page.cols2>h2.script-h{column-span:all}
+.script-page>h2.script-h{margin:0 0 14px;font-size:28px}
+.script-page>.script-h{break-after:avoid}
+.script-page>.script-quote,.script-page>.script-list,.script-page>.script-pre,.script-page>div,.script-page>.script-hr{break-inside:avoid}
+.script-page .script-p{orphans:2;widows:2}
+.script-page .script-list li{break-inside:avoid}
+@media (max-width:700px){.script-page{padding:20px 18px 24px}}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findDice, linkEncounters, parseInline, parseMarkdown } from '../engine/script';
+import { findDice, linkEncounters, parseInline, parseMarkdown, scriptTitleFromFile } from '../engine/script';
 import { mergeImport, normalizeSaved, buildExport, emptySaved } from '../store/persist';
 
 const enc = [{ id: 'e1', name: 'Emboscada goblin' }, { id: 'e2', name: 'Emboscada goblin en el puente' }, { id: 'e3', name: 'Ar' }];
@@ -40,6 +40,11 @@ describe('guion de sesión', () => {
     expect(findDice('Sufre 3d6 de daño').filter((x) => x.t === 'dice')).toEqual([{ t: 'dice', text: '3d6 de daño', expr: '3d6', kind: 'damage' }]);
     // «de fuego» pegado a otra palabra no cuenta, ni los dados dentro de palabras, ni los números sueltos
     expect(findDice('Hay 2d6 fuegos, add6 y 15 monedas').filter((x) => x.t === 'dice').map((x) => x.kind)).toEqual(['free']);
+  });
+  it('el título del guion sale corto del nombre del archivo', () => {
+    expect(scriptTitleFromFile('00-La-Lonja-Sorda.md')).toBe('La Lonja Sorda');
+    expect(scriptTitleFromFile('sesion_3.txt')).toBe('sesion 3');
+    expect(scriptTitleFromFile('12.md')).toBe('12');
   });
   it('Markdown en línea: negrita, cursiva y código; lo que no cierra queda igual', () => {
     expect(parseInline('a **b** _c_ `d` *e*')).toEqual([{ text: 'a ' }, { text: 'b', b: true }, { text: ' ' }, { text: 'c', i: true }, { text: ' ' }, { text: 'd', code: true }, { text: ' ' }, { text: 'e', i: true }]);

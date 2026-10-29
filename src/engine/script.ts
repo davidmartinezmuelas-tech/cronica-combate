@@ -29,12 +29,18 @@ export function linkEncounters(text: string, encounters: Pick<Encounter, 'id' | 
 
 export const MAX_SCRIPT_BYTES = 1_000_000;
 
+/** Título corto a partir del nombre del archivo: sin extensión ni número de orden y con espacios («00-La-Lonja-Sorda.md» -> «La Lonja Sorda»). */
+export function scriptTitleFromFile(name: string): string {
+  const t = name.replace(/\.[^.]+$/, '').replace(/^\d+[-_.\s]+/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return (t || name.replace(/\.[^.]+$/, '')).slice(0, 60);
+}
+
 /** Lee un archivo de texto (.txt o .md) y devuelve su título y contenido. */
 export async function readScriptFile(file: File): Promise<{ ok: true; title: string; text: string } | { ok: false; message: string }> {
   if (!/\.(txt|md|markdown|text)$/i.test(file.name) && !file.type.startsWith('text/')) return { ok: false, message: 'Solo se pueden subir archivos de texto (.txt o .md). Si es un Word, copia el texto y pégalo en un guion nuevo.' };
   if (file.size > MAX_SCRIPT_BYTES) return { ok: false, message: 'El archivo pesa demasiado para un guion (máximo 1 MB).' };
   const text = (await file.text()).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
-  return { ok: true, title: file.name.replace(/\.[^.]+$/, ''), text };
+  return { ok: true, title: scriptTitleFromFile(file.name), text };
 }
 
 // ---- Markdown de la lectura (sin librerías: lo que se usa en un guion) ----

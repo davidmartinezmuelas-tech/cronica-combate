@@ -116,6 +116,9 @@ export default function ScriptView() {
   const script = scripts.find((x) => x.id === scriptId) || scripts[0] || null;
   const [edit, setEdit] = useState(false);
   const [plan, setPlan] = useState<ImportPlan | null>(null);
+  // dos columnas como en un libro (se recuerda en este dispositivo)
+  const [cols2, setCols2] = useState(() => { try { return localStorage.getItem('cronica-guion-columnas') === '2'; } catch { return false; } });
+  const toggleCols = () => { const v = !cols2; setCols2(v); try { localStorage.setItem('cronica-guion-columnas', v ? '2' : '1'); } catch { /* nada */ } };
   const nBlocks = useMemo(() => extractBlocks(script?.text || '').length, [script?.text]);
   // al cambiar de guion: vacío = a escribir; con texto = a leer
   useEffect(() => { setEdit(!!script && !script.text.trim()); }, [script?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -138,9 +141,10 @@ export default function ScriptView() {
   return (
     <div className="panel script-view">
       <div className="panel-head">
-        <input className="input" aria-label="Título del guion" style={{ flex: 1, minWidth: 180, fontWeight: 700 }} value={script.title} onChange={(e) => patchScript(script.id, { title: e.target.value })} />
+        <input className="input" aria-label="Título del guion" style={{ flex: '0 1 340px', minWidth: 160, fontWeight: 700 }} value={script.title} onChange={(e) => patchScript(script.id, { title: e.target.value })} />
         <div className="rollrow">
           {nBlocks > 0 && <button className="btn small gold" title="Crea las criaturas y los encuentros de los bloques del guion" onClick={() => setPlan(useStore.getState().planScriptBlocks(script.text))}>Cargar combates del guion</button>}
+          {!edit && <button className="btn small ghost" aria-pressed={cols2} title="Leer en dos columnas, como un libro" onClick={toggleCols}>{cols2 ? 'Una columna' : 'Dos columnas'}</button>}
           <button className="btn small" onClick={() => setEdit(!edit)}>{edit ? 'Leer' : 'Editar'}</button>
           <button className="btn small ghost danger" onClick={() => deleteScript(script.id)}>{confirmKey === 'script-' + script.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
         </div>
@@ -155,7 +159,7 @@ export default function ScriptView() {
               {used.map((e) => <button key={e.id} className="btn small gold" onClick={() => openScriptEncounter(e.id)} title="Carga este encuentro y va a Combate">Ir al combate: {e.name}</button>)}
             </div>
           )}
-          <article className="script-text script-page" style={{ overflowWrap: 'anywhere' }}>
+          <article className={'script-text script-page' + (cols2 ? ' cols2' : '')} style={{ overflowWrap: 'anywhere' }}>
             <Blocks blocks={blocks} encounters={encounters} open={openScriptEncounter} />
           </article>
           {!encounters.length && <p className="muted small" style={{ margin: 0 }}>Aún no tienes encuentros guardados. Prepáralos en <button className="linkbtn" onClick={() => set({ tab: 'combat' })}>Combate</button> con «Guardar encuentro» y escribe su nombre en el guion.</p>}
