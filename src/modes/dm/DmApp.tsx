@@ -34,7 +34,7 @@ export default function DmApp() {
       {/* el modo máster está pensado para tablet u ordenador; en el móvil se puede usar, con un aviso */}
       <PhoneNote />
       <main className="app-main">
-        <section className="col-left paper dm-paper" aria-label="Panel izquierdo">
+        <section className="col-left" aria-label="Panel izquierdo">
           {tab === 'combat' && <InitiativePanel />}
           {tab === 'bestiary' && <BestiaryPanel />}
           {tab === 'group' && <GroupPanel />}
