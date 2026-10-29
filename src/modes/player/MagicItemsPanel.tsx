@@ -102,7 +102,7 @@ function ItemForm({ item, isNew, lib, weapons, spells, onSave, onClose }: { item
                 <select id={'mi-sp' + i} className="input" value={s.id} onChange={(e) => spellSet(i, { id: e.target.value })}>
                   <option value="">Elige…</option>{spells.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}</select></div>
               <div className="field"><label htmlFor={'mi-sc' + i}>Cargas por lanzamiento</label>
-                <input id={'mi-sc' + i} type="number" min={1} className="input" value={s.cost} onChange={(e) => spellSet(i, { cost: Math.max(1, parseInt(e.target.value, 10) || 1) })} /></div>
+                <input id={'mi-sc' + i} type="number" min={0} className="input" value={s.cost} onChange={(e) => spellSet(i, { cost: Math.max(0, parseInt(e.target.value, 10) || 0) })} /></div>
               <button className="btn small ghost" aria-label="Quitar conjuro" onClick={() => setIt({ ...it, spells: (it.spells || []).filter((_, j) => j !== i) })}>Quitar</button>
             </div>
           ))}

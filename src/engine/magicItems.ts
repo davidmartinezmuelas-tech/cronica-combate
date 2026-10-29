@@ -171,10 +171,11 @@ export function detectItemSpells(text: string, spells: { id: string; n: string; 
     for (const name of [sp.n, sp.en || ''].filter((x) => x.length > 2)) {
       const n = esc(norm0(name));
       const wand = new RegExp('(?:cargas?|charges?) (?:para|to) (?:lanzar|cast) (?:el conjuro |the spell )?' + n + '(?![a-z])').exec(t);
-      const row = new RegExp(' ' + n + ' (\\d{1,2})(?![0-9a-z])').exec(t);
+      // «Bola de fuego (versión de nivel 7) 7»: la aclaración del nivel entre el nombre y el coste se salta
+      const row = new RegExp(' ' + n + '(?: (?:level \\d+ version|version de nivel \\d+|de nivel \\d+))? (\\d{1,2})(?![0-9a-z])').exec(t);
       const hit = wand ? { cost: 1, at: wand.index } : row ? { cost: Number(row[1]), at: row.index } : null;
       // un coste que no cabe en las cargas del objeto es un número suelto del texto
-      if (hit && hit.cost >= 1 && hit.cost <= maxCost && !found.some((f) => f.id === sp.id)) found.push({ id: sp.id, ...hit });
+      if (hit && hit.cost >= 0 && hit.cost <= maxCost && !found.some((f) => f.id === sp.id)) found.push({ id: sp.id, ...hit });
     }
   }
   return found.sort((a, b) => a.at - b.at).map(({ id, cost }) => ({ id, cost }));

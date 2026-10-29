@@ -107,7 +107,7 @@ export function grantedSpells(c: Character, list: { id: string; en?: string }[],
     if (g.pick) ch.slice(1).filter(Boolean).forEach((id) => out.push({ en: '#' + id, how: g.pick!.how, src: g.feat, abil }));
   }
   // objetos mágicos en vigor que lanzan conjuros con sus cargas
-  for (const it of c.magicItems || []) if (isActive(it) && it.charges) for (const sp of it.spells || []) out.push({ en: '#' + sp.id, how: 'charges', src: it.n, charge: { key: itemKey(it), cost: Math.max(1, sp.cost || 1), max: it.charges.max } });
+  for (const it of c.magicItems || []) if (isActive(it) && it.charges) for (const sp of it.spells || []) out.push(sp.cost === 0 ? { en: '#' + sp.id, how: 'will', src: it.n } : { en: '#' + sp.id, how: 'charges', src: it.n, charge: { key: itemKey(it), cost: Math.max(1, sp.cost || 1), max: it.charges.max } });
   // «#id»: elegidos por id (Iniciado en la magia); el resto, por su nombre en inglés
   return out.flatMap((g) => {
     const s = g.en.startsWith('#') ? list.find((x) => x.id === g.en.slice(1)) : list.find((x) => x.en === g.en);

@@ -72,6 +72,8 @@ describe('objetos mágicos', () => {
     const g = grantedSpells(pj([staff]), [{ id: 'sp-x', en: 'X' }], derive(pj([]), data).mods);
     expect(g).toHaveLength(1);
     expect(g[0].charge).toEqual({ key: 'item.mi-Bastón', cost: 3, max: 10 });
+    const free = grantedSpells(pj([{ ...staff, spells: [{ id: 'sp-x', cost: 0 }] }]), [{ id: 'sp-x', en: 'X' }], derive(pj([]), data).mods);
+    expect([free[0].how, free[0].charge]).toEqual(['will', undefined]); // coste 0: sin gastar cargas
     expect(grantedSpells(pj([{ ...staff, worn: false }]), [{ id: 'sp-x', en: 'X' }], derive(pj([]), data).mods)).toHaveLength(0);
   });
   it('lee los conjuros con cargas de la tabla o de la varita', () => {
@@ -81,6 +83,12 @@ describe('objetos mágicos', () => {
     expect(detectItemSpells('You can expend 1 charge to cast Fireball from it.', spells)).toEqual([{ id: 'fb', cost: 1 }]);
     // «Curar heridas en masa 5» no cuenta como «Curar heridas»
     expect(detectItemSpells('Conjuro Curar heridas en masa 5 Restablecimiento menor 2', spells)).toEqual([{ id: 'cm', cost: 5 }]);
+  });
+  it('Báculo del Mago: los conjuros de coste 0 son gratis y los de «versión de nivel 7» llevan su coste', () => {
+    const sp = [{ id: 'al', n: 'Cerradura arcana', en: 'Arcane Lock' }, { id: 'fb', n: 'Bola de fuego', en: 'Fireball' }, { id: 'dm', n: 'Detectar magia', en: 'Detect Magic' }, { id: 'is', n: 'Tormenta de hielo', en: 'Ice Storm' }];
+    const t = 'Spell Charge Cost Arcane Lock 0 Conjure Elemental 7 Detect Magic 0 Fireball (level 7 version) 7 Ice Storm 4';
+    expect(detectItemSpells(t, sp, 50)).toEqual([{ id: 'al', cost: 0 }, { id: 'dm', cost: 0 }, { id: 'fb', cost: 7 }, { id: 'is', cost: 4 }]);
+    expect(detectItemSpells('Conjuro Coste Bola de fuego (versión de nivel 7) 7', sp, 50)).toEqual([{ id: 'fb', cost: 7 }]);
   });
   it('los objetos con variantes (gigantes, resistencia) se eligen: cambian nombre, efecto y rareza', () => {
     const base = { id: 'x', n: 'Cinturón de fuerza de gigante', kind: 'wondrous' as const, rarity: 'varía', attune: true, d: '', mods: [], es: true };
