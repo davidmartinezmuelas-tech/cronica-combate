@@ -1228,3 +1228,22 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .script-code,.script-pre{font-family:Consolas,'Courier New',monospace;font-size:14px;background:var(--bg);border:1px solid var(--line-2);border-radius:var(--radius-sm)}
 .script-code{padding:1px 5px}
 .script-pre{margin:0;padding:10px 12px;overflow:auto;white-space:pre-wrap}
+/* el guion se lee como una página de libro de aventuras: pergamino, letra con serifa, capitular, textos para leer en voz alta en recuadro */
+.script-page{align-self:center;width:100%;max-width:760px;padding:34px 44px 40px;color:var(--ink);font-family:'Alegreya','IM Fell English',Georgia,serif;font-size:18px;line-height:1.55;
+  background:linear-gradient(90deg,rgba(120,84,30,.16),rgba(120,84,30,0) 7%,rgba(120,84,30,0) 93%,rgba(120,84,30,.16)),#ead8b2;
+  border:1px solid var(--paper-line);border-radius:3px;box-shadow:0 0 0 5px #d9c597,0 0 0 6px var(--paper-line),0 14px 30px rgba(0,0,0,.45)}
+.script-page .script-h{color:var(--garnet);margin:18px 0 0}
+.script-page h2.script-h{font-size:30px;text-align:center;padding-bottom:8px;border-bottom:2px solid var(--garnet);margin-top:0}
+.script-page h3.script-h{font-size:24px;border-bottom:1px solid var(--paper-line);padding-bottom:3px}
+.script-page h4.script-h{font-size:19px;letter-spacing:.04em}
+.script-page .script-p{text-align:justify;hyphens:auto}
+.script-page h2.script-h+.script-p::first-letter,.script-page>.script-p:first-child::first-letter{float:left;font-family:'IM Fell English SC',Georgia,serif;font-size:3.5em;line-height:.8;padding:6px 8px 0 0;color:var(--garnet)}
+.script-page .script-list{padding-left:24px}
+.script-page .script-list li::marker{color:var(--garnet)}
+.script-page .script-quote{margin:4px 0;padding:12px 16px;background:rgba(122,31,20,.09);border:1px solid rgba(122,31,20,.35);border-left:5px solid var(--garnet);border-radius:2px;color:#3a1d17;font-style:italic}
+.script-page .script-hr{border:0;height:14px;margin:8px 0;background:linear-gradient(var(--paper-line),var(--paper-line)) center/100% 1px no-repeat;position:relative}
+.script-page .script-hr::after{content:'\25C6';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:0 10px;background:#ead8b2;color:var(--garnet);font-size:12px}
+.script-page .script-code,.script-page .script-pre{background:rgba(90,60,30,.12);border-color:var(--paper-line);color:var(--ink)}
+.script-page .linkbtn{color:var(--garnet);text-decoration-thickness:2px}
+.script-page .linkbtn:hover{color:#b8442f}
+@media (max-width:700px){.script-page{padding:22px 20px 26px;font-size:17px}.script-page .script-p{text-align:left}}

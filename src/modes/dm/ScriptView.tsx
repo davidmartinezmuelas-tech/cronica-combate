@@ -87,9 +87,9 @@ export default function ScriptView() {
               {used.map((e) => <button key={e.id} className="btn small gold" onClick={() => openScriptEncounter(e.id)} title="Carga este encuentro y va a Combate">Ir al combate: {e.name}</button>)}
             </div>
           )}
-          <div className="script-text" style={{ overflowWrap: 'anywhere' }}>
+          <article className="script-text script-page" style={{ overflowWrap: 'anywhere' }}>
             <Blocks blocks={blocks} encounters={encounters} open={openScriptEncounter} />
-          </div>
+          </article>
           {!encounters.length && <p className="muted small" style={{ margin: 0 }}>Aún no tienes encuentros guardados. Prepáralos en <button className="linkbtn" onClick={() => set({ tab: 'combat' })}>Combate</button> con «Guardar encuentro» y escribe su nombre en el guion.</p>}
         </>
       )}
