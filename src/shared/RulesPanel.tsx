@@ -195,7 +195,10 @@ export function RuleBook() {
     <div className="rule-book" aria-label="Libro de reglas">
       <div className="rule-bookbar">
         <span className="eyebrow">Libro de reglas · SRD 5.2.1</span>
-        {canBack && <button className="rollbtn dmg" onClick={ruleGoBack}>← Atrás</button>}
+        <span className="rule-bookbtns">
+          <button className="rollbtn rule-up" title="Volver al buscador y los marcapáginas" onClick={() => document.querySelector('.rules-panel')?.scrollIntoView({ block: 'start' })}>↑ Índice</button>
+          {canBack && <button className="rollbtn dmg" onClick={ruleGoBack}>← Atrás</button>}
+        </span>
       </div>
       <h2 className="rule-booktitle">Libro de reglas</h2>
       <p className="rule-intro">Todas las reglas por orden, con los conjuros al final. Elige una a la izquierda o búscala y el libro se abre en su página.</p>
