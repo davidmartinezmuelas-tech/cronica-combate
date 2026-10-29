@@ -1359,3 +1359,21 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .rule-bookbtns{display:inline-flex;gap:6px}
 .rule-up{display:none}
 @media (max-width:1023px){.rule-up{display:inline-flex}.rule-en{display:block;margin:0}.rule-book{overflow-x:clip}}
+/* libro de reglas más ancho (como el guion), con dos columnas opcionales, y marcapáginas en marrón oscuro con filo dorado */
+.rule-book{max-width:1200px}
+.rule-book.cols2 .rule-chapter{column-width:360px;column-gap:44px;column-rule:1px solid rgba(180,154,108,.55)}
+.rule-book.cols2 .rule-chapter-title{column-span:all}
+.rule-book.cols2 .rule-entry{break-inside:avoid-column}
+.rule-book.cols2 .rule-entry:has(.rule-table-wrap){break-inside:auto}
+.rule-mark{color:#e9dcbc;background:linear-gradient(90deg,#3d342b,#4a3f34);border-left-color:var(--gold)}
+.rule-mark:hover{filter:none;background:linear-gradient(90deg,#4a3f34,#5a4d3f)}
+.rule-mark[aria-expanded=true]{color:#3a1d17;background:linear-gradient(90deg,#e4cf9f,#efe0bb);border-left-color:var(--garnet)}
+.rule-mark-n{opacity:.75}
+.rule-mark-wrap.open>.rule-list{border-left-color:var(--gold-dim)}
+/* Grupo en pergamino: fichas del grupo como tarjetas claras */
+.paper .pc-sheet{background:var(--paper-card);border-color:var(--paper-line)}
+.paper .pc-sheet.open{border-color:#a0865c}
+.paper .pc-sheet-head:hover{background:#e9dcbe}
+.paper .pc-sheet-body{border-top-color:var(--paper-line)}
+.paper .pc-sheet-grid div{background:#f3e6c8;border-color:var(--paper-line)}
+.paper .pc-sheet-chev{color:var(--garnet)}

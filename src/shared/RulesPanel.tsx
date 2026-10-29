@@ -169,6 +169,9 @@ export function RuleBook() {
   const [spells, setSpells] = useState(SPELL_CHUNK);
   const sentinel = useRef<HTMLDivElement>(null);
   const lastSeq = useRef(-1);
+  // dos columnas como en un libro (se recuerda en este dispositivo)
+  const [cols2, setCols2] = useState(() => { try { return localStorage.getItem('cronica-reglas-columnas') === '2'; } catch { return false; } });
+  const toggleCols = () => { const v = !cols2; setCols2(v); try { localStorage.setItem('cronica-reglas-columnas', v ? '2' : '1'); } catch { /* nada */ } };
   useEffect(() => { void loadRules(); }, [loadRules]);
   const spellIdx = useMemo(() => {
     const ch = book.find((c) => c.cat === 'Conjuros');
@@ -192,10 +195,11 @@ export function RuleBook() {
   }, [book, spells]);
   if (!rules) return <div className="panel" style={{ textAlign: 'center', padding: '40px 24px' }}><p className="muted" style={{ margin: 0 }}>Cargando el libro de reglas…</p></div>;
   return (
-    <div className="rule-book" aria-label="Libro de reglas">
+    <div className={cols2 ? 'rule-book cols2' : 'rule-book'} aria-label="Libro de reglas">
       <div className="rule-bookbar">
         <span className="eyebrow">Libro de reglas · SRD 5.2.1</span>
         <span className="rule-bookbtns">
+          <button className="rollbtn rule-cols" aria-pressed={cols2} title="Leer en dos columnas, como un libro" onClick={toggleCols}>{cols2 ? 'Una columna' : 'Dos columnas'}</button>
           <button className="rollbtn rule-up" title="Volver al buscador y los marcapáginas" onClick={() => document.querySelector('.rules-panel')?.scrollIntoView({ block: 'start' })}>↑ Índice</button>
           {canBack && <button className="rollbtn dmg" onClick={ruleGoBack}>← Atrás</button>}
         </span>
