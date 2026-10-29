@@ -1361,10 +1361,6 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 @media (max-width:1023px){.rule-up{display:inline-flex}.rule-en{display:block;margin:0}.rule-book{overflow-x:clip}}
 /* libro de reglas más ancho (como el guion), con dos columnas opcionales, y marcapáginas en marrón oscuro con filo dorado */
 .rule-book{max-width:1200px}
-.rule-book.cols2 .rule-chapter{column-width:360px;column-gap:44px;column-rule:1px solid rgba(180,154,108,.55)}
-.rule-book.cols2 .rule-chapter-title{column-span:all}
-.rule-book.cols2 .rule-entry{break-inside:avoid-column}
-.rule-book.cols2 .rule-entry:has(.rule-table-wrap){break-inside:auto}
 .rule-mark{color:#e9dcbc;background:linear-gradient(90deg,#3d342b,#4a3f34);border-left-color:var(--gold)}
 .rule-mark:hover{filter:none;background:linear-gradient(90deg,#4a3f34,#5a4d3f)}
 .rule-mark[aria-expanded=true]{color:#3a1d17;background:linear-gradient(90deg,#e4cf9f,#efe0bb);border-left-color:var(--garnet)}
@@ -1397,3 +1393,20 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .enc-tag-chev{color:var(--gold);width:10px;flex:none}
 .enc-tag-body{display:flex;flex-direction:column;gap:8px;padding:0 10px 10px 27px}
 .enc-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:14px;color:var(--text-2)}
+/* lectura a dos columnas por páginas (guion y reglas): se pasa de página con un clic a los lados o con las flechas */
+.paged{position:relative;display:flex;flex-direction:column;gap:10px}
+.paged-view{overflow:hidden;height:calc(100dvh - 290px);min-height:380px;scroll-behavior:auto}
+.paged-inner{height:100%;column-count:2;column-gap:44px;column-fill:auto;column-rule:1px solid rgba(180,154,108,.55)}
+.paged-inner>*,.paged-inner .rule-chapter>*{break-inside:auto}
+.paged-inner h2,.paged-inner h3,.paged-inner h4,.paged-inner .rule-title,.paged-inner .rule-chapter-title{break-after:avoid}
+.paged-inner .rule-booktitle{margin-top:0}
+.paged-inner .rule-chapter{scroll-margin-top:0}
+.paged-inner .rule-entry{scroll-margin-top:0}
+.script-page.is-paged{max-width:1200px}
+.page-turn{position:absolute;top:0;bottom:44px;width:36px;display:flex;align-items:center;justify-content:center;font-size:34px;line-height:1;color:var(--garnet);background:none;border:0;cursor:pointer;opacity:.55;border-radius:4px}
+.page-turn.prev{left:-40px}.page-turn.next{right:-40px}
+.page-turn:hover:not(:disabled){opacity:1;background:rgba(122,31,20,.1)}
+.page-turn:disabled{opacity:.15;cursor:default}
+.page-count{display:flex;align-items:center;justify-content:center;gap:14px;font-size:14px;color:#5a4a30}
+.page-count .rollbtn{color:var(--garnet);border-color:var(--paper-line);background:var(--paper-card)}
+@media (max-width:800px){.paged-inner{column-count:1}.page-turn{display:none}.paged-view{height:calc(100dvh - 260px)}}

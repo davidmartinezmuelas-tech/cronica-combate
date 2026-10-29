@@ -2687,3 +2687,22 @@ test('libro de reglas: marcapáginas por capítulo, atajos nuevos y la búsqueda
   await expect(page.locator('.rule-entry.on')).toContainText('Conjuro de nivel 2');
   await expect(page.locator('.rule-entry.on')).toBeInViewport();
 });
+
+test('dos columnas por páginas: el libro de reglas pasa de página con los botones y la búsqueda salta a la página de la regla', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('r');
+  await page.getByRole('button', { name: 'Dos columnas' }).click();
+  const count = page.locator('.page-count span');
+  await expect(count).toContainText('Página 1 de');
+  await page.getByRole('button', { name: 'Siguiente ›' }).click();
+  await expect(count).toContainText('Página 2 de');
+  await page.getByRole('button', { name: '‹ Anterior' }).click();
+  await expect(count).toContainText('Página 1 de');
+  await page.getByLabel('Buscar (español o inglés)').fill('cobertura');
+  await page.locator('.rule-item').first().click();
+  await expect(page.locator('.rule-entry.on')).toBeInViewport();
+  await expect(count).not.toContainText('Página 1 de');
+  // volver a una columna
+  await page.getByRole('button', { name: 'Una columna' }).click();
+  await expect(page.locator('.paged')).toHaveCount(0);
+});

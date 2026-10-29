@@ -1,5 +1,6 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { buildBook, chapterId } from '../engine/ruleBook';
+import PagedColumns, { bookGoto } from './PagedColumns';
 import { findRule, parseMarkup, searchRules, type Inline, type RuleEntry } from '../engine/rules';
 import { useStore } from '../store/useStore';
 
@@ -63,7 +64,7 @@ export default function RulesPanel() {
   const toggle = (cat: string) => {
     const open = rcat !== cat;
     set({ rcat: open ? cat : '' });
-    if (open) setTimeout(() => document.getElementById(chapterId(cat))?.scrollIntoView({ block: 'start' }), 30);
+    if (open) setTimeout(() => bookGoto(chapterId(cat)), 30);
   };
   return (
     <div className="panel rules-panel">
@@ -181,11 +182,11 @@ export function RuleBook() {
   // salto a la regla elegida (una vez por petición, cuando su página ya está pintada)
   useEffect(() => {
     if (!ruleId || !book.length || lastSeq.current === ruleSeq) return;
-    const el = document.getElementById('rule-' + ruleId);
-    if (!el) return;
+    if (!document.getElementById('rule-' + ruleId)) return;
     lastSeq.current = ruleSeq;
-    el.scrollIntoView({ block: 'start' });
+    bookGoto('rule-' + ruleId);
   }, [ruleId, ruleSeq, book, spells]);
+  const moreSpells = useCallback(() => setSpells((n) => n + SPELL_CHUNK), []);
   useEffect(() => {
     const el = sentinel.current;
     if (!el || typeof IntersectionObserver === 'undefined') return;
@@ -204,6 +205,8 @@ export function RuleBook() {
           {canBack && <button className="rollbtn dmg" onClick={ruleGoBack}>← Atrás</button>}
         </span>
       </div>
+      {(() => { const content = (
+    <>
       <h2 className="rule-booktitle">Libro de reglas</h2>
       <p className="rule-intro">Todas las reglas por orden, con los conjuros al final. Elige una a la izquierda o búscala y el libro se abre en su página.</p>
       <RuleQuick />
@@ -213,10 +216,12 @@ export function RuleBook() {
           <section key={ch.cat} id={ch.id} className="rule-chapter">
             <h2 className="rule-chapter-title">{ch.cat}</h2>
             {list.map((e) => <RuleEntryView key={e.id} e={e} on={e.id === ruleId} />)}
-            {ch.cat === 'Conjuros' && ch.entries.length > spells && <div ref={sentinel} className="muted small" style={{ textAlign: 'center', padding: 12 }}>Cargando más conjuros…</div>}
+            {!cols2 && ch.cat === 'Conjuros' && ch.entries.length > spells && <div ref={sentinel} className="muted small" style={{ textAlign: 'center', padding: 12 }}>Cargando más conjuros…</div>}
           </section>
         );
       })}
+    </>
+  ); return cols2 ? <PagedColumns onNearEnd={moreSpells}>{content}</PagedColumns> : content; })()}
     </div>
   );
 }

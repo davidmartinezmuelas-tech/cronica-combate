@@ -3,6 +3,7 @@ import type { Encounter } from '../../data/types';
 import { findDice, linkEncounters, parseMarkdown, type Block, type Inline } from '../../engine/script';
 import { extractBlocks, type ImportPlan } from '../../engine/scriptBlocks';
 import { InfoDialog } from '../../shared/Card';
+import PagedColumns from '../../shared/PagedColumns';
 import { D20Icon } from '../../shared/Icons';
 import { useStore } from '../../store/useStore';
 
@@ -139,7 +140,7 @@ export default function ScriptView() {
         <input className="input" aria-label="Título del guion" style={{ flex: '0 1 340px', minWidth: 160, fontWeight: 700 }} value={script.title} onChange={(e) => patchScript(script.id, { title: e.target.value })} />
         <div className="rollrow">
           {nBlocks > 0 && <button className="btn small gold" title="Crea las criaturas y los encuentros de los bloques del guion" onClick={() => setPlan(useStore.getState().planScriptBlocks(script.text))}>Cargar combates del guion</button>}
-          {!edit && <button className="btn small ghost" aria-pressed={cols2} title="Leer en dos columnas, como un libro" onClick={toggleCols}>{cols2 ? 'Una columna' : 'Dos columnas'}</button>}
+          {!edit && <button className="btn small ghost" aria-pressed={cols2} title="Leer en dos columnas pasando páginas, como un libro" onClick={toggleCols}>{cols2 ? 'Una columna' : 'Dos columnas'}</button>}
           <button className="btn small" onClick={() => setEdit(!edit)}>{edit ? 'Leer' : 'Editar'}</button>
           <button className="btn small ghost danger" onClick={() => deleteScript(script.id)}>{confirmKey === 'script-' + script.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
         </div>
@@ -149,8 +150,8 @@ export default function ScriptView() {
           onChange={(e) => patchScript(script.id, { text: e.target.value })} />
       ) : (
         <>
-          <article className={'script-text script-page' + (cols2 ? ' cols2' : '')} style={{ overflowWrap: 'anywhere' }}>
-            <Blocks blocks={blocks} encounters={encounters} open={openScriptEncounter} />
+          <article className={'script-text script-page' + (cols2 ? ' is-paged' : '')} style={{ overflowWrap: 'anywhere' }}>
+            {cols2 ? <PagedColumns resetKey={script.id}><Blocks blocks={blocks} encounters={encounters} open={openScriptEncounter} /></PagedColumns> : <Blocks blocks={blocks} encounters={encounters} open={openScriptEncounter} />}
           </article>
           {!encounters.length && <p className="muted small" style={{ margin: 0 }}>Aún no tienes encuentros guardados. Prepáralos en <button className="linkbtn" onClick={() => set({ tab: 'combat' })}>Combate</button> con «Guardar encuentro» y escribe su nombre en el guion.</p>}
         </>
