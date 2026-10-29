@@ -99,6 +99,9 @@ test('herramientas del DM: daño alternativo y encuentros guardados', async ({ p
   await page.getByRole('button', { name: 'Vaciar encuentro' }).click();
   await page.getByRole('button', { name: '¿Seguro? Pulsa otra vez' }).click();
   await expect(page.locator('.init-row')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Encuentros preparados' }).click();
+  await page.getByRole('button', { name: 'Emboscada' }).click(); // la etiqueta del encuentro se despliega
+  await expect(page.locator('.enc-items')).toContainText('3 × Guerrero goblin');
   await page.getByRole('button', { name: 'Cargar' }).click();
   await expect(page.locator('.init-row')).toHaveCount(3);
 });
@@ -122,7 +125,7 @@ test('guion de la sesión: se sube un texto y el nombre de un encuentro lleva al
   await page.reload();
   await page.getByRole('button', { name: 'Guion', exact: true }).click();
   await page.getByRole('button', { name: 'sesion1' }).click();
-  await page.getByRole('button', { name: 'Emboscada del puente', exact: true }).click();
+  await page.locator('.script-combat-btn', { hasText: 'Emboscada del puente' }).click(); // la subcarpeta del guion en la lista de la izquierda
   await expect(page.locator('.init-row')).toHaveCount(3);
   await expect(page.getByRole('button', { name: 'Combate', exact: true })).toHaveAttribute('aria-current', 'page');
 });
@@ -154,8 +157,8 @@ test('guion de la sesión: «Cargar combates del guion» crea la criatura y el e
   await expect(dlg).toContainText('Ronda de lobos');
   await expect(dlg).toContainText('2 × Lobo del foso, 1 × Guerrero goblin');
   await dlg.getByRole('button', { name: 'Cargar', exact: true }).click();
-  // el nombre del encuentro del guion ya es un botón; la criatura está en el bestiario con su guarida
-  await page.getByRole('button', { name: 'Ir al combate: Ronda de lobos' }).first().click();
+  // los combates del guion salen como subcarpeta del guion en la lista de la izquierda; la criatura está en el bestiario con su guarida
+  await page.locator('.script-combat-btn', { hasText: 'Ronda de lobos' }).click();
   await expect(page.locator('.init-row')).toHaveCount(4); // 2 lobos + goblin + tarjeta de guarida
   await page.getByRole('button', { name: 'Bestiario', exact: true }).click();
   await page.getByLabel('Buscar (español o inglés)').fill('lobo del foso');

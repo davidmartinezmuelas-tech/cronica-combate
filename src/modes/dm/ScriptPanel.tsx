@@ -1,6 +1,22 @@
-import { useRef, useState } from 'react';
-import { readScriptFile } from '../../engine/script';
+import { useMemo, useRef, useState } from 'react';
+import { linkEncounters, readScriptFile } from '../../engine/script';
 import { useStore } from '../../store/useStore';
+
+/** Los combates que nombra un guion, en el orden en que salen, como subcarpeta del guion. */
+function ScriptCombats({ text }: { text: string }) {
+  const encounters = useStore((s) => s.encounters);
+  const { openScriptEncounter } = useStore.getState();
+  const used = useMemo(() => {
+    const ids = linkEncounters(text, encounters).flatMap((p) => (p.t === 'enc' ? [p.id] : []));
+    return [...new Set(ids)].map((id) => encounters.find((e) => e.id === id)!);
+  }, [text, encounters]);
+  if (!used.length) return null;
+  return (
+    <ul className="script-combats" aria-label="Combates de este guion">
+      {used.map((e) => <li key={e.id}><button className="script-combat-btn" title="Carga este encuentro y va a Combate" onClick={() => openScriptEncounter(e.id)}>{e.name}</button></li>)}
+    </ul>
+  );
+}
 
 /** Lista de guiones de sesión (columna izquierda): crear, subir un archivo de texto y elegir cuál se ve. */
 export default function ScriptPanel() {
@@ -33,6 +49,7 @@ export default function ScriptPanel() {
         {scripts.map((s) => (
           <li key={s.id}>
             <button className={'btn' + (s.id === scriptId ? ' gold' : '')} style={{ width: '100%', justifyContent: 'flex-start', textAlign: 'left' }} aria-current={s.id === scriptId ? 'true' : undefined} onClick={() => set({ scriptId: s.id })}>{s.title}</button>
+            <ScriptCombats text={s.text} />
           </li>
         ))}
       </ul>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { Combatant } from '../../data/types';
 import { encounterDifficulty, sortCombatants } from '../../engine/combat';
 import { nfmt } from '../../engine/util';
@@ -81,41 +81,61 @@ function Row({ c }: { c: Combatant }) {
   );
 }
 
+/** Pestaña plegable (marcapáginas) del panel: sale solo el título y, al pulsarla, se despliega lo que contiene. */
+function Fold({ title, count, open, onToggle, children }: { title: string; count?: number; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <div className={open ? 'fold open' : 'fold'}>
+      <button className="rule-mark" aria-expanded={open} onClick={onToggle}>
+        <span className="rule-mark-name">{title}</span>{count != null && <span className="rule-mark-n">{count}</span>}
+      </button>
+      {open && <div className="fold-body">{children}</div>}
+    </div>
+  );
+}
+
 function Encounters() {
   const encounters = useStore((s) => s.encounters);
   const hasMonsters = useStore((s) => s.combatants.some((c) => c.kind === 'monster'));
   const confirmKey = useStore((s) => s.confirmKey);
   const { saveEncounter, loadEncounter, deleteEncounter, monById } = useStore.getState();
   const [name, setName] = useState('');
+  const [open, setOpen] = useState(false);
+  const [which, setWhich] = useState<string | null>(null);
   const save = () => { if (saveEncounter(name)) setName(''); };
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #4b4138', paddingTop: 12 }}>
-      <span className="eyebrow">Encuentros preparados</span>
-      {encounters.length > 0 && (
-        <ul className="rem">
-          {encounters.map((e) => (
-            <li key={e.id}>
-              <span style={{ flex: 1, minWidth: 160 }}>
-                <strong>{e.name}</strong>
-                <span className="muted small" style={{ display: 'block' }}>
-                  {e.items.map((it) => it.qty + ' × ' + (monById(it.monsterId)?.n || it.monsterId)).join(', ')}{e.lair ? ' · guarida' : ''}
-                </span>
-              </span>
-              <span style={{ display: 'flex', gap: 6 }}>
-                <button className="btn small" onClick={() => loadEncounter(e.id)}>Cargar</button>
-                <button className="btn small ghost danger" onClick={() => deleteEncounter(e.id)}>{confirmKey === 'enc-' + e.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {hasMonsters ? (
+    <div className="init-block">
+      <Fold title="Encuentros preparados" count={encounters.length} open={open} onToggle={() => setOpen(!open)}>
+        {encounters.length > 0 ? (
+          <ul className="enc-tags">
+            {encounters.map((e) => (
+              <li key={e.id} className={which === e.id ? 'enc-tag open' : 'enc-tag'}>
+                <button className="enc-tag-name" aria-expanded={which === e.id} onClick={() => setWhich(which === e.id ? null : e.id)}>
+                  <span className="enc-tag-chev" aria-hidden="true">{which === e.id ? '▾' : '▸'}</span>{e.name}
+                </button>
+                {which === e.id && (
+                  <div className="enc-tag-body">
+                    <ul className="enc-items">
+                      {e.items.map((it, i) => <li key={i}>{it.qty} × {monById(it.monsterId)?.n || it.monsterId}</li>)}
+                      {e.lair && <li>Con acciones de guarida</li>}
+                    </ul>
+                    <span style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn small" onClick={() => loadEncounter(e.id)}>Cargar</button>
+                      <button className="btn small ghost danger" onClick={() => deleteEncounter(e.id)}>{confirmKey === 'enc-' + e.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+                    </span>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : <p className="muted small" style={{ margin: 0 }}>Añade monstruos y guárdalos aquí para cargarlos de un clic el día de la sesión.</p>}
+      </Fold>
+      {hasMonsters && (
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div className="field" style={{ flex: 1, minWidth: 160 }}><label htmlFor="enc-name">Guardar los monstruos actuales como</label>
             <input id="enc-name" className="input" value={name} placeholder="Emboscada en el puente" onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') save(); }} /></div>
           <button className="btn small" onClick={save}>Guardar encuentro</button>
         </div>
-      ) : !encounters.length && <p className="muted small" style={{ margin: 0 }}>Añade monstruos y guárdalos aquí para cargarlos de un clic el día de la sesión.</p>}
+      )}
     </div>
   );
 }
@@ -144,6 +164,7 @@ export default function InitiativePanel() {
   const showRoll = hasMon && (!started || pendingMon > 0);
   // móvil: al empezar el combate se pliegan las opciones de preparación (se pueden abrir)
   const narrow = () => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 560px)').matches;
+  const [groupOpen, setGroupOpen] = useState(false);
   const [extrasOpen, setExtrasOpen] = useState(() => !(started && narrow()));
   useEffect(() => { setExtrasOpen(!(started && narrow())); }, [started]);
   return (
@@ -162,10 +183,16 @@ export default function InitiativePanel() {
       {/* en móvil, durante el combate, lo que se usa poco va plegado para llegar antes al turno */}
       <details className="init-extras" open={extrasOpen} onToggle={(e) => setExtrasOpen((e.target as HTMLDetailsElement).open)}>
       <summary className="init-extras-sum">Más opciones (grupo, encuentros, guarida)</summary>
-      {rosterOut.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, borderTop: '1px solid #4b4138', paddingTop: 12 }}>
-          <div className="panel-head"><span className="eyebrow">Tu grupo</span><button className="btn small" onClick={addAllPcs}>Añadir a todos</button></div>
-          <div className="chips">{rosterOut.map((r) => <button key={r.id} className="chip" onClick={() => addPc(r)}>+ {r.name}</button>)}</div>
+      {roster.length > 0 && (
+        <div className="init-block">
+          <Fold title="Tu grupo" count={roster.length} open={groupOpen} onToggle={() => setGroupOpen(!groupOpen)}>
+            {rosterOut.length > 0 ? (
+              <>
+                <div className="chips">{rosterOut.map((r) => <button key={r.id} className="chip" onClick={() => addPc(r)}>+ {r.name}</button>)}</div>
+                <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={addAllPcs}>Añadir a todos</button>
+              </>
+            ) : <p className="muted small" style={{ margin: 0 }}>Todo tu grupo ya está en el combate.</p>}
+          </Fold>
         </div>
       )}
       {!roster.length && <button className="btn small ghost" onClick={() => set({ tab: 'group' })} style={{ alignSelf: 'flex-start' }}>Guardar a tus jugadores en Grupo</button>}

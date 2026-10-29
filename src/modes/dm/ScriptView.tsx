@@ -123,11 +123,6 @@ export default function ScriptView() {
   // al cambiar de guion: vacío = a escribir; con texto = a leer
   useEffect(() => { setEdit(!!script && !script.text.trim()); }, [script?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const blocks = useMemo(() => parseMarkdown(script?.text || ''), [script?.text]);
-  // los combates que nombra el texto, en el orden en que salen
-  const used = useMemo(() => {
-    const ids = linkEncounters(script?.text || '', encounters).flatMap((p) => (p.t === 'enc' ? [p.id] : []));
-    return [...new Set(ids)].map((id) => encounters.find((e) => e.id === id)!);
-  }, [script?.text, encounters]);
 
   if (!script) {
     return (
@@ -154,11 +149,6 @@ export default function ScriptView() {
           onChange={(e) => patchScript(script.id, { text: e.target.value })} />
       ) : (
         <>
-          {used.length > 0 && (
-            <div className="rollrow" aria-label="Combates de este guion">
-              {used.map((e) => <button key={e.id} className="btn small gold" onClick={() => openScriptEncounter(e.id)} title="Carga este encuentro y va a Combate">Ir al combate: {e.name}</button>)}
-            </div>
-          )}
           <article className={'script-text script-page' + (cols2 ? ' cols2' : '')} style={{ overflowWrap: 'anywhere' }}>
             <Blocks blocks={blocks} encounters={encounters} open={openScriptEncounter} />
           </article>

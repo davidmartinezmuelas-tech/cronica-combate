@@ -1377,3 +1377,23 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .paper .pc-sheet-body{border-top-color:var(--paper-line)}
 .paper .pc-sheet-grid div{background:#f3e6c8;border-color:var(--paper-line)}
 .paper .pc-sheet-chev{color:var(--garnet)}
+/* combates de cada guion, como subcarpetas debajo de él en la lista de la izquierda */
+.script-combats{list-style:none;margin:4px 0 2px 14px;padding:0 0 0 10px;border-left:2px solid var(--gold-dim);display:flex;flex-direction:column;gap:4px}
+.script-combat-btn{position:relative;width:100%;text-align:left;padding:6px 10px;font:inherit;font-size:14px;font-weight:700;line-height:1.2;color:var(--ink-dark);background:var(--gold);border:0;border-radius:6px;cursor:pointer}
+.script-combat-btn::before{content:'';position:absolute;left:-12px;top:50%;width:10px;border-top:2px solid var(--gold-dim)}
+.script-combat-btn:hover{background:var(--gold-hi)}
+.script-combat-btn:focus-visible{outline:2px solid var(--gold-hi);outline-offset:2px}
+.paper .gen-result{background:var(--paper-card);border-color:var(--paper-line);border-left-color:var(--garnet)}
+/* Iniciativa: grupo y encuentros como pestañas plegables; cada encuentro es una etiqueta con solo su nombre que se despliega */
+.init-block{display:flex;flex-direction:column;gap:8px;border-top:1px solid #4b4138;padding-top:12px}
+.fold{display:flex;flex-direction:column;gap:6px}
+.fold-body{display:flex;flex-direction:column;gap:8px;padding:2px 0 4px 10px;border-left:2px solid var(--gold-dim)}
+.enc-tags{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:5px}
+.enc-tag{border:1px solid var(--line);border-left:3px solid var(--gold-dim);border-radius:6px;background:var(--surface-dim)}
+.enc-tag.open{border-color:var(--muted-2);border-left-color:var(--gold)}
+.enc-tag-name{display:flex;align-items:baseline;gap:7px;width:100%;text-align:left;padding:8px 10px;background:none;border:0;color:var(--text-hi);font:inherit;font-weight:700;line-height:1.25;cursor:pointer}
+.enc-tag-name:hover{color:var(--gold-hi)}
+.enc-tag-name:focus-visible{outline:2px solid var(--gold);outline-offset:-2px;border-radius:6px}
+.enc-tag-chev{color:var(--gold);width:10px;flex:none}
+.enc-tag-body{display:flex;flex-direction:column;gap:8px;padding:0 10px 10px 27px}
+.enc-items{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:14px;color:var(--text-2)}
