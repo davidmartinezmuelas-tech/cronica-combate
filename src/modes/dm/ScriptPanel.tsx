@@ -6,7 +6,7 @@ import { useStore } from '../../store/useStore';
 export default function ScriptPanel() {
   const scripts = useStore((s) => s.scripts);
   const scriptId = useStore((s) => s.scriptId);
-  const { addScript, set } = useStore.getState();
+  const { addScript, set, showToast } = useStore.getState();
   const file = useRef<HTMLInputElement>(null);
   const [msg, setMsg] = useState('');
 
@@ -16,7 +16,7 @@ export default function ScriptPanel() {
     if (!r.ok) { setMsg(r.message); return; }
     setMsg('');
     addScript(r.title, r.text);
-    set({ toast: 'Guion «' + r.title + '» subido' });
+    showToast('Guion «' + r.title + '» subido');
   };
 
   return (

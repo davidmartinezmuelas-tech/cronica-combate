@@ -2,9 +2,10 @@ import SettingsMenu, { SupportButton } from '../../shared/SettingsMenu';
 import { useStore, type Tab } from '../../store/useStore';
 import Brand from '../../shared/Brand';
 import DataBackup from './DataBackup';
-import { UndoIcon } from '../../shared/Icons';
+import { BookIcon, HammerIcon, PartyIcon, ScrollIcon, SkullIcon, SwordsIcon, UndoIcon } from '../../shared/Icons';
 
-const TABS: [Tab, string][] = [['combat', 'Combate'], ['bestiary', 'Bestiario'], ['group', 'Grupo'], ['forge', 'Forja'], ['script', 'Guion'], ['rules', 'Reglas']];
+// el guion es lo primero que se mira al sentarse a la mesa
+const TABS: [Tab, string, () => JSX.Element][] = [['script', 'Guion', ScrollIcon], ['combat', 'Combate', SwordsIcon], ['bestiary', 'Bestiario', SkullIcon], ['group', 'Grupo', PartyIcon], ['forge', 'Forja', HammerIcon], ['rules', 'Reglas', BookIcon]];
 
 export default function Header() {
   const tab = useStore((s) => s.tab);
@@ -17,8 +18,8 @@ export default function Header() {
     <header className="app-header">
       <Brand subtitle="Mesa del máster · 5.ª edición (2024)" />
       <nav aria-label="Secciones" className="app-nav">
-        {TABS.map(([k, label]) => (
-          <button key={k} className={tab === k ? 'tab on' : 'tab'} aria-current={tab === k ? 'page' : undefined} onClick={() => set({ tab: k })}>{label}</button>
+        {TABS.map(([k, label, Icon]) => (
+          <button key={k} className={tab === k ? 'tab on' : 'tab'} aria-current={tab === k ? 'page' : undefined} onClick={() => set({ tab: k })}><Icon />{label}</button>
         ))}
       </nav>
       {toast && <div className="toast" role="status">{toast}</div>}

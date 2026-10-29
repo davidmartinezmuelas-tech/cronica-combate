@@ -403,7 +403,7 @@ a:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:2
 .app-nav{display:flex;gap:6px;flex-wrap:wrap}
 /* móvil: las cinco secciones en una sola fila */
 @media (max-width:560px){
-  .app-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;width:100%}
+  .app-nav{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);grid-template-columns:none;gap:2px;width:100%}
   .app-nav .tab{padding:8px 2px;font-size:14px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 /* Forja: columna del formulario más ancha para que los campos quepan de dos en dos */
@@ -1264,3 +1264,13 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .script-page .script-p{orphans:2;widows:2}
 .script-page .script-list li{break-inside:avoid}
 @media (max-width:700px){.script-page{padding:20px 18px 24px}}
+/* pestañas de sección: marcapáginas con letra de libro; la activa es una hoja de pergamino */
+.app-nav{gap:8px;align-items:flex-end}
+.app-nav .tab{display:inline-flex;align-items:center;gap:9px;padding:9px 18px;min-height:46px;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:19px;letter-spacing:.02em;color:var(--gold-soft);
+  background:linear-gradient(#3b322b,#2d2621);border:1px solid rgba(212,169,79,.28);border-radius:9px 9px 3px 3px;transition:transform .12s,color .12s,border-color .12s}
+.app-nav .tab svg{color:var(--gold);flex:none}
+.app-nav .tab:hover{color:var(--text-hi);border-color:rgba(232,192,98,.7);background:linear-gradient(#463c34,#342b25);transform:translateY(-1px)}
+.app-nav .tab.on{background:linear-gradient(#f0e0bb,#e3cf9f);color:var(--garnet);border-color:var(--paper-line);box-shadow:0 0 0 1px #d9c597 inset,0 4px 10px rgba(0,0,0,.4);transform:translateY(-1px)}
+.app-nav .tab.on svg{color:var(--garnet)}
+@media (max-width:1100px){.app-nav .tab{padding:8px 12px;font-size:17px;gap:6px}.app-nav .tab svg{width:17px;height:17px}}
+@media (max-width:560px){.app-nav .tab svg{display:none}}
