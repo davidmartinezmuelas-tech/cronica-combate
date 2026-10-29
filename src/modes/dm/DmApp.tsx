@@ -5,6 +5,8 @@ import InitiativePanel from './InitiativePanel';
 import BestiaryPanel from './BestiaryPanel';
 import GroupPanel from './GroupPanel';
 import ForgePanel from './ForgePanel';
+import ScriptPanel from './ScriptPanel';
+import ScriptView from './ScriptView';
 import RulesPanel from '../../shared/RulesPanel';
 import CenterPanel from './CenterPanel';
 import DiceTable from '../../shared/DiceTable';
@@ -37,10 +39,11 @@ export default function DmApp() {
           {tab === 'bestiary' && <BestiaryPanel />}
           {tab === 'group' && <GroupPanel />}
           {tab === 'forge' && <ForgePanel />}
+          {tab === 'script' && <ScriptPanel />}
           {tab === 'rules' && <RulesPanel />}
         </section>
         <section className="col-center" aria-label="Detalle">
-          <div className="center-main"><CenterPanel /></div>
+          <div className="center-main">{tab === 'script' ? <ScriptView /> : <CenterPanel />}</div>
           {/* la atribución va al final del contenido central: baja con él y no resta alto a la pantalla */}
           <Attribution hotkeys />
         </section>

@@ -10,6 +10,7 @@ import { createDiceSlice } from './slices/dice';
 import { createEncounterSlice } from './slices/encounters';
 import { createGroupSlice } from './slices/group';
 import { createRulesSlice } from './slices/rules';
+import { createScriptSlice } from './slices/script';
 import type { State } from './state';
 
 export type { RollSpec, State, Tab } from './state';
@@ -25,6 +26,7 @@ export const useStore = create<State>()((rawSet, get) => {
     ...createBestiarySlice(set, get),
     ...createGroupSlice(set, get),
     ...createEncounterSlice(set, get),
+    ...createScriptSlice(set, get),
     ...createRulesSlice(set, get),
   };
 });
@@ -52,7 +54,7 @@ export function startAutosave() {
     if (!s.hydrated) return;
     if (!prev.hydrated) { lastSaved = savedSlice(s); return; }
     if (s.custom !== prev.custom || s.roster !== prev.roster || s.combatants !== prev.combatants || s.round !== prev.round || s.activeId !== prev.activeId ||
-      s.started !== prev.started || s.log !== prev.log || s.diceTheme !== prev.diceTheme || s.turnEvents !== prev.turnEvents || s.encounters !== prev.encounters || s.dice3d !== prev.dice3d) {
+      s.started !== prev.started || s.log !== prev.log || s.diceTheme !== prev.diceTheme || s.turnEvents !== prev.turnEvents || s.encounters !== prev.encounters || s.scripts !== prev.scripts || s.dice3d !== prev.dice3d) {
       clearTimeout(saveT);
       saveT = setTimeout(() => { void saveNow(); }, 250);
     }

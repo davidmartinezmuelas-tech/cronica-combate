@@ -1,6 +1,6 @@
 import { createStore, get, set } from 'idb-keyval';
 import { SCHEMA_VERSION, SECTIONS, STORAGE_KEY, XP_BY_CR } from '../data/constants';
-import type { Combatant, Condition, Encounter, LogEntry, Monster, RosterEntry, SavedState, TurnEvent } from '../data/types';
+import type { Combatant, Condition, Encounter, LogEntry, Monster, RosterEntry, SavedState, Script, TurnEvent } from '../data/types';
 import { avgOf, modOf } from '../engine/dice';
 import { norm, num, pbOf, uid } from '../engine/util';
 
@@ -53,6 +53,13 @@ export function normEncounter(e: unknown): Encounter | null {
   return { id: String(x.id || 'e-' + uid()), name: x.name.trim(), items, lair: !!x.lair, ...(typeof x.at === 'number' ? { at: x.at } : {}) };
 }
 
+export function normScript(s: unknown): Script | null {
+  if (!s || typeof s !== 'object') return null;
+  const x = s as Record<string, unknown>;
+  if (typeof x.text !== 'string') return null;
+  return { id: String(x.id || 's-' + uid()), title: typeof x.title === 'string' && x.title.trim() ? x.title.trim().slice(0, 120) : 'Guion sin título', text: x.text.slice(0, 500_000), ...(typeof x.at === 'number' ? { at: x.at } : {}) };
+}
+
 export function normMonster(m: unknown): Monster | null {
   if (!m || typeof m !== 'object') return null;
   const x = m as Record<string, unknown>;
@@ -98,7 +105,7 @@ export function normRoster(r: unknown): RosterEntry | null {
 }
 
 export function emptySaved(): SavedState {
-  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], encounters: [], dice3d: null };
+  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], encounters: [], scripts: [], dice3d: null };
 }
 
 /** Repara y migra cualquier dato guardado o importado. Nunca lanza. */
@@ -118,6 +125,7 @@ export function normalizeSaved(raw: unknown): SavedState {
   out.dice3d = typeof x.dice3d === 'boolean' ? x.dice3d : null;
   // v4: encuentros guardados (las versiones anteriores no los tienen)
   out.encounters = (Array.isArray(x.encounters) ? x.encounters : []).map(normEncounter).filter((e): e is Encounter => !!e);
+  out.scripts = (Array.isArray(x.scripts) ? x.scripts : []).map(normScript).filter((e): e is Script => !!e);
   return out;
 }
 
@@ -180,6 +188,7 @@ export interface ExportFile {
   roster: RosterEntry[];
   custom: Monster[];
   encounters: Encounter[];
+  scripts?: Script[];
   combat: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
   pdfs?: Record<string, string>; // hojas de personaje: id -> PDF en base64
   book?: Monster[]; // criaturas del Manual de Monstruos del usuario (solo si pidió incluirlas)
@@ -187,7 +196,7 @@ export interface ExportFile {
 
 export function buildExport(s: SavedState, pdfs?: Record<string, string>, book?: Monster[]): ExportFile {
   return {
-    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters, ...(pdfs && Object.keys(pdfs).length ? { pdfs } : {}), ...(book?.length ? { book } : {}),
+    app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters, ...(s.scripts?.length ? { scripts: s.scripts } : {}), ...(pdfs && Object.keys(pdfs).length ? { pdfs } : {}), ...(book?.length ? { book } : {}),
     combat: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents },
   };
 }
@@ -198,6 +207,7 @@ export interface ImportResult {
   roster?: RosterEntry[];
   custom?: Monster[];
   encounters?: Encounter[];
+  scripts?: Script[];
   combat?: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
   pdfs?: Record<string, string>; // hojas que trae la copia para los jugadores importados
   book?: Monster[]; // criaturas del Manual de la copia, ya fusionadas con las que había
@@ -223,6 +233,9 @@ export function mergeImport(text: string, current: SavedState & { book?: Monster
   const goodE = inE.filter((e): e is Encounter => !!e);
   const eIds = new Set(goodE.map((e) => e.id));
   const encounters = current.encounters.filter((e) => !eIds.has(e.id)).concat(goodE);
+  const goodS = (Array.isArray(x.scripts) ? x.scripts : []).map(normScript).filter((e): e is Script => !!e);
+  const sIds = new Set(goodS.map((e) => e.id));
+  const scripts = (current.scripts || []).filter((e) => !sIds.has(e.id)).concat(goodS);
   const bad = inR.length - goodR.length + (inM.length - goodM.length) + (inE.length - goodE.length);
   let combat: ImportResult['combat'];
   let extra = '';
@@ -246,7 +259,7 @@ export function mergeImport(text: string, current: SavedState & { book?: Monster
   const bIds = new Set(goodB.map((m) => m.id));
   const book = goodB.length ? (current.book || []).filter((m) => !bIds.has(m.id)).concat(goodB) : undefined;
   return {
-    ok: true, roster, custom, encounters, combat, pdfs, book,
+    ok: true, roster, custom, encounters, scripts, combat, pdfs, book,
     message: 'Importado: ' + goodR.length + ' jugadores, ' + goodM.length + ' criaturas y ' + goodE.length + ' encuentros' + (goodB.length ? ', y ' + goodB.length + ' criaturas de tu Manual de Monstruos' : '') + ', fusionados con los tuyos' + extra + '.' + (bad + inB.length - goodB.length ? ' Se han descartado ' + (bad + inB.length - goodB.length) + ' registros dañados.' : ''),
   };
 }

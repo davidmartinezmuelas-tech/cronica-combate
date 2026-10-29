@@ -14,7 +14,7 @@ export const playerTour = (goSheet: () => void, goLibrary: () => void): TourStep
 
 /** Visita del modo máster. `tab` abre una pestaña. */
 export const dmTour = (tab: (t: 'combat' | 'bestiary' | 'group' | 'forge') => void): TourStep[] => [
-  { target: '.app-nav', title: 'Tu mesa de máster', text: 'Combate, Bestiario (todo el SRD 2024), Grupo (tus jugadores), Forja (tus monstruos) y Reglas, siempre a un clic.' },
+  { target: '.app-nav', title: 'Tu mesa de máster', text: 'Combate, Bestiario (todo el SRD 2024), Grupo (tus jugadores), Forja (tus monstruos), Guion (el texto de tu sesión, con enlaces a tus encuentros) y Reglas, siempre a un clic.' },
   { target: 'section.col-left', before: () => tab('bestiary'), title: 'Bestiario', text: 'Busca en español o en inglés, filtra por tipo o desafío, elige cuántos y pulsa «Al combate». Con «Forjar» creas tus propias criaturas.' },
   { target: 'section.col-left', before: () => tab('group'), title: 'Tu grupo', text: 'Guarda a tus jugadores una vez (con su hoja en PDF si quieres) y añádelos a cada combate con un clic.' },
   { target: 'section.col-center', before: () => tab('combat'), title: 'Prepara y lleva el combate', text: 'Antes del combate, la guía te lleva paso a paso y propone encuentros. Durante el combate, aquí está el turno de quien juega con «Siguiente turno», su tarjeta (daño, estados) y la ficha del monstruo. ¿Primera vez? «Probar con un ejemplo» monta un combate de muestra en un clic.' },

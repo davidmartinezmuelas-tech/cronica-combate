@@ -222,6 +222,14 @@ export interface Encounter {
   at?: number; // último cambio (para sincronizar con la cuenta)
 }
 
+/** Guion de una sesión del máster: texto libre (escrito o subido) en el que los nombres de encuentros guardados se vuelven enlaces. */
+export interface Script {
+  id: string;
+  title: string;
+  text: string;
+  at?: number; // último cambio
+}
+
 /** Datos persistentes de la app. */
 export interface SavedState {
   v: number;
@@ -236,5 +244,6 @@ export interface SavedState {
   diceTheme: string;
   turnEvents: TurnEvent[];
   encounters: Encounter[];
+  scripts?: Script[]; // guiones de sesión (no existen en copias antiguas)
   dice3d?: boolean | null; // dados 3D o 2D; null = automático (3D salvo que el sistema pida reducir movimiento)
 }

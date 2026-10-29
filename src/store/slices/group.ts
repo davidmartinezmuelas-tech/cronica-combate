@@ -63,7 +63,7 @@ export function createGroupSlice(set: SetState, get: GetState): GroupSlice {
       get().snap('importar');
       // las criaturas del Manual van a su almacén del dispositivo (no a las criaturas propias ni a la cuenta)
       if (r.book) get().setBook(r.book);
-      set({ roster: r.roster!, custom: r.custom!, encounters: r.encounters!, ...(r.combat || {}), ioMsg: r.message + (saved ? ' Con ' + saved + (saved === 1 ? ' hoja' : ' hojas') + ' de personaje.' : '') });
+      set({ roster: r.roster!, custom: r.custom!, encounters: r.encounters!, ...(r.scripts ? { scripts: r.scripts } : {}), ...(r.combat || {}), ioMsg: r.message + (saved ? ' Con ' + saved + (saved === 1 ? ' hoja' : ' hojas') + ' de personaje.' : '') });
     },
   };
 }

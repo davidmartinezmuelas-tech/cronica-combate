@@ -4,7 +4,7 @@ import Brand from '../../shared/Brand';
 import DataBackup from './DataBackup';
 import { UndoIcon } from '../../shared/Icons';
 
-const TABS: [Tab, string][] = [['combat', 'Combate'], ['bestiary', 'Bestiario'], ['group', 'Grupo'], ['forge', 'Forja'], ['rules', 'Reglas']];
+const TABS: [Tab, string][] = [['combat', 'Combate'], ['bestiary', 'Bestiario'], ['group', 'Grupo'], ['forge', 'Forja'], ['script', 'Guion'], ['rules', 'Reglas']];
 
 export default function Header() {
   const tab = useStore((s) => s.tab);

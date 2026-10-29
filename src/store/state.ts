@@ -1,11 +1,11 @@
-import type { Combatant, ConcPrompt, DieView, DmgPart, Encounter, LogEntry, Monster, RollResult, RosterEntry, Spell, TurnEvent } from '../data/types';
+import type { Combatant, ConcPrompt, DieView, DmgPart, Encounter, LogEntry, Monster, RollResult, RosterEntry, Script, Spell, TurnEvent } from '../data/types';
 import type { AdvMode, RollKind, RollPart } from '../engine/dice';
 import type { SaveEffect } from '../engine/saveEffect';
 import type { LogDraft } from '../engine/combat';
 import type { ForgeFeat, ForgeState } from '../engine/forge';
 import type { RuleEntry } from '../engine/rules';
 
-export type Tab = 'combat' | 'bestiary' | 'group' | 'forge' | 'rules';
+export type Tab = 'combat' | 'bestiary' | 'group' | 'forge' | 'script' | 'rules';
 
 export interface RollSpec {
   label: string;
@@ -189,6 +189,17 @@ export interface EncounterSlice {
   deleteEncounter: (id: string) => void;
 }
 
+/** Guiones de sesión del máster. */
+export interface ScriptSlice {
+  scripts: Script[];
+  scriptId: string | null; // el que se está viendo (no se guarda)
+  addScript: (title: string, text: string) => string;
+  patchScript: (id: string, patch: Partial<Pick<Script, 'title' | 'text'>>) => void;
+  deleteScript: (id: string) => void;
+  /** Carga el encuentro guardado y salta a Combate. */
+  openScriptEncounter: (id: string) => void;
+}
+
 /** Reglas: glosario, capítulos y conjuros (se cargan al abrir la pestaña). */
 export interface RulesSlice {
   rules: RuleEntry[] | null;
@@ -203,7 +214,7 @@ export interface RulesSlice {
   ruleGoBack: () => void;
 }
 
-export type State = CoreSlice & CombatSlice & DiceSlice & BestiarySlice & GroupSlice & EncounterSlice & RulesSlice;
+export type State = CoreSlice & CombatSlice & DiceSlice & BestiarySlice & GroupSlice & EncounterSlice & ScriptSlice & RulesSlice;
 
 export type SetState = (patch: Partial<State>) => void;
 export type GetState = () => State;

@@ -79,7 +79,7 @@ test('combate completo: iniciativa, turnos, quitar al activo y guardado tras rec
   await expect(page.getByText('Ronda 1 · inicio de turno')).toBeVisible();
 
   // el combate sobrevive a una recarga
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(1500);
   await page.reload();
   await expect(activeName(page)).toContainText('Guerrero goblin 2');
   await expect(page.locator('.init-row')).toHaveCount(2);
@@ -101,6 +101,37 @@ test('herramientas del DM: daño alternativo y encuentros guardados', async ({ p
   await expect(page.locator('.init-row')).toHaveCount(0);
   await page.getByRole('button', { name: 'Cargar' }).click();
   await expect(page.locator('.init-row')).toHaveCount(3);
+});
+
+test('guion de la sesión: se sube un texto y el nombre de un encuentro lleva al combate con él cargado', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 3);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.getByLabel('Guardar los monstruos actuales como').fill('Emboscada del puente');
+  await page.getByRole('button', { name: 'Guardar encuentro' }).click();
+  await page.getByRole('button', { name: 'Vaciar encuentro' }).click();
+  await page.getByRole('button', { name: '¿Seguro? Pulsa otra vez' }).click();
+  await expect(page.locator('.init-row')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByLabel('Subir guion (.txt o .md)').setInputFiles({ name: 'sesion1.txt', mimeType: 'text/plain', buffer: Buffer.from(['Los jugadores salen de la posada.', 'En el camino, la Emboscada del puente.', 'Fin.'].join('\n'), 'utf8') });
+  await expect(page.getByRole('button', { name: 'sesion1' })).toBeVisible();
+  await expect(page.getByText('Los jugadores salen de la posada.')).toBeVisible();
+  // sobrevive a una recarga
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByRole('button', { name: 'sesion1' }).click();
+  await page.getByRole('button', { name: 'Emboscada del puente', exact: true }).click();
+  await expect(page.locator('.init-row')).toHaveCount(3);
+  await expect(page.getByRole('button', { name: 'Combate', exact: true })).toHaveAttribute('aria-current', 'page');
+});
+
+test('guion de la sesión: un archivo que no es de texto se rechaza', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByLabel('Subir guion (.txt o .md)').setInputFiles({ name: 'sesion.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from('x') });
+  await expect(page.getByRole('alert')).toContainText('archivos de texto');
 });
 
 test('funciona sin conexión una vez cargada', async ({ page, context }) => {
