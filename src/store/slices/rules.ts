@@ -5,7 +5,7 @@ let loading: Promise<void> | null = null;
 
 export function createRulesSlice(set: SetState, get: GetState): RulesSlice {
   return {
-    rules: null, rulesError: '', rq: '', rcat: '', ruleId: null, ruleBack: [],
+    rules: null, rulesError: '', rq: '', rcat: '', ruleId: null, ruleBack: [], ruleSeq: 0,
 
     loadRules() {
       if (get().rules) return Promise.resolve();
@@ -19,7 +19,7 @@ export function createRulesSlice(set: SetState, get: GetState): RulesSlice {
 
     openRule(id) {
       const s = get();
-      set({ tab: 'rules', ruleId: id, ruleBack: s.ruleId && s.ruleId !== id ? [...s.ruleBack, s.ruleId].slice(-30) : s.ruleBack });
+      set({ tab: 'rules', ruleId: id, ruleSeq: s.ruleSeq + 1, ruleBack: s.ruleId && s.ruleId !== id ? [...s.ruleBack, s.ruleId].slice(-30) : s.ruleBack });
     },
 
     async openRuleByName(name, cat) {
@@ -32,7 +32,7 @@ export function createRulesSlice(set: SetState, get: GetState): RulesSlice {
     ruleGoBack() {
       const back = get().ruleBack.slice();
       const prev = back.pop();
-      if (prev) set({ ruleId: prev, ruleBack: back });
+      if (prev) set({ ruleId: prev, ruleBack: back, ruleSeq: get().ruleSeq + 1 });
     },
   };
 }

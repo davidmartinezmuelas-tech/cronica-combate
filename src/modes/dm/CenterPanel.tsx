@@ -11,7 +11,6 @@ import type { RosterEntry } from '../../data/types';
 import CombatantCard from './CombatantCard';
 import EncounterGenerator from './EncounterGenerator';
 import StatBlock, { SpellCard } from './StatBlock';
-import { RuleQuick, RuleView } from '../../shared/RulesPanel';
 import PartySheets from './PartySheets';
 
 // la hoja del jugador es del modo jugador: se descarga solo si hace falta
@@ -167,7 +166,6 @@ export default function CenterPanel() {
   const forge = useStore((s) => s.forge);
   const spells = useStore((s) => s.spells);
   const loaded = useStore((s) => s.loaded);
-  const hasRule = useStore((s) => !!s.rules && !!s.ruleId && s.rules.some((x) => x.id === s.ruleId));
   const forgeM = useMemo(() => (tab === 'forge' ? forgeToMonster(forge, 'preview', spells) : null), [tab, forge, spells]);
 
   const isCombat = tab === 'combat';
@@ -199,12 +197,6 @@ export default function CenterPanel() {
             )}
           </div>
         )}
-        {tab === 'rules' && hasRule && (
-          <div className="sheet-col">
-            <span className="eyebrow">Reglas · SRD 5.2.1</span>
-            <RuleView />
-          </div>
-        )}
         {guest && !sheet && (
           <div className="sheet-col guest-col">
             <span className="eyebrow">Hoja de {guest.name} · en directo desde su dispositivo</span>
@@ -219,11 +211,10 @@ export default function CenterPanel() {
           </div>
         )}
       </div>
-      {(emptyCombat || (tab === 'bestiary' && !viewM && loaded) || (tab === 'rules' && !hasRule)) && (
+      {(emptyCombat || (tab === 'bestiary' && !viewM && loaded)) && (
         <div className="panel" style={{ alignItems: 'center', textAlign: 'center', padding: '40px 24px' }}>
-          <h2>{tab === 'bestiary' ? 'Elige una criatura' : tab === 'rules' ? 'Busca una regla' : 'Nadie seleccionado'}</h2>
-          <p className="muted" style={{ margin: 0 }}>{tab === 'bestiary' ? 'Pulsa una criatura de la lista para ver su hoja.' : tab === 'rules' ? 'Escribe un término en español o en inglés (derribado, prone, cobertura, bola de fuego…) o elige una de las más consultadas. Las reglas son las del SRD 5.2.1 (2024) y los enlaces del texto abren la regla citada.' : 'Pulsa a alguien en la iniciativa para ver su hoja y llevar sus PG y estados.'}</p>
-          {tab === 'rules' && <RuleQuick />}
+          <h2>{tab === 'bestiary' ? 'Elige una criatura' : 'Nadie seleccionado'}</h2>
+          <p className="muted" style={{ margin: 0 }}>{tab === 'bestiary' ? 'Pulsa una criatura de la lista para ver su hoja.' : 'Pulsa a alguien en la iniciativa para ver su hoja y llevar sus PG y estados.'}</p>
         </div>
       )}
     </>

@@ -252,18 +252,18 @@ test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado des
   await page.keyboard.press('r');
   // consulta rápida sin escribir
   await page.locator('.rule-quick').getByRole('button', { name: 'Ataques de oportunidad' }).click();
-  await expect(page.locator('.rule-view .sb-name')).toHaveText('Ataques de oportunidad');
+  await expect(page.locator('.rule-entry.on .rule-title')).toContainText('Ataques de oportunidad');
   const search = page.getByLabel('Buscar (español o inglés)');
   await search.fill('prone');
   await page.locator('.rule-item').first().click();
-  await expect(page.locator('.rule-view .sb-name')).toHaveText('Derribado');
-  await page.locator('.rule-view .rule-link', { hasText: 'Velocidad' }).first().click();
-  await expect(page.locator('.rule-view .sb-name')).toHaveText('Velocidad');
+  await expect(page.locator('.rule-entry.on .rule-title')).toContainText('Derribado');
+  await page.locator('.rule-entry.on .rule-link', { hasText: 'Velocidad' }).first().click();
+  await expect(page.locator('.rule-entry.on .rule-title')).toContainText('Velocidad');
   await page.getByRole('button', { name: '← Atrás' }).click();
-  await expect(page.locator('.rule-view .sb-name')).toHaveText('Derribado');
+  await expect(page.locator('.rule-entry.on .rule-title')).toContainText('Derribado');
   await search.fill('bola de fuego');
   await page.locator('.rule-item').first().click();
-  await expect(page.locator('.rule-view')).toContainText('Conjuro de nivel 3 de evocación');
+  await expect(page.locator('.rule-entry.on')).toContainText('Conjuro de nivel 3 de evocación');
 
   // desde el combate: el estado «Apresado» abre su regla (el SRD traducido lo llamaba «Restringido»)
   await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 1);
@@ -273,7 +273,7 @@ test('reglas: buscar en inglés o español, seguir enlaces y abrir un estado des
   await page.getByRole('button', { name: 'Apresado', exact: true }).click();
   await expect(page.locator('.combatant-card summary', { hasText: 'Estados' })).toContainText('Apresado');
   await page.getByTitle('Ver la regla completa de Apresado').click();
-  await expect(page.locator('.rule-view .sb-name')).toHaveText('Apresado');
+  await expect(page.locator('.rule-entry.on .rule-title')).toContainText('Apresado');
 });
 
 const MINI_PDF = '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]/Contents 4 0 R/Resources<<>>>>endobj\n4 0 obj<</Length 30>>stream\n0.6 0.1 0.1 rg 40 40 120 120 re f\nendstream\nendobj\ntrailer<</Root 1 0 R>>\n%%EOF\n';
@@ -458,7 +458,7 @@ test('al entrar se elige modo; se recuerda y se puede cambiar desde el título',
   await expect(page.locator('.plaque-label')).toContainText('d20', { timeout: 15000 });
   await page.getByRole('button', { name: 'Reglas', exact: true }).click();
   await page.locator('.rule-tile', { hasText: 'Derribado' }).click();
-  await expect(page.locator('.rule-view .sb-name')).toHaveText('Derribado');
+  await expect(page.locator('.rule-entry.on .rule-title')).toContainText('Derribado');
 
   // se recuerda al volver a entrar sin dirección
   await page.goto('/');
@@ -2661,4 +2661,26 @@ test('objetos mágicos: al elegir uno de la biblioteca se leen sus conjuros con 
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await panel.getByLabel('Sintonizado: Cinturón de fuerza de gigante (nubes)').check();
   await expect(page.getByText('27', { exact: true }).first()).toBeVisible();
+});
+
+test('libro de reglas: marcapáginas por capítulo, atajos nuevos y la búsqueda lleva a la página de la regla', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('r');
+  // el libro tiene todos los capítulos y los conjuros van los últimos
+  const titles = page.locator('.rule-chapter-title');
+  await expect(titles.first()).toHaveText('Reglas rápidas');
+  await expect(titles.last()).toHaveText('Conjuros');
+  // un marcapáginas abre la lista de su capítulo
+  await page.locator('.rule-mark', { hasText: 'Reglas rápidas' }).click();
+  await expect(page.locator('.rule-mark-wrap.open .rule-item', { hasText: 'Empujar' })).toBeVisible();
+  // «ataque desarmado» (otro nombre del Golpe sin armas) y «empujar» se encuentran y llevan a su página
+  const search = page.getByLabel('Buscar (español o inglés)');
+  await search.fill('ataque desarmado');
+  await page.locator('.rule-item', { hasText: 'Golpe sin armas' }).first().click();
+  await expect(page.locator('.rule-entry.on .rule-title')).toContainText('Golpe sin armas');
+  await expect(page.locator('.rule-entry.on')).toBeInViewport();
+  await search.fill('zona de la verdad');
+  await page.locator('.rule-item').first().click();
+  await expect(page.locator('.rule-entry.on')).toContainText('Conjuro de nivel 2');
+  await expect(page.locator('.rule-entry.on')).toBeInViewport();
 });

@@ -11,8 +11,7 @@ import DiceDock from '../../shared/DiceDock';
 import RoomPanel from '../../shared/RoomPanel';
 import CharacterArea from './CharacterArea';
 import LibraryPanel from './LibraryPanel';
-import RulesPanel, { RuleQuick, RuleView } from '../../shared/RulesPanel';
-import { useStore } from '../../store/useStore';
+import RulesPanel, { RuleBook } from '../../shared/RulesPanel';
 import { useMobileTabs, type MTab } from './mobileTabs';
 
 type PlayerTab = 'sheet' | 'library' | 'rules';
@@ -31,7 +30,6 @@ export default function PlayerApp() {
   const mobileTabs = mt.phone && mt.sheet && tab === 'sheet';
   const MTABS: [MTab, string][] = [['combate', 'Combate'], ['tiradas', 'Tiradas'], ...(mt.spells ? [['conjuros', 'Conjuros'] as [MTab, string]] : []), ['rasgos', 'Rasgos'], ['sala', 'Sala']];
   useEffect(() => { if (mt.tab === 'conjuros' && !mt.spells) mt.setTab('combate'); }, [mt]);
-  const hasRule = useStore((s) => !!s.rules && !!s.ruleId && s.rules.some((x) => x.id === s.ruleId));
   return (
     <div className="app">
       <header className="app-header">
@@ -63,15 +61,7 @@ export default function PlayerApp() {
             <section className="col-left" aria-label="Buscador de reglas"><RulesPanel /></section>
             <section className="col-center" aria-label="Regla">
               <div className="center-main">
-                {hasRule ? (
-                  <div className="center-grid"><div className="sheet-col"><span className="eyebrow">Reglas · SRD 5.2.1</span><RuleView /></div></div>
-                ) : (
-                  <div className="panel" style={{ alignItems: 'center', textAlign: 'center', padding: '40px 24px' }}>
-                    <h2>Busca una regla</h2>
-                    <p className="muted" style={{ margin: 0 }}>Escribe un término en español o en inglés o elige una de las más consultadas.</p>
-                    <RuleQuick />
-                  </div>
-                )}
+                <RuleBook />
               </div>
               <Attribution />
             </section>

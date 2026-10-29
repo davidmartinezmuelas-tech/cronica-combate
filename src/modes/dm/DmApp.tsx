@@ -7,7 +7,7 @@ import GroupPanel from './GroupPanel';
 import ForgePanel from './ForgePanel';
 import ScriptPanel from './ScriptPanel';
 import ScriptView from './ScriptView';
-import RulesPanel from '../../shared/RulesPanel';
+import RulesPanel, { RuleBook } from '../../shared/RulesPanel';
 import CenterPanel from './CenterPanel';
 import DiceTable from '../../shared/DiceTable';
 import { chooseMode } from '../../app/mode';
@@ -43,7 +43,7 @@ export default function DmApp() {
           {tab === 'rules' && <RulesPanel />}
         </section>
         <section className="col-center" aria-label="Detalle">
-          <div className={tab === 'script' ? 'center-main' : 'center-main paper dm-paper'}>{tab === 'script' ? <ScriptView /> : <CenterPanel />}</div>
+          <div className={tab === 'script' || tab === 'rules' ? 'center-main' : 'center-main paper dm-paper'}>{tab === 'script' ? <ScriptView /> : tab === 'rules' ? <RuleBook /> : <CenterPanel />}</div>
           {/* la atribución va al final del contenido central: baja con él y no resta alto a la pantalla */}
           <Attribution hotkeys />
         </section>

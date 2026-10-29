@@ -1319,3 +1319,39 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .dm-paper .diff-mini-label.d1{color:#3f6b34}.dm-paper .diff-mini-label.d2{color:#8a5a0e}.dm-paper .diff-mini-label.d3{color:#a8431f}.dm-paper .diff-mini-label.d4{color:#8e1f3c}
 .dm-paper{--muted-2:#6f6048}
 .dm-paper .sheet-links summary,.dm-paper .sheet-links a{color:#8a5a0e}
+/* ---------- Reglas como libro: marcapáginas a la izquierda, páginas de pergamino en el centro ---------- */
+.rule-marks{list-style:none;margin:0;padding:0 4px 0 0;display:flex;flex-direction:column;gap:5px;flex:1 1 auto;min-height:120px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--muted-2) transparent}
+.rule-mark-wrap{display:flex;flex-direction:column;gap:4px}
+.rule-mark{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;text-align:left;padding:9px 22px 9px 12px;color:#f1e4c4;font-family:'IM Fell English SC',Georgia,serif;font-size:18px;line-height:1.15;background:linear-gradient(90deg,#6c1b12,#8a2a1c);border:0;border-left:4px solid var(--gold);clip-path:polygon(0 0,100% 0,calc(100% - 13px) 50%,100% 100%,0 100%);cursor:pointer}
+.rule-mark:hover{filter:brightness(1.15)}
+.rule-mark:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.rule-mark[aria-expanded=true]{background:linear-gradient(90deg,#8a2a1c,#a93a28);color:#fff4d6}
+.rule-mark-n{font-family:'Alegreya Sans',sans-serif;font-size:13px;opacity:.8}
+.rule-mark-wrap.open>.rule-list{padding:2px 0 6px 10px;border-left:2px solid #8a2a1c}
+.rules-panel .rule-marks .rule-list{flex:none;min-height:0;overflow:visible;padding-right:0}
+.rule-book{align-self:center;width:100%;max-width:940px;padding:0 44px 40px;color:var(--ink);font-family:'Alegreya','IM Fell English',Georgia,serif;font-size:18px;line-height:1.5;
+  background:linear-gradient(90deg,rgba(120,84,30,.16),rgba(120,84,30,0) 5%,rgba(120,84,30,0) 95%,rgba(120,84,30,.16)),#ead8b2;
+  border:1px solid var(--paper-line);border-radius:3px;box-shadow:0 0 0 5px #d9c597,0 0 0 6px var(--paper-line),0 14px 30px rgba(0,0,0,.45)}
+.rule-bookbar{position:sticky;top:0;z-index:3;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:38px;margin:0 -44px;padding:6px 44px;background:#e2cd9f;border-bottom:1px solid var(--paper-line)}
+.rule-bookbar .eyebrow{color:var(--garnet)}
+.rule-booktitle{margin:22px 0 4px;text-align:center;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:34px;color:var(--garnet);padding-bottom:8px;border-bottom:2px solid var(--garnet)}
+.rule-intro{margin:8px 0 14px;text-align:center;color:var(--ink);font-style:italic}
+.rule-book .rule-quick{margin-top:0}
+.rule-book .rule-quick h3{color:var(--garnet)}
+.rule-book .rule-quick section{border-top-color:var(--paper-line)}
+.rule-book .rule-tile{color:var(--ink);background:var(--paper-card);border-color:var(--paper-line);border-left-color:#a0865c}
+.rule-book .rule-tile:hover{background:#e9dcbe;border-left-color:var(--garnet)}
+.rule-chapter{scroll-margin-top:48px}
+.rule-chapter-title{margin:34px 0 6px;padding-bottom:6px;text-align:center;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:30px;color:var(--garnet);border-bottom:2px solid var(--garnet);scroll-margin-top:48px}
+.rule-entry{padding:10px 12px 6px;margin:10px -12px 0;border-radius:3px;border-left:5px solid transparent;scroll-margin-top:48px}
+.rule-entry.on{background:rgba(122,31,20,.09);border-left-color:var(--garnet)}
+.rule-title{margin:0 0 4px;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:24px;color:var(--garnet);border-bottom:1px solid var(--paper-line);padding-bottom:2px}
+.rule-en{margin-left:10px;font-family:'Alegreya Sans',sans-serif;font-size:14px;font-style:italic;color:#6a5a40}
+.rule-sub{margin:12px 0 2px;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:19px;color:var(--garnet);letter-spacing:.03em}
+.rule-book .sb-desc{margin:5px 0;color:var(--ink);text-align:justify;hyphens:auto}
+.rule-book .sb-label{font-weight:700;color:var(--garnet)}
+.rule-book .sb-meta{margin:0 0 4px;font-style:italic;color:#5a4a30}
+.rule-book .rule-link{color:var(--garnet)}
+.rule-book .rule-ul li::marker{color:var(--garnet)}
+.rule-book .rule-table td{color:var(--ink)}
+@media (max-width:700px){.rule-book{padding:0 18px 28px}.rule-bookbar{margin:0 -18px;padding:6px 18px}.rule-book .sb-desc{text-align:left}.rule-booktitle{font-size:28px}}

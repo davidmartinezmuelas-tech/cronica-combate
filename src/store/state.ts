@@ -213,6 +213,7 @@ export interface RulesSlice {
   rcat: string; // categoría
   ruleId: string | null; // entrada abierta
   ruleBack: string[]; // historial para «Atrás»
+  ruleSeq: number; // sube cada vez que se pide ir a una regla: el libro salta a ella aunque sea la misma
   loadRules: () => Promise<void>;
   openRule: (id: string) => void;
   openRuleByName: (name: string, cat?: string) => Promise<void>;
