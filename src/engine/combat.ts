@@ -5,13 +5,38 @@ import { uid } from './util';
 
 export type LogDraft = Omit<LogEntry, 'id'>;
 
-/** Orden de iniciativa: mayor primero; empates por bonificador y luego por nombre. Sin iniciativa al final. */
+/** Orden de iniciativa: mayor primero; empates por el puesto fijado a mano, luego por bonificador y por nombre. Sin iniciativa al final. */
 export function sortCombatants(cs: Combatant[]): Combatant[] {
   return cs.slice().sort((a, b) => {
     const ai = a.init == null ? -999 : a.init;
     const bi = b.init == null ? -999 : b.init;
-    return bi - ai || (b.initBonus || 0) - (a.initBonus || 0) || a.name.localeCompare(b.name, 'es');
+    return bi - ai || (a.ord ?? 1e9) - (b.ord ?? 1e9) || (b.initBonus || 0) - (a.initBonus || 0) || a.name.localeCompare(b.name, 'es');
   });
+}
+
+/**
+ * Mueve a mano un combatiente justo antes o después de otro (dotes que cambian el orden, decisiones del DM). Su iniciativa se ajusta
+ * para quedar entre sus nuevos vecinos, y todos guardan su puesto para que los empates respeten lo colocado.
+ */
+export function reorderCombatants(cs: Combatant[], id: string, targetId: string, after: boolean): Combatant[] {
+  if (id === targetId) return cs;
+  const order = sortCombatants(cs);
+  const moving = order.find((c) => c.id === id);
+  if (!moving || !order.some((c) => c.id === targetId)) return cs;
+  const rest = order.filter((c) => c.id !== id);
+  const at = rest.findIndex((c) => c.id === targetId) + (after ? 1 : 0);
+  rest.splice(at, 0, moving);
+  const hi = rest[at - 1]?.init ?? null;
+  const lo = rest[at + 1]?.init ?? null;
+  let init = moving.init;
+  if (init == null) init = hi ?? lo;
+  else { if (hi != null && init > hi) init = hi; if (lo != null && init < lo) init = lo; }
+  return rest.map((c, i) => ({ ...c, ord: i, ...(c.id === id ? { init } : {}) }));
+}
+
+/** Quita los puestos fijados a mano: vuelve el orden por iniciativa. */
+export function clearManualOrder(cs: Combatant[]): Combatant[] {
+  return cs.map((c) => { if (c.ord == null) return c; const { ord: _o, ...rest } = c; return rest; });
 }
 
 /** Puede recibir turno: tiene iniciativa y no está fuera de combate. */

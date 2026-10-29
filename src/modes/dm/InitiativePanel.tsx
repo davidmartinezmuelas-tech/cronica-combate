@@ -46,17 +46,26 @@ function statusOf(c: Combatant, started: boolean): string {
   return bits.join(' · ');
 }
 
-function Row({ c }: { c: Combatant }) {
+/** Quien se está arrastrando en la lista (el dataTransfer no se puede leer mientras se pasa por encima). */
+let dragging: string | null = null;
+
+function Row({ c, prev, next }: { c: Combatant; prev?: string; next?: string }) {
   const started = useStore((s) => s.started);
   const isActive = useStore((s) => s.started && s.activeId === c.id);
   const isSel = useStore((s) => s.selId === c.id);
-  const { set, patchC } = useStore.getState();
+  const { set, patchC, moveCombatant } = useStore.getState();
+  const [over, setOver] = useState<'above' | 'below' | null>(null);
   const pct = c.maxHp ? Math.max(0, Math.round((c.hp / c.maxHp) * 100)) : 0;
   const down = c.kind === 'monster' ? c.hp <= 0 : c.kind === 'pc' ? !!c.dead || c.hp <= 0 : false;
   const cls = ['init-row', c.kind, isActive ? 'active' : '', isSel ? 'sel' : '', down ? 'down' : ''].join(' ');
   const commit = (v: string) => { const n = parseInt(v.replace('−', '-'), 10); if (!isNaN(n)) patchC(c.id, { init: n }, 'iniciativa'); };
   return (
-    <li style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+    <li className={'init-li' + (over ? ' drop-' + over : '')} style={{ display: 'flex', gap: 6, alignItems: 'center' }}
+      draggable onDragStart={(e) => { dragging = c.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.id); }}
+      onDragEnd={() => { dragging = null; setOver(null); }}
+      onDragOver={(e) => { if (!dragging || dragging === c.id) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setOver(e.clientY < r.top + r.height / 2 ? 'above' : 'below'); }}
+      onDragLeave={() => setOver(null)}
+      onDrop={(e) => { e.preventDefault(); const id = dragging; const after = over === 'below'; dragging = null; setOver(null); if (id && id !== c.id) moveCombatant(id, c.id, after); }}>
       <button className={cls} title={c.name} onClick={() => { set({ selId: c.id, spellOpen: null }); showCard(); }} aria-pressed={isSel}>
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {/* una línea: iniciativa, nombre y marcas a la izquierda; CA y PG a la derecha (la fila ocupa la mitad que antes) */}
@@ -73,6 +82,12 @@ function Row({ c }: { c: Combatant }) {
           {(() => { const st = statusOf(c, started); return st ? <span style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.3, overflowWrap: 'anywhere' }}>{st}</span> : null; })()}
         </span>
       </button>
+      {(prev || next) && (
+        <span className="init-move">
+          <button className="init-move-btn" disabled={!prev} aria-label={'Subir a ' + c.name} title="Subir en el orden" onClick={() => prev && moveCombatant(c.id, prev, false)}>▲</button>
+          <button className="init-move-btn" disabled={!next} aria-label={'Bajar a ' + c.name} title="Bajar en el orden" onClick={() => next && moveCombatant(c.id, next, true)}>▼</button>
+        </span>
+      )}
       {c.init == null && (
         <input className="input init-in" type="text" inputMode="numeric" aria-label={'Iniciativa de ' + c.name} placeholder="Ini"
           onBlur={(e) => commit(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />
@@ -153,7 +168,7 @@ export default function InitiativePanel() {
   const started = useStore((s) => s.started);
   const surprised = useStore((s) => s.surprised);
   const confirmKey = useStore((s) => s.confirmKey);
-  const { set, rollInit, addPc, addAllPcs, addLairCombatant, endCombat, clearAll, confirm } = useStore.getState();
+  const { set, rollInit, autoOrder, addPc, addAllPcs, addLairCombatant, endCombat, clearAll, confirm } = useStore.getState();
   const order = useMemo(() => sortCombatants(combatants), [combatants]);
   const inC = new Set(combatants.map((c) => c.rosterId).filter(Boolean));
   const rosterOut = roster.filter((r) => !inC.has(r.id));
@@ -175,8 +190,9 @@ export default function InitiativePanel() {
       </div>
       {(!started || surprised) && <label className="check"><input type="checkbox" checked={surprised} onChange={(e) => set({ surprised: e.target.checked })} />Los monstruos están sorprendidos (desventaja)</label>}
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {order.map((c) => <Row key={c.id} c={c} />)}
+        {order.map((c, i) => <Row key={c.id} c={c} prev={order[i - 1]?.id} next={order[i + 1]?.id} />)}
       </ol>
+      {order.length > 1 && <p className="muted small" style={{ margin: 0 }}>Arrastra una fila o usa ▲▼ para cambiar el orden a mano (dotes, decisiones).{combatants.some((c) => c.ord != null) && <> <button className="btn small ghost" onClick={autoOrder}>Orden automático</button></>}</p>}
       <Difficulty />
       {!combatants.length && <p className="muted" style={{ margin: 0 }}>El encuentro está vacío. Empieza añadiendo monstruos desde el Bestiario.</p>}
       {pendingPc && <p className="muted small" style={{ margin: 0 }}>Escribe en la casilla la iniciativa que saque cada jugador y pulsa Intro.</p>}

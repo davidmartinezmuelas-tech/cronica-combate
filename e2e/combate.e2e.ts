@@ -2706,3 +2706,18 @@ test('dos columnas por páginas: el libro de reglas pasa de página con los boto
   await page.getByRole('button', { name: 'Una columna' }).click();
   await expect(page.locator('.paged')).toHaveCount(0);
 });
+
+test('iniciativa a mano: botones subir/bajar y arrastrar cambian el orden, y Orden automático lo deshace', async ({ page }) => {
+  await open(page);
+  await addPlayer(page, 'Ana', '20');
+  await addPlayer(page, 'Beto', '15');
+  await addPlayer(page, 'Cris', '10');
+  const names = () => page.locator('.init-row .init-badge + span').allTextContents();
+  await expect.poll(names).toEqual(['Ana', 'Beto', 'Cris']);
+  await page.getByRole('button', { name: 'Subir a Cris' }).click();
+  await expect.poll(names).toEqual(['Ana', 'Cris', 'Beto']);
+  await page.locator('.init-li', { hasText: 'Beto' }).dragTo(page.locator('.init-li', { hasText: 'Ana' }), { targetPosition: { x: 40, y: 3 } });
+  await expect.poll(names).toEqual(['Beto', 'Ana', 'Cris']);
+  await page.getByRole('button', { name: 'Orden automático' }).click();
+  await expect.poll(names).toEqual(['Ana', 'Beto', 'Cris']);
+});

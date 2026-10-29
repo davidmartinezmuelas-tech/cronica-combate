@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Combatant, Monster } from '../data/types';
-import { addCondition, applyDamage, applyHeal, durationText, encounterDifficulty, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, stepTurn, tickConditions, turnStart, uniqueName } from '../engine/combat';
+import { clearManualOrder, reorderCombatants, addCondition, applyDamage, applyHeal, durationText, encounterDifficulty, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, stepTurn, tickConditions, turnStart, uniqueName } from '../engine/combat';
 import { useStore } from '../store/useStore';
 
 const base = (o: Partial<Combatant>): Combatant => ({
@@ -13,6 +13,17 @@ describe('orden y turnos', () => {
   it('ordena por iniciativa, desempata por bonificador y deja sin iniciativa al final', () => {
     const cs = [base({ id: 'a', name: 'A', init: 12, initBonus: 1 }), base({ id: 'b', name: 'B', init: null }), base({ id: 'c', name: 'C', init: 12, initBonus: 3 }), base({ id: 'd', name: 'D', init: 20 })];
     expect(sortCombatants(cs).map((c) => c.id)).toEqual(['d', 'c', 'a', 'b']);
+  });
+  it('mueve a mano: ajusta la iniciativa entre vecinos y respeta lo colocado en los empates', () => {
+    const cs = [base({ id: 'a', name: 'A', init: 20 }), base({ id: 'b', name: 'B', init: 15 }), base({ id: 'c', name: 'C', init: 10 })];
+    const up = reorderCombatants(cs, 'c', 'a', false);
+    expect(sortCombatants(up).map((c) => c.id)).toEqual(['c', 'a', 'b']);
+    expect(up.find((c) => c.id === 'c')!.init).toBe(20);
+    const eq = reorderCombatants([base({ id: 'a', name: 'A', init: 12 }), base({ id: 'b', name: 'B', init: 12 })], 'b', 'a', false);
+    expect(sortCombatants(eq).map((c) => c.id)).toEqual(['b', 'a']);
+    expect(reorderCombatants(cs, 'a', 'a', true)).toBe(cs);
+    expect(sortCombatants(clearManualOrder(up)).map((c) => c.id)).toEqual(['a', 'c', 'b']);
+    expect(clearManualOrder(up).every((c) => c.ord == null)).toBe(true);
   });
   it('salta derrotados y combatientes sin iniciativa; suma ronda al dar la vuelta', () => {
     const cs = [base({ id: 'a', init: 20 }), base({ id: 'b', init: 15, hp: 0 }), base({ id: 'c', init: null }), base({ id: 'd', init: 5 })];

@@ -1,6 +1,6 @@
 import type { Combatant, ConcPrompt, TurnEvent } from '../../data/types';
 import {
-  addCondition, applyDamage, applyHeal, makeLair, makeMonsterCombatant, makePcCombatant, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants,
+  addCondition, applyDamage, applyHeal, makeLair, makeMonsterCombatant, makePcCombatant, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, reorderCombatants, clearManualOrder,
   stepTurn, tickConditions, turnStart, uniqueName, type LogDraft, type RechargeCheck,
 } from '../../engine/combat';
 import { combineAdv, rollDie, sgn, type PhysicalDie } from '../../engine/dice';
@@ -62,6 +62,18 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
     selId: null, concPrompts: [], surprised: false, initAsk: null, tourOpen: false, amount: '', dmgType: '', condRounds: '', condAt: 'start', condBy: '', initDraft: null,
 
     rechargeRoll(id, key, name, min) { rollRecharge(id, [{ key, name, min }]); },
+
+    moveCombatant(id, targetId, after) {
+      const next = reorderCombatants(get().combatants, id, targetId, after);
+      if (next === get().combatants) return;
+      get().snap('cambio de orden de iniciativa');
+      set({ combatants: next });
+    },
+
+    autoOrder() {
+      get().snap('orden automático de iniciativa');
+      set({ combatants: clearManualOrder(get().combatants) });
+    },
 
     patchC(id, patch, label) {
       get().snap(label || 'cambio en combatiente');

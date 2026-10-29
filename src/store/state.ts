@@ -83,6 +83,8 @@ export interface CombatSlice {
   condAt: 'start' | 'end';
   condBy: string; // '' = la propia criatura
   initDraft: { id: string; text: string } | null;
+  moveCombatant: (id: string, targetId: string, after: boolean) => void;
+  autoOrder: () => void;
   patchC: (id: string, patch: Partial<Combatant> | ((c: Combatant) => Partial<Combatant>), label?: string) => void;
   rollInit: (mode?: 'group' | 'single') => void; // sin modo y con repetidos, pregunta primero
   addMonster: (m: Monster, qty: number, opts?: { inLair?: boolean; silent?: boolean }) => void;

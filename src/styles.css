@@ -1410,3 +1410,13 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .page-count{display:flex;align-items:center;justify-content:center;gap:14px;font-size:14px;color:#5a4a30}
 .page-count .rollbtn{color:var(--garnet);border-color:var(--paper-line);background:var(--paper-card)}
 @media (max-width:800px){.paged-inner{column-count:1}.page-turn{display:none}.paged-view{height:calc(100dvh - 260px)}}
+
+/* orden de iniciativa a mano */
+.init-li { position: relative; }
+.init-li.drop-above::before, .init-li.drop-below::after { content: ''; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--gold, #d4a24c); }
+.init-li.drop-above::before { top: -5px; }
+.init-li.drop-below::after { bottom: -5px; }
+.init-move { display: flex; flex-direction: column; gap: 2px; }
+.init-move-btn { background: transparent; border: 1px solid #4b4138; color: var(--text-2); border-radius: 4px; font-size: 9px; line-height: 1; padding: 3px 5px; cursor: pointer; }
+.init-move-btn:hover:not(:disabled) { color: var(--text, #eee); border-color: var(--gold, #d4a24c); }
+.init-move-btn:disabled { opacity: .3; cursor: default; }

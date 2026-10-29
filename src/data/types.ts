@@ -104,6 +104,7 @@ export interface Combatant {
   name: string;
   init: number | null;
   initBonus: number;
+  ord?: number; // puesto fijado a mano en la iniciativa (desempata antes que el bonificador y el nombre)
   hp: number;
   maxHp: number;
   temp: number;

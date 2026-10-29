@@ -23,6 +23,7 @@ export function normCombatant(c: unknown): Combatant | null {
   o.temp = num(o.temp, 0);
   o.exh = Math.max(0, Math.min(6, num(o.exh, 0)));
   o.init = o.init == null || (o.init as unknown) === '' ? null : num(o.init, 0);
+  if (typeof o.ord === 'number' && isFinite(o.ord)) o.ord = Math.round(o.ord); else delete o.ord;
   o.conds = (Array.isArray(o.conds) ? o.conds : []).map(normCondition).filter((k): k is Condition => !!k);
   if (o.kind === 'pc') o.death = { s: 0, f: 0, ...(o.death || {}) };
   return o;
