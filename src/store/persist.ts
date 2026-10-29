@@ -87,6 +87,8 @@ export function normMonster(m: unknown): Monster | null {
     if (!Array.isArray(list)) { delete o[sec]; return; }
     o[sec] = list.filter((f) => f && typeof f.n === 'string').map((f) => ({ ...f, d: String(f.d ?? '') }));
   });
+  if (Array.isArray(x.lairActions)) o.lairActions = x.lairActions.filter((f) => f && typeof f.n === 'string').map((f) => ({ ...f, d: String(f.d ?? '') }));
+  else delete o.lairActions;
   return o;
 }
 

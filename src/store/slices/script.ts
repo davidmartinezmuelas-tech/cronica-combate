@@ -1,3 +1,4 @@
+import { planBlocks } from '../../engine/scriptBlocks';
 import { uid } from '../../engine/util';
 import type { GetState, ScriptSlice, SetState } from '../state';
 
@@ -28,6 +29,24 @@ export function createScriptSlice(set: SetState, get: GetState): ScriptSlice {
 
     openScriptEncounter(id) {
       get().loadEncounter(id); // carga los monstruos y salta a Combate
+    },
+
+    planScriptBlocks(text) {
+      const s = get();
+      return planBlocks(text, { spells: s.spells, custom: s.custom, all: [...s.custom, ...s.book, ...s.srd], encounters: s.encounters });
+    },
+
+    applyScriptBlocks(plan) {
+      const s = get();
+      if (!plan.creatures.length && !plan.encounters.length) return;
+      get().snap('cargar combates del guion');
+      const at = Date.now();
+      const mons = plan.creatures.map((c) => ({ ...c.monster, at }));
+      const ids = new Set(mons.map((m) => m.id));
+      const encs = plan.encounters.map((e) => ({ ...e.enc, at }));
+      const eids = new Set(encs.map((e) => e.id));
+      set({ custom: [...mons, ...s.custom.filter((m) => !ids.has(m.id))], encounters: [...s.encounters.filter((e) => !eids.has(e.id)), ...encs] });
+      get().showToast(mons.length + ' criaturas y ' + encs.length + ' encuentros cargados del guion');
     },
   };
 }

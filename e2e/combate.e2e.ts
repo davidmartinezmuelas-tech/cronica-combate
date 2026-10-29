@@ -137,6 +137,39 @@ test('guion de la sesión: las tiradas del texto se tiran en la mesa como los at
   await expect(page.locator('.plaque-label')).toHaveText('Guion · 1d20+3');
 });
 
+test('guion de la sesión: «Cargar combates del guion» crea la criatura y el encuentro desde los bloques, y no duplica al repetir', async ({ page }) => {
+  const F = '```';
+  const md = [
+    '## Combate 1', 'Los lobos atacan.', '', F + 'encuentro', 'formato: 1', 'nombre: Ronda de lobos', 'guarida: sí', '- 2 x Lobo del foso', '- 1 x Guerrero goblin', F, '', '## Fichas de combate', '',
+    F + 'criatura', 'formato: 1', 'nombre: Lobo del foso', 'tamaño: Mediano', 'tipo: bestia', 'CA: 13', 'PG: 11 (2d8+2)', 'velocidad: 40 pies', 'características: FUE 12, DES 15, CON 12, INT 3, SAB 12, CAR 6',
+    'CR: 1/4', 'XP: 50', 'competencia: +2', 'guarida: sí', '', 'acciones:', '- **Mordisco.** Ataque: +4. Impacto: 7 (2d4 + 2) de daño perforante. [atq +4; daño 2d4+2 perforante]', '',
+    'acciones de guarida:', '- **Aullido.** Todos aúllan. [cd 11 SAB]', F,
+  ].join('\n');
+  await open(page);
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByLabel('Subir guion (.txt o .md)').setInputFiles({ name: 'combate.md', mimeType: 'text/markdown', buffer: Buffer.from(md, 'utf8') });
+  await page.getByRole('button', { name: 'Cargar combates del guion' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg).toContainText('Lobo del foso');
+  await expect(dlg).toContainText('Ronda de lobos');
+  await expect(dlg).toContainText('2 × Lobo del foso, 1 × Guerrero goblin');
+  await dlg.getByRole('button', { name: 'Cargar', exact: true }).click();
+  // el nombre del encuentro del guion ya es un botón; la criatura está en el bestiario con su guarida
+  await page.getByRole('button', { name: 'Ir al combate: Ronda de lobos' }).first().click();
+  await expect(page.locator('.init-row')).toHaveCount(4); // 2 lobos + goblin + tarjeta de guarida
+  await page.getByRole('button', { name: 'Bestiario', exact: true }).click();
+  await page.getByLabel('Buscar (español o inglés)').fill('lobo del foso');
+  await page.locator('.beast', { hasText: 'Lobo del foso' }).first().click();
+  await expect(page.getByText('Acciones de guarida')).toBeVisible();
+  // repetir: actualiza, no duplica
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByRole('button', { name: 'Cargar combates del guion' }).click();
+  await expect(page.getByRole('dialog')).toContainText('Sobrescribe la ficha');
+  await page.getByRole('dialog').getByRole('button', { name: 'Cargar', exact: true }).click();
+  await page.getByRole('button', { name: 'Bestiario', exact: true }).click();
+  await expect(page.locator('.beast', { hasText: 'Lobo del foso' })).toHaveCount(1);
+});
+
 test('guion de la sesión: un archivo que no es de texto se rechaza', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Guion', exact: true }).click();

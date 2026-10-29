@@ -47,7 +47,7 @@ function SpellList({ f, c, who }: { f: Feature; c: Combatant | null; who: string
   );
 }
 
-function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKey; f: Feature; i: number; who: string }) {
+function FeatureRow({ c, sec, f, i, who }: { c: Combatant | null; sec: SectionKey | 'lair'; f: Feature; i: number; who: string }) {
   const { roll, setSpent, setUsed, useLeg, useLR, rechargeRoll } = useStore.getState();
   const key = sec + i;
   let tag = '';
@@ -198,6 +198,12 @@ export default function StatBlock({ m, c }: { m: Monster; c: Combatant | null })
           {m[k]!.map((f, i) => <FeatureRow key={k + i} c={c} sec={k} f={f} i={i} who={who} />)}
         </section>
       ))}
+      {(m.lairActions || []).length > 0 && (
+        <section aria-label="Acciones de guarida">
+          <h3 className="sb-section">Acciones de guarida</h3>
+          {m.lairActions!.map((f, i) => <FeatureRow key={'lair' + i} c={c} sec="lair" f={f} i={i} who={who} />)}
+        </section>
+      )}
     </article>
   );
 }

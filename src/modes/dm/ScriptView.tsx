@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Encounter } from '../../data/types';
 import { findDice, linkEncounters, parseMarkdown, type Block, type Inline } from '../../engine/script';
+import { extractBlocks, type ImportPlan } from '../../engine/scriptBlocks';
+import { InfoDialog } from '../../shared/Card';
 import { D20Icon } from '../../shared/Icons';
 import { useStore } from '../../store/useStore';
 
@@ -46,6 +48,19 @@ function Blocks({ blocks, encounters, open }: { blocks: Block[]; encounters: Pic
       {blocks.map((b, i) => {
         if (b.t === 'h') { const H = (['h2', 'h3', 'h4'] as const)[b.level - 1]; return <H key={i} className="script-h">{inl(b.inl)}</H>; }
         if (b.t === 'hr') return <hr key={i} className="script-hr" />;
+        if (b.t === 'code' && (b.lang === 'encuentro' || b.lang === 'criatura')) {
+          const nm = /^nombre:s*(.+)$/im.exec(b.text)?.[1]?.trim() || '';
+          const enc = b.lang === 'encuentro' ? encounters.find((e) => e.name.trim().toLowerCase() === nm.toLowerCase()) : undefined;
+          return (
+            <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start' }}>
+              {enc && <button className="script-roll" onClick={() => open(enc.id)} title="Carga este encuentro y va a Combate">Ir al combate: {enc.name}</button>}
+              <details className="script-combat" style={{ width: '100%' }}>
+                <summary>{b.lang === 'encuentro' ? 'Encuentro' : 'Ficha de criatura'}{nm ? ': ' + nm : ''}</summary>
+                <pre className="script-pre">{b.text}</pre>
+              </details>
+            </div>
+          );
+        }
         if (b.t === 'code') return <pre key={i} className="script-pre">{b.text}</pre>;
         if (b.t === 'quote') return <blockquote key={i} className="script-quote">{inl(b.inl)}</blockquote>;
         if (b.t === 'list') {
@@ -58,6 +73,39 @@ function Blocks({ blocks, encounters, open }: { blocks: Block[]; encounters: Pic
   );
 }
 
+/** Resumen de lo que cargaría el guion, con sus avisos, antes de escribir nada. */
+function PlanDialog({ plan, onApply, onClose }: { plan: ImportPlan; onApply: () => void; onClose: () => void }) {
+  const warns = [...plan.warnings, ...plan.creatures.flatMap((c) => c.warnings.map((w) => c.monster.n + ': ' + w)), ...plan.encounters.flatMap((e) => e.warnings.map((w) => e.enc.name + ': ' + w))];
+  const none = !plan.creatures.length && !plan.encounters.length;
+  return (
+    <InfoDialog title="Cargar combates del guion" onClose={onClose}>
+      {plan.creatures.length > 0 && (
+        <div>
+          <span className="eyebrow">Criaturas propias ({plan.creatures.length})</span>
+          <ul className="rem">{plan.creatures.map((c) => <li key={c.monster.id}><span style={{ flex: 1 }}><strong>{c.monster.n}</strong> <span className="muted small">CR {c.monster.cr} · CA {c.monster.ac} · PG {c.monster.hp}</span></span><span className={c.action === 'actualizar' ? 'chip-tag warn' : 'chip-tag'}>{c.action === 'actualizar' ? 'Sobrescribe la ficha' : 'Nueva'}</span></li>)}</ul>
+        </div>
+      )}
+      {plan.encounters.length > 0 && (
+        <div>
+          <span className="eyebrow">Encuentros ({plan.encounters.length})</span>
+          <ul className="rem">{plan.encounters.map((e) => <li key={e.enc.id}><span style={{ flex: 1 }}><strong>{e.enc.name}</strong><span className="muted small" style={{ display: 'block' }}>{e.enc.items.map((i) => i.qty + ' × ' + (useStore.getState().monById(i.monsterId)?.n || plan.creatures.find((c) => c.monster.id === i.monsterId)?.monster.n || i.monsterId)).join(', ')}{e.enc.lair ? ' · guarida' : ''}</span></span><span className={e.action === 'actualizar' ? 'chip-tag warn' : 'chip-tag'}>{e.action === 'actualizar' ? 'Actualiza' : 'Nuevo'}</span></li>)}</ul>
+        </div>
+      )}
+      {warns.length > 0 && (
+        <div>
+          <span className="eyebrow">Avisos ({warns.length})</span>
+          <ul className="rem">{warns.map((w, i) => <li key={i} className="warn small">{w}</li>)}</ul>
+        </div>
+      )}
+      {none && <p className="muted" style={{ margin: 0 }}>No hay nada que cargar.</p>}
+      <div className="rollrow">
+        <button className="btn small primary" disabled={none} onClick={() => { onApply(); onClose(); }}>Cargar</button>
+        <button className="btn small ghost" onClick={onClose}>Cancelar</button>
+      </div>
+    </InfoDialog>
+  );
+}
+
 /** El guion elegido (columna central): se lee con los combates como botones, o se edita como texto. */
 export default function ScriptView() {
   const scripts = useStore((s) => s.scripts);
@@ -67,6 +115,8 @@ export default function ScriptView() {
   const { patchScript, deleteScript, openScriptEncounter, set } = useStore.getState();
   const script = scripts.find((x) => x.id === scriptId) || scripts[0] || null;
   const [edit, setEdit] = useState(false);
+  const [plan, setPlan] = useState<ImportPlan | null>(null);
+  const nBlocks = useMemo(() => extractBlocks(script?.text || '').length, [script?.text]);
   // al cambiar de guion: vacío = a escribir; con texto = a leer
   useEffect(() => { setEdit(!!script && !script.text.trim()); }, [script?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const blocks = useMemo(() => parseMarkdown(script?.text || ''), [script?.text]);
@@ -90,6 +140,7 @@ export default function ScriptView() {
       <div className="panel-head">
         <input className="input" aria-label="Título del guion" style={{ flex: 1, minWidth: 180, fontWeight: 700 }} value={script.title} onChange={(e) => patchScript(script.id, { title: e.target.value })} />
         <div className="rollrow">
+          {nBlocks > 0 && <button className="btn small gold" title="Crea las criaturas y los encuentros de los bloques del guion" onClick={() => setPlan(useStore.getState().planScriptBlocks(script.text))}>Cargar combates del guion</button>}
           <button className="btn small" onClick={() => setEdit(!edit)}>{edit ? 'Leer' : 'Editar'}</button>
           <button className="btn small ghost danger" onClick={() => deleteScript(script.id)}>{confirmKey === 'script-' + script.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
         </div>
@@ -110,6 +161,7 @@ export default function ScriptView() {
           {!encounters.length && <p className="muted small" style={{ margin: 0 }}>Aún no tienes encuentros guardados. Prepáralos en <button className="linkbtn" onClick={() => set({ tab: 'combat' })}>Combate</button> con «Guardar encuentro» y escribe su nombre en el guion.</p>}
         </>
       )}
+      {plan && <PlanDialog plan={plan} onApply={() => useStore.getState().applyScriptBlocks(plan)} onClose={() => setPlan(null)} />}
     </div>
   );
 }

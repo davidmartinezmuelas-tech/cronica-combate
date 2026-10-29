@@ -62,6 +62,7 @@ export interface Monster {
   ba?: Feature[];
   re?: Feature[];
   lg?: Feature[];
+  lairActions?: Feature[]; // acciones de guarida (se leen del guion; la mesa tiene una tarjeta genérica de guarida)
   /** Criaturas del Manual de Monstruos del usuario: dónde está en su PDF (página, altura del título, columna). */
   src?: { p: number; y: number; col: number };
   /** Datos que el OCR no pudo leer y faltan por revisar: 'ca', 'pg', 'ab:N', 'f:sección:N:dmg|dc'. */

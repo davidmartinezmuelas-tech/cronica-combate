@@ -4,6 +4,7 @@ import type { SaveEffect } from '../engine/saveEffect';
 import type { LogDraft } from '../engine/combat';
 import type { ForgeFeat, ForgeState } from '../engine/forge';
 import type { RuleEntry } from '../engine/rules';
+import type { ImportPlan } from '../engine/scriptBlocks';
 
 export type Tab = 'combat' | 'bestiary' | 'group' | 'forge' | 'script' | 'rules';
 
@@ -198,6 +199,10 @@ export interface ScriptSlice {
   deleteScript: (id: string) => void;
   /** Carga el encuentro guardado y salta a Combate. */
   openScriptEncounter: (id: string) => void;
+  /** Lo que cargaría un guion con bloques «encuentro» y «criatura» (no cambia nada). */
+  planScriptBlocks: (text: string) => ImportPlan;
+  /** Crea o actualiza las criaturas propias y los encuentros del plan. */
+  applyScriptBlocks: (plan: ImportPlan) => void;
 }
 
 /** Reglas: glosario, capítulos y conjuros (se cargan al abrir la pestaña). */

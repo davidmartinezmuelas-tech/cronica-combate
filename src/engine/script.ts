@@ -45,7 +45,7 @@ export type Block =
   | { t: 'p'; inl: Inline[] }
   | { t: 'quote'; inl: Inline[] }
   | { t: 'list'; ordered: boolean; items: { depth: number; inl: Inline[] }[] }
-  | { t: 'code'; text: string }
+  | { t: 'code'; text: string; lang?: string }
   | { t: 'hr' };
 
 const INLINE = /(`[^`\n]+`|\*\*[^*\n]+?\*\*|__[^_\n]+?__|\*[^*\s][^*\n]*?\*|(?<![\p{L}\p{N}_])_[^_\s][^_\n]*?_(?![\p{L}\p{N}_]))/gu;
@@ -74,11 +74,12 @@ export function parseMarkdown(text: string): Block[] {
   const flush = () => { if (para.length) { out.push({ t: 'p', inl: parseInline(para.join('\n')) }); para = []; } };
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (/^\s*```/.test(line)) {
+    const fence = /^\s*```(\w*)\s*$/.exec(line);
+    if (fence) {
       flush();
       const code: string[] = [];
       for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) code.push(lines[i]);
-      out.push({ t: 'code', text: code.join('\n') });
+      out.push({ t: 'code', text: code.join('\n'), ...(fence[1] ? { lang: fence[1].toLowerCase() } : {}) });
       continue;
     }
     const h = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
