@@ -66,11 +66,11 @@ function Row({ c }: { c: Combatant }) {
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
             {isActive && <span className="turn-flag" title="En turno" aria-label="En turno">▶</span>}
             {c.kind !== 'lair' && (
-              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto', fontSize: 12, color: '#c6bba6' }}>CA {c.ac} · {c.hp}/{c.maxHp}{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
+              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto', fontSize: 12, color: 'var(--text-2)' }}>CA {c.ac} · {c.hp}/{c.maxHp}{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
             )}
           </span>
           {c.kind !== 'lair' && <span className="hpbar"><span className={'hpfill ' + (pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '')} style={{ width: pct + '%' }} /></span>}
-          {(() => { const st = statusOf(c, started); return st ? <span style={{ fontSize: 12, color: '#c6bba6', lineHeight: 1.3, overflowWrap: 'anywhere' }}>{st}</span> : null; })()}
+          {(() => { const st = statusOf(c, started); return st ? <span style={{ fontSize: 12, color: 'var(--text-2)', lineHeight: 1.3, overflowWrap: 'anywhere' }}>{st}</span> : null; })()}
         </span>
       </button>
       {c.init == null && (

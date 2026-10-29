@@ -1274,3 +1274,48 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .app-nav .tab.on svg{color:var(--garnet)}
 @media (max-width:1100px){.app-nav .tab{padding:8px 12px;font-size:17px;gap:6px}.app-nav .tab svg{width:17px;height:17px}}
 @media (max-width:560px){.app-nav .tab svg{display:none}}
+
+/* ===== Mesa del máster en pergamino: lo que no cubre la regla general de «.paper» (iniciativa, bestiario, grupo, reglas, pasos) ===== */
+.paper .panel h3{color:var(--garnet)}
+.paper .init-row{background:var(--paper-card);border-color:var(--paper-line);color:var(--ink)}
+.paper .init-row:hover{border-color:#a0865c;background:#e9dcbe}
+.paper .init-row.sel{border-color:var(--garnet);background:#f1e6cc;box-shadow:inset 4px 0 0 var(--garnet)}
+.paper .init-row.active{background:#f3dfae;border-color:var(--gold-dim);box-shadow:0 0 0 2px var(--gold) inset,0 0 14px rgba(212,169,79,.45)}
+.paper .init-row.lair{background:#dbe8cf;border-color:#7fa06f}
+.paper .init-badge{background:#f6efe0;border-color:#a88c5e;color:var(--ink)}
+.paper .init-row.pc .init-badge{border-color:#2c5f8a}
+.paper .init-row.lair .init-badge{border-color:#3f6b34}
+.paper .init-row.active .init-badge{border-color:var(--garnet);color:var(--garnet)}
+.paper .init-in{background:#fbf6ea;border-color:var(--gold-dim)}
+.paper .turncard{background:linear-gradient(180deg,#f3dfae,#ead8b2);border-color:var(--gold-dim);box-shadow:0 0 0 1px #d9c597 inset,0 6px 18px rgba(0,0,0,.3);color:var(--ink)}
+.paper .beast{background:var(--paper-card);border-color:var(--paper-line);color:var(--ink)}
+.paper .beast.on{border-color:var(--garnet);box-shadow:inset 4px 0 0 var(--garnet)}
+.paper .beast-name{color:var(--garnet)}
+.paper .beast span[style*="b2a691"]{color:#695b4f !important}
+.paper .tag.book{background:#6d5a8a;color:#f3ecfa}
+.paper .tag.pdf{background:#2c5f8a;color:#eaf3fa}
+.paper .steps li{background:var(--paper-card);border-color:var(--paper-line);color:var(--ink)}
+.paper .steps li.done{border-color:#3f6b34;background:#dbe8cf}
+.paper .step-n{border-color:#a88c5e;color:var(--garnet);background:#f6efe0}
+.paper .steps li.done .step-n{background:#3f6b34;border-color:#3f6b34;color:#fff}
+.paper .diffbar{background:#cbb994;border-color:var(--paper-line)}
+.paper .diffmark{background:var(--ink)}
+.paper .rem li.ev,.paper .conc{background:#dfe8ef;border-color:#2c5f8a;color:var(--ink)}
+.paper .rule-item{background:var(--paper-card);border-color:var(--paper-line);color:var(--ink)}
+.paper .rule-item:hover{border-color:#a0865c;background:#e9dcbe}
+.paper .rule-item.on{border-color:var(--garnet);background:#f1e6cc;box-shadow:inset 4px 0 0 var(--garnet)}
+.paper .rule-name{color:var(--garnet)}
+.paper .rule-meta{color:#695b4f}
+.paper .rule-link.strong{color:var(--garnet)}
+.paper .rules-panel .rule-list{scrollbar-color:#a88c5e transparent}
+.paper hr,.paper .sb-rule+hr{border-color:var(--paper-line)}
+.paper .toast{color:inherit}
+.paper select.input{color:var(--ink)}
+.paper .seg.on{background:var(--gold)}
+.paper .pill,.paper .roster-info span{color:#4a3d30}
+.dm-paper{--danger-text:#8e1f12;--text:#372f29;--text-hi:#26211d;--text-2:#4a3d30;--muted:#695b4f;--muted-2:#8a7a63;--gold-hi:#8a5a0e;--gold-soft:#8a5a0e}
+.dm-paper .statblock{background:#f3e6c8}
+.dm-paper .pc-flag{color:#1f4a70;border-color:#2c5f8a;background:rgba(44,95,138,.08)}
+.dm-paper .diff-mini-label.d1{color:#3f6b34}.dm-paper .diff-mini-label.d2{color:#8a5a0e}.dm-paper .diff-mini-label.d3{color:#a8431f}.dm-paper .diff-mini-label.d4{color:#8e1f3c}
+.dm-paper{--muted-2:#6f6048}
+.dm-paper .sheet-links summary,.dm-paper .sheet-links a{color:#8a5a0e}

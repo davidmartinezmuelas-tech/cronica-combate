@@ -34,7 +34,7 @@ export default function DmApp() {
       {/* el modo máster está pensado para tablet u ordenador; en el móvil se puede usar, con un aviso */}
       <PhoneNote />
       <main className="app-main">
-        <section className="col-left" aria-label="Panel izquierdo">
+        <section className="col-left paper dm-paper" aria-label="Panel izquierdo">
           {tab === 'combat' && <InitiativePanel />}
           {tab === 'bestiary' && <BestiaryPanel />}
           {tab === 'group' && <GroupPanel />}
@@ -43,7 +43,7 @@ export default function DmApp() {
           {tab === 'rules' && <RulesPanel />}
         </section>
         <section className="col-center" aria-label="Detalle">
-          <div className="center-main">{tab === 'script' ? <ScriptView /> : <CenterPanel />}</div>
+          <div className={tab === 'script' ? 'center-main' : 'center-main paper dm-paper'}>{tab === 'script' ? <ScriptView /> : <CenterPanel />}</div>
           {/* la atribución va al final del contenido central: baja con él y no resta alto a la pantalla */}
           <Attribution hotkeys />
         </section>

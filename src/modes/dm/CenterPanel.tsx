@@ -56,7 +56,7 @@ function Onboarding() {
         {steps.map((st, i) => (
           <li key={st.title} className={st.done ? 'done' : ''}>
             <span className="step-n" aria-hidden="true">{st.done ? '✓' : i + 1}</span>
-            <span style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 2 }}><strong style={{ color: '#f3e6c8' }}>{st.title}</strong><span className="muted small">{st.text}</span></span>
+            <span style={{ flex: 1, minWidth: 180, display: 'flex', flexDirection: 'column', gap: 2 }}><strong style={{ color: 'var(--text-hi)' }}>{st.title}</strong><span className="muted small">{st.text}</span></span>
             {!st.done && <button className={'primary' in st ? 'btn small primary' : 'btn small'} onClick={st.act} title={'primary' in st ? 'Empezar combate (N)' : undefined}>{st.btn}</button>}
           </li>
         ))}
@@ -85,8 +85,8 @@ function TurnCard() {
     <div className="turncard" aria-live="polite">
       <div className="panel-head">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <span className="eyebrow" style={{ color: '#e8c062' }}>Ronda {round} · inicio de turno</span>
-          <span className="display" style={{ fontSize: 30, color: '#f3e6c8', lineHeight: 1.05 }}>{active.name}</span>
+          <span className="eyebrow" style={{ color: 'var(--gold-hi)' }}>Ronda {round} · inicio de turno</span>
+          <span className="display" style={{ fontSize: 30, color: 'var(--text-hi)', lineHeight: 1.05 }}>{active.name}</span>
         </div>
         <div className="turn-ctrls">
           <button className="btn icon" onClick={() => step(-1)} aria-label="Volver al turno anterior" title="Volver al turno anterior (B)"><ChevronLeft /></button>
@@ -139,7 +139,7 @@ function LegendaryBanner() {
   if (!list.length) return null;
   return (
     <div className="banner">
-      <span className="eyebrow" style={{ color: '#f0a090' }}>Acciones legendarias tras este turno</span>
+      <span className="eyebrow" style={{ color: 'var(--danger-text, #f0a090)' }}>Acciones legendarias tras este turno</span>
       <div className="banner-row">
         {list.map((c) => (
           <button key={c.id} className="btn small" title="Abre su hoja en las acciones legendarias" onClick={() => {

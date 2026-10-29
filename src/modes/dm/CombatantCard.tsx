@@ -89,7 +89,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
 
           {c.kind === 'pc' && c.hp === 0 && !c.dead && (
             <div className="sub" style={{ borderColor: '#c0513c' }}>
-              <div className="panel-head"><strong style={{ color: '#f3e6c8' }}>Salvaciones de muerte</strong>{c.stable && <span className="tag">Estable</span>}</div>
+              <div className="panel-head"><strong style={{ color: 'var(--text-hi)' }}>Salvaciones de muerte</strong>{c.stable && <span className="tag">Estable</span>}</div>
               <div className="res-row">
                 <span className="res">Éxitos <span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < d.s ? 'pip ok' : 'pip off'} />)}</span></span>
                 <span className="res">Fallos <span className="pips">{[0, 1, 2].map((j) => <span key={j} className={j < d.f ? 'pip bad' : 'pip off'} />)}</span></span>
@@ -104,7 +104,7 @@ export default function CombatantCard({ c }: { c: Combatant }) {
           )}
           {c.dead && (
             <div className="sub" style={{ borderColor: '#c0513c', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <strong style={{ color: '#f0a090' }}>Muerto</strong>
+              <strong style={{ color: 'var(--danger-text, #f0a090)' }}>Muerto</strong>
               <button className="btn small ghost" onClick={() => patchC(c.id, { dead: false, death: { s: 0, f: 0 } }, 'revivir')}>Deshacer</button>
             </div>
           )}
