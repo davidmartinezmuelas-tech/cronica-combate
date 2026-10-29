@@ -35,3 +35,71 @@ export async function readScriptFile(file: File): Promise<{ ok: true; title: str
   const text = (await file.text()).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
   return { ok: true, title: file.name.replace(/\.[^.]+$/, ''), text };
 }
+
+// ---- Markdown de la lectura (sin librerías: lo que se usa en un guion) ----
+
+export interface Inline { text: string; b?: boolean; i?: boolean; code?: boolean }
+export type Block =
+  | { t: 'h'; level: 1 | 2 | 3; inl: Inline[] }
+  | { t: 'p'; inl: Inline[] }
+  | { t: 'quote'; inl: Inline[] }
+  | { t: 'list'; ordered: boolean; items: { depth: number; inl: Inline[] }[] }
+  | { t: 'code'; text: string }
+  | { t: 'hr' };
+
+const INLINE = /(`[^`\n]+`|\*\*[^*\n]+?\*\*|__[^_\n]+?__|\*[^*\s][^*\n]*?\*|(?<![\p{L}\p{N}_])_[^_\s][^_\n]*?_(?![\p{L}\p{N}_]))/gu;
+
+/** Negritas, cursivas y código en línea. Lo que no cierra se deja tal cual. */
+export function parseInline(src: string, base: Pick<Inline, 'b' | 'i'> = {}): Inline[] {
+  const out: Inline[] = [];
+  let last = 0;
+  for (const m of src.matchAll(INLINE)) {
+    if (m.index! > last) out.push({ text: src.slice(last, m.index), ...base });
+    const tok = m[0];
+    if (tok.startsWith('`')) out.push({ text: tok.slice(1, -1), code: true });
+    else if (tok.startsWith('**') || tok.startsWith('__')) out.push(...parseInline(tok.slice(2, -2), { ...base, b: true }));
+    else out.push(...parseInline(tok.slice(1, -1), { ...base, i: true }));
+    last = m.index! + tok.length;
+  }
+  if (last < src.length) out.push({ text: src.slice(last), ...base });
+  return out;
+}
+
+/** Bloques de un texto Markdown: títulos (#), listas (-, *, 1.), citas (>), líneas (---), código (```) y párrafos. */
+export function parseMarkdown(text: string): Block[] {
+  const lines = text.replace(/\r\n?/g, '\n').split('\n');
+  const out: Block[] = [];
+  let para: string[] = [];
+  const flush = () => { if (para.length) { out.push({ t: 'p', inl: parseInline(para.join('\n')) }); para = []; } };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^\s*```/.test(line)) {
+      flush();
+      const code: string[] = [];
+      for (i++; i < lines.length && !/^\s*```/.test(lines[i]); i++) code.push(lines[i]);
+      out.push({ t: 'code', text: code.join('\n') });
+      continue;
+    }
+    const h = /^(#{1,6})\s+(.*?)\s*#*\s*$/.exec(line);
+    const li = /^(\s*)([-*+]|\d+[.)])\s+(.*)$/.exec(line);
+    const q = /^\s*>\s?(.*)$/.exec(line);
+    if (!line.trim()) flush();
+    else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flush(); out.push({ t: 'hr' }); }
+    else if (h) { flush(); out.push({ t: 'h', level: Math.min(3, h[1].length) as 1 | 2 | 3, inl: parseInline(h[2]) }); }
+    else if (li) {
+      flush();
+      const ordered = /\d/.test(li[2]);
+      const item = { depth: Math.min(4, Math.floor(li[1].replace(/\t/g, '  ').length / 2)), inl: parseInline(li[3]) };
+      const prev = out[out.length - 1];
+      if (prev?.t === 'list' && prev.ordered === ordered) prev.items.push(item);
+      else out.push({ t: 'list', ordered, items: [item] });
+    } else if (q) {
+      flush();
+      const prev = out[out.length - 1];
+      if (prev?.t === 'quote') prev.inl.push({ text: '\n' }, ...parseInline(q[1]));
+      else out.push({ t: 'quote', inl: parseInline(q[1]) });
+    } else para.push(line);
+  }
+  flush();
+  return out;
+}

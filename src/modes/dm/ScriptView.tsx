@@ -1,6 +1,45 @@
 import { useEffect, useMemo, useState } from 'react';
-import { linkEncounters } from '../../engine/script';
+import type { Encounter } from '../../data/types';
+import { linkEncounters, parseMarkdown, type Block, type Inline } from '../../engine/script';
 import { useStore } from '../../store/useStore';
+
+/** Texto en línea con su formato; los nombres de encuentros guardados son botones que los cargan. */
+function Inl({ inl, encounters, open }: { inl: Inline[]; encounters: Pick<Encounter, 'id' | 'name'>[]; open: (id: string) => void }) {
+  return (
+    <>
+      {inl.map((x, k) => {
+        const st = { fontWeight: x.b ? 700 : undefined, fontStyle: x.i ? 'italic' : undefined } as const;
+        if (x.code) return <code key={k} className="script-code">{x.text}</code>;
+        return (
+          <span key={k} style={st}>
+            {linkEncounters(x.text, encounters).map((p, j) => (p.t === 'enc'
+              ? <button key={j} className="linkbtn" style={{ fontWeight: 700 }} title="Cargar este encuentro y ir a Combate" onClick={() => open(p.id)}>{p.text}</button>
+              : <span key={j}>{p.text}</span>))}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
+function Blocks({ blocks, encounters, open }: { blocks: Block[]; encounters: Pick<Encounter, 'id' | 'name'>[]; open: (id: string) => void }) {
+  const inl = (x: Inline[]) => <Inl inl={x} encounters={encounters} open={open} />;
+  return (
+    <>
+      {blocks.map((b, i) => {
+        if (b.t === 'h') { const H = (['h2', 'h3', 'h4'] as const)[b.level - 1]; return <H key={i} className="script-h">{inl(b.inl)}</H>; }
+        if (b.t === 'hr') return <hr key={i} className="script-hr" />;
+        if (b.t === 'code') return <pre key={i} className="script-pre">{b.text}</pre>;
+        if (b.t === 'quote') return <blockquote key={i} className="script-quote">{inl(b.inl)}</blockquote>;
+        if (b.t === 'list') {
+          const L = b.ordered ? 'ol' : 'ul';
+          return <L key={i} className="script-list">{b.items.map((it, k) => <li key={k} style={{ marginLeft: it.depth * 18 }}>{inl(it.inl)}</li>)}</L>;
+        }
+        return <p key={i} className="script-p">{inl(b.inl)}</p>;
+      })}
+    </>
+  );
+}
 
 /** El guion elegido (columna central): se lee con los combates como botones, o se edita como texto. */
 export default function ScriptView() {
@@ -13,11 +52,12 @@ export default function ScriptView() {
   const [edit, setEdit] = useState(false);
   // al cambiar de guion: vacío = a escribir; con texto = a leer
   useEffect(() => { setEdit(!!script && !script.text.trim()); }, [script?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const parts = useMemo(() => linkEncounters(script?.text || '', encounters), [script?.text, encounters]);
+  const blocks = useMemo(() => parseMarkdown(script?.text || ''), [script?.text]);
+  // los combates que nombra el texto, en el orden en que salen
   const used = useMemo(() => {
-    const ids = new Set(parts.flatMap((p) => (p.t === 'enc' ? [p.id] : [])));
-    return encounters.filter((e) => ids.has(e.id));
-  }, [parts, encounters]);
+    const ids = linkEncounters(script?.text || '', encounters).flatMap((p) => (p.t === 'enc' ? [p.id] : []));
+    return [...new Set(ids)].map((id) => encounters.find((e) => e.id === id)!);
+  }, [script?.text, encounters]);
 
   if (!script) {
     return (
@@ -38,7 +78,7 @@ export default function ScriptView() {
         </div>
       </div>
       {edit ? (
-        <textarea className="input" aria-label="Texto del guion" rows={22} style={{ minHeight: 360, lineHeight: 1.5 }} value={script.text} placeholder="Escribe o pega aquí tu guion. El nombre de un encuentro guardado se convierte en un botón."
+        <textarea className="input" aria-label="Texto del guion" rows={22} style={{ minHeight: 360, lineHeight: 1.5 }} value={script.text} placeholder="Escribe o pega aquí tu guion. Admite Markdown (# títulos, **negrita**, - listas). El nombre de un encuentro guardado se convierte en un botón."
           onChange={(e) => patchScript(script.id, { text: e.target.value })} />
       ) : (
         <>
@@ -47,10 +87,8 @@ export default function ScriptView() {
               {used.map((e) => <button key={e.id} className="btn small gold" onClick={() => openScriptEncounter(e.id)} title="Carga este encuentro y va a Combate">Ir al combate: {e.name}</button>)}
             </div>
           )}
-          <div className="script-text" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, fontSize: 16, overflowWrap: 'anywhere' }}>
-            {parts.map((p, i) => (p.t === 'enc'
-              ? <button key={i} className="linkbtn" style={{ fontWeight: 700 }} title="Cargar este encuentro y ir a Combate" onClick={() => openScriptEncounter(p.id)}>{p.text}</button>
-              : <span key={i}>{p.text}</span>))}
+          <div className="script-text" style={{ overflowWrap: 'anywhere' }}>
+            <Blocks blocks={blocks} encounters={encounters} open={openScriptEncounter} />
           </div>
           {!encounters.length && <p className="muted small" style={{ margin: 0 }}>Aún no tienes encuentros guardados. Prepáralos en <button className="linkbtn" onClick={() => set({ tab: 'combat' })}>Combate</button> con «Guardar encuentro» y escribe su nombre en el guion.</p>}
         </>

@@ -1218,3 +1218,13 @@ body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}
 .pc-react li.rx{padding:0;border:0;background:none}
 .mm-pick{display:flex;flex-direction:column;gap:6px}
 .pc-cantrip-atk{margin-top:4px;padding-top:6px;border-top:1px dashed var(--paper-line-2)}
+.script-text{display:flex;flex-direction:column;gap:10px;font-size:16px;line-height:1.6}
+.script-p,.script-quote{margin:0;white-space:pre-wrap}
+.script-h{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;color:var(--gold-hi);margin:10px 0 0;line-height:1.15}
+h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px}
+.script-list{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:3px}
+.script-quote{border-left:3px solid var(--gold-dim);padding:2px 0 2px 12px;color:var(--text-2)}
+.script-hr{border:0;border-top:1px solid var(--line-2);margin:6px 0;width:100%}
+.script-code,.script-pre{font-family:Consolas,'Courier New',monospace;font-size:14px;background:var(--bg);border:1px solid var(--line-2);border-radius:var(--radius-sm)}
+.script-code{padding:1px 5px}
+.script-pre{margin:0;padding:10px 12px;overflow:auto;white-space:pre-wrap}
