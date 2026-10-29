@@ -104,7 +104,9 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   const lines = sheetLines(fields, sheet);
   const tidyLines = [...new Set(lines.map(tidy))].filter((l) => l.length > 1);
 
-  const weapons = data.weapons.filter((w) => tidyLines.includes(norm(w.n)) || tidyLines.includes(norm(w.en))).map((w) => weaponFromData(w, cls));
+  // también en plural («Jabalinas (3)», «Javelins»)
+  const hasName = (n: string) => !!n && [n, n + 's', n + 'es'].some((x) => tidyLines.includes(x));
+  const weapons = data.weapons.filter((w) => hasName(norm(w.n)) || hasName(norm(w.en))).map((w) => weaponFromData(w, cls));
   // armadura: por su nombre en cualquier línea o, si no, por un campo de armadura equipada («Leather» -> Armadura de cuero)
   const armorHint = fields.filter((f) => /armor|armadura/i.test(f.name) && /equip|worn|puesta/i.test(f.name) && norm(f.value).length >= 4).map((f) => norm(f.value));
   const armor = data.armor.find((a) => a.type !== 'shl' && (tidyLines.includes(norm(a.n)) || tidyLines.includes(norm(a.en))))

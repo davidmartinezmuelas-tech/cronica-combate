@@ -63,6 +63,10 @@ describe('hoja con casillas de competencia (campos en italiano)', () => {
     expect(sheet.hp).toBe('70');
     expect(sheet.pp).toBe('11');
   });
+  it('reconoce armas en plural con cantidad («Jabalinas (3)»)', () => {
+    const f = F({ Nome: 'X', 'Classe e livello': 'Paladina 3', 'Arma 1': 'Espada de Zariel', 'Arma 3': 'Jabalinas (3)' });
+    expect(sheetToCharacter(f, readSheet(f)!, data, spells).weapons.map((w) => w.name)).toEqual(['Jabalina']);
+  });
   it('toma las competencias de las casillas marcadas', () => {
     expect([...c.skills].sort()).toEqual(['ath', 'itm', 'per', 'ste']);
     expect(c.saveExtra).toEqual([]); // SAB y CAR ya son del paladín
