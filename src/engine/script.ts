@@ -1,4 +1,5 @@
 import type { Encounter } from '../data/types';
+import { DMG_TYPES } from '../data/constants';
 
 export type ScriptPart = { t: 'text'; text: string } | { t: 'enc'; text: string; id: string };
 
@@ -101,5 +102,39 @@ export function parseMarkdown(text: string): Block[] {
     } else para.push(line);
   }
   flush();
+  return out;
+}
+
+// ---- Tiradas en el texto: «2d10 fuego», «1d20+5»… son botones para tirar en la mesa ----
+
+export type DiceKind = 'check' | 'damage' | 'free';
+export type DicePart = { t: 'text'; text: string } | { t: 'dice'; text: string; expr: string; kind: DiceKind; type?: string };
+
+const TERM = '(?:\\d*d(?:100|20|12|10|8|6|4)|\\d+)';
+const DICE = new RegExp('(?<![\\p{L}\\p{N}])((?:\\d*d(?:100|20|12|10|8|6|4))(?:\\s?[+\\-−]\\s?' + TERM + ')*)(?![\\p{L}\\p{N}])', 'giu');
+const TYPES = [...DMG_TYPES].sort((a, b) => b.length - a.length);
+// «2d10 de fuego», «2d10 fuego», «2d10 de daño de fuego», «2d10 de daño»
+const AFTER = new RegExp('^(\\s+(?:de\\s+)?(?:daño(?:\\s+de)?\\s+)?(' + TYPES.join('|') + ')(?![\\p{L}]))|^(\\s+(?:de\\s+)?daño(?![\\p{L}]))', 'iu');
+
+/**
+ * Busca tiradas en un texto. Con un tipo de daño detrás («2d10 fuego») o «daño», se tira como daño (para aplicarlo a los
+ * combatientes); un solo d20 es una prueba; el resto, una tirada libre («1d6 goblins»).
+ */
+export function findDice(text: string): DicePart[] {
+  const out: DicePart[] = [];
+  let last = 0;
+  for (const m of text.matchAll(DICE)) {
+    const expr = m[1].replace(/\s+/g, '').replace(/−/g, '-').toLowerCase();
+    const end = m.index! + m[0].length;
+    const after = AFTER.exec(text.slice(end));
+    const type = after?.[2]?.toLowerCase();
+    const isDmg = !!after;
+    const kind: DiceKind = isDmg ? 'damage' : /^1?d20(?![0-9])/.test(expr) ? 'check' : 'free';
+    if (m.index! > last) out.push({ t: 'text', text: text.slice(last, m.index) });
+    const len = end + (after ? after[0].length : 0);
+    out.push({ t: 'dice', text: text.slice(m.index!, len), expr, kind, ...(type ? { type } : {}) });
+    last = len;
+  }
+  if (last < text.length) out.push({ t: 'text', text: text.slice(last) });
   return out;
 }

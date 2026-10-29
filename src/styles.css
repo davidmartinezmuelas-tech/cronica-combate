@@ -1247,3 +1247,6 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .script-page .linkbtn{color:var(--garnet);text-decoration-thickness:2px}
 .script-page .linkbtn:hover{color:#b8442f}
 @media (max-width:700px){.script-page{padding:22px 20px 26px;font-size:17px}.script-page .script-p{text-align:left}}
+.script-roll{display:inline-flex;align-items:center;gap:5px;padding:0 8px 0 6px;border:1px solid var(--garnet);border-radius:999px;background:rgba(122,31,20,.08);color:var(--garnet);font:inherit;font-size:.92em;font-weight:800;line-height:1.5;cursor:pointer;vertical-align:baseline;white-space:nowrap}
+.script-roll:hover{background:var(--garnet);color:#f6ead0}
+.script-roll svg{flex:none}

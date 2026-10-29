@@ -1,7 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Encounter } from '../../data/types';
-import { linkEncounters, parseMarkdown, type Block, type Inline } from '../../engine/script';
+import { findDice, linkEncounters, parseMarkdown, type Block, type Inline } from '../../engine/script';
+import { D20Icon } from '../../shared/Icons';
 import { useStore } from '../../store/useStore';
+
+/** Texto con tiradas: «2d10 fuego» o «1d20+5» son botones que tiran en la mesa de dados, como los ataques. */
+function Dice({ text }: { text: string }) {
+  return (
+    <>
+      {findDice(text).map((d, k) => (d.t === 'text'
+        ? <span key={k}>{d.text}</span>
+        : (
+          <button key={k} className="script-roll" title={d.kind === 'damage' ? 'Tirar el daño en la mesa' : d.kind === 'check' ? 'Tirar la prueba en la mesa' : 'Tirar en la mesa'}
+            onClick={() => useStore.getState().roll({ label: 'Guion · ' + d.text.trim(), kind: d.kind, parts: [{ expr: d.expr, ...(d.type ? { type: d.type } : {}) }], noAdv: d.kind !== 'check' })}>
+            <D20Icon size={14} />{d.text.trim()}
+          </button>
+        )))}
+    </>
+  );
+}
 
 /** Texto en línea con su formato; los nombres de encuentros guardados son botones que los cargan. */
 function Inl({ inl, encounters, open }: { inl: Inline[]; encounters: Pick<Encounter, 'id' | 'name'>[]; open: (id: string) => void }) {
@@ -14,7 +31,7 @@ function Inl({ inl, encounters, open }: { inl: Inline[]; encounters: Pick<Encoun
           <span key={k} style={st}>
             {linkEncounters(x.text, encounters).map((p, j) => (p.t === 'enc'
               ? <button key={j} className="linkbtn" style={{ fontWeight: 700 }} title="Cargar este encuentro y ir a Combate" onClick={() => open(p.id)}>{p.text}</button>
-              : <span key={j}>{p.text}</span>))}
+              : <Dice key={j} text={p.text} />))}
           </span>
         );
       })}

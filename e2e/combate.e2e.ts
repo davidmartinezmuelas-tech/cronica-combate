@@ -127,6 +127,16 @@ test('guion de la sesión: se sube un texto y el nombre de un encuentro lleva al
   await expect(page.getByRole('button', { name: 'Combate', exact: true })).toHaveAttribute('aria-current', 'page');
 });
 
+test('guion de la sesión: las tiradas del texto se tiran en la mesa como los ataques', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByLabel('Subir guion (.txt o .md)').setInputFiles({ name: 'trampa.md', mimeType: 'text/markdown', buffer: Buffer.from(['La trampa del pasillo hace 2d6 de fuego.', '', 'Oír el mecanismo: 1d20+3 de Percepción.'].join('\n'), 'utf8') });
+  await page.getByRole('button', { name: '2d6 de fuego', exact: true }).click();
+  await expect(page.locator('.plaque-label')).toHaveText('Guion · 2d6 de fuego');
+  await page.getByRole('button', { name: '1d20+3', exact: true }).click();
+  await expect(page.locator('.plaque-label')).toHaveText('Guion · 1d20+3');
+});
+
 test('guion de la sesión: un archivo que no es de texto se rechaza', async ({ page }) => {
   await open(page);
   await page.getByRole('button', { name: 'Guion', exact: true }).click();

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linkEncounters, parseInline, parseMarkdown } from '../engine/script';
+import { findDice, linkEncounters, parseInline, parseMarkdown } from '../engine/script';
 import { mergeImport, normalizeSaved, buildExport, emptySaved } from '../store/persist';
 
 const enc = [{ id: 'e1', name: 'Emboscada goblin' }, { id: 'e2', name: 'Emboscada goblin en el puente' }, { id: 'e3', name: 'Ar' }];
@@ -31,6 +31,15 @@ describe('guion de sesión', () => {
     expect(b[2]).toMatchObject({ ordered: false, items: [{ depth: 0 }, { depth: 1 }, { depth: 0 }] });
     expect(b[3]).toMatchObject({ ordered: true });
     expect(b[6]).toEqual({ t: 'code', text: '# no es título' });
+  });
+  it('tiradas en el texto: daño con tipo, prueba de d20 y tirada libre', () => {
+    expect(findDice('La trampa hace 2d10 de fuego al que pise.')).toEqual([
+      { t: 'text', text: 'La trampa hace ' }, { t: 'dice', text: '2d10 de fuego', expr: '2d10', kind: 'damage', type: 'fuego' }, { t: 'text', text: ' al que pise.' }]);
+    expect(findDice('Percepción 1d20 + 5 para oírlo').filter((x) => x.t === 'dice')).toEqual([{ t: 'dice', text: '1d20 + 5', expr: '1d20+5', kind: 'check' }]);
+    expect(findDice('Llegan 1d4+1 goblins').filter((x) => x.t === 'dice')).toEqual([{ t: 'dice', text: '1d4+1', expr: '1d4+1', kind: 'free' }]);
+    expect(findDice('Sufre 3d6 de daño').filter((x) => x.t === 'dice')).toEqual([{ t: 'dice', text: '3d6 de daño', expr: '3d6', kind: 'damage' }]);
+    // «de fuego» pegado a otra palabra no cuenta, ni los dados dentro de palabras, ni los números sueltos
+    expect(findDice('Hay 2d6 fuegos, add6 y 15 monedas').filter((x) => x.t === 'dice').map((x) => x.kind)).toEqual(['free']);
   });
   it('Markdown en línea: negrita, cursiva y código; lo que no cierra queda igual', () => {
     expect(parseInline('a **b** _c_ `d` *e*')).toEqual([{ text: 'a ' }, { text: 'b', b: true }, { text: ' ' }, { text: 'c', i: true }, { text: ' ' }, { text: 'd', code: true }, { text: ' ' }, { text: 'e', i: true }]);
