@@ -1527,3 +1527,9 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .roster-card .ac-shield{filter:drop-shadow(0 1px 2px rgba(38,33,29,.45))}
 .paper .pc-sheet{background:linear-gradient(180deg,color-mix(in srgb,var(--cc,#d4a94f) 30%,#e9dcbe),#e9dcbe 60%);border-color:color-mix(in srgb,var(--cc,#d4a94f) 55%,#a0865c)}
 .paper .pc-sheet.open{border-color:color-mix(in srgb,var(--cc,#d4a94f) 80%,#26211d)}
+
+/* encuentros preparados: edición de cantidades */
+.enc-edit{display:flex;flex-direction:column;gap:4px;list-style:none;margin:0;padding:0}
+.enc-edit li{display:flex;align-items:center;gap:6px}
+.enc-edit-name{flex:1;min-width:0;overflow-wrap:anywhere}
+.enc-edit-qty{min-width:22px;text-align:center;font-weight:800}

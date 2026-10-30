@@ -43,6 +43,21 @@ export function createEncounterSlice(set: SetState, get: GetState): EncounterSli
       get().showToast(n + ' monstruos de «' + e.name + '» al combate' + (missing.length ? '. No encontrados: ' + missing.join(', ') : '') + (s.started ? '. Tira su iniciativa.' : ''));
     },
 
+    updateEncounter(id, patch) {
+      const s = get();
+      const e = s.encounters.find((x) => x.id === id);
+      if (!e) return false;
+      const name = patch.name !== undefined ? patch.name.trim() : e.name;
+      if (!name) { get().showToast('Ponle nombre al encuentro'); return false; }
+      if (s.encounters.some((x) => x.id !== id && x.name.trim().toLowerCase() === name.toLowerCase())) { get().showToast('Ya tienes otro encuentro con ese nombre'); return false; }
+      const items = patch.items ?? e.items;
+      if (!items.length) { get().showToast('Un encuentro necesita al menos una criatura'); return false; }
+      get().snap('editar encuentro ' + e.name);
+      const next: Encounter = { ...e, name, items: items.map((i) => ({ ...i, qty: Math.max(1, Math.min(20, Math.round(i.qty))) })), lair: patch.lair ?? e.lair, at: Date.now() };
+      set({ encounters: s.encounters.map((x) => (x.id === id ? next : x)) });
+      return true;
+    },
+
     deleteEncounter(id) {
       const e = get().encounters.find((x) => x.id === id);
       if (!e) return;

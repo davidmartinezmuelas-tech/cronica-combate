@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Combatant } from '../../data/types';
+import type { Combatant, Encounter } from '../../data/types';
 import { encounterDifficulty, sortCombatants } from '../../engine/combat';
 import { nfmt } from '../../engine/util';
 import { useStore } from '../../store/useStore';
@@ -146,11 +146,45 @@ function Fold({ title, count, open, onToggle, children }: { title: string; count
   );
 }
 
+/** Contenido de un encuentro preparado: se puede renombrar y cambiar cuántas criaturas lleva, o quitar alguna, sin cargarlo al combate. */
+function EncounterBody({ e }: { e: Encounter }) {
+  const confirmKey = useStore((s) => s.confirmKey);
+  const { loadEncounter, deleteEncounter, updateEncounter, monById } = useStore.getState();
+  const [name, setName] = useState(e.name);
+  useEffect(() => { setName(e.name); }, [e.name]);
+  const setQty = (monsterId: string, d: number) => updateEncounter(e.id, { items: e.items.map((it) => (it.monsterId === monsterId ? { ...it, qty: it.qty + d } : it)) });
+  const rename = () => { if (name.trim() === e.name) return; if (!updateEncounter(e.id, { name })) setName(e.name); };
+  return (
+    <div className="enc-tag-body">
+      <div className="field"><label htmlFor={'enc-n-' + e.id}>Nombre</label>
+        <input id={'enc-n-' + e.id} className="input" value={name} onChange={(ev) => setName(ev.target.value)} onBlur={rename} onKeyDown={(ev) => { if (ev.key === 'Enter') (ev.target as HTMLInputElement).blur(); }} /></div>
+      <ul className="enc-items enc-edit">
+        {e.items.map((it) => {
+          const nm = monById(it.monsterId)?.n || it.monsterId;
+          return (
+            <li key={it.monsterId + (it.inLair ? '-l' : '')}>
+              <span className="enc-edit-name">{nm}</span>
+              <button className="btn small ghost" aria-label={'Una menos de ' + nm} disabled={it.qty <= 1} onClick={() => setQty(it.monsterId, -1)}>−</button>
+              <span className="enc-edit-qty" aria-label={it.qty + ' de ' + nm}>{it.qty}</span>
+              <button className="btn small ghost" aria-label={'Una más de ' + nm} disabled={it.qty >= 20} onClick={() => setQty(it.monsterId, 1)}>+</button>
+              <button className="btn small ghost danger" aria-label={'Quitar ' + nm + ' del encuentro'} disabled={e.items.length <= 1} onClick={() => updateEncounter(e.id, { items: e.items.filter((x) => x !== it) })}>✕</button>
+            </li>
+          );
+        })}
+      </ul>
+      <label className="check"><input type="checkbox" checked={e.lair} onChange={(ev) => updateEncounter(e.id, { lair: ev.target.checked })} />Con acciones de guarida</label>
+      <span style={{ display: 'flex', gap: 6 }}>
+        <button className="btn small" onClick={() => loadEncounter(e.id)}>Cargar</button>
+        <button className="btn small ghost danger" onClick={() => deleteEncounter(e.id)}>{confirmKey === 'enc-' + e.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+      </span>
+    </div>
+  );
+}
+
 function Encounters() {
   const encounters = useStore((s) => s.encounters);
   const hasMonsters = useStore((s) => s.combatants.some((c) => c.kind === 'monster'));
-  const confirmKey = useStore((s) => s.confirmKey);
-  const { saveEncounter, loadEncounter, deleteEncounter, monById } = useStore.getState();
+  const { saveEncounter } = useStore.getState();
   const [name, setName] = useState('');
   const [open, setOpen] = useState(false);
   const [which, setWhich] = useState<string | null>(null);
@@ -165,18 +199,7 @@ function Encounters() {
                 <button className="enc-tag-name" aria-expanded={which === e.id} onClick={() => setWhich(which === e.id ? null : e.id)}>
                   <span className="enc-tag-chev" aria-hidden="true">{which === e.id ? '▾' : '▸'}</span>{e.name}
                 </button>
-                {which === e.id && (
-                  <div className="enc-tag-body">
-                    <ul className="enc-items">
-                      {e.items.map((it, i) => <li key={i}>{it.qty} × {monById(it.monsterId)?.n || it.monsterId}</li>)}
-                      {e.lair && <li>Con acciones de guarida</li>}
-                    </ul>
-                    <span style={{ display: 'flex', gap: 6 }}>
-                      <button className="btn small" onClick={() => loadEncounter(e.id)}>Cargar</button>
-                      <button className="btn small ghost danger" onClick={() => deleteEncounter(e.id)}>{confirmKey === 'enc-' + e.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
-                    </span>
-                  </div>
-                )}
+                {which === e.id && <EncounterBody e={e} />}
               </li>
             ))}
           </ul>

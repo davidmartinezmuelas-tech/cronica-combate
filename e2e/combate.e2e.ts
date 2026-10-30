@@ -102,7 +102,7 @@ test('herramientas del DM: daño alternativo y encuentros guardados', async ({ p
   await expect(page.locator('.init-row')).toHaveCount(0);
   await page.getByRole('button', { name: 'Encuentros preparados' }).click();
   await page.getByRole('button', { name: 'Emboscada' }).click(); // la etiqueta del encuentro se despliega
-  await expect(page.locator('.enc-items')).toContainText('3 × Guerrero goblin');
+  await expect(page.getByLabel('3 de Guerrero goblin')).toBeVisible();
   await page.getByRole('button', { name: 'Cargar' }).click();
   await expect(page.locator('.init-row')).toHaveCount(3);
 });
@@ -2780,4 +2780,31 @@ test('iniciativa a mano con el dedo: arrastrar el número de una fila la mueve e
     fire('pointermove'); fire('pointerup');
   }, [a.x + 40, a.y + 4]);
   await expect.poll(names).toEqual(['Cris', 'Ana', 'Beto']);
+});
+
+test('encuentros preparados: se renombra y se cambian las cantidades sin cargarlos', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 2);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.getByLabel('Guardar los monstruos actuales como').fill('Emboscada');
+  await page.getByRole('button', { name: 'Guardar encuentro' }).click();
+  await page.getByRole('button', { name: /^Encuentros preparados/ }).click();
+  await page.getByRole('button', { name: 'Emboscada', exact: true }).click();
+  await expect(page.getByLabel('2 de Guerrero goblin')).toBeVisible();
+  await page.getByRole('button', { name: 'Una más de Guerrero goblin' }).click();
+  await expect(page.getByLabel('3 de Guerrero goblin')).toBeVisible();
+  await page.getByRole('button', { name: 'Una menos de Guerrero goblin' }).click();
+  await page.getByRole('button', { name: 'Una menos de Guerrero goblin' }).click();
+  await expect(page.getByLabel('1 de Guerrero goblin')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Una menos de Guerrero goblin' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Quitar Guerrero goblin del encuentro' })).toBeDisabled(); // no se queda sin criaturas
+  const nombre = page.getByLabel('Nombre', { exact: true });
+  await nombre.fill('Emboscada en el puente');
+  await nombre.press('Enter');
+  await expect(page.getByRole('button', { name: 'Emboscada en el puente', exact: true })).toBeVisible();
+  // recargar: lo editado se conserva
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await page.getByRole('button', { name: /^Encuentros preparados/ }).click();
+  await expect(page.getByRole('button', { name: 'Emboscada en el puente', exact: true })).toBeVisible();
 });

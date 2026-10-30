@@ -190,6 +190,8 @@ export interface EncounterSlice {
   saveEncounter: (name: string) => boolean;
   loadEncounter: (id: string) => void;
   deleteEncounter: (id: string) => void;
+  /** Cambia el nombre, las criaturas o la guarida de un encuentro guardado. Devuelve false si el cambio no es válido (nombre vacío o repetido, sin criaturas). */
+  updateEncounter: (id: string, patch: Partial<Pick<Encounter, 'name' | 'items' | 'lair'>>) => boolean;
 }
 
 /** Guiones de sesión del máster. */
