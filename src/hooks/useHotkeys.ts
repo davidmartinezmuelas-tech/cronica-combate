@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useStore } from '../store/useStore';
+import { useStore, type Tab } from '../store/useStore';
 
 const isTyping = (t: EventTarget | null) => {
   const el = t as HTMLElement | null;
@@ -7,6 +7,8 @@ const isTyping = (t: EventTarget | null) => {
   const tag = el.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 };
+
+const TAB_ORDER: Tab[] = ['script', 'combat', 'bestiary', 'group', 'forge', 'rules'];
 
 export const HOTKEYS: [string, string][] = [
   ['N', 'Siguiente turno (o empezar el combate)'],
@@ -18,6 +20,7 @@ export const HOTKEYS: [string, string][] = [
   ['I', 'Tirar la iniciativa de los monstruos'],
   ['/', 'Buscar en el bestiario'],
   ['R', 'Buscar en las reglas'],
+  ['[ / ]', 'Pestaña anterior / siguiente'],
   ['?', 'Mostrar u ocultar esta ayuda'],
   ['Esc', 'Cerrar la ayuda o el conjuro abierto'],
 ];
@@ -37,6 +40,12 @@ export function useHotkeys() {
       const sides = [4, 6, 8, 10, 12, 20, 100];
       if (k === 'Escape') { if (s.helpOpen) s.set({ helpOpen: false }); else if (s.spellOpen) s.set({ spellOpen: null }); return; }
       if (k === '?') { e.preventDefault(); s.set({ helpOpen: !s.helpOpen }); return; }
+      if (k === '[' || k === ']') {
+        e.preventDefault();
+        const i = TAB_ORDER.indexOf(s.tab);
+        s.set({ tab: TAB_ORDER[(i + (k === ']' ? 1 : TAB_ORDER.length - 1)) % TAB_ORDER.length] });
+        return;
+      }
       if (k === 'n' || k === 'N') { e.preventDefault(); s.step(1); return; }
       if (k === 'b' || k === 'B') { e.preventDefault(); if (s.started) s.step(-1); return; }
       if (k === 'i' || k === 'I') { e.preventDefault(); s.rollInit(); return; }

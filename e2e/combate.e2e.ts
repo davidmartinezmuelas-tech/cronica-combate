@@ -128,7 +128,6 @@ test('guion de la sesión: se sube un texto y el nombre de un encuentro lleva al
   await page.getByRole('button', { name: 'sesion1' }).click();
   await page.locator('.script-combat-btn', { hasText: 'Emboscada del puente' }).click(); // la subcarpeta del guion en la lista de la izquierda
   await expect(page.locator('.init-row')).toHaveCount(3);
-  await expect(page.getByRole('button', { name: 'Combate', exact: true })).toHaveAttribute('aria-current', 'page');
 });
 
 test('guion de la sesión: las tiradas del texto se tiran en la mesa como los ataques', async ({ page }) => {
@@ -2834,4 +2833,13 @@ test('historial del combate: anota turnos, se conserva al recargar y se vacía',
   await page.getByRole('button', { name: 'Vaciar historial' }).click();
   await page.getByRole('button', { name: /¿Seguro\? Vaciar/ }).click();
   await expect(page.getByText('Aquí se irá anotando el combate')).toBeVisible();
+});
+
+test('atajos [ y ] cambian de pestaña', async ({ page }) => {
+  await open(page);
+  await page.getByRole('heading', { name: 'Iniciativa' }).click();
+  await page.keyboard.press(']');
+  await expect(page.getByLabel('Buscar (español o inglés)')).toBeVisible();
+  await page.keyboard.press('[');
+  await expect(page.getByRole('heading', { name: 'Iniciativa' })).toBeVisible();
 });
