@@ -56,6 +56,7 @@ export interface CoreSlice {
   confirmKey: string | null;
   undoStack: Snapshot[];
   helpOpen: boolean;
+  searchOpen: boolean; // búsqueda global abierta
   init: (defer?: boolean) => Promise<void>; // defer: el bestiario SRD se baja cuando el navegador queda libre (fuera del modo máster)
   set: (patch: Partial<State>) => void;
   monById: (id: string | undefined) => Monster | undefined;

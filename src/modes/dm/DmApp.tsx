@@ -1,6 +1,7 @@
 import { useStore } from '../../store/useStore';
 import { useHotkeys, HOTKEYS } from '../../hooks/useHotkeys';
 import Header from './Header';
+import GlobalSearch from './GlobalSearch';
 import InitiativePanel from './InitiativePanel';
 import BestiaryPanel from './BestiaryPanel';
 import GroupPanel from './GroupPanel';
@@ -22,6 +23,7 @@ import { dmTour } from '../../shared/tours';
 export default function DmApp() {
   const tab = useStore((s) => s.tab);
   const helpOpen = useStore((s) => s.helpOpen);
+  const searchOpen = useStore((s) => s.searchOpen);
   const initAsk = useStore((s) => s.initAsk);
   // visita guiada: sola la primera vez; luego, desde el «?» del encabezado
   const tour = useStore((s) => s.tourOpen);
@@ -56,6 +58,7 @@ export default function DmApp() {
         )}
       </main>
       {tour && <Tour steps={dmTour((t) => useStore.getState().set({ tab: t }))} storeKey="master" onClose={() => useStore.getState().set({ tourOpen: false })} />}
+      {searchOpen && <GlobalSearch />}
       {initAsk && (
         <InfoDialog title="Iniciativa de monstruos" onClose={() => useStore.getState().set({ initAsk: null })}>
           <p style={{ marginTop: 0 }}>Hay monstruos iguales: {initAsk}. ¿Cómo tiras su iniciativa?</p>

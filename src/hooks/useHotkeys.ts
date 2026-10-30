@@ -18,6 +18,7 @@ export const HOTKEYS: [string, string][] = [
   ['V / X', 'Ventaja / desventaja en la próxima tirada'],
   ['1 – 7', 'Tirar d4, d6, d8, d10, d12, d20, d100'],
   ['I', 'Tirar la iniciativa de los monstruos'],
+  ['Ctrl/⌘ + K', 'Buscar en todo (criaturas, reglas, guiones, encuentros, jugadores)'],
   ['/', 'Buscar en el bestiario'],
   ['R', 'Buscar en las reglas'],
   ['[ / ]', 'Pestaña anterior / siguiente'],
@@ -29,6 +30,7 @@ export function useHotkeys() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const s = useStore.getState();
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); s.set({ searchOpen: !s.searchOpen }); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
         if (isTyping(e.target)) return;
         e.preventDefault();
@@ -38,7 +40,7 @@ export function useHotkeys() {
       if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
       const k = e.key;
       const sides = [4, 6, 8, 10, 12, 20, 100];
-      if (k === 'Escape') { if (s.helpOpen) s.set({ helpOpen: false }); else if (s.spellOpen) s.set({ spellOpen: null }); return; }
+      if (k === 'Escape') { if (s.searchOpen) s.set({ searchOpen: false }); else if (s.helpOpen) s.set({ helpOpen: false }); else if (s.spellOpen) s.set({ spellOpen: null }); return; }
       if (k === '?') { e.preventDefault(); s.set({ helpOpen: !s.helpOpen }); return; }
       if (k === '[' || k === ']') {
         e.preventDefault();

@@ -13,7 +13,7 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
   let confirmT: ReturnType<typeof setTimeout> | undefined;
   return {
     tab: 'combat', loaded: false, hydrated: false, loadError: '', srd: [], spells: {}, types: [], storageOk: true, readFailed: false, persistent: false,
-    log: [], toast: '', spellOpen: null, spellCtx: null, confirmKey: null, undoStack: [], helpOpen: false,
+    log: [], toast: '', spellOpen: null, spellCtx: null, confirmKey: null, undoStack: [], helpOpen: false, searchOpen: false,
 
     async init(defer) {
       // los datos guardados primero: pedir al navegador que no los borre puede tardar (o, en Firefox, esperar a que el

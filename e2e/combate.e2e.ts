@@ -2843,3 +2843,21 @@ test('atajos [ y ] cambian de pestaña', async ({ page }) => {
   await page.keyboard.press('[');
   await expect(page.getByRole('heading', { name: 'Iniciativa' })).toBeVisible();
 });
+
+test('búsqueda global: Ctrl+K encuentra criaturas y reglas y lleva a ellas', async ({ page }) => {
+  await open(page);
+  await page.keyboard.press('Control+k');
+  const box = page.getByLabel('Buscar en todo', { exact: true }).last();
+  await box.fill('goblin');
+  await expect(page.getByRole('list', { name: 'Resultados' })).toContainText('Criaturas');
+  await expect(page.getByRole('list', { name: 'Resultados' })).toContainText('Guerrero goblin');
+  await box.press('Enter');
+  await expect(page.getByRole('dialog', { name: 'Búsqueda global' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Bestiario', exact: true })).toHaveAttribute('aria-current', 'page');
+  // reglas
+  await page.getByRole('button', { name: 'Buscar en todo' }).click();
+  await page.getByLabel('Buscar en todo', { exact: true }).last().fill('derribado');
+  await expect(page.getByRole('list', { name: 'Resultados' })).toContainText('Reglas y conjuros');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'Búsqueda global' })).toHaveCount(0);
+});

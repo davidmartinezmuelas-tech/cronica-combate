@@ -30,6 +30,7 @@ export default function Header() {
             <button className="btn small" onClick={() => window.location.reload()}>Recargar</button>
           </span>
         ) : !storageOk && <span className="small" style={{ color: '#f0a090', fontWeight: 700 }} role="alert"><span className="status-dot bad" /> No se puede guardar en este navegador: exporta una copia</span>}
+        <button className="btn small" onClick={() => set({ searchOpen: true })} aria-label="Buscar en todo" title="Buscar en todo (Ctrl+K)">Buscar</button>
         {/* deshacer: lo único global (también deshace cambios del Bestiario, el Grupo o la Forja) */}
         {undoTop && (
           <button className="btn icon undo" onClick={undo} aria-label={'Deshacer: ' + undoTop.label} title={'Deshacer: ' + undoTop.label + ' (Ctrl+Z)'}>
