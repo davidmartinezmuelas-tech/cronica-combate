@@ -1487,7 +1487,9 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .paper .pc-sheet-stats span{min-width:44px}
 
 /* fichas del grupo: tarjetas casi cuadradas, dos por fila, con lo que más usa el DM; la abierta ocupa toda la fila */
-.pc-sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px;align-items:start}
+.pc-sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px;align-items:stretch}
+.pc-sheet:not(.open){display:flex;flex-direction:column}
+.pc-sheet:not(.open) .pc-sheet-head{flex:1}
 .pc-sheet.open{grid-column:1/-1}
 .pc-sheet-head{flex-direction:column;align-items:stretch;gap:10px;justify-content:flex-start}
 .pc-card-top{display:flex;align-items:center;gap:12px;min-width:0}
