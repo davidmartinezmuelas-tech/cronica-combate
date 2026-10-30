@@ -3,11 +3,13 @@ import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App';
 import { initPrefs } from './shared/prefs';
+import { initTheme } from './shared/theme';
 import './fonts/fonts.css';
 import './styles.css';
 
 registerSW({ immediate: true });
 initPrefs();
+initTheme();
 
 // estadísticas de visitas (Cloudflare Web Analytics: sin cookies ni seguimiento entre webs), solo en la web publicada
 if (location.hostname === 'cronicadecombate.com') {

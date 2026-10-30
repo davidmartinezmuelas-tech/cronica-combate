@@ -1548,3 +1548,26 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .cond-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:4px 0;cursor:pointer}
 .cond-row:hover strong{text-decoration:underline}
 .note-flag{flex:none;color:var(--gold-hi);font-size:14px;line-height:1;cursor:help}
+
+/* tema claro: crema cálido a juego con el pergamino. Se activa con data-theme="light" en <html> (Ajustes o el del sistema) */
+/* el pergamino conserva la paleta original: sus colores se pensaron para ella */
+:root[data-theme="light"] :is(.paper,.dm-paper){--radius:8px;--radius-sm:6px;--gold:#d4a94f;--gold-hi:#e8c062;--gold-soft:#f3d48a;--gold-dim:#b07f22;--text-hi:#f1e6cc;--text:#f1e6cc;--text-2:#c6bba6;--muted:#bdb29d;--muted-2:#7a6650;--bg:#26211d;--surface-dim:#2e2722;--surface:#372f29;--surface-hi:#372f29;--line:#463d35;--line-2:#574c42;--line-3:#61554a;--line-4:#574c42;--red:#9b2c22;--red-hi:#c0513c;--garnet:#7a1f14;--garnet-2:#8a2a1c;--blue:#5a86a8;--blue-bg:#2c4a64;--green:#6aa152;--green-hi:#4d8a44;--green-bg:#2f5a2a;--paper-card:#e9dcbe;--paper-line:#b49a6c;--paper-line-2:#c2ab80;--ink:#26211d;--ink-dark:#171412;--on-red:#f6efe0;--on-green:#eef8ea;--on-blue:#eef5fa;--green-deep:#3f6b34;--paper-2:#ead8b2;--paper-edge:#a0865c;--ink-warm:#2b1d0e;--line-5:#695b4f;--paper-gold:#f3dfae;--blue-deep:#2c5f8a;--brass-ink:#8a5a0e;--rust:#b8442f;--paper-lite:#fbf6ea;--paper-edge-2:#a88c5e;--paper-3:#d8c49b;--paper-edge-3:#c0b093;--paper-green:#dbe8cf;--gold-link:#f0c96a;--surface-3:#50463d;--on-rust:#fbe6dc;--edge-dim:#706454;--red-soft:#e06b55;--paper-rose:#f0d2c8;--ink-brown:#5a4632;--paper-4:#d9c597;--ink-brown-2:#5a4a30;--paper-text:#f6eedb;--text-card:#e9dcbe;--paper-hi:#f6efe0;--surface-2:#463d35}
+:root[data-theme="light"] .dm-paper{--danger-text:#8e1f12;--text:#372f29;--text-hi:#26211d;--text-2:#4a3d30;--muted:#695b4f;--muted-2:#8a7a63;--gold-hi:#734a08;--gold-soft:#734a08}
+:root[data-theme="light"]{color-scheme:light;--bg:#f3ecdc;--surface-dim:#ebe2cd;--surface:#faf5e8;--surface-hi:#faf5e8;--surface-2:#e6dcc5;--surface-3:#ddd1b6;--line:#d6c9ab;--line-2:#c9baa0;--line-3:#bfae8e;--line-4:#c9baa0;--line-5:#a89878;--text:#2b241d;--text-hi:#1f1913;--text-2:#4d4235;--muted:#6b5e4b;--muted-2:#7a6a54;--gold:#9a6a12;--gold-hi:#7a4f08;--gold-soft:#6b4506;--gold-dim:#b07f22;--gold-link:#7a4f08;--edge-dim:#a89878;--text-card:#2b241d}
+/* tema claro: piezas que siguen siendo oscuras (las pestañas de madera) o que necesitan otro tono sobre fondo claro */
+:root[data-theme="light"]{--gold:#8a5c0c}
+:root[data-theme="light"] input[type=checkbox],:root[data-theme="light"] input[type=radio]{color-scheme:light}
+:root[data-theme="light"] .app-nav .tab:not(.on){color:#f3d48a}
+:root[data-theme="light"] .app-nav .tab:not(.on) svg{color:#d4a94f}
+:root[data-theme="light"] .app-nav .tab:not(.on):hover{color:#f1e6cc}
+:root[data-theme="light"] .app-footer{color:#5f5342}
+:root[data-theme="light"] .btn.gold,:root[data-theme="light"] .seg.on{background:#d4a94f}
+:root[data-theme="light"] .btn.gold:hover{background:#e0b85e}
+:root[data-theme="light"] .btn.danger{color:#9b2c22;border-color:#c98f84}
+:root[data-theme="light"] .btn.danger:hover{background:#f0d2c8;border-color:#8a2a1c;color:#6b1a10}
+:root[data-theme="light"] .picker-sum{color:#7a4f08}
+:root[data-theme="light"] .pc-flag{color:#2c5f8a}
+:root[data-theme="light"] .diff-mini-label.d1{color:#3f6b34}
+:root[data-theme="light"] .diff-mini-label.d2{color:#8a5a0e}
+:root[data-theme="light"] .diff-mini-label.d3{color:#a8431f}
+:root[data-theme="light"] .diff-mini-label.d4{color:#8e1f3c}

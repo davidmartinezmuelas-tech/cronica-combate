@@ -6,6 +6,7 @@ import AccountBox from './AccountBox';
 import { InfoDialog } from './Card';
 import { hasWebGL } from './Dice3D';
 import Legal, { feedbackHref } from './Legal';
+import { setThemePref, themePref, type ThemePref } from './theme';
 import { canInstall, installApp, motionPref, onInstallChange, reducedMotion, setMotionPref, setWizardPref, wizardPref } from './prefs';
 
 declare const __APP_VERSION__: string;
@@ -21,6 +22,7 @@ export default function SettingsMenu({ mode, backup, onTour, onKeys }: { mode: '
   const dice3d = useStore((s) => s.dice3d);
   const can3d = hasWebGL();
   const [motion, setMotion] = useState(motionPref);
+  const [theme, setTheme] = useState<ThemePref>(themePref);
   const [wizard, setWizard] = useState(wizardPref);
   const [install, setInstall] = useState(canInstall);
   useEffect(() => onInstallChange(() => setInstall(canInstall())), []);
@@ -49,6 +51,14 @@ export default function SettingsMenu({ mode, backup, onTour, onKeys }: { mode: '
             <section aria-label="Preferencias">
               <h3>Preferencias</h3>
               <label className="check"><input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => useStore.getState().set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (este navegador no tiene gráficos 3D)'}</label>
+              <div className="field" role="radiogroup" aria-label="Tema de color">
+                <span className="small muted">Tema de color</span>
+                <div className="rollrow">
+                  {([['dark', 'Oscuro'], ['light', 'Claro'], ['auto', 'Automático']] as [ThemePref, string][]).map(([k, label]) => (
+                    <button key={k} role="radio" aria-checked={theme === k} className={theme === k ? 'btn small primary' : 'btn small'} onClick={() => { setThemePref(k); setTheme(k); }}>{label}</button>
+                  ))}
+                </div>
+              </div>
               <label className="check"><input type="checkbox" checked={motion} onChange={(e) => { setMotionPref(e.target.checked); setMotion(e.target.checked); }} />Animaciones reducidas (para móviles lentos o si te marean)</label>
               {mode === 'player' && <label className="check"><input type="checkbox" checked={wizard} onChange={(e) => { setWizardPref(e.target.checked); setWizard(e.target.checked); }} />Crear personajes paso a paso (si no, todo en una página)</label>}
             </section>

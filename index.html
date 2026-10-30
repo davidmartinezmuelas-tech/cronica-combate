@@ -22,6 +22,16 @@
     <title>Crónica de Combate</title>
   </head>
   <body>
+    <!-- el tema se aplica antes de pintar, para que no parpadee -->
+    <script>
+      (function () {
+        try {
+          var v = localStorage.getItem('cronica-tema');
+          var light = v === 'light' || (v === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches);
+          document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+        } catch (e) {}
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
