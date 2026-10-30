@@ -3,6 +3,7 @@ import type { Combatant, Encounter } from '../../data/types';
 import { encounterDifficulty, sortCombatants } from '../../engine/combat';
 import { nfmt } from '../../engine/util';
 import { useStore } from '../../store/useStore';
+import CombatHistory from './CombatHistory';
 
 /** Dificultad del encuentro (reglas 2024), en pequeño bajo la iniciativa. */
 function Difficulty() {
@@ -241,6 +242,8 @@ export default function InitiativePanel() {
   // móvil: al empezar el combate se pliegan las opciones de preparación (se pueden abrir)
   const narrow = () => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 560px)').matches;
   const [groupOpen, setGroupOpen] = useState(false);
+  const [histOpen, setHistOpen] = useState(false);
+  const history = useStore((s) => s.history);
   const [extrasOpen, setExtrasOpen] = useState(() => !(started && narrow()));
   useEffect(() => { setExtrasOpen(!(started && narrow())); }, [started]);
   return (
@@ -274,6 +277,11 @@ export default function InitiativePanel() {
       )}
       {!roster.length && <button className="btn small ghost" onClick={() => set({ tab: 'group' })} style={{ alignSelf: 'flex-start' }}>Guardar a tus jugadores en Grupo</button>}
       <Encounters />
+      <div className="init-block">
+        <Fold title="Historial del combate" count={history.length} open={histOpen} onToggle={() => setHistOpen(!histOpen)}>
+          <CombatHistory />
+        </Fold>
+      </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, borderTop: '1px solid #4b4138', paddingTop: 12 }}>
         {!combatants.some((c) => c.kind === 'lair') && <button className="btn small ghost" onClick={addLairCombatant}>Añadir acciones de guarida (ini 20)</button>}
         {started && <button className="btn small ghost danger" onClick={() => confirm('end', endCombat)}>{confirmKey === 'end' ? '¿Seguro? Pulsa otra vez' : 'Terminar combate'}</button>}

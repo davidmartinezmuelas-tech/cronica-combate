@@ -1,6 +1,7 @@
 import { createStore, get, set } from 'idb-keyval';
 import { SCHEMA_VERSION, SECTIONS, STORAGE_KEY, XP_BY_CR } from '../data/constants';
 import type { Combatant, Condition, Encounter, LogEntry, Monster, RosterEntry, SavedState, Script, TurnEvent } from '../data/types';
+import { normHist } from '../engine/history';
 import { avgOf, modOf } from '../engine/dice';
 import { norm, num, pbOf, uid } from '../engine/util';
 
@@ -108,7 +109,7 @@ export function normRoster(r: unknown): RosterEntry | null {
 }
 
 export function emptySaved(): SavedState {
-  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], encounters: [], scripts: [], dice3d: null };
+  return { v: SCHEMA_VERSION, custom: [], roster: [], combatants: [], round: 1, activeId: null, started: false, log: [], diceTheme: 'ruby', turnEvents: [], history: [], encounters: [], scripts: [], dice3d: null };
 }
 
 /** Repara y migra cualquier dato guardado o importado. Nunca lanza. */
@@ -124,6 +125,7 @@ export function normalizeSaved(raw: unknown): SavedState {
   out.started = !!x.started && out.combatants.length > 0;
   out.log = (Array.isArray(x.log) ? x.log : []).filter((l): l is LogEntry => !!l && typeof (l as LogEntry).label === 'string').slice(0, 30);
   out.turnEvents = (Array.isArray(x.turnEvents) ? x.turnEvents : []).filter((e): e is TurnEvent => !!e && typeof (e as TurnEvent).text === 'string');
+  out.history = normHist(x.history);
   out.diceTheme = ['ruby', 'bone', 'obsidian', 'gem', 'metal', 'wood'].includes(String(x.diceTheme)) ? String(x.diceTheme) : 'ruby';
   out.dice3d = typeof x.dice3d === 'boolean' ? x.dice3d : null;
   // v4: encuentros guardados (las versiones anteriores no los tienen)
@@ -192,7 +194,7 @@ export interface ExportFile {
   custom: Monster[];
   encounters: Encounter[];
   scripts?: Script[];
-  combat: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
+  combat: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents' | 'history'>;
   pdfs?: Record<string, string>; // hojas de personaje: id -> PDF en base64
   book?: Monster[]; // criaturas del Manual de Monstruos del usuario (solo si pidió incluirlas)
 }
@@ -200,7 +202,7 @@ export interface ExportFile {
 export function buildExport(s: SavedState, pdfs?: Record<string, string>, book?: Monster[]): ExportFile {
   return {
     app: 'cronica-combate', v: SCHEMA_VERSION, exportedAt: new Date().toISOString(), roster: s.roster, custom: s.custom, encounters: s.encounters, ...(s.scripts?.length ? { scripts: s.scripts } : {}), ...(pdfs && Object.keys(pdfs).length ? { pdfs } : {}), ...(book?.length ? { book } : {}),
-    combat: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents },
+    combat: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents, history: s.history },
   };
 }
 
@@ -211,7 +213,7 @@ export interface ImportResult {
   custom?: Monster[];
   encounters?: Encounter[];
   scripts?: Script[];
-  combat?: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents'>;
+  combat?: Pick<SavedState, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents' | 'history'>;
   pdfs?: Record<string, string>; // hojas que trae la copia para los jugadores importados
   book?: Monster[]; // criaturas del Manual de la copia, ya fusionadas con las que había
 }
@@ -245,8 +247,8 @@ export function mergeImport(text: string, current: SavedState & { book?: Monster
   const c = x.combat as Record<string, unknown> | undefined;
   if (c && Array.isArray(c.combatants) && c.combatants.length) {
     if (!current.combatants.length) {
-      const n = normalizeSaved({ combatants: c.combatants, round: c.round, activeId: c.activeId, started: c.started, turnEvents: c.turnEvents });
-      combat = { combatants: n.combatants, round: n.round, activeId: n.activeId, started: n.started, turnEvents: n.turnEvents };
+      const n = normalizeSaved({ combatants: c.combatants, round: c.round, activeId: c.activeId, started: c.started, turnEvents: c.turnEvents, history: c.history });
+      combat = { combatants: n.combatants, round: n.round, activeId: n.activeId, started: n.started, turnEvents: n.turnEvents, history: n.history };
       extra = ' y el combate guardado (' + n.combatants.length + ' combatientes)';
     } else extra = '. El combate de la copia no se ha cargado porque ya tienes uno abierto: vacíalo y vuelve a importar si lo quieres';
   }

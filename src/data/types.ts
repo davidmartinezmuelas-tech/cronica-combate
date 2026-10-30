@@ -156,6 +156,15 @@ export interface TurnEvent {
   text: string;
 }
 
+/** Una anotación del historial del combate: qué pasó, en qué ronda y de qué tipo (para filtrar). */
+export type HistKind = 'dano' | 'cura' | 'estado' | 'turno' | 'muerte' | 'otro';
+export interface HistEntry {
+  t: number; // cuándo (milisegundos)
+  r: number; // ronda
+  k: HistKind;
+  text: string;
+}
+
 export interface ConcPrompt {
   pid: string;
   id: string;
@@ -245,6 +254,7 @@ export interface SavedState {
   log: LogEntry[];
   diceTheme: string;
   turnEvents: TurnEvent[];
+  history?: HistEntry[]; // historial del combate en curso (no existe en copias antiguas)
   encounters: Encounter[];
   scripts?: Script[]; // guiones de sesión (no existen en copias antiguas)
   dice3d?: boolean | null; // dados 3D o 2D; null = automático (3D salvo que el sistema pida reducir movimiento)

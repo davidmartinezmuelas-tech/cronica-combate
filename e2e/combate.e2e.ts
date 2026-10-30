@@ -2808,3 +2808,30 @@ test('encuentros preparados: se renombra y se cambian las cantidades sin cargarl
   await page.getByRole('button', { name: /^Encuentros preparados/ }).click();
   await expect(page.getByRole('button', { name: 'Emboscada en el puente', exact: true })).toBeVisible();
 });
+
+test('historial del combate: anota turnos, se conserva al recargar y se vacía', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 1);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await page.getByLabel(/^Iniciativa de Guerrero goblin/).first().fill('10');
+  await page.getByLabel(/^Iniciativa de Guerrero goblin/).first().press('Enter');
+  await addPlayer(page, 'Jimena', '30');
+  await page.getByTitle('Empezar combate (N)').click();
+  await expect(activeName(page)).toContainText('Jimena');
+  await page.getByRole('heading', { name: 'Iniciativa' }).click();
+  await page.keyboard.press('n');
+  await page.getByRole('button', { name: /^Historial del combate/ }).click();
+  const list = page.getByRole('list', { name: 'Historial del combate' });
+  await expect(list).toContainText('Comienza el combate');
+  await expect(list).toContainText('Turno de Jimena');
+  await expect(list).toContainText('Turno de Guerrero goblin');
+  // se conserva al recargar
+  await page.waitForTimeout(1500);
+  await page.reload();
+  await page.getByRole('button', { name: /^Historial del combate/ }).click();
+  await expect(page.getByRole('list', { name: 'Historial del combate' })).toContainText('Turno de Jimena');
+  // vaciar pide confirmación
+  await page.getByRole('button', { name: 'Vaciar historial' }).click();
+  await page.getByRole('button', { name: /¿Seguro\? Vaciar/ }).click();
+  await expect(page.getByText('Aquí se irá anotando el combate')).toBeVisible();
+});

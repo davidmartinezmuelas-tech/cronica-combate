@@ -1533,3 +1533,9 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .enc-edit li{display:flex;align-items:center;gap:6px}
 .enc-edit-name{flex:1;min-width:0;overflow-wrap:anywhere}
 .enc-edit-qty{min-width:22px;text-align:center;font-weight:800}
+
+/* historial del combate */
+.hist-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;max-height:260px;overflow-y:auto;font-size:13px;line-height:1.35}
+.hist-list li{display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--line)}
+.hist-r{flex:none;min-width:28px;font-weight:800;color:var(--gold-hi)}
+.hist-dano span:last-child{color:#f0a898}.hist-cura span:last-child{color:#a8d49a}.hist-muerte span:last-child{color:#ffb4a5;font-weight:700}

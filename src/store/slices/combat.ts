@@ -1,14 +1,22 @@
-import type { Combatant, ConcPrompt, TurnEvent } from '../../data/types';
+import type { Combatant, ConcPrompt, HistKind, TurnEvent } from '../../data/types';
 import {
   addCondition, applyDamage, applyHeal, makeLair, makeMonsterCombatant, makePcCombatant, resolveDeathSave, rollModifiers, setExhaustion, sortCombatants, reorderCombatants, clearManualOrder,
   stepTurn, tickConditions, turnStart, uniqueName, type LogDraft, type RechargeCheck,
 } from '../../engine/combat';
 import { combineAdv, rollDie, sgn, type PhysicalDie } from '../../engine/dice';
+import { draftText, kindOf, makeHist, pushHist } from '../../engine/history';
 import { uid } from '../../engine/util';
 import type { Kit } from '../kit';
 import type { CombatSlice, GetState, SetState } from '../state';
 
 export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard, animate }: Kit): CombatSlice {
+  /** Anota en el historial del combate (entra en el deshacer porque cada acción guarda antes su instantánea). */
+  const note = (entries: { k: HistKind; text: string }[], round?: number) => {
+    if (!entries.length) return;
+    const s = get();
+    set({ history: pushHist(s.history, entries.map((e) => makeHist(e.k, e.text, round ?? s.round))) });
+  };
+  const noteDrafts = (drafts: LogDraft[], k?: HistKind) => note(drafts.map((d) => ({ k: k ?? kindOf(d.label), text: draftText(d) })));
   const rollRecharge = (id: string, list: RechargeCheck[]) => {
     if (guard(() => rollRecharge(id, list))) return;
     const rolls = list.map((x) => ({ ...x, v: rollDie(6) }));
@@ -22,6 +30,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         rolls.forEach((x) => { if (x.v >= x.min) sp[x.key] = false; });
         return { ...cc, spent: sp };
       });
+      note(rolls.map((x) => ({ k: 'otro' as const, text: 'Recarga de ' + x.name + ' (' + (c?.name || '?') + '): ' + x.v + (x.v >= x.min ? ' → disponible' : ' → sigue gastada') })));
       const turnEvents = s.turnEvents.concat(rolls.map((x) => ({ text: 'Recarga de ' + x.name + ': ' + x.v + (x.v >= x.min ? ' → disponible.' : ' → sigue gastada.') })));
       const label = 'Recarga · ' + (c ? c.name : '');
       return {
@@ -54,20 +63,28 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       combatants: cs.map((c) => (c.id === next.id ? r.c : c)),
       log: nx.round !== s.round ? pushLog([{ label: 'Ronda ' + nx.round, detail: 'Empieza una nueva ronda', total: 'R' + nx.round }]) : s.log,
     });
+    note([...(nx.round !== s.round ? [{ k: 'turno' as const, text: 'Empieza la ronda ' + nx.round }] : []), ...ticked.map((e) => ({ k: 'estado' as const, text: e.text })), { k: 'turno' as const, text: 'Turno de ' + next.name }]);
     if (r.recharge.length) rollRecharge(next.id, r.recharge);
   };
 
   return {
-    combatants: [], round: 1, activeId: null, started: false, turnEvents: [],
+    combatants: [], round: 1, activeId: null, started: false, turnEvents: [], history: [],
     selId: null, concPrompts: [], surprised: false, initAsk: null, tourOpen: false, amount: '', dmgType: '', condRounds: '', condAt: 'start', condBy: '', initDraft: null,
 
     rechargeRoll(id, key, name, min) { rollRecharge(id, [{ key, name, min }]); },
+
+    clearHistory() {
+      get().snap('vaciar historial');
+      set({ history: [] });
+    },
 
     moveCombatant(id, targetId, after) {
       const next = reorderCombatants(get().combatants, id, targetId, after);
       if (next === get().combatants) return;
       get().snap('cambio de orden de iniciativa');
       set({ combatants: next });
+      const nm = (i: string) => get().combatants.find((c) => c.id === i)?.name || '?';
+      if (get().started) note([{ k: 'turno', text: 'Orden de iniciativa: ' + nm(id) + (after ? ' pasa después de ' : ' pasa antes de ') + nm(targetId) }]);
     },
 
     autoOrder() {
@@ -151,6 +168,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         add.push(makeMonsterCombatant(m, { name, inLair, rollHp: s.hpMode === 'roll', grp }));
       }
       set({ combatants: cs.concat(add) });
+      if (s.started) note([{ k: 'otro', text: 'Entra en el combate: ' + add.map((c) => c.name).join(', ') }]);
       if (!opts.silent) get().showToast(n + ' × ' + m.n + (inLair && m.lair ? ' (en su guarida)' : '') + ' al combate' + (s.started ? '. Tira o escribe su iniciativa: hasta entonces no actúa.' : ''));
     },
 
@@ -161,7 +179,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       const taken = new Set(s.combatants.map((x) => x.name));
       const c = makePcCombatant(r, taken.has(r.name) ? uniqueName(r.name, taken) : r.name);
       set({ combatants: get().combatants.concat([c]) });
-      if (s.started) get().showToast(c.name + ' entra en el combate: escribe su iniciativa.');
+      if (s.started) { note([{ k: 'otro', text: 'Entra en el combate: ' + c.name }]); get().showToast(c.name + ' entra en el combate: escribe su iniciativa.'); }
     },
 
     addAllPcs() {
@@ -195,6 +213,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       const combatants = s2.combatants.filter((x) => x.id !== id)
         .map((x) => (x.conds.some((cd) => cd.by === id) ? { ...x, conds: x.conds.map((cd) => (cd.by === id ? { k: cd.k, r: cd.r, ...(cd.at ? { at: cd.at } : {}) } : cd)) } : x));
       set({ combatants, selId: moved ? s2.selId : null, activeId: s2.activeId === id ? null : s2.activeId, concPrompts: s2.concPrompts.filter((p) => p.id !== id) });
+      if (s2.started) note([{ k: 'otro', text: 'Sale del combate: ' + c.name }]);
     },
 
     startCombat() {
@@ -209,10 +228,11 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       const r = turnStart(t.cs.find((c) => c.id === first.id)!, get().monById(first.monsterId) || null);
       get().snap('empezar combate');
       set({
-        started: true, round: 1, activeId: first.id, selId: first.id, tab: 'combat', turnEvents: t.events.concat(r.events),
+        started: true, round: 1, activeId: first.id, selId: first.id, tab: 'combat', turnEvents: t.events.concat(r.events), history: [],
         combatants: t.cs.map((c) => (c.id === first.id ? r.c : c)),
         log: pushLog([{ label: '¡Comienza el combate!', detail: 'Orden: ' + order.map((c) => c.name + ' ' + c.init).join(' · '), total: 'R1' }]),
       });
+      note([{ k: 'turno', text: 'Comienza el combate. Orden: ' + order.map((c) => c.name + ' ' + c.init).join(' · ') }, { k: 'turno', text: 'Turno de ' + first.name }], 1);
     },
 
     step(dir) {
@@ -234,6 +254,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         beginTurn(nx, s.activeId);
       } else {
         get().snap('volver a ' + next.name);
+        note([{ k: 'turno', text: 'Vuelve al turno de ' + next.name }], nx.round);
         set({ activeId: next.id, selId: next.id, round: nx.round, turnEvents: [{ text: 'Has vuelto a este turno. Como ya hubo acciones después, los efectos de inicio de turno no se han deshecho: usa Deshacer si necesitas revertirlos.' }] });
       }
     },
@@ -246,11 +267,12 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         round: 1, activeId: null, selId: null, started: false, turnEvents: [], concPrompts: [], critFor: null,
         log: pushLog([{ label: 'Fin del combate', detail: 'Ronda ' + s.round, total: '—' }]),
       });
+      note([{ k: 'turno', text: 'Fin del combate (ronda ' + s.round + ')' }], s.round);
     },
 
     clearAll() {
       get().snap('vaciar encuentro');
-      set({ combatants: [], started: false, round: 1, activeId: null, selId: null, turnEvents: [], concPrompts: [], critFor: null });
+      set({ combatants: [], started: false, round: 1, activeId: null, selId: null, turnEvents: [], history: [], concPrompts: [], critFor: null });
     },
 
     applyParts(map, parts, crit = false) {
@@ -267,6 +289,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         return r.c;
       });
       set({ combatants, log: pushLog(logs), concPrompts: s.concPrompts.concat(prompts), amount: '' });
+      noteDrafts(logs);
     },
 
     applyEffect(outcomes, effect, conds, parts, crit = false) {
@@ -302,6 +325,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         return { label: (c?.name || '?') + ': salvación de ' + ABIL_N[effect.abil] + ' CD ' + effect.dc, detail: (o.fail ? 'falla' : 'supera') + (o.fail && conds.length ? ' · ' + conds.join(', ') : ''), total: o.total == null ? (o.fail ? 'Falla' : 'Supera') : String(o.total) };
       });
       set({ log: pushLog(logs), result: s.result ? { ...s.result, isDmg: false, applied: true, effect: undefined, note: 'Efecto aplicado.' } : s.result });
+      noteDrafts(logs, 'estado');
     },
 
     heal(id, amt, src) {
@@ -311,6 +335,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       if ('error' in r) { get().showToast(r.error); return; }
       get().snap('curar a ' + c.name);
       set({ combatants: get().combatants.map((x) => (x.id === id ? r.c : x)), amount: '', log: pushLog([{ ...r.log, label: r.log.label + (src ? ' (' + src + ')' : '') }]) });
+      noteDrafts([{ ...r.log, label: r.log.label + (src ? ' (' + src + ')' : '') }], 'cura');
     },
 
     giveTemp(id, amt) {
@@ -318,23 +343,27 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       if (!c || !(amt > 0)) return;
       get().patchC(id, (x) => ({ temp: Math.max(x.temp || 0, amt) }), 'PG temporales');
       set({ amount: '', log: pushLog([{ label: c.name + ' gana PG temporales', detail: 'No se acumulan: se queda con el mayor', total: '+' + Math.max(c.temp || 0, amt) }]) });
+      note([{ k: 'cura', text: c.name + ' gana PG temporales (+' + Math.max(c.temp || 0, amt) + ')' }]);
     },
 
     toggleCond(id, k) {
       const s = get();
       const r = parseInt(s.condRounds, 10);
       const by = s.condBy && s.combatants.some((x) => x.id === s.condBy) ? s.condBy : id;
+      const holder = s.combatants.find((x) => x.id === id);
+      const had = !!holder?.conds.some((x) => x.k === k);
       get().patchC(id, (c) => {
         const has = c.conds.some((x) => x.k === k);
         return { conds: has ? c.conds.filter((x) => x.k !== k) : addCondition(c.conds, k, isNaN(r) || r <= 0 ? null : r, { at: s.condAt, by, activeId: s.started ? s.activeId : null, holderId: id }) };
       }, 'estado ' + k);
+      if (holder) note([{ k: 'estado', text: holder.name + (had ? ' deja de tener ' : ' pasa a estar ') + k + (!had && !isNaN(r) && r > 0 ? ' (' + r + (r === 1 ? ' ronda)' : ' rondas)') : '') }]);
     },
     setExh(id, n) {
       const c = get().combatants.find((x) => x.id === id);
       if (!c) return;
       const r = setExhaustion(c, n);
       get().patchC(id, r.patch, 'agotamiento');
-      if (r.log) set({ log: pushLog([r.log]) });
+      if (r.log) { set({ log: pushLog([r.log]) }); noteDrafts([r.log], 'estado'); }
     },
     setUsed: (id, key, v, max) => get().patchC(id, (c) => ({ used: { ...c.used, [key]: Math.max(0, Math.min(max, v)) } }), 'usos'),
     setSpUsed: (id, key, v, max) => get().patchC(id, (c) => ({ spUsed: { ...c.spUsed, [key]: Math.max(0, Math.min(max, v)) } }), 'usos de conjuro'),
@@ -346,6 +375,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       if (c.laMax - c.laUsed < cost) { get().showToast(c.name + ' no tiene usos legendarios suficientes'); return; }
       get().snap('acción legendaria');
       set({ combatants: get().combatants.map((x) => (x.id === id ? { ...x, laUsed: x.laUsed + cost } : x)), log: pushLog([{ label: c.name + ' · acción legendaria', detail: name + (cost > 1 ? ' (cuesta ' + cost + ')' : ''), total: c.laMax - c.laUsed - cost + '/' + c.laMax }]) });
+      note([{ k: 'estado', text: c.name + ' usa una acción legendaria: ' + name }]);
     },
 
     useLR(id) {
@@ -354,6 +384,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
       if (c.lrUsed >= c.lrMax) { get().showToast(c.name + ' ha gastado todas sus resistencias legendarias'); return; }
       get().snap('resistencia legendaria');
       set({ combatants: get().combatants.map((x) => (x.id === id ? { ...x, lrUsed: x.lrUsed + 1 } : x)), log: pushLog([{ label: c.name + ' · resistencia legendaria', detail: 'Convierte un fallo en éxito', total: c.lrMax - c.lrUsed - 1 + '/' + c.lrMax }]) });
+      note([{ k: 'estado', text: c.name + ' gasta una resistencia legendaria' }]);
     },
 
     deathMark(id, k) {
@@ -365,6 +396,8 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         if (d.f >= 3) p.dead = true;
         return p;
       }, 'salvación de muerte');
+      const dc = get().combatants.find((x) => x.id === id);
+      if (dc) note([{ k: 'muerte', text: dc.name + ': ' + (k === 's' ? 'éxito' : 'fallo') + ' de salvación de muerte (' + (dc.death?.s || 0) + ' éxitos, ' + (dc.death?.f || 0) + ' fallos)' }]);
     },
 
     rollDeath(id) {
@@ -378,6 +411,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
           const cc = get().combatants.find((x) => x.id === id);
           if (!cc) return {};
           const r = resolveDeathSave(cc, total, nat);
+          note([{ k: 'muerte', text: cc.name + ': ' + r.msg }]);
           return { combatants: get().combatants.map((x) => (x.id === id ? { ...x, ...r.patch } : x)), resultNote: r.msg };
         },
       });
@@ -390,6 +424,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         label: 'Concentración · ' + p.name + ' (CD ' + p.dc + ')', kind: 'save', ability: 2, cid: p.id, parts: [{ expr: '1d20' + sgn(p.save || 0) }],
         after: (total) => {
           const ok = total >= p.dc;
+          note([{ k: 'estado', text: p.name + (ok ? ' mantiene' : ' pierde') + ' la concentración (tirada ' + total + ' contra CD ' + p.dc + ')' }]);
           return {
             concPrompts: get().concPrompts.filter((x) => x.pid !== p.pid),
             combatants: ok ? get().combatants : get().combatants.map((x) => (x.id === p.id ? { ...x, conc: false } : x)),
@@ -407,6 +442,7 @@ export function createCombatSlice(set: SetState, get: GetState, { pushLog, guard
         combatants: keep ? s.combatants : s.combatants.map((x) => (x.id === p.id ? { ...x, conc: false } : x)),
         log: pushLog([{ label: p.name + (keep ? ' mantiene' : ' pierde') + ' la concentración', detail: 'CD ' + p.dc, total: keep ? '✓' : '✗' }]),
       });
+      note([{ k: 'estado', text: p.name + (keep ? ' mantiene' : ' pierde') + ' la concentración (CD ' + p.dc + ')' }]);
     },
   };
 }

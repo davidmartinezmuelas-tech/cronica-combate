@@ -57,7 +57,7 @@ export function createCoreSlice(set: SetState, get: GetState, { pushLog, guard }
       const stack = s.undoStack.slice();
       const top = stack[stack.length - 1];
       if (top && top.label === label && now - top.at < 1500) { top.at = now; return; }
-      stack.push({ label, at: now, data: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents, concPrompts: s.concPrompts, critFor: s.critFor, selId: s.selId, roster: s.roster, custom: s.custom, encounters: s.encounters } });
+      stack.push({ label, at: now, data: { combatants: s.combatants, round: s.round, activeId: s.activeId, started: s.started, turnEvents: s.turnEvents, history: s.history, concPrompts: s.concPrompts, critFor: s.critFor, selId: s.selId, roster: s.roster, custom: s.custom, encounters: s.encounters } });
       set({ undoStack: stack.slice(-50) });
     },
 

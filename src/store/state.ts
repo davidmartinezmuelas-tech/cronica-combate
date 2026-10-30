@@ -1,4 +1,4 @@
-import type { Combatant, ConcPrompt, DieView, DmgPart, Encounter, LogEntry, Monster, RollResult, RosterEntry, Script, Spell, TurnEvent } from '../data/types';
+import type { Combatant, ConcPrompt, DieView, DmgPart, Encounter, HistEntry, LogEntry, Monster, RollResult, RosterEntry, Script, Spell, TurnEvent } from '../data/types';
 import type { AdvMode, RollKind, RollPart } from '../engine/dice';
 import type { SaveEffect } from '../engine/saveEffect';
 import type { LogDraft } from '../engine/combat';
@@ -32,7 +32,7 @@ export interface RollSpec {
 export interface Snapshot {
   label: string;
   at: number;
-  data: Pick<State, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents' | 'concPrompts' | 'critFor' | 'selId' | 'roster' | 'custom' | 'encounters'>;
+  data: Pick<State, 'combatants' | 'round' | 'activeId' | 'started' | 'turnEvents' | 'history' | 'concPrompts' | 'critFor' | 'selId' | 'roster' | 'custom' | 'encounters'>;
 }
 
 /** Carga, interfaz general, historial y deshacer. */
@@ -72,6 +72,8 @@ export interface CombatSlice {
   activeId: string | null;
   started: boolean;
   turnEvents: TurnEvent[];
+  history: HistEntry[]; // historial del combate (se guarda y entra en el deshacer)
+  clearHistory: () => void;
   selId: string | null;
   concPrompts: ConcPrompt[];
   surprised: boolean;
