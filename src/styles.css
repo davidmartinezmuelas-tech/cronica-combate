@@ -1512,3 +1512,18 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .roster-card .btn:hover{background:rgba(0,0,0,.4)}
 .roster-card .btn.danger{color:#ffd0c4;border-color:#b0675a}
 .roster-card.editing{border-color:#fff8e6}
+
+/* tarjetas del grupo: del color de la clase al pergamino claro, con tinta oscura */
+.roster-card{background:linear-gradient(180deg,color-mix(in srgb,var(--cc,#d4a94f) 42%,#e9dcbe),#e9dcbe 72%);border-color:color-mix(in srgb,var(--cc,#d4a94f) 70%,#8a7a5c);border-top-color:var(--cc,#d4a94f);color:#26211d}
+.roster-card .roster-name{color:#26211d}
+.roster-card .roster-sub,.roster-card .roster-extra{color:#3b3025}
+.roster-card .roster-stats{color:#26211d}
+.roster-card .roster-stats b{color:color-mix(in srgb,var(--cc,#d4a94f) 55%,#26211d)}
+.roster-card .tag{background:rgba(38,33,29,.14);color:#26211d}
+.roster-card .btn{background:rgba(255,255,255,.4);border-color:rgba(38,33,29,.4);color:#26211d}
+.roster-card .btn:hover{background:rgba(255,255,255,.7)}
+.roster-card .btn.danger{color:#7a1f14;border-color:#b07a6c}
+.roster-card.editing{border-color:#26211d}
+.roster-card .ac-shield{filter:drop-shadow(0 1px 2px rgba(38,33,29,.45))}
+.paper .pc-sheet{background:linear-gradient(180deg,color-mix(in srgb,var(--cc,#d4a94f) 30%,#e9dcbe),#e9dcbe 60%);border-color:color-mix(in srgb,var(--cc,#d4a94f) 55%,#a0865c)}
+.paper .pc-sheet.open{border-color:color-mix(in srgb,var(--cc,#d4a94f) 80%,#26211d)}
