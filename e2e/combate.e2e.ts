@@ -2761,3 +2761,23 @@ test('guion: «Añadir encuentro» escribe el bloque en la línea del cursor y g
   await page.getByRole('button', { name: 'Ir al combate: Emboscada del puente' }).click();
   await expect(page.locator('.init-row')).toHaveCount(2);
 });
+
+test('iniciativa a mano con el dedo: arrastrar el número de una fila la mueve encima o debajo de otra', async ({ page }) => {
+  await open(page);
+  await addPlayer(page, 'Ana', '20');
+  await addPlayer(page, 'Beto', '15');
+  await addPlayer(page, 'Cris', '10');
+  const names = () => page.locator('.init-row .init-badge + span').allTextContents();
+  await expect.poll(names).toEqual(['Ana', 'Beto', 'Cris']);
+  const ana = page.locator('.init-li', { hasText: 'Ana' });
+  await ana.scrollIntoViewIfNeeded();
+  const a = (await ana.boundingBox())!;
+  const b = (await page.locator('.init-li', { hasText: 'Cris' }).locator('.init-badge').boundingBox())!;
+  // gesto táctil simulado: el dedo baja sobre el número de Cris, sube hasta el borde de arriba de Ana y se levanta
+  await page.locator('.init-li', { hasText: 'Cris' }).locator('.init-badge').dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 7, bubbles: true, button: 0, clientX: b.x + 5, clientY: b.y + 5 });
+  await page.evaluate(([x, y]) => {
+    const fire = (t: string) => window.dispatchEvent(new PointerEvent(t, { pointerType: 'touch', pointerId: 7, clientX: x, clientY: y, bubbles: true }));
+    fire('pointermove'); fire('pointerup');
+  }, [a.x + 40, a.y + 4]);
+  await expect.poll(names).toEqual(['Cris', 'Ana', 'Beto']);
+});

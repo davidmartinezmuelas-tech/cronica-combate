@@ -1472,3 +1472,6 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
   .swatch{width:40px !important;height:40px !important}
   summary{min-height:40px;padding-block:8px}
 }
+
+/* arrastre con el dedo por el número de iniciativa (solo en pantallas táctiles) */
+@media (pointer:coarse){.init-row .init-badge{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}}

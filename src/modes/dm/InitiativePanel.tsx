@@ -49,18 +49,56 @@ function statusOf(c: Combatant, started: boolean): string {
 /** Quien se está arrastrando en la lista (el dataTransfer no se puede leer mientras se pasa por encima). */
 let dragging: string | null = null;
 
+/** Cada fila avisa aquí de dónde caería lo que se arrastra (para el arrastre con el dedo, que no usa el de HTML5). */
+const rowOver = new Map<string, (v: 'above' | 'below' | null) => void>();
+
+/** Arrastre táctil por el asa: sigue al dedo y, al soltar, mueve a quien se arrastra encima o debajo de la fila que haya debajo. */
+function startTouchDrag(e: React.PointerEvent, id: string) {
+  if (e.pointerType === 'mouse') return; // el ratón arrastra la fila entera
+  e.preventDefault();
+  try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* sin captura: se sigue por la ventana */ }
+  let hit: { id: string; after: boolean } | null = null;
+  const mark = (v: { id: string; after: boolean } | null) => {
+    if (hit && (!v || v.id !== hit.id)) rowOver.get(hit.id)?.(null);
+    if (v) rowOver.get(v.id)?.(v.after ? 'below' : 'above');
+    hit = v;
+  };
+  const move = (ev: PointerEvent) => {
+    const li = (document.elementFromPoint(ev.clientX, ev.clientY) as HTMLElement | null)?.closest<HTMLElement>('[data-cid]');
+    const target = li?.dataset.cid;
+    if (!li || !target || target === id) { mark(null); return; }
+    const r = li.getBoundingClientRect();
+    mark({ id: target, after: ev.clientY >= r.top + r.height / 2 });
+    // cerca del borde de la columna: se desplaza para llegar a las filas lejanas
+    const box = li.closest<HTMLElement>('.col-left');
+    if (box) { const b = box.getBoundingClientRect(); if (ev.clientY < b.top + 40) box.scrollBy(0, -12); else if (ev.clientY > b.bottom - 40) box.scrollBy(0, 12); }
+  };
+  const end = (ev: PointerEvent) => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    const h = hit;
+    mark(null);
+    if (h && ev.type === 'pointerup') useStore.getState().moveCombatant(id, h.id, h.after);
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+}
+
 function Row({ c, prev, next }: { c: Combatant; prev?: string; next?: string }) {
   const started = useStore((s) => s.started);
   const isActive = useStore((s) => s.started && s.activeId === c.id);
   const isSel = useStore((s) => s.selId === c.id);
   const { set, patchC, moveCombatant } = useStore.getState();
   const [over, setOver] = useState<'above' | 'below' | null>(null);
+  useEffect(() => { rowOver.set(c.id, setOver); return () => { rowOver.delete(c.id); }; }, [c.id]);
   const pct = c.maxHp ? Math.max(0, Math.round((c.hp / c.maxHp) * 100)) : 0;
   const down = c.kind === 'monster' ? c.hp <= 0 : c.kind === 'pc' ? !!c.dead || c.hp <= 0 : false;
   const cls = ['init-row', c.kind, isActive ? 'active' : '', isSel ? 'sel' : '', down ? 'down' : ''].join(' ');
   const commit = (v: string) => { const n = parseInt(v.replace('−', '-'), 10); if (!isNaN(n)) patchC(c.id, { init: n }, 'iniciativa'); };
   return (
-    <li className={'init-li' + (over ? ' drop-' + over : '')} style={{ display: 'flex', gap: 6, alignItems: 'center' }}
+    <li data-cid={c.id} className={'init-li' + (over ? ' drop-' + over : '')} style={{ display: 'flex', gap: 6, alignItems: 'center' }}
       draggable onDragStart={(e) => { dragging = c.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.id); }}
       onDragEnd={() => { dragging = null; setOver(null); }}
       onDragOver={(e) => { if (!dragging || dragging === c.id) return; e.preventDefault(); const r = e.currentTarget.getBoundingClientRect(); setOver(e.clientY < r.top + r.height / 2 ? 'above' : 'below'); }}
@@ -70,7 +108,7 @@ function Row({ c, prev, next }: { c: Combatant; prev?: string; next?: string }) 
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {/* una línea: iniciativa, nombre y marcas a la izquierda; CA y PG a la derecha (la fila ocupa la mitad que antes) */}
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="init-badge" aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
+            <span className="init-badge" title="Arrastra el número para cambiar el orden" onPointerDown={(e) => startTouchDrag(e, c.id)} aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
             <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
             {isActive && <span className="turn-flag" title="En turno" aria-label="En turno">▶</span>}
@@ -192,7 +230,7 @@ export default function InitiativePanel() {
       <ol style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {order.map((c, i) => <Row key={c.id} c={c} prev={order[i - 1]?.id} next={order[i + 1]?.id} />)}
       </ol>
-      {order.length > 1 && <p className="muted small" style={{ margin: 0 }}>Arrastra una fila o usa ▲▼ para cambiar el orden a mano (dotes, decisiones).{combatants.some((c) => c.ord != null) && <> <button className="btn small ghost" onClick={autoOrder}>Orden automático</button></>}</p>}
+      {order.length > 1 && <p className="muted small" style={{ margin: 0 }}>Arrastra una fila (en táctil, por el número) o usa ▲▼ para cambiar el orden a mano (dotes, decisiones).{combatants.some((c) => c.ord != null) && <> <button className="btn small ghost" onClick={autoOrder}>Orden automático</button></>}</p>}
       <Difficulty />
       {!combatants.length && <p className="muted" style={{ margin: 0 }}>El encuentro está vacío. Empieza añadiendo monstruos desde el Bestiario.</p>}
       {pendingPc && <p className="muted small" style={{ margin: 0 }}>Escribe en la casilla la iniciativa que saque cada jugador y pulsa Intro.</p>}
