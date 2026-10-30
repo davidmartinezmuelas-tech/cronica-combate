@@ -2720,7 +2720,8 @@ test('iniciativa a mano: botones subir/bajar y arrastrar cambian el orden, y Ord
   await expect.poll(names).toEqual(['Ana', 'Beto', 'Cris']);
   await page.getByRole('button', { name: 'Subir a Cris' }).click();
   await expect.poll(names).toEqual(['Ana', 'Cris', 'Beto']);
-  await page.locator('.init-li', { hasText: 'Beto' }).dragTo(page.locator('.init-li', { hasText: 'Ana' }), { targetPosition: { x: 40, y: 3 } });
+  await page.locator('.init-li', { hasText: 'Ana' }).scrollIntoViewIfNeeded();
+  await page.locator('.init-li', { hasText: 'Beto' }).locator('.init-row').dragTo(page.locator('.init-li', { hasText: 'Ana' }), { targetPosition: { x: 40, y: 6 } });
   await expect.poll(names).toEqual(['Beto', 'Ana', 'Cris']);
   await page.getByRole('button', { name: 'Orden automático' }).click();
   await expect.poll(names).toEqual(['Ana', 'Beto', 'Cris']);
