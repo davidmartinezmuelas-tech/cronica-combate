@@ -147,7 +147,13 @@ export default function ScriptView() {
     return (
       <div className="panel" style={{ alignItems: 'center', textAlign: 'center', padding: '40px 24px' }}>
         <h2>El guion de la sesión</h2>
-        <p className="muted" style={{ margin: 0 }}>Crea un guion o sube un archivo de texto desde el panel de la izquierda.</p>
+        <p className="muted" style={{ margin: 0 }}>{scripts.length ? 'Elige un guion en el panel de la izquierda o crea uno nuevo.' : 'Crea un guion o sube un archivo de texto desde el panel de la izquierda.'}</p>
+        <button className="btn primary" onClick={() => useStore.getState().addScript('Sesión ' + (scripts.length + 1), '')}>Nuevo guion</button>
+        <ul className="muted small" style={{ margin: 0, paddingLeft: 18, textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <li>Las tiradas que escribas (como 2d6+3) se vuelven botones.</li>
+          <li>«Añadir encuentro» lo inserta en el texto con su botón de combate.</li>
+          <li>Con Ctrl+K encuentras cualquier criatura, regla o encuentro mientras escribes.</li>
+        </ul>
       </div>
     );
   }

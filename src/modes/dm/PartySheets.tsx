@@ -221,7 +221,7 @@ export default function PartySheets() {
           <button className="btn small ghost" onClick={() => setOpen(anyOpen ? {} : Object.fromEntries(roster.map((r) => [r.id, true])))}>{anyOpen ? 'Plegar todas' : 'Desplegar todas'}</button>
         )}
       </div>
-      {!roster.length && <p className="muted" style={{ margin: 0 }}>Cuando guardes jugadores con el formulario de la izquierda, aparecerán aquí. Púlsalos para ver sus datos, sus notas y su hoja de personaje en PDF.</p>}
+      {!roster.length && <p className="muted" style={{ margin: 0 }}>Aún no hay jugadores. Pulsa «Nuevo jugador» a la izquierda (si subes su hoja en PDF, los datos se rellenan solos). Aquí verás su CA, PG, iniciativa, notas y hoja.</p>}
       <ul className="pc-sheets">
         {roster.map((r) => (
           <Sheet key={r.id} r={r} inCombat={inC.has(r.id)} open={!!open[r.id]} onToggle={() => setOpen({ ...open, [r.id]: !open[r.id] })} onZoom={() => setZoomed(r)} />
