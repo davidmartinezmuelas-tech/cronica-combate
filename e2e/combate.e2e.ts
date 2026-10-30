@@ -2876,3 +2876,15 @@ test('estados activos: la lista reúne los estados de todo el combate', async ({
   await expect(page.getByRole('list', { name: 'Estados activos' })).toContainText('Envenenado');
   await expect(page.getByRole('list', { name: 'Estados activos' })).toContainText('Guerrero goblin');
 });
+
+test('notas: la fila de iniciativa marca a quien tiene una nota', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 1);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await expect(page.getByRole('img', { name: /^Nota de/ })).toHaveCount(0);
+  await page.locator('.init-row').first().click();
+  await page.locator('#c-note').fill('Huye a 10 PG');
+  await expect(page.getByRole('img', { name: 'Nota de Guerrero goblin: Huye a 10 PG' })).toBeVisible();
+  await page.locator('#c-note').fill('');
+  await expect(page.getByRole('img', { name: /^Nota de/ })).toHaveCount(0);
+});

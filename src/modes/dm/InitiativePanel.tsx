@@ -113,6 +113,10 @@ function Row({ c, prev, next }: { c: Combatant; prev?: string; next?: string }) 
             <span className="init-badge" title="Arrastra el número para cambiar el orden" onPointerDown={(e) => startTouchDrag(e, c.id)} aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
             <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
+            {c.kind !== 'lair' && !!c.note?.trim() && (
+              <span className="note-flag" role="img" aria-label={'Nota de ' + c.name + ': ' + c.note.trim()} title={c.note.trim()}
+                onClick={() => setTimeout(() => document.getElementById('c-note')?.focus(), 60)}>✎</span>
+            )}
             {isActive && <span className="turn-flag" title="En turno" aria-label="En turno">▶</span>}
             {c.kind !== 'lair' && (
               <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto', fontSize: 12, color: 'var(--text-2)' }}>CA {c.ac} · {c.hp}/{c.maxHp}{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
