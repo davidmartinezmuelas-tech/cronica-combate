@@ -2889,20 +2889,22 @@ test('notas: la fila de iniciativa marca a quien tiene una nota', async ({ page 
   await expect(page.getByRole('img', { name: /^Nota de/ })).toHaveCount(0);
 });
 
-test('tema: oscuro por defecto, se cambia a claro en Ajustes y se recuerda al recargar', async ({ page }) => {
+test('tema: clásico por defecto, se cambia en Ajustes y se recuerda al recargar', async ({ page }) => {
   await open(page);
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   const ajustes = await settings(page);
-  await ajustes.getByRole('radio', { name: 'Claro' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  await expect(ajustes.getByRole('radio', { name: 'Claro' })).toHaveAttribute('aria-checked', 'true');
+  await ajustes.getByRole('radio', { name: 'Pizarra' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'slate');
+  await expect(ajustes.getByRole('radio', { name: 'Pizarra' })).toHaveAttribute('aria-checked', 'true');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(31, 33, 36)');
   await page.reload();
   await expect(page.getByText('Prepara el encuentro')).toBeVisible();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'slate');
+  const dlg = await settings(page);
+  await dlg.getByRole('radio', { name: 'Bosque' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'forest');
+  await dlg.getByRole('radio', { name: 'Claro' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
-  // automático: sigue al sistema
-  await page.emulateMedia({ colorScheme: 'dark' });
-  await (await settings(page)).getByRole('radio', { name: 'Automático' }).click();
+  await dlg.getByRole('radio', { name: 'Clásico' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
-  await page.emulateMedia({ colorScheme: 'light' });
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 });

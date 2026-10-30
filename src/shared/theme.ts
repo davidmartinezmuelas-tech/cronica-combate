@@ -1,30 +1,29 @@
 /**
- * Tema de color del dispositivo: oscuro (el de siempre, si no se elige otro), claro o automático (el del sistema).
- * No es un dato de partida: se queda en este navegador. El atributo `data-theme` de <html> es lo que lee el CSS.
+ * Tema de color del dispositivo: el clásico (marrón, el de siempre) o una de las paletas alternativas (tres oscuras y una clara). No es un dato
+ * de partida: se queda en este navegador. El atributo `data-theme` de <html> es lo que lee el CSS.
  */
-export type ThemePref = 'auto' | 'dark' | 'light';
+export type ThemePref = 'dark' | 'slate' | 'midnight' | 'forest' | 'light';
 const THEME_KEY = 'cronica-tema';
+
+/** Nombre y color de fondo (para la barra del navegador en el móvil) de cada tema. */
+export const THEMES: { k: ThemePref; label: string; bg: string }[] = [
+  { k: 'dark', label: 'Clásico', bg: '#26211d' },
+  { k: 'slate', label: 'Pizarra', bg: '#1f2124' },
+  { k: 'midnight', label: 'Medianoche', bg: '#1a1f2b' },
+  { k: 'forest', label: 'Bosque', bg: '#1b231f' },
+  { k: 'light', label: 'Claro', bg: '#cdd2d8' },
+];
 
 export function themePref(): ThemePref {
   try {
     const v = localStorage.getItem(THEME_KEY);
-    return v === 'light' || v === 'auto' ? v : 'dark';
+    return THEMES.some((t) => t.k === v) ? (v as ThemePref) : 'dark';
   } catch { return 'dark'; }
 }
 
-function systemLight(): boolean {
-  try { return window.matchMedia('(prefers-color-scheme: light)').matches; } catch { return false; }
-}
-
-/** El tema que se ve ahora: lo elegido, o el del sistema si es automático. */
-export function resolvedTheme(pref: ThemePref = themePref()): 'dark' | 'light' {
-  return pref === 'auto' ? (systemLight() ? 'light' : 'dark') : pref;
-}
-
 function apply(pref: ThemePref) {
-  const t = resolvedTheme(pref);
-  document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t === 'light' ? '#f3ecdc' : '#26211d');
+  document.documentElement.dataset.theme = pref;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', THEMES.find((t) => t.k === pref)?.bg || '#26211d');
 }
 
 export function setThemePref(pref: ThemePref) {
@@ -32,9 +31,8 @@ export function setThemePref(pref: ThemePref) {
   apply(pref);
 }
 
-/** Al arrancar: aplica el tema y, en automático, sigue los cambios del sistema. */
+/** Al arrancar: aplica el tema elegido. */
 export function initTheme() {
   if (typeof window === 'undefined') return;
   apply(themePref());
-  try { window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (themePref() === 'auto') apply('auto'); }); } catch { /* navegador antiguo */ }
 }

@@ -27,8 +27,8 @@
       (function () {
         try {
           var v = localStorage.getItem('cronica-tema');
-          var light = v === 'light' || (v === 'auto' && window.matchMedia('(prefers-color-scheme: light)').matches);
-          document.documentElement.setAttribute('data-theme', light ? 'light' : 'dark');
+          var ok = v === 'slate' || v === 'midnight' || v === 'forest' || v === 'light';
+          document.documentElement.setAttribute('data-theme', ok ? v : 'dark');
         } catch (e) {}
       })();
     </script>

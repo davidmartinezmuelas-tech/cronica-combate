@@ -6,7 +6,7 @@ import AccountBox from './AccountBox';
 import { InfoDialog } from './Card';
 import { hasWebGL } from './Dice3D';
 import Legal, { feedbackHref } from './Legal';
-import { setThemePref, themePref, type ThemePref } from './theme';
+import { setThemePref, themePref, THEMES, type ThemePref } from './theme';
 import { canInstall, installApp, motionPref, onInstallChange, reducedMotion, setMotionPref, setWizardPref, wizardPref } from './prefs';
 
 declare const __APP_VERSION__: string;
@@ -54,8 +54,8 @@ export default function SettingsMenu({ mode, backup, onTour, onKeys }: { mode: '
               <div className="field" role="radiogroup" aria-label="Tema de color">
                 <span className="small muted">Tema de color</span>
                 <div className="rollrow">
-                  {([['dark', 'Oscuro'], ['light', 'Claro'], ['auto', 'Automático']] as [ThemePref, string][]).map(([k, label]) => (
-                    <button key={k} role="radio" aria-checked={theme === k} className={theme === k ? 'btn small primary' : 'btn small'} onClick={() => { setThemePref(k); setTheme(k); }}>{label}</button>
+                  {THEMES.map(({ k, label }) => (
+                    <button key={k} role="radio" aria-checked={theme === k} className={theme === k ? 'btn small primary' : 'btn small'} onClick={() => { setThemePref(k); setTheme(k as ThemePref); }}>{label}</button>
                   ))}
                 </div>
               </div>
