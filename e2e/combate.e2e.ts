@@ -317,7 +317,7 @@ test('fichas del grupo: los datos de una hoja rellenable se copian solo tras con
   await expect(sheet.locator('.pc-sheet-stats')).toContainText('35');
   await expect(sheet.locator('.pc-sheet-grid')).toContainText('ácido');
   await expect(sheet.locator('.pc-sheet-grid div', { hasText: 'Percepción pasiva' })).toContainText('11');
-  await expect(sheet.locator('.pc-sheet-stats span', { hasText: /^CA/ })).toContainText('—');
+  await expect(sheet.getByRole('img', { name: 'Clase de armadura —' })).toBeVisible();
   await expect(page.getByLabel('Notas')).toHaveValue('Odia a los kobolds\n\nEspecie: Dragonborn · Subclase: Oath of Devotion · Velocidad: 30 pies');
 
   // se puede volver a leer, y no se cambia nada si se cancela
@@ -347,7 +347,7 @@ test('fichas del grupo: desplegar, notas y hoja de personaje en PDF (también en
   await expect(page.getByRole('alert')).toContainText('no es un PDF');
   await page.getByLabel('Hoja de personaje de Jimena').setInputFiles({ name: 'jimena.pdf', mimeType: 'application/pdf', buffer: Buffer.from(MINI_PDF) });
   await expect(page.locator('.pdf-page')).toHaveCount(1, { timeout: 15000 });
-  await expect(page.locator('.pc-sheet-name .tag.pdf')).toBeVisible();
+  await expect(page.locator('.pc-card-tags .tag.pdf')).toBeVisible();
   await page.getByRole('button', { name: 'Pantalla completa' }).click();
   await expect(page.locator('.pdf-dialog .pdf-page')).toHaveCount(1, { timeout: 15000 });
   await page.keyboard.press('Escape');

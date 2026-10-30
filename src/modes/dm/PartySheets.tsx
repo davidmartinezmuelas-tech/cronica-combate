@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { RosterEntry } from '../../data/types';
 import { fmt } from '../../engine/dice';
 import { extrasLine, readSheet, type SheetData } from '../../engine/sheetImport';
@@ -6,6 +6,7 @@ import { blankRoster } from '../../store/persist';
 import { readPdfFields } from '../../store/pdfFields';
 import { getPdf } from '../../store/pdfs';
 import { useStore } from '../../store/useStore';
+import { ClassIcon, classLook, Shield } from '../../shared/ClassIcon';
 
 // PDF.js solo se descarga al abrir una hoja
 const PdfViewer = lazy(() => import('../../shared/PdfViewer'));
@@ -131,17 +132,27 @@ function Sheet({ r, inCombat, open, onToggle, onZoom }: { r: RosterEntry; inComb
   // clase, nivel, jugador, CA, PG e iniciativa ya van en la cabecera de la ficha
   const stats: [string, string][] = [['Percepción pasiva', r.pp || '10'], ['Resistencias', r.res.length ? r.res.join(', ') : '—']];
   return (
-    <li className={open ? 'pc-sheet open' : 'pc-sheet'}>
+    <li className={open ? 'pc-sheet open' : 'pc-sheet'} style={{ '--cc': classLook(r.cls).color } as CSSProperties}>
       <button className="pc-sheet-head" aria-expanded={open} aria-controls={id} onClick={onToggle}>
-        <span className="pc-sheet-chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
-        <span className="pc-sheet-medal" aria-hidden="true">{(r.name.trim()[0] || '?').toUpperCase()}</span>
-        <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-          <span className="pc-sheet-name">{r.name}{inCombat && <span className="tag">En combate</span>}{r.pdf && <span className="tag pdf">PDF</span>}</span>
-          <span className="pc-sheet-sub">{[r.cls, 'Nivel ' + (r.level || 1), r.player ? 'Jugador: ' + r.player : ''].filter(Boolean).join(' · ')}</span>
+        <span className="pc-card-top">
+          <Shield ac={r.ac} cls={r.cls} size={52} />
+          <span className="pc-card-id">
+            <span className="pc-sheet-name">{r.name}</span>
+            <span className="pc-sheet-sub"><ClassIcon cls={r.cls} size={18} />{[r.cls, 'Nivel ' + (r.level || 1)].filter(Boolean).join(' · ')}</span>
+            {r.player && <span className="pc-sheet-sub">Jugador: {r.player}</span>}
+          </span>
+          <span className="pc-sheet-chev" aria-hidden="true">{open ? '▾' : '▸'}</span>
         </span>
         <span className="pc-sheet-stats">
-          <span><b>CA</b>{r.ac || '—'}</span><span><b>PG</b>{r.hp || '—'}</span><span><b>Ini</b>{fmt(parseInt(r.initb, 10) || 0)}</span>
+          <span><b>PG</b>{r.hp || '—'}</span><span><b>Ini</b>{fmt(parseInt(r.initb, 10) || 0)}</span><span><b>Perc.</b>{r.pp || '10'}</span>
         </span>
+        {(inCombat || r.pdf || r.res.length > 0) && (
+          <span className="pc-card-tags">
+            {inCombat && <span className="tag">En combate</span>}{r.pdf && <span className="tag pdf">PDF</span>}
+            {r.res.length > 0 && <span className="pc-card-res">Resiste: {r.res.join(', ')}</span>}
+          </span>
+        )}
+        {r.notes && <span className="pc-card-notes">{r.notes}</span>}
       </button>
       {open && (
         <div id={id} className="pc-sheet-body">

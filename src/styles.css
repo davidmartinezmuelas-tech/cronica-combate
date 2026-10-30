@@ -1425,7 +1425,6 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .roster-cards{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
 .roster-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(180deg,var(--surface-dim),var(--bg));box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
 .roster-card.editing{border-color:var(--gold)}
-.roster-medal{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:2px solid var(--gold);color:var(--gold-hi);font-family:'IM Fell English SC',Georgia,serif;font-size:22px;background:radial-gradient(circle at 30% 30%,#4a3f34,#2a2420)}
 .roster-main{display:flex;flex-direction:column;gap:2px;min-width:0}
 .roster-name{font-family:'IM Fell English SC',Georgia,serif;font-size:20px;line-height:1.15;color:var(--text-hi);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .roster-sub{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
@@ -1441,12 +1440,10 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .new-pc-pdf .muted{flex:1 1 140px;overflow-wrap:anywhere}
 
 /* fichas del grupo: medallón y casillas de estadísticas como en la hoja del jugador */
-.pc-sheet-medal{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:50%;border:2px solid var(--gold);color:var(--gold-hi);font-family:'IM Fell English SC',Georgia,serif;font-size:21px;background:radial-gradient(circle at 30% 30%,#4a3f34,#2a2420)}
 .pc-sheet-stats{gap:6px}
 .pc-sheet-stats span{display:flex;flex-direction:column;align-items:center;min-width:44px;padding:3px 8px;border-radius:8px;background:#ead8b2;color:#2b2118;font-weight:800;font-size:16px;line-height:1.2}
 .pc-sheet-stats b{font-family:'Alegreya Sans',sans-serif;font-size:11px;letter-spacing:.06em;color:#8a2a22}
 .paper .pc-sheet{box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 2px 6px rgba(74,54,28,.12)}
-.paper .pc-sheet-medal{background:radial-gradient(circle at 30% 30%,#f3e6c8,#e0cc9c);border-color:var(--garnet);color:var(--garnet)}
 .paper .pc-sheet-stats span{background:#f3e6c8;border:1px solid var(--paper-line)}
 @media (max-width:560px){.pc-sheet-stats span{min-width:38px;padding:2px 6px}}
 
@@ -1475,3 +1472,43 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 
 /* arrastre con el dedo por el número de iniciativa (solo en pantallas táctiles) */
 @media (pointer:coarse){.init-row .init-badge{touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}}
+
+/* tarjetas del grupo: escudo con la CA, color e icono de la clase */
+.roster-card{grid-template-columns:auto minmax(0,1fr);background:#3a3029;border:1px solid color-mix(in srgb,var(--cc,#d4a94f) 35%,#5a4a38);border-top:3px solid var(--cc,#d4a94f);box-shadow:none}
+.roster-card.editing{border-color:var(--cc,#d4a94f)}
+.ac-shield{flex:none;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.roster-sub{display:flex;align-items:center;gap:6px}
+.class-icon{flex:none}
+.roster-stats{display:flex;flex-wrap:wrap;gap:4px 14px;grid-column:1/-1;font-size:14px;color:var(--text-hi)}
+.roster-stats span{display:inline;padding:0;border-radius:0;background:none;color:inherit;font-weight:700;font-size:inherit;line-height:1.3}
+.roster-stats b{font-size:12px;letter-spacing:.06em;color:var(--cc,var(--gold-hi));font-family:'Alegreya Sans',sans-serif}
+.pc-sheet{border-top:3px solid var(--cc,#d4a94f)}
+.pc-sheet-sub{display:flex;align-items:center;gap:6px}
+.paper .pc-sheet-stats span{min-width:44px}
+
+/* fichas del grupo: tarjetas casi cuadradas, dos por fila, con lo que más usa el DM; la abierta ocupa toda la fila */
+.pc-sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:12px;align-items:start}
+.pc-sheet.open{grid-column:1/-1}
+.pc-sheet-head{flex-direction:column;align-items:stretch;gap:10px;justify-content:flex-start}
+.pc-card-top{display:flex;align-items:center;gap:12px;min-width:0}
+.pc-card-id{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.pc-card-top .pc-sheet-chev{align-self:flex-start}
+.pc-sheet-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.pc-sheet-stats span{min-width:0}
+.pc-card-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+.pc-card-res{font-size:13px}
+.pc-card-notes{font-size:13px;line-height:1.35;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-style:italic}
+.paper .pc-card-notes{color:#5a4a30}
+.pc-sheet.open .pc-sheet-head{min-height:0}
+
+/* tarjetas del grupo (columna izquierda): marrón medio, menos saturado, con un toque del color de la clase */
+.roster-card{background:linear-gradient(180deg,color-mix(in srgb,var(--cc,#d4a94f) 22%,#5f5548),#5f5548 55%);border-color:color-mix(in srgb,var(--cc,#d4a94f) 55%,#7a6c5a);border-top-color:var(--cc,#d4a94f);color:#f6eedb}
+.roster-card .roster-name{color:#fff8e6}
+.roster-card .roster-sub,.roster-card .roster-extra{color:#e6dcc4}
+.roster-card .roster-stats{color:#f6eedb}
+.roster-card .roster-stats b{color:color-mix(in srgb,var(--cc,#d4a94f) 45%,#fff)}
+.roster-card .tag{background:rgba(0,0,0,.28);color:#f6eedb}
+.roster-card .btn{background:rgba(0,0,0,.24);border-color:rgba(255,248,230,.35);color:#f6eedb}
+.roster-card .btn:hover{background:rgba(0,0,0,.4)}
+.roster-card .btn.danger{color:#ffd0c4;border-color:#b0675a}
+.roster-card.editing{border-color:#fff8e6}

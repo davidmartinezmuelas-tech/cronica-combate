@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { DMG_TYPES } from '../../data/constants';
 import type { RosterEntry } from '../../data/types';
 import { fmt } from '../../engine/dice';
@@ -8,14 +8,13 @@ import { readPdfFields } from '../../store/pdfFields';
 import { useRoom } from '../../store/room';
 import { useStore } from '../../store/useStore';
 import Picker from '../../shared/Picker';
+import { ClassIcon, classLook, Shield } from '../../shared/ClassIcon';
 
 /** Nivel total a partir de la clase («Paladín 3 / Brujo 5» → 8). */
 const totalLevel = (cls: string, fallback: string) => {
   const lvs = (cls.match(/\d+/g) || []).map(Number);
   return lvs.length > 1 ? String(Math.min(20, lvs.reduce((t, n) => t + n, 0))) : String(lvs[0] ?? (fallback || 1));
 };
-
-const initial = (name: string) => (name.trim()[0] || '?').toUpperCase();
 
 export default function GroupPanel() {
   const roster = useStore((s) => s.roster);
@@ -79,16 +78,16 @@ export default function GroupPanel() {
       {!roster.length && <p className="muted" style={{ margin: 0 }}>Guarda aquí a tus jugadores una vez y añádelos a cada combate con un clic.</p>}
       <ul className="roster-cards">
         {roster.map((r) => (
-          <li key={r.id} className={'roster-card' + (editingPcId === r.id ? ' editing' : '')}>
-            <span className="roster-medal" aria-hidden="true">{initial(r.name)}</span>
+          <li key={r.id} className={'roster-card' + (editingPcId === r.id ? ' editing' : '')} style={{ '--cc': classLook(r.cls).color } as CSSProperties}>
+            <Shield ac={r.ac} cls={r.cls} />
             <span className="roster-main">
               <span className="roster-name">{r.name}{inC.has(r.id) && <span className="tag">En combate</span>}{r.roomUid && online.has(r.roomUid) && <span className="tag pdf">En la sala</span>}</span>
-              <span className="roster-sub">{[r.cls, 'Nivel ' + (r.level || 1), r.player ? 'Jugador: ' + r.player : ''].filter(Boolean).join(' · ')}</span>
+              <span className="roster-sub"><ClassIcon cls={r.cls} size={18} />{[r.cls, 'Nivel ' + (r.level || 1), r.player ? 'Jugador: ' + r.player : ''].filter(Boolean).join(' · ')}</span>
             </span>
             <span className="roster-stats">
-              <span><b>CA</b>{r.ac || '—'}</span><span><b>PG</b>{r.hp || '—'}</span><span><b>Ini</b>{fmt(parseInt(r.initb, 10) || 0)}</span>
+              <span><b>PG</b> {r.hp || '—'}</span><span><b>Ini</b> {fmt(parseInt(r.initb, 10) || 0)}</span><span><b>Perc.</b> {r.pp || 10}</span>
             </span>
-            <span className="roster-extra">Perc. pasiva {r.pp || 10}{r.res.length > 0 && ' · resiste ' + r.res.join(', ')}</span>
+            {r.res.length > 0 && <span className="roster-extra">Resiste: {r.res.join(', ')}</span>}
             <div className="roster-actions">
               {!inC.has(r.id) && <button className="btn small" onClick={() => addPc(r)}>Al combate</button>}
               <button className="btn small ghost" onClick={() => { setCreating(false); reset(); set({ pcForm: { ...blankRoster(), ...r }, editingPcId: r.id, pcMsg: '' }); }}>Editar</button>
