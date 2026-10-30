@@ -2861,3 +2861,18 @@ test('búsqueda global: Ctrl+K encuentra criaturas y reglas y lleva a ellas', as
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'Búsqueda global' })).toHaveCount(0);
 });
+
+test('estados activos: la lista reúne los estados de todo el combate', async ({ page }) => {
+  await open(page);
+  await addMonsters(page, 'guerrero goblin', 'Guerrero goblin', 1);
+  await page.getByRole('button', { name: 'Combate', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Estados activos/ })).toHaveCount(0); // sin estados no aparece
+  await page.getByLabel(/^Iniciativa de Guerrero goblin/).first().fill('10');
+  await page.getByLabel(/^Iniciativa de Guerrero goblin/).first().press('Enter');
+  await page.getByTitle('Empezar combate (N)').click();
+  await page.locator('summary', { hasText: 'Estados' }).first().click();
+  await page.getByRole('group', { name: 'Estados' }).getByRole('button', { name: 'Envenenado' }).click();
+  await page.getByRole('button', { name: /^Estados activos/ }).first().waitFor();
+  await expect(page.getByRole('list', { name: 'Estados activos' })).toContainText('Envenenado');
+  await expect(page.getByRole('list', { name: 'Estados activos' })).toContainText('Guerrero goblin');
+});

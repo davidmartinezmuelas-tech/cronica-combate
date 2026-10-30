@@ -3,6 +3,7 @@ import type { Combatant, Encounter } from '../../data/types';
 import { encounterDifficulty, sortCombatants } from '../../engine/combat';
 import { nfmt } from '../../engine/util';
 import { useStore } from '../../store/useStore';
+import ActiveConditions from './ActiveConditions';
 import CombatHistory from './CombatHistory';
 
 /** Dificultad del encuentro (reglas 2024), en pequeño bajo la iniciativa. */
@@ -243,6 +244,8 @@ export default function InitiativePanel() {
   const narrow = () => typeof window !== 'undefined' && !!window.matchMedia?.('(max-width: 560px)').matches;
   const [groupOpen, setGroupOpen] = useState(false);
   const [histOpen, setHistOpen] = useState(false);
+  const [condOpen, setCondOpen] = useState(true);
+  const condCount = combatants.reduce((n, c) => n + c.conds.length, 0);
   const history = useStore((s) => s.history);
   const [extrasOpen, setExtrasOpen] = useState(() => !(started && narrow()));
   useEffect(() => { setExtrasOpen(!(started && narrow())); }, [started]);
@@ -277,6 +280,13 @@ export default function InitiativePanel() {
       )}
       {!roster.length && <button className="btn small ghost" onClick={() => set({ tab: 'group' })} style={{ alignSelf: 'flex-start' }}>Guardar a tus jugadores en Grupo</button>}
       <Encounters />
+      {condCount > 0 && (
+        <div className="init-block">
+          <Fold title="Estados activos" count={condCount} open={condOpen} onToggle={() => setCondOpen(!condOpen)}>
+            <ActiveConditions />
+          </Fold>
+        </div>
+      )}
       <div className="init-block">
         <Fold title="Historial del combate" count={history.length} open={histOpen} onToggle={() => setHistOpen(!histOpen)}>
           <CombatHistory />

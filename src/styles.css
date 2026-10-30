@@ -1545,3 +1545,5 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .gsearch{max-width:560px;width:100%}
 .gsearch-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:60vh;overflow:auto}
 .gsearch-list .eyebrow{margin:8px 0 4px}
+.cond-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;width:100%;text-align:left;background:none;border:0;color:inherit;font:inherit;padding:4px 0;cursor:pointer}
+.cond-row:hover strong{text-decoration:underline}
