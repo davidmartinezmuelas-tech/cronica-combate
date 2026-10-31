@@ -606,8 +606,6 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-profs dt{align-self:center}
 .pc-notes{display:flex;flex-direction:column;gap:6px;min-height:110px}
 .pc-notes textarea{flex:1;min-height:70px;resize:vertical}
-/* las notas rellenan el hueco de su columna, pero sin pasar de un alto razonable (salvo que la persona estire el cuadro a mano) */
-.pc-notes:not(:has(textarea[style*="height"])){max-height:320px}
 .pc-profs dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:14px}
 .pc-profs dt{font-weight:800;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
 .pc-profs dd{margin:0;min-width:0;overflow-wrap:anywhere}
@@ -661,38 +659,18 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .ft-lv{flex:none;font-size:12px;font-weight:800;color:var(--muted);min-width:18px;text-align:right}
 .sp-tab.on .sp-tab-n{color:var(--garnet)}
 .smite-pick{display:inline-flex;align-items:center;gap:6px;font-weight:700}
-/* paneles con pocas tarjetas (ataques, canalización, rasgos de clase, dotes) lado a lado; con 3 o más, a todo el ancho */
-/* características a la izquierda y ataques y rasgos de clase a la derecha en pantallas anchas */
-.pc-split{display:flex;flex-direction:column;gap:14px;min-width:0}
-/* cada columna: su contenido (que se mide) y, al final de la más corta, las notas que rellenan */
-.pc-split-col{display:flex;flex-direction:column;gap:14px;min-width:0}
-.pc-split-in{min-width:0}
-.pc-split-col>.pc-notes{flex:1 1 auto}
-.pc-low{display:flex;flex-direction:column;gap:14px;min-width:0}
-.pc-low-col{display:flex;flex-direction:column;gap:14px;min-width:0}
-.pc-low-col>.panel{min-width:0}
-/* el último panel de cada columna se estira: las dos acaban a la vez */
-.pc-low-col>.panel:last-child{flex:1 1 auto}
+/* hoja en mosaico: dos columnas (desde 1000 px). Como en la hoja oficial, características y notas a la izquierda y ataques, reacción y estados a la derecha;
+   conjuros y rasgos se reparten en tarjetas que van a la columna más corta (lo decide la hoja midiendo), así que las dos acaban a la par sin huecos */
+.pc-mosaic{display:flex;flex-direction:column;gap:14px;min-width:0}
+.pc-mcol{display:flex;flex-direction:column;gap:14px;min-width:0}
+.pc-mosaic .pc-split-in,.pc-mosaic .pc-duo{display:flex;flex-direction:column;gap:14px;min-width:0}
+.pc-mosaic .pc-fill{display:contents}
+.pc-mosaic .panel{min-width:0}
 @container (min-width:1000px){
-  .pc-split{display:grid;grid-template-columns:minmax(440px,.9fr) minmax(0,1.1fr);align-items:start}
-  .pc-split .pc-abils{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto 1fr}
-  .pc-split .pc-duo{flex-direction:column;flex-wrap:nowrap}
-  .pc-split .pc-duo>.panel{flex:none}
-  .pc-split{align-items:stretch}
-  /* la columna sin notas: su último panel se estira hasta abajo (las dos columnas acaban a la vez) */
-  .pc-split-col>.pc-split-in{flex:1 1 auto;display:flex;flex-direction:column}
-  .pc-split-col:has(>.pc-notes)>.pc-split-in{flex:none}
-  .pc-split-col>.pc-split-in>.panel:last-child{flex:1 1 auto}
-  .pc-low{display:grid;grid-template-columns:minmax(440px,.9fr) minmax(0,1.1fr);align-items:stretch}
-  .pc-low>.pc-low-col:only-child{grid-column:1/-1}
-  /* en la columna derecha los paneles con muchas tarjetas no ocupan «el 100 %» (sería de alto) */
-  .pc-split .pc-duo>.panel:has(.pc-attacks>.pc-attack:nth-child(3)),.pc-split .pc-duo>.panel:has(.pc-features>li:nth-child(3)){flex:none;order:0}
+  .pc-mosaic{flex-direction:row;align-items:flex-start}
+  .pc-mcol{flex:1 1 0}
+  .pc-mosaic .pc-abils{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto 1fr}
 }
-.pc-duo{display:flex;flex-wrap:wrap;gap:16px;align-items:stretch}
-/* un panel que se queda solo en su fila crece hasta ocupar el ancho; los de muchas tarjetas, a todo el ancho y detrás */
-.pc-duo>.panel{flex:1 1 420px;min-width:0}
-.pc-duo>.panel:has(.pc-attacks>.pc-attack:nth-child(3)){flex-basis:100%}
-.pc-duo>.panel:has(.pc-features>li:nth-child(3)){flex-basis:100%;order:1}
 .pc-attack-n{display:flex;flex-direction:column;gap:2px;font-weight:800;color:var(--text-hi);min-width:0}
 .pc-slots{display:flex;flex-wrap:wrap;gap:8px 18px}
 .pc-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
@@ -1217,8 +1195,6 @@ body:has(.mtabs) .ce-wiz-nav{bottom:calc(72px + env(safe-area-inset-bottom))}
 .guest-sheet{zoom:.64;pointer-events:none;user-select:none}
 .guest-sheet .pc-tabs-row,.guest-sheet .pc-backup-bar{display:none}
 .guest-sheet .pc-head-actions,.guest-sheet .pc-notes,.guest-sheet .pc-hp-row>:not(.pc-conc){display:none !important}
-/* al máster le interesa antes lo de combate (ataques, usos, estados) que las características */
-.guest-sheet .pc-split>.pc-split-col:last-child{order:-1}
 .info-text{white-space:pre-line;max-height:55vh;overflow-y:auto;margin:0}
 .pc-react{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .pc-react li{display:flex;flex-direction:column;gap:4px;padding:8px 10px;border:1px solid var(--paper-line-2);border-radius:8px;background:var(--paper-hi)}
