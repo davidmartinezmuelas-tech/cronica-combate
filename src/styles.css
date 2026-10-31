@@ -1746,3 +1746,7 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 :root[data-theme="sage"] .pc-abil,:root[data-theme="linen"] .pc-abil,:root[data-theme="mist"] .pc-abil,:root[data-theme="lavender"] .pc-abil{background:var(--paper-hi)}
 :root[data-theme="sage"] .init-row.active,:root[data-theme="linen"] .init-row.active,:root[data-theme="mist"] .init-row.active,:root[data-theme="lavender"] .init-row.active{background:color-mix(in srgb,var(--surface) 35%,#fff)}
 :root[data-theme="sage"] .init-row.lair,:root[data-theme="linen"] .init-row.lair,:root[data-theme="mist"] .init-row.lair,:root[data-theme="lavender"] .init-row.lair{background:color-mix(in srgb,var(--surface) 70%,#cfe3d2);border-color:#7fa386}
+:root[data-theme="sage"] .dice-fab,:root[data-theme="linen"] .dice-fab,:root[data-theme="mist"] .dice-fab,:root[data-theme="lavender"] .dice-fab{background:#d4a94f;color:#2a1c0c}
+:root[data-theme="sage"] .phone-note .btn:not(.primary),:root[data-theme="linen"] .phone-note .btn:not(.primary),:root[data-theme="mist"] .phone-note .btn:not(.primary),:root[data-theme="lavender"] .phone-note .btn:not(.primary){color:var(--on-blue);border-color:var(--on-blue)}
+/* movil: margenes laterales de la pagina mas estrechos y controles tactiles mayores */
+@media (max-width:560px){.app-main{padding:14px 12px 32px;gap:14px}.pip{width:22px;height:22px}.pips{gap:8px}.stat .btn.small,.stat-xp .input{min-height:34px}}
