@@ -70,6 +70,10 @@ export const prettyExpr = (e: string | null | undefined) =>
 export type AdvMode = 'normal' | 'adv' | 'dis';
 export type RollKind = 'attack' | 'check' | 'save' | 'damage' | 'free' | 'death' | 'init';
 
+/** Daño de varios disparos (un rayo cada uno): si el ataque de quien tira fue crítico solo en algunos, esos dobles dados y los demás no. */
+export const shotParts = (p: RollPart, n: number, crit: { who: string; shots?: boolean[] } | null | undefined, who: string): RollPart[] =>
+  Array.from({ length: n }, (_, i) => (crit?.who === who && crit.shots ? { ...p, crit: !!crit.shots[i] } : p));
+
 export interface RollPart {
   expr: string;
   type?: string;
@@ -79,6 +83,7 @@ export interface RollPart {
   reroll1?: boolean; // en daño, un 1 se repite una vez (Matón de taberna)
   best2?: boolean; // en daño, los dados se tiran dos veces y cuenta la mejor (Atacante salvaje)
   rerollLow?: boolean; // en daño, se repite el dado más bajo si no llega a la mitad (Perforador)
+  crit?: boolean; // fuerza (o impide) el doble de dados de esta parte, sea cual sea el resto: un disparo que es crítico y otro no
   noDouble?: boolean; // en un crítico no se duplican sus dados (daño extra que ya es «del crítico»)
   src?: string; // de dónde sale (arma, Furia, Castigo divino…): una fila del resultado
 }
@@ -125,7 +130,7 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
     let sub = p.mod;
     const segs: string[] = [];
     for (const g of p.groups) {
-      const n = opts.doubleDice && !part.noDouble ? g.n * 2 : g.n;
+      const n = (part.crit ?? opts.doubleDice) && !part.noDouble ? g.n * 2 : g.n;
       if (g.sides === 20 && n === 1 && opts.kind !== 'damage' && opts.kind !== 'death' && adv !== 'normal') {
         const a = rollDie(20, rng);
         const b = rollDie(20, rng);
@@ -192,7 +197,7 @@ export function rollParts(parts: RollPart[], opts: { kind: RollKind; adv?: AdvMo
     total,
     nat,
     dice,
-    detail: detail.join(' · ') + (opts.doubleDice ? ' · crítico: dados x2' : ''),
+    detail: detail.join(' · ') + (opts.doubleDice ? ' · crítico: dados x2' : parts.some((p) => p.crit) ? ' · crítico en los disparos marcados: dados x2' : ''),
     byType: Array.from(byType.entries()).map(([type, amt]) => ({ type, amt })),
     usedAdv,
     rows,

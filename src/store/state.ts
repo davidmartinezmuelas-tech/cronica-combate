@@ -127,7 +127,7 @@ export interface DiceSlice {
   diceOpen: boolean; // móvil: la ventana de la mesa de dados está abierta
   result: RollResult | null;
   adv: AdvMode;
-  critFor: { who: string } | null;
+  critFor: { who: string; shots?: boolean[] } | null; // shots: en ataques de varios disparos, cuáles han sido crítico
   dmgTargets: Record<string, 'full' | 'half'>;
   effectSel: string[] | null; // objetivos ya elegidos para el efecto (un lanzamiento de un jugador)
   dieSize: number; // px, según cuántos dados haya que mostrar

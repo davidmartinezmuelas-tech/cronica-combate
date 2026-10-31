@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { avgOf, combineAdv, parseExpr, rollParts } from '../engine/dice';
+import { avgOf, combineAdv, parseExpr, rollParts, shotParts } from '../engine/dice';
 import { layoutFor, pickShown } from '../store/kit';
 
 const seq = (vals: number[]) => { let i = 0; return () => vals[i++ % vals.length]; };
@@ -27,6 +27,12 @@ describe('rollParts', () => {
     expect(r.total).toBe(24);
     expect(r.dice.filter((d) => d.dim)).toHaveLength(1);
     expect(r.usedAdv).toBe(true);
+  });
+  it('varios disparos: el crítico dobla los dados solo de los disparos marcados', () => {
+    const parts = shotParts({ expr: '1d10', type: 'fuerza' }, 2, { who: 'Mara', shots: [false, true] }, 'Mara');
+    const r = rollParts(parts, { kind: 'damage', rng: seq([0]) })!;
+    expect(r.dice).toHaveLength(3);
+    expect(shotParts({ expr: '1d10' }, 2, { who: 'Otra', shots: [true, true] }, 'Mara').some((p) => p.crit)).toBe(false);
   });
   it('el crítico duplica los dados, no el modificador', () => {
     const r = rollParts([{ expr: '2d6+4', type: 'cortante' }], { kind: 'damage', doubleDice: true, rng: seq([0]) })!;

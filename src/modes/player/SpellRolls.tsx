@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { Abil, PlayerData } from '../../data/player';
 import type { Character, Derived } from '../../engine/character';
-import { fmt } from '../../engine/dice';
+import { fmt, shotParts } from '../../engine/dice';
 import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { hasInvocation } from '../../engine/subclassChoices';
@@ -134,7 +134,7 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
       {cast.dmg && (rr.attack || cast.count === 1 ? (
         <button className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [cast.dmg!], ...(effect ? { effect } : {}) })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}{cast.count > 1 ? ' cada uno' : ''}</button>
       ) : (
-        <button className="rollbtn dmg" onClick={() => roll({ label: label(cast.count + ' impactos'), kind: 'damage', who, by: null, parts: Array.from({ length: cast.count }, () => cast.dmg!), ...(effect ? { effect } : {}) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
+        <button className="rollbtn dmg" onClick={() => roll({ label: label(cast.count + ' impactos'), kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who), ...(effect ? { effect } : {}) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
       ))}
       {effect && !cast.dmg && !cast.heal && inRoom && (
         <button className="rollbtn" title="Elige objetivos en la mesa del máster" onClick={() => useStore.getState().startEffect(label('efecto'), effect)}>Objetivos{effect.conds.length ? ' (' + effect.conds.join(', ').toLowerCase() + ')' : ''}</button>

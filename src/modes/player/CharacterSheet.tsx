@@ -2,7 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 
 import { CONDITIONS, DMG_TYPES, XP_LEVELS } from '../../data/constants';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
 import { asClass, classEntries, classLevel, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character, type Derived } from '../../engine/character';
-import { fmt, sgn, type RollPart } from '../../engine/dice';
+import { fmt, sgn, shotParts, type RollPart } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Card, { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
@@ -1070,7 +1070,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               <span className="rollrow">
                 <button className="rollbtn" onClick={() => r(sp.n + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn, ...(cast.count > 1 ? { shots: cast.count } : {}) })}>Ataque {fmt(atk + buffAtk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
                 {cast.dmg && (cast.count > 1
-                  ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: Array.from({ length: cast.count }, () => cast.dmg!) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
+                  ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
                   : <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': daño', kind: 'damage', who, by: null, parts: [cast.dmg!] })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>)}
               </span>
             </div>

@@ -18,7 +18,9 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const mods = rollModifiers(c, spec.kind, spec.ability);
       const manual: AdvMode = spec.noAdv ? 'normal' : s.adv;
       const adv = combineAdv(manual, mods.adv || !!spec.adv, mods.dis);
-      const crit = spec.kind === 'damage' && !!spec.who && s.critFor?.who === spec.who;
+      const cf = spec.kind === 'damage' && !!spec.who && s.critFor?.who === spec.who ? s.critFor : null;
+      // con varios disparos el crítico es de cada uno: sus partes llevan su propia marca (crit) y no se dobla todo
+      const crit = !!cf && !cf.shots;
       const parts = crit && spec.critBonus?.length ? [...spec.parts, ...spec.critBonus] : spec.parts;
       const opts = { kind: spec.kind, adv, doubleDice: crit, flat: mods.flat || undefined };
       // conjuros con varios disparos (Descarga sobrenatural…): un ataque, con su propio d20, por cada uno
@@ -30,21 +32,22 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       let cls: RollResult['cls'] = '';
       let note = '';
       const d20kind = spec.kind !== 'damage' && spec.kind !== 'death' && spec.kind !== 'free';
-      const critHit = outs.some((o) => (o.nat != null && spec.kind === 'attack' ? o.nat >= (spec.critOn || 20) : o.nat === 20));
+      const critOf = (o: RollOutcome) => (o.nat != null && spec.kind === 'attack' ? o.nat >= (spec.critOn || 20) : o.nat === 20);
+      const critHit = outs.some(critOf);
       if (critHit && d20kind) { cls = 'crit'; note = spec.kind === 'attack' ? (spec.who ? '¡Crítico! El próximo daño de ' + spec.who + ' dobla los dados.' : '¡Crítico!') : '¡20 natural!'; }
       else if (outs.every((o) => o.nat === 1) && d20kind) { cls = 'fumble'; note = '1 natural.'; }
       if (mods.autoFail) note = (note ? note + ' ' : '') + 'Falla automáticamente.';
       if (mods.reasons.length) note = (note ? note + ' · ' : '') + mods.reasons.join(' · ');
       if (spec.adv) note = (note ? note + ' · ' : '') + 'ventaja: ' + spec.adv;
       const after: Partial<State> = {};
-      if (spec.kind === 'attack' && spec.who) after.critFor = critHit ? { who: spec.who } : s.critFor?.who === spec.who ? null : s.critFor;
-      if (spec.kind === 'damage' && crit) after.critFor = null;
+      if (spec.kind === 'attack' && spec.who) after.critFor = critHit ? { who: spec.who, ...(shots > 1 ? { shots: outs.map(critOf) } : {}) } : s.critFor?.who === spec.who ? null : s.critFor;
+      if (cf) after.critFor = null;
       // en la mesa del máster la ventaja vale para una tirada; en la hoja del jugador se queda puesta hasta quitarla
       // (Voto de enemistad, estar oculto…)
       if (out.usedAdv && manual !== 'normal' && modeFromLocation(window.location.hash) !== 'player') after.adv = 'normal';
       set({ exprError: false });
       const totalStr = mods.autoFail ? 'Falla' : outs.map((o) => String(o.total)).join(' · ');
-      const detailStr = shots > 1 ? outs.map((o, i) => 'Disparo ' + (i + 1) + ': ' + o.detail).join('  |  ') : out.detail;
+      const detailStr = shots > 1 ? outs.map((o, i) => 'Disparo ' + (i + 1) + ': ' + o.detail + (critOf(o) ? ' (crítico)' : '')).join('  |  ') : out.detail;
       animate(outs.flatMap((o) => o.dice), () => {
         const patch: Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] } = {
           result: { label: spec.label, total: totalStr, detail: detailStr, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.onHit ? { onHit: spec.onHit } : {}), ...(spec.heal ? { heal: true } : {}),
