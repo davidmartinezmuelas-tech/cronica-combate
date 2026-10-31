@@ -544,7 +544,7 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   const sheet = page.locator('.pc');
   await expect(sheet).toContainText('Paladín 3 (Juramento de la Estirpe)');
   // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
-  await expect(sheet.getByRole('button', { name: 'Daño 1d8+2 cortante + 1d6 fuego' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Daño 1d8+2 + 1d6' })).toBeVisible();
   await expect(sheet.locator('.card', { hasText: 'Castigo Divino' })).toBeVisible();
   await expect(sheet.getByRole('group', { name: 'Estilo de combate' })).toContainText('Protección');
   // con otra subclase no salen los rasgos de la del SRD
@@ -2908,4 +2908,39 @@ test('tema: clásico por defecto, se cambia en Ajustes y se recuerda al recargar
   expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(208, 215, 206)');
   await dlg.getByRole('radio', { name: 'Clásico' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+});
+
+test('conjuros de varios disparos tiran un ataque por cada uno y el castigo sale en armas arrojadizas', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Selene');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Lanza (1d6 perforante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByLabel('Conjuro', { exact: false }).first().fill('castigo');
+  await page.locator('.ce-spell-results .chip', { hasText: 'Castigo Divino' }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
+  await page.getByLabel('A distancia').check();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // la lanza marcada «a distancia» (arrojadiza) también admite el castigo
+  await expect(page.locator('.pc-attack', { hasText: 'Lanza' }).getByRole('button', { name: /Castigo|Divino/ }).first()).toBeVisible();
+});
+
+test('Descarga sobrenatural: el botón de ataque tira un d20 por cada rayo', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Mara');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Brujo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Conjuro', { exact: false }).first().fill('descarga');
+  await page.locator('.ce-spell-results .chip', { hasText: 'Descarga sobrenatural' }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.locator('.pc-attack', { hasText: 'Descarga sobrenatural' }).getByRole('button', { name: /^Ataque/ }).click();
+  const res = page.locator('.plaque').first();
+  await expect(res).toContainText('Disparo 1');
+  await expect(res).toContainText('Disparo 2');
 });

@@ -129,7 +129,7 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
         </select>
       )}
       {rr.attack && caster && (
-        <button className="rollbtn" onClick={() => roll({ label: label('ataque' + (cast.count > 1 ? ' (uno por ' + (s.n.match(/dardo|rayo/i)?.[0] || 'impacto') + ')' : '')), kind: 'attack', who, parts: [{ expr: '1d20' + (caster.atk >= 0 ? '+' : '') + caster.atk + (d.bless ? '+1d4' : '') }], self: { conds: c.conds, exh: c.exh } })}>Ataque {fmt(caster.atk)}{d.bless ? ' +1d4' : ''}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
+        <button className="rollbtn" onClick={() => roll({ label: label('ataque'), kind: 'attack', who, ...(cast.count > 1 ? { shots: cast.count } : {}), parts: [{ expr: '1d20' + (caster.atk >= 0 ? '+' : '') + caster.atk + (d.bless ? '+1d4' : '') }], self: { conds: c.conds, exh: c.exh } })}>Ataque {fmt(caster.atk)}{d.bless ? ' +1d4' : ''}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
       )}
       {cast.dmg && (rr.attack || cast.count === 1 ? (
         <button className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [cast.dmg!], ...(effect ? { effect } : {}) })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}{cast.count > 1 ? ' cada uno' : ''}</button>

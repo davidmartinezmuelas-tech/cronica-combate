@@ -306,10 +306,12 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     if (!rage) set({ conds: [...c.conds, 'Furia'], ...(rageMax && (c.uses['Furia'] || 0) < rageMax ? { uses: { ...c.uses, Furia: (c.uses['Furia'] || 0) + 1 } } : {}) });
     else set({ conds: c.conds.filter((k) => k !== 'Furia') });
   };
-  type Hit = { melee: boolean; str: boolean; finesse: boolean };
+  type Hit = { melee: boolean; str: boolean; finesse: boolean; thrownMelee?: boolean };
   const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string) => {
     const melee = hit.melee;
-    const with_ = (armKey && melee && arm[armKey]) || {};
+    // los castigos valen con armas cuerpo a cuerpo, también lanzadas (lanza, jabalina, hacha de mano…)
+    const smiteMelee = melee || !!hit.thrownMelee;
+    const with_ = (armKey && smiteMelee && arm[armKey]) || {};
     const piercing = parts[0]?.type === 'perforante';
     // cada parte con su origen: el arma y lo que se le suma (una fila por fuente en el resultado)
     const weapon = label.replace(/:.*$/, '');
@@ -330,8 +332,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     for (const b of onBuffs) if (b.dmg) ps.push({ expr: b.dmg, type: b.type || type, src: b.n });
     if (strike && strikeDice) ps.push({ expr: strikeDice, type: blessed ? 'radiante' : 'elemental', src: strikeName });
     // castigos: con armas cuerpo a cuerpo (y ataques sin armas), gastan su espacio al tirar
-    const useSmite = !!with_.smite && melee && !!smiteOpt;
-    const useEld = !!with_.eld && melee && !!eldDice;
+    const useSmite = !!with_.smite && smiteMelee && !!smiteOpt;
+    const useEld = !!with_.eld && smiteMelee && !!eldDice;
     if (useSmite) ps.push({ expr: smiteOpt!.dice, type: smiteOpt!.type, src: smiteSpell!.n });
     if (useEld) ps.push({ expr: eldDice, type: 'fuerza', src: 'Castigo arcano' });
     // los extras, como etiquetas del resultado
@@ -1002,15 +1004,15 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         <div className="pc-attacks">
         {d.attacks.map(({ w, atk, abil, parts, verParts, throwParts, offParts, poleParts, notes }) => (
           <div key={w.id} className="pc-attack">
-            <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small">{notes.join(' · ')}</span>}
+            <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small" title={notes.join(' · ')}>{notes.join(' · ')}</span>}
               {d.fx.dmgOneHand != null && w.kind === 'melee' && !(w.props || []).some((p) => norm(p) === 'a dos manos') && (
                 <label className="check small pc-duel"><input type="checkbox" checked={w.duel !== false} onChange={(e) => set({ weapons: c.weapons.map((x) => (x.id === w.id ? { ...x, duel: e.target.checked } : x)) })} />A una mano, sin nada en la otra (Duelo)</label>
               )}
             </span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk + buffAtk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
-              <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' }, w.id)}>Daño {partsLabel(parts)}{armTag(w.id)}</button>
-              {w.kind === 'melee' && smiteChips(w.id)}
+              <button className="rollbtn dmg" title={parts.length > 1 ? partsLabel(parts) : undefined} onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged', thrownMelee: (w.props || []).some((p) => norm(p) === 'arrojadiza') }, w.id)}>Daño {parts.length > 1 ? parts.map((p) => p.expr).join(' + ') : partsLabel(parts)}{armTag(w.id)}</button>
+              {(w.kind === 'melee' || (w.props || []).some((p) => norm(p) === 'arrojadiza')) && smiteChips(w.id)}
               {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse }, w.id)}>A dos manos {partsLabel(verParts)}{armTag(w.id)}</button>}
               {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño lanzada', throwParts, { melee: false, str: abil === 'str', finesse: true })}>Lanzada {partsLabel(throwParts)}</button>}
               {offParts.length > 0 && <button className="rollbtn dmg" title="Ataque extra de la propiedad «ligera» (acción adicional); el ataque se tira con «Ataque»" onClick={() => dmgRoll(w.name + ': ataque extra', offParts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Acción adicional {partsLabel(offParts)}</button>}
@@ -1066,7 +1068,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
             <div key={'sp' + k} className="pc-attack">
               <span className="pc-attack-n">{sp.n}<span className="muted small">{sp.l ? 'conjuro de nivel ' + sp.l + ' · ataque cada turno mientras dura' : 'truco'}{sp.r ? ' · ' + sp.r : ''}</span></span>
               <span className="rollrow">
-                <button className="rollbtn" onClick={() => r(sp.n + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn })}>Ataque {fmt(atk + buffAtk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
+                <button className="rollbtn" onClick={() => r(sp.n + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn, ...(cast.count > 1 ? { shots: cast.count } : {}) })}>Ataque {fmt(atk + buffAtk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
                 {cast.dmg && (cast.count > 1
                   ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: Array.from({ length: cast.count }, () => cast.dmg!) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
                   : <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': daño', kind: 'damage', who, by: null, parts: [cast.dmg!] })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>)}

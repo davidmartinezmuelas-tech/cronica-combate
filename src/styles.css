@@ -680,6 +680,9 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 /* tarjetas: misma altura en cada fila y la misma de partida en toda la hoja (las de acciones, la de las armas) */
 :root{--card-act:84px}
 /* tarjetas en filas que se llenan: las de la última fila se reparten el ancho que sobra (sin huecos) */
+/* conjuros: dos (o más) por fila si caben; el que está desplegado ocupa toda la fila */
+.pc-features.sp-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.pc-features.sp-list>li.open{grid-column:1/-1}
 .pc-features.grid{display:flex;flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:6px;--card-h:58px}
 .pc-features.grid>li{flex:1 1 230px;min-width:0;display:flex;flex-direction:column}
 .pc-features.grid>li>*{flex:1}
@@ -696,7 +699,7 @@ b.card-title{flex-basis:100%;font-size:16px}
 .card-head-copy{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-bottom:6px}
 .pc-text{margin:6px 0 2px;white-space:pre-line;font-size:14px;line-height:1.5;color:var(--text-card)}
 .ce-choices{display:flex;flex-direction:column;gap:8px}
-.pc-attack-feat{display:block;color:var(--gold);font-weight:700}
+.pc-attack-feat{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:var(--gold);font-weight:700}
 .effect-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .effect-rows li{display:flex;flex-direction:column;gap:3px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--surface-dim)}
 .ef-top{display:flex;align-items:center;gap:8px;min-height:30px}

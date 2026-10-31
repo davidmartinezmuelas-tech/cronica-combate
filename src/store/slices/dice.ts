@@ -1,7 +1,7 @@
 import { modeFromLocation } from '../../app/mode';
 import type { Combatant, RollResult } from '../../data/types';
 import { addCondition, rollModifiers, type LogDraft } from '../../engine/combat';
-import { combineAdv, rollParts, type AdvMode } from '../../engine/dice';
+import { combineAdv, rollParts, type AdvMode, type RollOutcome } from '../../engine/dice';
 import type { Kit } from '../kit';
 import type { DiceSlice, GetState, SetState, State } from '../state';
 
@@ -20,14 +20,19 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       const adv = combineAdv(manual, mods.adv || !!spec.adv, mods.dis);
       const crit = spec.kind === 'damage' && !!spec.who && s.critFor?.who === spec.who;
       const parts = crit && spec.critBonus?.length ? [...spec.parts, ...spec.critBonus] : spec.parts;
-      const out = rollParts(parts, { kind: spec.kind, adv, doubleDice: crit, flat: mods.flat || undefined });
-      if (!out) { set({ exprError: true }); return; }
+      const opts = { kind: spec.kind, adv, doubleDice: crit, flat: mods.flat || undefined };
+      // conjuros con varios disparos (Descarga sobrenatural…): un ataque, con su propio d20, por cada uno
+      const shots = spec.kind === 'attack' ? Math.max(1, spec.shots || 1) : 1;
+      const all = Array.from({ length: shots }, () => rollParts(parts, opts));
+      if (all.some((x) => !x)) { set({ exprError: true }); return; }
+      const outs = all as RollOutcome[];
+      const out = outs[0];
       let cls: RollResult['cls'] = '';
       let note = '';
       const d20kind = spec.kind !== 'damage' && spec.kind !== 'death' && spec.kind !== 'free';
-      const critHit = out.nat != null && spec.kind === 'attack' ? out.nat >= (spec.critOn || 20) : out.nat === 20;
+      const critHit = outs.some((o) => (o.nat != null && spec.kind === 'attack' ? o.nat >= (spec.critOn || 20) : o.nat === 20));
       if (critHit && d20kind) { cls = 'crit'; note = spec.kind === 'attack' ? (spec.who ? '¡Crítico! El próximo daño de ' + spec.who + ' dobla los dados.' : '¡Crítico!') : '¡20 natural!'; }
-      else if (out.nat === 1 && d20kind) { cls = 'fumble'; note = '1 natural.'; }
+      else if (outs.every((o) => o.nat === 1) && d20kind) { cls = 'fumble'; note = '1 natural.'; }
       if (mods.autoFail) note = (note ? note + ' ' : '') + 'Falla automáticamente.';
       if (mods.reasons.length) note = (note ? note + ' · ' : '') + mods.reasons.join(' · ');
       if (spec.adv) note = (note ? note + ' · ' : '') + 'ventaja: ' + spec.adv;
@@ -38,13 +43,14 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       // (Voto de enemistad, estar oculto…)
       if (out.usedAdv && manual !== 'normal' && modeFromLocation(window.location.hash) !== 'player') after.adv = 'normal';
       set({ exprError: false });
-      const totalStr = mods.autoFail ? 'Falla' : String(out.total);
-      animate(out.dice, () => {
+      const totalStr = mods.autoFail ? 'Falla' : outs.map((o) => String(o.total)).join(' · ');
+      const detailStr = shots > 1 ? outs.map((o, i) => 'Disparo ' + (i + 1) + ': ' + o.detail).join('  |  ') : out.detail;
+      animate(outs.flatMap((o) => o.dice), () => {
         const patch: Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] } = {
-          result: { label: spec.label, total: totalStr, detail: out.detail, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.onHit ? { onHit: spec.onHit } : {}), ...(spec.heal ? { heal: true } : {}),
+          result: { label: spec.label, total: totalStr, detail: detailStr, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.onHit ? { onHit: spec.onHit } : {}), ...(spec.heal ? { heal: true } : {}),
             ...(spec.kind === 'damage' && out.rows.length > 1 ? { rows: out.rows } : {}), ...(spec.tags?.length ? { tags: spec.tags } : {}) },
           // en el historial, los extras entre paréntesis
-          logEntry: { label: spec.label + (spec.tags?.length ? ' (' + spec.tags.join(', ') + ')' : ''), total: totalStr, detail: out.detail },
+          logEntry: { label: spec.label + (spec.tags?.length ? ' (' + spec.tags.join(', ') + ')' : ''), total: totalStr, detail: detailStr },
           ...after,
         };
         if (spec.kind === 'damage') patch.dmgTargets = {};

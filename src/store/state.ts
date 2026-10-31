@@ -20,6 +20,7 @@ export interface RollSpec {
   noAdv?: boolean;
   self?: { conds: string[]; exh: number }; // estados de quien tira desde su hoja (jugador): desventajas, fallos y agotamiento
   adv?: string; // ventaja por un rasgo (motivo: «Furia», «Sentir el peligro»…)
+  shots?: number; // en ataques: tira un d20 por cada disparo (Descarga sobrenatural, Rayo ardiente…)
   critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
   effect?: SaveEffect; // daño de un efecto con salvación (objetivos, salvaciones, mitad y estados)
   onHit?: SaveEffect; // daño de un ataque que además pone estados al impactar (Agarrado…): se aplican con el daño
