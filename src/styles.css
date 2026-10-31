@@ -69,8 +69,10 @@ input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:var(--gold
 .chip.half,.chip.resist{background:#1c2b3a;color:var(--on-blue);border-color:#3f6585;border-left-color:#8fc0e6}
 .chip.vuln{background:#3a1814;color:var(--on-rust);border-color:#8a3a2c;border-left-color:var(--red-soft)}
 .chip-tag{font-size:12px;font-weight:800;letter-spacing:.06em;padding:1px 6px;border-radius:4px;background:rgba(0,0,0,.35)}
-.fs{border:1px solid var(--line-2);border-radius:8px;padding:12px 14px 14px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
-.fs legend{padding:0 6px;font-family:'IM Fell English SC',Georgia,serif;font-size:18px;line-height:1.15;color:var(--gold)}
+.fs{border:1px solid var(--line-2);border-radius:10px;background:var(--surface-dim);padding:14px 16px 16px;margin:0;display:flex;flex-direction:column;gap:10px;min-width:0}
+.fs legend{float:left;width:100%;padding:0;margin:0 0 2px;font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:19px;line-height:1.15;color:var(--text-hi);display:flex;align-items:center;gap:8px}
+.fs legend::before{content:'';width:3px;height:16px;border-radius:2px;background:var(--gold)}
+.fs legend+*{clear:both}
 .sub{display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:8px;background:var(--surface-dim);border:1px solid var(--line)}
 .init-row{flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:6px 10px;background:var(--surface-2);border:1px solid var(--line-2);border-radius:8px;color:var(--text);text-align:left}
 .init-row:hover{border-color:var(--muted-2)}
@@ -760,7 +762,10 @@ b.card-title{flex-basis:100%;font-size:16px}
 .paper .eyebrow,.paper .fs legend{color:var(--garnet-2)}
 .paper .muted,.paper .stat-k,.paper .stat-of{color:var(--line-5)}
 .paper label,.paper .check,.paper .res{color:var(--surface)}
-.paper .fs{border-color:var(--paper-line)}
+.paper .fs{border-color:var(--paper-line);background:var(--paper-hi)}
+.paper .fs legend{color:var(--garnet)}
+.paper .fs legend::before{background:var(--garnet-2)}
+.paper .fs .fs{background:var(--paper-card)}
 .paper .stat,.paper .pc-abil,.paper .pc-skill,.paper .pc-features .card,.paper .pc-features details,.paper .pc-attack,.paper .sub,.paper .ce-multi{background:var(--paper-card);border-color:var(--paper-line);color:var(--ink)}
 .paper .stat-v,.paper .pc-attack-n,.paper .pc-abil-mod b{color:var(--ink)}
 .paper .pc-abil-mod,.paper .pc-abil-score{border-color:var(--paper-line);background:#f1e6cc}
@@ -1731,3 +1736,8 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 :root[data-theme="sage"] .phone-note .btn:not(.primary),:root[data-theme="linen"] .phone-note .btn:not(.primary),:root[data-theme="mist"] .phone-note .btn:not(.primary),:root[data-theme="lavender"] .phone-note .btn:not(.primary){color:var(--on-blue);border-color:var(--on-blue)}
 /* movil: margenes laterales de la pagina mas estrechos y controles tactiles mayores */
 @media (max-width:560px){.app-main{padding:14px 12px 32px;gap:14px}.pip{width:22px;height:22px}.pips{gap:8px}.stat .btn.small,.stat-xp .input{min-height:34px}}
+/* editar personaje: tarjetas en dos columnas cuando hay ancho (el asistente va en una, paso a paso) */
+.ce-flat{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:14px;align-items:start}
+.ce-flat>*{min-width:0}
+.ce-flat>:not(.fs),.ce-flat>.fs-wide{grid-column:1/-1}
+@media (min-width:1100px){.ce-flat>.fs[data-wstep="s0 s1"]{grid-row:span 2}}

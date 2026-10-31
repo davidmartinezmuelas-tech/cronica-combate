@@ -215,7 +215,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
   return (
     <div className="pc" ref={topRef}>
-      <div className={wizard ? 'panel ce-wiz' : 'panel'} data-step={wizard ? step : undefined}>
+      <div className={wizard ? 'panel ce-wiz' : 'panel ce-flat'} data-step={wizard ? step : undefined}>
         <div className="panel-head">
           <h2>{wizard ? 'Nuevo personaje' : c.name ? 'Editar a ' + c.name : 'Nuevo personaje'}</h2>
           {wizard ? <button className="btn small ghost" onClick={() => usePlayer.getState().setCreating(null)}>Ver todo en una página</button>
@@ -329,19 +329,6 @@ export default function CharacterEditor({ c }: { c: Character }) {
           <AbilityMethods c={c} cls={cls} set={set} bgAbil={bg?.abil} bgName={bg?.n} />
         </fieldset>
 
-        <fieldset className="fs" data-wstep="s3">
-          <legend>Habilidades</legend>
-          <span className="muted small">{cls ? cls.n + ': elige ' + cls.skills.count + (cls.skills.pool.includes('*') ? ' cualesquiera' : ' de las resaltadas') + ' (llevas ' + classPicked + ').' : ''}{bg ? ' El trasfondo ya da ' + bg.skills.map((s) => data.skills[s]).join(' y ') + '.' : ''} Marca «P» para pericia.</span>
-          <div className="ce-skills">
-            {Object.keys(data.skills).sort((a, b) => data.skills[a].localeCompare(data.skills[b], 'es')).map((k) => (
-              <span key={k} className={pool.includes(k) || fromBg.has(k) ? 'ce-skill suggest' : 'ce-skill'}>
-                <label className="check" title={subSkills.has(k) && !c.skills.includes(k) ? 'Por tu subclase' : undefined}><input type="checkbox" checked={c.skills.includes(k) || subSkills.has(k)} disabled={subSkills.has(k) && !c.skills.includes(k)} onChange={() => toggleSkill(k)} />{data.skills[k]}</label>
-                {(c.skills.includes(k) || subSkills.has(k)) && <button className={c.expertise.includes(k) ? 'ts on' : 'ts'} aria-pressed={c.expertise.includes(k)} aria-label={'Pericia en ' + data.skills[k]} onClick={() => toggleExp(k)}>P</button>}
-              </span>
-            ))}
-          </div>
-        </fieldset>
-
         {data && gearOpts.length > 0 && (
           <fieldset className="fs" data-wstep="s4">
             <legend>Equipo inicial</legend>
@@ -357,6 +344,19 @@ export default function CharacterEditor({ c }: { c: Character }) {
             )}
           </fieldset>
         )}
+
+        <fieldset className="fs fs-wide" data-wstep="s3">
+          <legend>Habilidades</legend>
+          <span className="muted small">{cls ? cls.n + ': elige ' + cls.skills.count + (cls.skills.pool.includes('*') ? ' cualesquiera' : ' de las resaltadas') + ' (llevas ' + classPicked + ').' : ''}{bg ? ' El trasfondo ya da ' + bg.skills.map((s) => data.skills[s]).join(' y ') + '.' : ''} Marca «P» para pericia.</span>
+          <div className="ce-skills">
+            {Object.keys(data.skills).sort((a, b) => data.skills[a].localeCompare(data.skills[b], 'es')).map((k) => (
+              <span key={k} className={pool.includes(k) || fromBg.has(k) ? 'ce-skill suggest' : 'ce-skill'}>
+                <label className="check" title={subSkills.has(k) && !c.skills.includes(k) ? 'Por tu subclase' : undefined}><input type="checkbox" checked={c.skills.includes(k) || subSkills.has(k)} disabled={subSkills.has(k) && !c.skills.includes(k)} onChange={() => toggleSkill(k)} />{data.skills[k]}</label>
+                {(c.skills.includes(k) || subSkills.has(k)) && <button className={c.expertise.includes(k) ? 'ts on' : 'ts'} aria-pressed={c.expertise.includes(k)} aria-label={'Pericia en ' + data.skills[k]} onClick={() => toggleExp(k)}>P</button>}
+              </span>
+            ))}
+          </div>
+        </fieldset>
 
         <fieldset className="fs" data-wstep="s4">
           <legend>Armadura</legend>
@@ -426,7 +426,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           ))}
         </fieldset>
 
-        <fieldset className="fs" data-wstep={caster || c.spells.length ? 's5' : 'x'}>
+        <fieldset className="fs fs-wide" data-wstep={caster || c.spells.length ? 's5' : 'x'}>
           <legend>Conjuros</legend>
           {subCaster && !cls?.spells.length && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: conjuros de mago. Lanzas con Inteligencia.</p>}
           {preps.length > 0 && (
@@ -489,7 +489,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           )}
         </fieldset>
 
-        <fieldset className="fs" data-wstep="s5">
+        <fieldset className="fs fs-wide" data-wstep="s5">
           <legend>Dotes, estilos de combate y rasgos propios</legend>
           <span className="muted small">{lib.feats.length ? 'Dotes del SRD y de tu biblioteca.' : 'El SRD trae 4 dotes de origen, 2 generales, 4 estilos de combate y 7 dones épicos. Las de tu libro puedes añadirlas en «Biblioteca» o aquí como dote propia.'}</span>
           {featGroups.map(([cat, title]) => {
@@ -624,7 +624,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           )}
         </fieldset>
 
-        <fieldset className="fs" data-wstep="x">
+        <fieldset className="fs fs-wide" data-wstep="x">
           <legend>Ajustes a mano</legend>
           <span className="muted small">Déjalos vacíos para usar el cálculo. Útil para objetos mágicos o rasgos que la app no aplica sola.</span>
           <div className="row4f">
