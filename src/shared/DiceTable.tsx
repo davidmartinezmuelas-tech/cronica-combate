@@ -179,8 +179,8 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
             {!targets && <SendToTable key={'s|' + result.label + '|' + result.total + '|' + (log[0]?.id || '')} />}
           </div>
         )}
-        {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#9a8b7a' }}>…</div><span className="plaque-label" style={{ color: '#b2a691' }}>Los dados ruedan…</span></div></div>}
-        {!result && !rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: '#9a8b7a' }}>d20</div><span className="muted" style={{ fontSize: 14 }}>Pulsa un dado, una característica o un ataque de la hoja.</span></div></div>}
+        {rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: 'var(--muted)' }}>…</div><span className="plaque-label" style={{ color: '#b2a691' }}>Los dados ruedan…</span></div></div>}
+        {!result && !rolling && <div className="plaque"><div className="plaque-top"><div className="plaque-total" style={{ color: 'var(--muted)' }}>d20</div><span className="muted" style={{ fontSize: 14 }}>Pulsa un dado, una característica o un ataque de la hoja.</span></div></div>}
       </div>
 
       {critFor && (
@@ -218,7 +218,7 @@ export default function DiceTable({ targets = true }: { targets?: boolean }) {
           {log.map((l) => (
             <li key={l.id}>
               <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontWeight: 700, color: '#efe3cb' }}>{l.label}</span>
+                <span style={{ fontWeight: 700, color: 'var(--text-hi)' }}>{l.label}</span>
                 <span className="muted" style={{ fontSize: 13 }}>{l.detail}</span>
               </span>
               <span className="log-total">{l.total}</span>
