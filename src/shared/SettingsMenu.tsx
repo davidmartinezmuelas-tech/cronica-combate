@@ -53,9 +53,9 @@ export default function SettingsMenu({ mode, backup, onTour, onKeys }: { mode: '
               <label className="check"><input type="checkbox" checked={use3d} disabled={!can3d} onChange={(e) => useStore.getState().set({ dice3d: e.target.checked })} />Dados 3D{!can3d && ' (este navegador no tiene gráficos 3D)'}</label>
               <div className="field" role="radiogroup" aria-label="Tema de color">
                 <span className="small muted">Tema de color</span>
-                <div className="rollrow">
-                  {THEMES.map(({ k, label }) => (
-                    <button key={k} role="radio" aria-checked={theme === k} className={theme === k ? 'btn small primary' : 'btn small'} onClick={() => { setThemePref(k); setTheme(k as ThemePref); }}>{label}</button>
+                <div className="theme-grid">
+                  {THEMES.map(({ k, label, bg }) => (
+                    <button key={k} role="radio" aria-checked={theme === k} className={theme === k ? 'theme-opt on' : 'theme-opt'} onClick={() => { setThemePref(k); setTheme(k as ThemePref); }}><span className="theme-sw" style={{ background: bg }} aria-hidden="true" />{label}</button>
                   ))}
                 </div>
               </div>

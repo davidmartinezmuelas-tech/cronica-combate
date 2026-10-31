@@ -2903,8 +2903,9 @@ test('tema: clásico por defecto, se cambia en Ajustes y se recuerda al recargar
   const dlg = await settings(page);
   await dlg.getByRole('radio', { name: 'Bosque' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'forest');
-  await dlg.getByRole('radio', { name: 'Claro' }).click();
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await dlg.getByRole('radio', { name: 'Salvia' }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'sage');
+  expect(await page.evaluate(() => getComputedStyle(document.body).backgroundColor)).toBe('rgb(208, 215, 206)');
   await dlg.getByRole('radio', { name: 'Clásico' }).click();
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 });

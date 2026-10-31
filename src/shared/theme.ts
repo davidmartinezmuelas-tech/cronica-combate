@@ -1,8 +1,8 @@
 /**
- * Tema de color del dispositivo: el clásico (marrón, el de siempre) o una de las paletas alternativas (tres oscuras y una clara). No es un dato
+ * Tema de color del dispositivo: el clásico (marrón, el de siempre) o una de las paletas alternativas (tres oscuras y cuatro claras). No es un dato
  * de partida: se queda en este navegador. El atributo `data-theme` de <html> es lo que lee el CSS.
  */
-export type ThemePref = 'dark' | 'slate' | 'midnight' | 'forest' | 'light';
+export type ThemePref = 'dark' | 'slate' | 'midnight' | 'forest' | 'sage' | 'linen' | 'mist' | 'lavender';
 const THEME_KEY = 'cronica-tema';
 
 /** Nombre y color de fondo (para la barra del navegador en el móvil) de cada tema. */
@@ -11,7 +11,10 @@ export const THEMES: { k: ThemePref; label: string; bg: string }[] = [
   { k: 'slate', label: 'Pizarra', bg: '#1f2124' },
   { k: 'midnight', label: 'Medianoche', bg: '#1a1f2b' },
   { k: 'forest', label: 'Bosque', bg: '#1b231f' },
-  { k: 'light', label: 'Claro', bg: '#cdd2d8' },
+  { k: 'sage', label: 'Salvia', bg: '#d0d7ce' },
+  { k: 'linen', label: 'Lino', bg: '#d6d3cf' },
+  { k: 'mist', label: 'Niebla', bg: '#c9d2dc' },
+  { k: 'lavender', label: 'Lavanda', bg: '#d1ced7' },
 ];
 
 export function themePref(): ThemePref {
