@@ -195,15 +195,23 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     const ht = (e: Element) => e.getBoundingClientRect().height + 14;
     const fixed = (col: Element) => [...col.children].filter((e) => !e.classList.contains('pc-fill')).reduce((a, e) => a + ht(e), 0);
     const place = () => {
-      // cada tarjeta a la columna más corta, siempre en el mismo orden (el del DOM cambia al mover tarjetas y el reparto oscilaría)
-      let hA = fixed(ca);
-      let hB = fixed(cb);
-      const next: Record<string, 0 | 1> = {};
-      fillers.forEach(({ key }) => {
-        const p = m.querySelector('[data-fk="' + key + '"]')?.firstElementChild;
-        const hh = p ? ht(p) : 0;
-        if (hA <= hB) { next[key] = 0; hA += hh; } else { next[key] = 1; hB += hh; }
-      });
+      // los conjuros, todos en la misma columna (la que deje las dos más a la par); el resto, cada tarjeta a la columna más corta.
+      // Siempre en el mismo orden (el del DOM cambia al mover tarjetas y el reparto oscilaría)
+      const hs = fillers.map(({ key }) => { const p = m.querySelector('[data-fk="' + key + '"]')?.firstElementChild; return p ? ht(p) : 0; });
+      const run = (spCol: 0 | 1) => {
+        let hA = fixed(ca);
+        let hB = fixed(cb);
+        const out: Record<string, 0 | 1> = {};
+        fillers.forEach(({ key }, i) => { if (key.startsWith('sp')) { out[key] = spCol; if (spCol === 0) hA += hs[i]; else hB += hs[i]; } });
+        fillers.forEach(({ key }, i) => {
+          if (key.startsWith('sp')) return;
+          if (hA <= hB) { out[key] = 0; hA += hs[i]; } else { out[key] = 1; hB += hs[i]; }
+        });
+        return { out, diff: Math.abs(hA - hB) };
+      };
+      const r0 = run(0);
+      const r1 = run(1);
+      const next = r1.diff < r0.diff - 0.5 ? r1.out : r0.out;
       setSide((prev) => { const ks = Object.keys(next); return ks.length === Object.keys(prev).length && ks.every((k) => prev[k] === next[k]) ? prev : next; });
       m.querySelectorAll('.panel').forEach((p) => ro.observe(p));
     };
