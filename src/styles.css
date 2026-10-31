@@ -606,6 +606,8 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-profs dt{align-self:center}
 .pc-notes{display:flex;flex-direction:column;gap:6px;min-height:110px}
 .pc-notes textarea{flex:1;min-height:70px;resize:vertical}
+/* las notas rellenan el hueco de su columna, pero sin pasar de un alto razonable (salvo que la persona estire el cuadro a mano) */
+.pc-notes:not(:has(textarea[style*="height"])){max-height:320px}
 .pc-profs dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:14px}
 .pc-profs dt{font-weight:800;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
 .pc-profs dd{margin:0;min-width:0;overflow-wrap:anywhere}
