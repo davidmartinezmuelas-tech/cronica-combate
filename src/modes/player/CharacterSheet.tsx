@@ -574,7 +574,6 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const splitRef = useRef<HTMLDivElement>(null);
   const leftRef = useRef<HTMLDivElement>(null);
   const rightRef = useRef<HTMLDivElement>(null);
-  const [notesSide, setNotesSide] = useState<'left' | 'right'>('left');
   useEffect(() => {
     const l = leftRef.current, rr = rightRef.current, sp = splitRef.current;
     if (!l || !rr || !sp || typeof ResizeObserver !== 'function') return;
@@ -595,7 +594,6 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     };
     const place = () => {
       const twoCols = getComputedStyle(sp).display === 'grid';
-      setNotesSide(twoCols && natural(rr) < natural(l) ? 'right' : 'left');
       // hueco bajo los ataques: tiene que caber el panel de conjuros y que queden unas notas (110) con sus separaciones
       const spEl = spRef.current;
       const gap = natural(l) - natural(rr);
@@ -956,7 +954,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
 
       {/* ataques y paneles de rasgos con pocas tarjetas, uno al lado del otro (con muchas tarjetas, a todo el ancho) */}
       </div>
-      {notesSide === 'left' && notesPanel}
+      {notesPanel}
       </div>
       <div className="pc-split-col">
       <div className="pc-duo pc-split-in" ref={rightRef} data-sec="combate">
@@ -1145,7 +1143,6 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       </section>
       </div>
       {spUp && spellsPanel}
-      {notesSide === 'right' && notesPanel}
       </div>
       </div>
 
