@@ -20,6 +20,7 @@ export interface RollSpec {
   noAdv?: boolean;
   self?: { conds: string[]; exh: number }; // estados de quien tira desde su hoja (jugador): desventajas, fallos y agotamiento
   adv?: string; // ventaja por un rasgo (motivo: «Furia», «Sentir el peligro»…)
+  impacts?: number; // en daño: las partes son de este número de impactos iguales (rayos); cada uno puede ir a un objetivo distinto
   shots?: number; // en ataques: tira un d20 por cada disparo (Descarga sobrenatural, Rayo ardiente…)
   critOn?: number; // en ataques: crítico con este número o más (Campeón: 19 o 18)
   effect?: SaveEffect; // daño de un efecto con salvación (objetivos, salvaciones, mitad y estados)
@@ -129,6 +130,7 @@ export interface DiceSlice {
   adv: AdvMode;
   critFor: { who: string; shots?: boolean[] } | null; // shots: en ataques de varios disparos, cuáles han sido crítico
   dmgTargets: Record<string, 'full' | 'half'>;
+  dmgShots: Record<string, 'full' | 'half'>[]; // objetivos de cada impacto cuando el daño es de varios (rayos)
   effectSel: string[] | null; // objetivos ya elegidos para el efecto (un lanzamiento de un jugador)
   dieSize: number; // px, según cuántos dados haya que mostrar
   moreDice: number;

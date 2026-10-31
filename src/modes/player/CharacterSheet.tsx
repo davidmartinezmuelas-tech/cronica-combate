@@ -1070,7 +1070,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               <span className="rollrow">
                 <button className="rollbtn" onClick={() => r(sp.n + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn, ...(cast.count > 1 ? { shots: cast.count } : {}) })}>Ataque {fmt(atk + buffAtk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
                 {cast.dmg && (cast.count > 1
-                  ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
+                  ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who), impacts: cast.count })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
                   : <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': daño', kind: 'damage', who, by: null, parts: [cast.dmg!] })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>)}
               </span>
             </div>

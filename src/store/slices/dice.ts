@@ -7,7 +7,7 @@ import type { DiceSlice, GetState, SetState, State } from '../state';
 
 export function createDiceSlice(set: SetState, get: GetState, { guard, animate }: Kit): DiceSlice {
   return {
-    dice: [], rolling: false, diceOpen: false, result: null, adv: 'normal', critFor: null, dmgTargets: {}, effectSel: null, dieSize: 64, moreDice: 0, expr: '', exprError: false,
+    dice: [], rolling: false, diceOpen: false, result: null, adv: 'normal', critFor: null, dmgTargets: {}, dmgShots: [], effectSel: null, dieSize: 64, moreDice: 0, expr: '', exprError: false,
     diceTheme: 'ruby', dice3d: null,
 
     roll(spec) {
@@ -48,15 +48,24 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
       set({ exprError: false });
       const totalStr = mods.autoFail ? 'Falla' : outs.map((o) => String(o.total)).join(' · ');
       const detailStr = shots > 1 ? outs.map((o, i) => 'Disparo ' + (i + 1) + ': ' + o.detail + (critOf(o) ? ' (crítico)' : '')).join('  |  ') : out.detail;
+      // varios impactos (rayos): el daño de cada uno por separado, para darle su propio objetivo
+      const nImp = spec.kind === 'damage' ? spec.impacts || 1 : 1;
+      const per = nImp > 1 && parts.length % nImp === 0 ? parts.length / nImp : 0;
+      const impactShots = per ? Array.from({ length: nImp }, (_, i) => {
+        const rows = out.rows.slice(i * per, (i + 1) * per);
+        const byType = new Map<string, number>();
+        for (const w of rows) byType.set(w.type, (byType.get(w.type) || 0) + w.sub);
+        return { parts: Array.from(byType, ([type, amt]) => ({ type, amt })), total: rows.reduce((a, w) => a + w.sub, 0), crit: parts[i * per].crit ?? crit };
+      }) : null;
       animate(outs.flatMap((o) => o.dice), () => {
         const patch: Partial<State> & { logEntry?: LogDraft; extraLog?: LogDraft[] } = {
           result: { label: spec.label, total: totalStr, detail: detailStr, cls, note, isDmg: spec.kind === 'damage', parts: out.byType, half: !!spec.half, by: spec.by || null, crit, ...(spec.effect ? { effect: spec.effect } : {}), ...(spec.onHit ? { onHit: spec.onHit } : {}), ...(spec.heal ? { heal: true } : {}),
-            ...(spec.kind === 'damage' && out.rows.length > 1 ? { rows: out.rows } : {}), ...(spec.tags?.length ? { tags: spec.tags } : {}) },
+            ...(spec.kind === 'damage' && out.rows.length > 1 ? { rows: out.rows } : {}), ...(impactShots ? { shots: impactShots } : {}), ...(spec.tags?.length ? { tags: spec.tags } : {}) },
           // en el historial, los extras entre paréntesis
           logEntry: { label: spec.label + (spec.tags?.length ? ' (' + spec.tags.join(', ') + ')' : ''), total: totalStr, detail: detailStr },
           ...after,
         };
-        if (spec.kind === 'damage') patch.dmgTargets = {};
+        if (spec.kind === 'damage') { patch.dmgTargets = {}; patch.dmgShots = []; }
         if (spec.after) {
           const extra = spec.after(mods.autoFail ? -99 : out.total, out.nat) || {};
           if (extra.resultNote && patch.result) { patch.result = { ...patch.result, note: extra.resultNote + (note ? ' · ' + note : '') }; }
@@ -74,13 +83,16 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
     applyRolled() {
       const s = get();
       const r = s.result;
-      if (!r || !Object.keys(s.dmgTargets).length) { get().showToast('Elige al menos un objetivo'); return; }
-      get().applyParts(s.dmgTargets, r.parts, !!r.crit);
+      const byShot = !!r?.shots?.length;
+      const picked = byShot ? (s.dmgShots || []).reduce<Record<string, 'full' | 'half'>>((m, t) => ({ ...m, ...t }), {}) : s.dmgTargets;
+      if (!r || !Object.keys(picked).length) { get().showToast(byShot ? 'Elige un objetivo para algún rayo' : 'Elige al menos un objetivo'); return; }
+      if (byShot) r.shots!.forEach((sh, i) => { const t = (s.dmgShots || [])[i]; if (t && Object.keys(t).length) get().applyParts(t, sh.parts, sh.crit); });
+      else get().applyParts(s.dmgTargets, r.parts, !!r.crit);
       // el ataque pone además estados al impactar (Agarrado, Derribado…): a los mismos objetivos, con su duración
       const fx = r.onHit;
       if (fx?.conds.length) {
         const st = get();
-        const ids = new Set(Object.keys(s.dmgTargets));
+        const ids = new Set(Object.keys(picked));
         set({ combatants: st.combatants.map((c) => {
           if (!ids.has(c.id)) return c;
           let next = c.conds;
@@ -88,7 +100,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
           return next === c.conds ? c : { ...c, conds: next };
         }) });
       }
-      set({ dmgTargets: {}, result: { ...r, isDmg: false, applied: true, note: 'Daño aplicado' + (fx?.conds.length ? ' y ' + fx.conds.join(', ').toLowerCase() : '') + '.' } });
+      set({ dmgTargets: {}, dmgShots: [], result: { ...r, isDmg: false, applied: true, note: 'Daño aplicado' + (fx?.conds.length ? ' y ' + fx.conds.join(', ').toLowerCase() : '') + '.' } });
     },
   };
 }

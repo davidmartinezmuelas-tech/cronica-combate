@@ -1396,7 +1396,7 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await expect(page.locator('.pc-stats .stat-ac')).toHaveAttribute('title', /Armadura de sombras/);
   const blast = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Descarga sobrenatural' });
   await blast.getByRole('button', { name: /^Descarga sobrenatural/ }).click();
-  await expect(blast.getByRole('button', { name: /^Daño 1d10\+\d fuerza/ })).toBeVisible();
+  await expect(blast.getByRole('button', { name: /^Daño \d × 1d10\+\d fuerza/ })).toBeVisible();
   await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: 'Arcano +4d8' })).toBeVisible();
   await expect(page.locator('.pc-features .card', { hasText: 'Ráfaga agónica' }).first()).toBeVisible();
 });

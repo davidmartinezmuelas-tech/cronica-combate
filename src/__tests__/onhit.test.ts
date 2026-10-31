@@ -19,3 +19,20 @@ describe('estados al impactar', () => {
     expect(useStore.getState().result?.note).toBe('Daño aplicado y derribado.');
   });
 });
+
+describe('varios rayos a objetivos distintos', () => {
+  it('cada rayo aplica su daño a su objetivo; sin objetivo no hace daño', () => {
+    const base = { init: 10, initBonus: 0, hp: 30, maxHp: 30, temp: 0, ac: 12, conds: [], conc: false, exh: 0, react: false };
+    useStore.setState({
+      combatants: [{ ...base, id: 'a', name: 'Ana', kind: 'pc' }, { ...base, id: 'b', name: 'Bo', kind: 'pc' }] as never,
+      started: false, dmgTargets: {},
+      dmgShots: [{ a: 'full' }, { b: 'full' }, {}],
+      result: { label: 'Descarga', total: '', detail: '', cls: '', note: '', isDmg: true, parts: [{ type: 'fuerza', amt: 18 }], half: false, by: null,
+        shots: [{ parts: [{ type: 'fuerza', amt: 5 }], total: 5, crit: false }, { parts: [{ type: 'fuerza', amt: 9 }], total: 9, crit: true }, { parts: [{ type: 'fuerza', amt: 4 }], total: 4, crit: false }] },
+    });
+    useStore.getState().applyRolled();
+    const [a, b] = useStore.getState().combatants;
+    expect(a.hp).toBe(25);
+    expect(b.hp).toBe(21);
+  });
+});

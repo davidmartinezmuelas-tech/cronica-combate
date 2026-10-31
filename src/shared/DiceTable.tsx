@@ -35,10 +35,43 @@ function Targets() {
   const r = useStore((s) => s.result);
   const combatants = useStore((s) => s.combatants);
   const targets = useStore((s) => s.dmgTargets);
+  const shotT = useStore((s) => s.dmgShots);
   const { set, applyRolled } = useStore.getState();
   if (!r || !r.isDmg) return null;
   const list = combatants.filter((c) => c.kind !== 'lair' && c.id !== r.by);
   if (!list.length) return null;
+  const apply = <button className="btn small primary" style={{ alignSelf: 'flex-start' }} onClick={applyRolled}>Aplicar daño{r.onHit?.conds.length ? ' y ' + r.onHit.conds.join(', ').toLowerCase() : ''}</button>;
+  // varios rayos: cada uno a su objetivo (o a ninguno, si falló)
+  if (r.shots && r.shots.length > 1) {
+    const cycleShot = (i: number, id: string) => {
+      const all = r.shots!.map((_, k) => ({ ...(useStore.getState().dmgShots?.[k] || {}) }));
+      const cur = all[i][id];
+      const next = !cur ? 'full' : cur === 'full' ? 'half' : null;
+      if (next) all[i][id] = next; else delete all[i][id];
+      set({ dmgShots: all });
+    };
+    return (
+      <div className="targets">
+        <span className="small muted">Cada rayo a su objetivo (pulsa: completo → mitad → nada). Sin objetivo, el rayo no hace daño.</span>
+        {r.shots.map((sh, i) => (
+          <div key={i} className="shot-row">
+            <span className="small"><b>Rayo {i + 1}</b>: {sh.total}{sh.crit ? ' (crítico)' : ''}</span>
+            <div className="chips" role="group" aria-label={'Objetivos del rayo ' + (i + 1)}>
+              {list.map((c) => {
+                const st = shotT?.[i]?.[c.id];
+                return (
+                  <button key={c.id} className={st === 'half' ? 'chip half' : st ? 'chip on' : 'chip'} aria-pressed={!!st} onClick={() => cycleShot(i, c.id)}>
+                    {c.name}{st && <span className="chip-tag">{st === 'half' ? 'mitad' : 'completo'}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {apply}
+      </div>
+    );
+  }
   const cycle = (id: string) => {
     const cur = useStore.getState().dmgTargets[id];
     const next = !cur ? 'full' : cur === 'full' ? 'half' : null;
@@ -59,7 +92,7 @@ function Targets() {
           );
         })}
       </div>
-      <button className="btn small primary" style={{ alignSelf: 'flex-start' }} onClick={applyRolled}>Aplicar daño{r.onHit?.conds.length ? ' y ' + r.onHit.conds.join(', ').toLowerCase() : ''}</button>
+      {apply}
     </div>
   );
 }

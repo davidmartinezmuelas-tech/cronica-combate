@@ -1741,3 +1741,4 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .ce-flat>*{min-width:0}
 .ce-flat>:not(.fs),.ce-flat>.fs-wide{grid-column:1/-1}
 @media (min-width:1100px){.ce-flat>.fs[data-wstep="s0 s1"]{grid-row:span 2}}
+.shot-row{display:flex;flex-direction:column;gap:4px;padding:6px 0;border-top:1px solid var(--line)}

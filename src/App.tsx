@@ -25,7 +25,7 @@ export default function App() {
     return () => { stop(); window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
-  useEffect(() => { useStore.setState({ result: null, dmgTargets: {}, effectSel: null }); }, [mode]);
+  useEffect(() => { useStore.setState({ result: null, dmgTargets: {}, dmgShots: [], effectSel: null }); }, [mode]);
 
   return (
     <>
