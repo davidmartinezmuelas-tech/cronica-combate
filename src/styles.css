@@ -32,6 +32,8 @@ button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-vis
 .panel h2{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:25px;margin:0;color:var(--text-hi);line-height:1.1}
 .panel h3{font-family:'IM Fell English SC',Georgia,serif;font-weight:400;font-size:20px;margin:0;color:var(--gold-hi);line-height:1.1}
 .panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+/* cabeceras con y sin contador de usos miden lo mismo: las tarjetas de dos paneles juntos empiezan a la misma altura */
+.pc-duo>.panel>.panel-head{min-height:34px}
 .muted{color:var(--muted)}
 .small{font-size:13px}
 .pre{white-space:pre-line}
@@ -101,6 +103,22 @@ input[type=checkbox],input[type=radio]{color-scheme:dark;accent-color:var(--gold
 .res-row{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
 .res{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--text-2)}
 .pips{display:inline-flex;flex-wrap:wrap;gap:5px;align-items:center}
+/* usos, como en la hoja oficial: total y rombos (los gastados, rellenos) */
+.uses-marks{display:inline-flex;flex-wrap:wrap;align-items:center;gap:0 1px;color:var(--gold)}
+/* nombre y usos en la misma línea: el nombre cede ancho y los rombos no bajan */
+.card-top{flex:1 0 100%;display:flex;align-items:flex-start;gap:8px;min-width:0}
+.card-top .card-title{flex:1 1 0;min-width:0;flex-basis:0}
+.card-top .uses-marks{flex:0 1 auto;min-width:0;justify-content:flex-end}
+.uses-marks.many .mark{width:16px;height:16px}
+.card-top .uses-marks.many{margin-top:3px}
+.uses-marks.many .mark svg{width:13px;height:13px}
+.uses-total{font-size:17px;font-weight:800;color:var(--text-hi);margin-right:5px;min-width:10px;text-align:right}
+.mark{width:22px;height:22px;padding:0;border:0;background:transparent;color:inherit;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.mark svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linejoin:round}
+.mark.on svg{fill:currentColor}
+.mark:hover svg{stroke-width:2.4}
+.paper .uses-marks{color:var(--garnet-2)}
+.paper .uses-total{color:var(--ink)}
 .pip{width:16px;height:16px;border-radius:50%;border:2px solid var(--gold);background:var(--gold);padding:0;display:inline-block;position:relative}
 /* el círculo es pequeño, pero la zona de toque sigue siendo de unos 28 px */
 button.pip{margin:2px}
@@ -606,8 +624,8 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-prof-input{padding:3px 8px;min-height:30px;font-size:14px;width:100%;box-sizing:border-box}
 .pc-profs dt label{cursor:pointer}
 .pc-profs dt{align-self:center}
-.pc-notes{display:flex;flex-direction:column;gap:6px;min-height:110px}
-.pc-notes textarea{flex:1;min-height:70px;resize:vertical}
+.pc-notes{display:flex;flex-direction:column;gap:6px;min-height:190px}
+.pc-notes textarea{flex:1;min-height:130px;resize:vertical}
 .pc-profs dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:14px}
 .pc-profs dt{font-weight:800;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
 .pc-profs dd{margin:0;min-width:0;overflow-wrap:anywhere}
@@ -643,10 +661,20 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .sp-tab-n{font-size:12px;font-weight:800;color:#8a7652}
 /* conjuros y rasgos en bloques (por nivel / por origen) repartidos en columnas, como las características */
 .pc-blocks{display:grid;gap:10px;align-items:start}
-.pc-blocks.flow{display:flex;flex-wrap:wrap;align-items:stretch}
-.pc-blocks.flow>.pc-block{flex:1 1 auto;min-width:0}
+.pc-blocks.fill{align-items:stretch}
+.pc-blocks.fill>.pc-block-col>.pc-block:last-child{flex:1}
 .pc-block-col{display:flex;flex-direction:column;gap:10px;min-width:0}
 .pc-block{gap:6px}
+.pc-flow{display:grid;gap:0 18px;align-items:start}
+.pc-flow-col{min-width:0}
+.pc-cont .pc-block-head,.pc-cont .pc-block>.pc-abil-k{visibility:hidden}
+.pc-cont .pc-block-head{border-bottom-color:transparent}
+.pc-flow .pc-block,.paper .pc-flow .pc-block{display:block;background:none;border:0;border-radius:0;box-shadow:none;padding:0;margin:0 0 12px}
+.pc-flow .pc-block-head{border-bottom:1px solid var(--paper-edge-2);padding:0 0 3px;margin-bottom:5px}
+.pc-flow .pc-block .pc-abil-k,.paper .pc-flow .pc-block .pc-abil-k{color:var(--grp,var(--garnet-2))}
+.pc-flow .pc-block .pc-features{display:flex;flex-direction:column}
+.pc-flow .pc-block li{margin-bottom:4px}
+.pc-flow .pc-block li:last-child{margin-bottom:0}
 .pc-block-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .pc-block .pc-features{gap:4px}
 .pc-features .card.sp-row{display:block;padding:0;height:auto}
@@ -658,10 +686,6 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .sp-row.open{border-color:var(--gold)}
 .sp-row-body{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:0 8px 8px 26px}
 .sp-row-meta{flex-basis:100%}
-/* rasgos y dotes: columnas iguales y alineadas; la última fila se reparte el ancho (uno solo ocupa toda la línea, sin hueco) */
-.pc-features.ft-list{flex-direction:row;flex-wrap:wrap;align-items:stretch}
-.ft-list>li{flex:1 1 170px;min-width:0;display:flex}
-.ft-list>li>.card{flex:1;min-width:0}
 .ft-list .card{padding:4px 8px;gap:2px 8px;flex-wrap:nowrap;min-height:32px}
 .ft-list .card-title{flex:1 1 auto;flex-basis:auto;min-width:0;font-size:15px}
 .ft-lv{flex:none;font-size:12px;font-weight:800;color:var(--muted);min-width:18px;text-align:right}
@@ -675,9 +699,14 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-mosaic .pc-fill{display:contents}
 .pc-mosaic .panel{min-width:0}
 @container (min-width:1000px){
-  .pc-mosaic{flex-direction:row;align-items:flex-start}
+  .pc-mosaic{flex-direction:row;align-items:stretch}
+  .pc-mosaic .pc-notes{flex:1 0 auto}
   .pc-mcol{flex:1 1 0}
   .pc-mosaic .pc-abils{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto 1fr}
+  /* tarjetas de combate y rasgos: las pequeñas van de dos en dos (cada una con su título); ataques, a todo el ancho */
+  .pc-mosaic .pc-duo{flex-direction:row;flex-wrap:wrap;align-items:stretch;column-gap:10px}
+  .pc-mosaic .pc-duo>.panel{flex:1 1 250px}
+  .pc-mosaic .pc-duo>.panel[aria-label="Ataques"],.pc-mosaic .pc-duo>.panel[data-solo]{flex-basis:100%}
 }
 .pc-attack-n{display:flex;flex-direction:column;gap:2px;font-weight:800;color:var(--text-hi);min-width:0}
 .pc-slots{display:flex;flex-wrap:wrap;gap:8px 18px}
@@ -689,7 +718,7 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 :root{--card-act:84px}
 /* tarjetas en filas que se llenan: las de la última fila se reparten el ancho que sobra (sin huecos) */
 /* conjuros: dos (o más) por fila si caben; el que está desplegado ocupa toda la fila */
-.pc-features.sp-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}
+.pc-features.sp-list{display:flex;flex-direction:column}
 .pc-features.sp-list>li.open{grid-column:1/-1}
 .pc-features.grid{display:flex;flex-direction:row;flex-wrap:wrap;align-items:stretch;gap:6px;--card-h:58px}
 .pc-features.grid>li{flex:1 1 230px;min-width:0;display:flex;flex-direction:column}
@@ -738,7 +767,15 @@ b.card-title{flex-basis:100%;font-size:16px}
 .pc-slot-pick{width:auto;min-height:32px;padding:2px 8px;font-size:13px}
 .ce-choice-rest{display:flex;flex-wrap:wrap;gap:8px 12px;margin-bottom:8px}
 .ce-choice-rest .ce-choice-one{flex:1 1 200px;margin:0}
-.pc-rest{display:flex;gap:8px;flex-wrap:wrap}
+.pc-rest{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+.pc-rest>.picker.pop{flex:1 1 90px;min-width:0}
+.pc-hp-row .pc-state{margin-left:auto;flex:1 1 280px;max-width:560px;flex-wrap:nowrap;align-items:center}
+.pc-hp-row .pc-state>.btn{flex:none}
+.picker.pop{position:relative}
+.picker.pop>summary{flex-wrap:nowrap;align-items:center;min-height:34px;padding:6px 10px}
+.picker.pop .picker-sum{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;overflow-wrap:normal}
+.picker.pop>.picker-body{position:absolute;top:calc(100% + 4px);left:0;z-index:30;width:max(100%,min(400px,86vw));padding:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;box-shadow:0 10px 26px rgba(0,0,0,.4)}
+.paper .picker.pop>.picker-body{background:var(--paper-hi);border-color:var(--paper-edge)}
 .ce-skills{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:2px 10px}
 .ce-skill{display:flex;align-items:center;gap:6px}
 .ce-skill.suggest .check{color:var(--text-hi);font-weight:700}

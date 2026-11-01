@@ -42,24 +42,6 @@ const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 
 
 interface FeatureRow { key: string; n: string; d: string; src: string; max: number | null; per: string; fx?: HbFx }
 
-/** Reparte bloques en columnas seguidas (se leen de arriba abajo) con alturas lo más parecidas posible, según su peso. */
-function splitCols<T>(items: T[], weight: (x: T) => number, n: number): T[][] {
-  const k = Math.max(1, Math.min(n, items.length));
-  const pre = [0];
-  items.forEach((x) => pre.push(pre[pre.length - 1] + weight(x)));
-  // best[j][i]: la columna más alta al repartir los i primeros en j columnas; cut, dónde empieza la última
-  const best = Array.from({ length: k + 1 }, () => Array<number>(items.length + 1).fill(Infinity));
-  const cut = Array.from({ length: k + 1 }, () => Array<number>(items.length + 1).fill(0));
-  best[0][0] = 0;
-  for (let j = 1; j <= k; j++) for (let i = j; i <= items.length; i++) for (let q = j - 1; q < i; q++) {
-    const v = Math.max(best[j - 1][q], pre[i] - pre[q]);
-    if (v < best[j][i]) { best[j][i] = v; cut[j][i] = q; }
-  }
-  const cols: T[][] = [];
-  for (let j = k, i = items.length; j > 0; j--) { const q = cut[j][i]; cols.unshift(items.slice(q, i)); i = q; }
-  return cols;
-}
-
 /** Trocea los grupos de más de `max` filas en trozos parecidos; los siguientes llevan «(cont.)» en el título. */
 function chunkGroups<G extends { title: string; list: unknown[] }>(groups: G[], max: number): (G & { key: string; first: boolean })[] {
   return groups.flatMap((g) => {
@@ -68,10 +50,6 @@ function chunkGroups<G extends { title: string; list: unknown[] }>(groups: G[], 
     return Array.from({ length: pieces }, (_, i) => ({ ...g, key: g.title + i, title: g.title + (i ? ' (cont.)' : ''), first: i === 0, list: g.list.slice(i * size, (i + 1) * size) }));
   });
 }
-
-/** Peso (alto aproximado, en filas) de un bloque: su cabecera y una fila por elemento. */
-// peso de un bloque al repartirlos en tarjetas: los de una o dos filas van de lado a lado, así que pesan la mitad
-const blockW = (x: { list: unknown[] }) => (x.list.length <= 1 ? 1.8 : 1.6 + x.list.length);
 
 /** Rasgos que tiene a su nivel: de clase, de subclase, de especie y dotes, con sus usos. */
 function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): FeatureRow[] {
@@ -187,6 +165,43 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     return () => ro.disconnect();
   }, []);
 
+  // tarjetas de combate y rasgos: van de dos en dos solo si las dos tienen una altura parecida; si no, la tarjeta ocupa toda la línea (sin huecos).
+  // Se mide con todas a media anchura y se vuelve a decidir cuando cambia el alto de alguna (se abre un rasgo, llegan los datos…)
+  useLayoutEffect(() => {
+    const duo = lowRef.current?.querySelector<HTMLElement>('.pc-duo');
+    if (!duo) return;
+    const ps = [...duo.children].filter((e): e is HTMLElement => e instanceof HTMLElement && e.classList.contains('panel'));
+    const pairable = (k: number) => ps[k]?.getAttribute('aria-label') !== 'Ataques';
+    const decide = () => {
+      ps.forEach((p) => { p.removeAttribute('data-solo'); (p.firstElementChild as HTMLElement | null)?.style.removeProperty('min-height'); });
+      if (lowW < 1000) return;
+      duo.style.alignItems = 'flex-start'; // alto propio de cada tarjeta, sin estirar
+      const h = ps.map((p) => p.offsetHeight);
+      duo.style.alignItems = '';
+      const pairs: number[] = [];
+      for (let i = 0; i < ps.length; i++) {
+        if (pairable(i) && pairable(i + 1) && Math.abs(h[i] - h[i + 1]) <= Math.max(36, 0.2 * Math.max(h[i], h[i + 1]))) { pairs.push(i); i++; continue; }
+        ps[i].setAttribute('data-solo', '');
+      }
+      // las cabeceras de una pareja miden lo mismo (una con contador de usos y otra sin): sus tarjetas empiezan a la misma altura
+      for (const i of pairs) {
+        const hd = [ps[i], ps[i + 1]].map((p) => p.firstElementChild as HTMLElement | null);
+        if (hd[0] && hd[1]) { const m = Math.max(hd[0].offsetHeight, hd[1].offsetHeight); hd.forEach((e) => { e!.style.minHeight = m + 'px'; }); }
+      }
+    };
+    decide();
+    if (typeof ResizeObserver !== 'function') return;
+    let busy = false;
+    const ro = new ResizeObserver(() => {
+      if (busy) return;
+      busy = true; // los cambios de tamaño que provoca esta misma decisión no la repiten
+      decide();
+      requestAnimationFrame(() => { busy = false; });
+    });
+    ps.forEach((p) => ro.observe(p));
+    return () => ro.disconnect();
+  });
+
   // reparto: a la columna más corta, contando lo fijo de cada una (izquierda: características y notas; derecha: ataques y estados)
   useLayoutEffect(() => {
     const m = lowRef.current;
@@ -196,23 +211,37 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     const ht = (e: Element) => e.getBoundingClientRect().height + 14;
     const fixed = (col: Element) => [...col.children].filter((e) => !e.classList.contains('pc-fill')).reduce((a, e) => a + ht(e), 0);
     const place = () => {
-      // los conjuros, todos en la misma columna (la que deje las dos más a la par); el resto, cada tarjeta a la columna más corta.
-      // Siempre en el mismo orden (el del DOM cambia al mover tarjetas y el reparto oscilaría)
-      const hs = fillers.map(({ key }) => { const p = m.querySelector('[data-fk="' + key + '"]')?.firstElementChild; return p ? ht(p) : 0; });
-      const run = (spCol: 0 | 1) => {
+      // los conjuros van seguidos: las primeras piezas a la izquierda y el resto a la derecha (o todas juntas en una columna si cuadra igual de bien).
+      // El resto de tarjetas, cada una a la columna más corta. Siempre en el mismo orden (el del DOM cambia al mover tarjetas y el reparto oscilaría)
+      const hs = fillers.map(({ key }) => { if (key === 'nt') return 190; const p = m.querySelector('[data-fk="' + key + '"]')?.firstElementChild; return p ? ht(p) : 0; });
+      const spKeys = fillers.map((f) => f.key).filter((k) => k.startsWith('sp'));
+      const run = (spCol: 0 | 1, k: number) => {
         let hA = fixed(ca);
         let hB = fixed(cb);
         const out: Record<string, 0 | 1> = {};
-        fillers.forEach(({ key }, i) => { if (key.startsWith('sp')) { out[key] = spCol; if (spCol === 0) hA += hs[i]; else hB += hs[i]; } });
+        let n = 0;
+        fillers.forEach(({ key }, i) => {
+          if (!key.startsWith('sp')) return;
+          const col: 0 | 1 = n < k ? 0 : spCol === 0 ? 0 : 1;
+          n++;
+          out[key] = col;
+          if (col === 0) hA += hs[i]; else hB += hs[i];
+        });
         fillers.forEach(({ key }, i) => {
           if (key.startsWith('sp')) return;
           if (hA <= hB) { out[key] = 0; hA += hs[i]; } else { out[key] = 1; hB += hs[i]; }
         });
         return { out, diff: Math.abs(hA - hB) };
       };
-      const r0 = run(0);
-      const r1 = run(1);
-      const next = r1.diff < r0.diff - 0.5 ? r1.out : r0.out;
+      let next = run(0, 0).out;
+      let best = run(0, 0).diff;
+      const r1 = run(1, 0);
+      if (r1.diff < best - 0.5) { best = r1.diff; next = r1.out; }
+      // partir la lista tiene un pequeño coste: solo si mejora de verdad el equilibrio
+      for (let k = 1; k < spKeys.length; k++) {
+        const r = run(1, k);
+        if (r.diff + 80 < best) { best = r.diff; next = r.out; }
+      }
       setSide((prev) => { const ks = Object.keys(next); return ks.length === Object.keys(prev).length && ks.every((k) => prev[k] === next[k]) ? prev : next; });
       m.querySelectorAll('.panel').forEach((p) => ro.observe(p));
     };
@@ -505,22 +534,10 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // en tarjetas de unas 6 filas («Conjuros (cont.)», «Rasgos y dotes (cont.)»); a menos ancho, una sola tarjeta cada uno
   const wide = lowW >= 1000;
   const lowN = wide ? 1 : lowW >= 900 ? 3 : lowW >= 600 ? 2 : 1;
-  const chunkMax = (g: { list: unknown[] }[]) => (wide ? 8 : Math.max(4, Math.ceil(g.reduce((a, x) => a + x.list.length, 0) / lowN)));
-  const spParts = chunkGroups(spBlocks, chunkMax(spBlocks));
-  const ftParts = chunkGroups(featGroups, chunkMax(featGroups));
-  const pieces = <T extends { list: unknown[] }>(parts: T[]): T[][] => {
-    if (!wide) return [parts];
-    const out: T[][] = [[]];
-    let w = 0;
-    for (const p of parts) {
-      if (w > 0 && w + blockW(p) > 6) { out.push([]); w = 0; }
-      out[out.length - 1].push(p);
-      w += blockW(p);
-    }
-    return out;
-  };
-  const spPieces = pieces(spParts);
-  const ftPieces = pieces(ftParts);
+  const spParts = chunkGroups(spBlocks, Infinity); // los conjuros fluyen en columnas dentro de su tarjeta: cada nivel entero
+  const ftParts = chunkGroups(featGroups, Infinity); // rasgos como los conjuros: una lista que fluye en columnas, cada origen entero
+  const spPieces = [spParts]; // una sola tarjeta de conjuros, con sus columnas dentro
+  const ftPieces = [ftParts]; // una sola tarjeta, con sus columnas dentro
   const freeSmite = features.find((f) => f.key === 'Castigo del paladín' && f.max);
   // conjuros que, mientras duran, suman en cada golpe con arma: se activan como etiquetas en «Ataques»
   // (los del SRD por su nombre en inglés; los del libro del usuario, por el nombre en español)
@@ -646,7 +663,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     </div>
   );
   const featBlock = ({ key, title, list }: (typeof ftParts)[number]) => (
-    <div key={key} className="pc-abil pc-block pc-block-ft" role="group" aria-label={title} style={{ flexBasis: list.length <= 1 ? 170 : list.length <= 2 ? 380 : list.length <= 4 ? 260 : 360 }}>
+    <div key={key} className="pc-abil pc-block pc-block-ft" role="group" aria-label={title}>
       <span className="pc-abil-k">{title}</span>
       <ul className="pc-features ft-list">
         {list.map((f) => {
@@ -669,13 +686,41 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       </ul>
     </div>
   );
-  const blockGrid = <T extends { list: unknown[] }>(parts: T[], render: (p: T) => JSX.Element, n: number) => (
-    <div className="pc-blocks" style={{ gridTemplateColumns: 'repeat(' + Math.max(1, Math.min(n, parts.length)) + ', minmax(0, 1fr))' }}>
-      {splitCols(parts, blockW, Math.max(1, Math.min(n, parts.length))).map((col, ci) => <div key={ci} className="pc-block-col">{col.map(render)}</div>)}
-    </div>
-  );
-  // rasgos y dotes: los bloques pequeños (una o dos filas) van uno al lado del otro, cada uno con su etiqueta; los grandes toman más ancho
-  const blockFlow = <T extends { list: unknown[] }>(parts: T[], render: (p: T) => JSX.Element) => <div className="pc-blocks flow">{parts.map(render)}</div>;
+  // conjuros sin cuadros por nivel: una lista que fluye en dos columnas dentro de la tarjeta, con el nivel como título de sección
+  const flow = <T extends { key: string; list: unknown[] }>(parts: T[], render: (p: T) => JSX.Element, split = false) => {
+    const rows = parts.reduce((a, x) => a + Math.max(1, x.list.length), 0);
+    const n = Math.max(1, Math.min(rows < 6 ? 1 : wide ? 2 : lowN, split ? rows : parts.length));
+    const W_HEAD = 1.6;
+    // puntos de corte posibles: entre grupos y, si `split`, entre filas de un mismo grupo (el trozo que sigue deja su título en blanco para que las filas arranquen a la misma altura)
+    const cand: { at: [number, number]; w: number; mid: boolean }[] = [];
+    let acc = 0;
+    parts.forEach((x, pi) => {
+      if (pi > 0) cand.push({ at: [pi, 0], w: acc, mid: false });
+      acc += W_HEAD;
+      x.list.forEach((_, ri) => { if (split && ri > 0 && ri < x.list.length) cand.push({ at: [pi, ri], w: acc, mid: true }); acc += 1; });
+    });
+    const total = acc;
+    const cuts: [number, number][] = [];
+    for (let k = 1; k < n; k++) {
+      const target = (total * k) / n;
+      const free = cand.filter((c) => !cuts.some((q) => q[0] === c.at[0] && q[1] === c.at[1]));
+      const byDist = (list: typeof free) => list.sort((p, q) => Math.abs(p.w - target) - Math.abs(q.w - target))[0];
+      const gb = byDist(free.filter((c) => !c.mid));
+      const any = byDist(free.slice());
+      // cortar un grupo solo si mejora de verdad el reparto
+      const pick = gb && any && Math.abs(gb.w - target) <= Math.abs(any.w - target) + 4 ? gb : any || gb;
+      if (pick) cuts.push(pick.at);
+    }
+    cuts.sort((p, q) => p[0] - q[0] || p[1] - q[1]);
+    const cols: { p: T; ghost: boolean }[][] = Array.from({ length: cuts.length + 1 }, () => []);
+    parts.forEach((x, pi) => {
+      const start = cuts.filter((c) => c[0] < pi || (c[0] === pi && c[1] === 0)).length;
+      const edges = [0, ...cuts.filter((c) => c[0] === pi && c[1] > 0).map((c) => c[1]), x.list.length];
+      for (let e = 0; e < edges.length - 1; e++) cols[start + e].push({ p: { ...x, list: x.list.slice(edges[e], edges[e + 1]), key: x.key + '-' + e, ...(e ? { first: false } : {}) }, ghost: e > 0 });
+    });
+    return <div className="pc-flow" style={{ gridTemplateColumns: 'repeat(' + cols.length + ', minmax(0, 1fr))' }}>{cols.map((col, ci) => <div key={ci} className="pc-flow-col">{col.map(({ p, ghost }) => (ghost ? <div key={p.key} className="pc-cont">{render(p)}</div> : render(p)))}</div>)}</div>;
+  };
+  const spellFlow = (parts: (typeof spParts)[number][]) => flow(parts, spellBlock, true);
   const spellsPanel = hasSpells ? (
         <section className="panel" aria-label="Conjuros" data-sec="conjuros">
           <div className="panel-head">
@@ -696,7 +741,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
             </div>
           )}
           {!spellList.length && <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p>}
-          {spPieces[0].length > 0 && blockGrid(spPieces[0], spellBlock, lowN)}
+          {spPieces[0].length > 0 && spellFlow(spPieces[0])}
           {spTextOf && (
             <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
               <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
@@ -775,22 +820,14 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         {lib.loaded && missingSubs.map((n) => <p key={n} className="warn small" role="status" style={{ margin: 0 }}>«{n}» no está en la biblioteca de este dispositivo: si la importaste de tu Manual del Jugador, vuelve a importarlo en «Biblioteca» (o carga una copia que incluya tu biblioteca) para tener sus rasgos y sus conjuros.</p>)}
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
-        {ftPieces[0].length > 0 && blockFlow(ftPieces[0], featBlock)}
+        {ftPieces[0].length > 0 && flow(ftParts, featBlock)}
       </section>
   );
   const fillers: { key: string; node: JSX.Element }[] = [
     ...(hasSpells && spellsPanel ? [{ key: 'sp0', node: spellsPanel }] : []),
-    ...(hasSpells ? spPieces.slice(1).map((part, i) => ({ key: 'sp' + (i + 1), node: (
-      <section className="panel" aria-label="Conjuros (cont.)" data-sec="conjuros">
-        {blockGrid(part, spellBlock, lowN)}
-      </section>
-    ) })) : []),
     { key: 'ft0', node: rasgosPanel },
-    ...ftPieces.slice(1).map((part, i) => ({ key: 'ft' + (i + 1), node: (
-      <section className="panel" aria-label="Rasgos y dotes (cont.)" data-sec="rasgos">
-        {blockFlow(part, featBlock)}
-      </section>
-    ) })),
+    // las notas rellenan el hueco: van a la columna más corta, al final, y crecen hasta igualar el fondo
+    ...(wide ? [{ key: 'nt', node: notesPanel }] : []),
   ];
   const fillersAt = (col: 0 | 1) => fillers.filter((x) => (wide ? (side[x.key] ?? 1) : 1) === col).map((x) => <div key={x.key} className="pc-fill" data-fk={x.key}>{x.node}</div>);
 
@@ -885,8 +922,45 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
           <button className="btn primary" onClick={damage} title={resisted ? 'Resistencia (' + resisted.why + '): recibes la mitad' : undefined}>Daño{resisted ? ' (mitad)' : ''}</button>
           <button className="btn heal" onClick={heal}>Curación</button>
           <button className="btn temp" onClick={giveTemp}>PG temporales</button>
-          {conc && <button className="chip on pc-conc" title="Te concentras en este conjuro. Pulsa para dejar de concentrarte." onClick={() => set({ conds: withoutConc(c.conds) })}>Concentración: {conc} ✕</button>}
+          <div className="pc-rest pc-state">
+            <Picker pop title="Estados" summary={[...c.conds, c.exh ? 'Agotamiento ' + c.exh : ''].filter(Boolean).join(', ')}>
+              {conc && <button className="chip on pc-conc" title="Te concentras en este conjuro. Pulsa para dejar de concentrarte." onClick={() => set({ conds: withoutConc(c.conds) })}>Concentración: {conc} ✕</button>}
+              <div className="chips">
+                {CONDITIONS.map(([k]) => <button key={k} className={c.conds.includes(k) ? 'chip on' : 'chip'} aria-pressed={c.conds.includes(k)} onClick={() => set({ conds: c.conds.includes(k) ? c.conds.filter((x) => x !== k) : [...c.conds, k] })}>{k}</button>)}
+              </div>
+              <span className="res">Agotamiento
+                <span className="stepper">
+                  <button className="step" aria-label="Reducir agotamiento" onClick={() => set({ exh: Math.max(0, c.exh - 1) })}>−</button>
+                  <span className="qty">{c.exh}</span>
+                  <button className="step" aria-label="Aumentar agotamiento" onClick={() => set({ exh: Math.min(6, c.exh + 1) })}>+</button>
+                </span>
+              </span>
+            </Picker>
+            <button className="btn small" onClick={() => setResting(!resting)} aria-expanded={resting}>Descanso corto</button>
+            <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); if (data && restSwapClasses(c).length && c.spells.length) setRestSpells(true); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>
+          </div>
         </div>
+        {withoutConc(c.conds).length > 0 && <ul className="rem">{withoutConc(c.conds).map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
+        {resting && (
+          <div className="sub">
+            <span className="small">Gasta dados de golpe para curarte ({fmt(d.mods.con)} cada uno). Te quedan {hdText}.</span>
+            <div className="rollrow">
+              {d.hitDice.map((x) => (
+                <button key={x.die} className="rollbtn" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} onClick={() => spendHd(x.die)}>{multiHd ? 'Gastar un d' + x.die : 'Gastar un dado de golpe'}</button>
+              ))}
+              <button className="btn small primary" onClick={() => {
+                const res = views.flatMap(({ v }) => choiceResources(v, data, lib));
+                // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)
+                const one = new Set([...res.filter((r) => r.now === 'sr1').map((r) => r.key), 'Furia', 'Forma salvaje', 'Segundo aliento', 'Canalizar Divinidad', 'Canalización divina']);
+                const all = [RELENTLESS, ...(c.magicItems || []).filter((i) => i.charges?.per === 'sr').map(itemKey), ...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
+                const rested = shortRest(c, all);
+                // los que recuperan uno en descanso corto (dados psiónicos, Canalizar divinidad)
+                one.forEach((k) => { if (rested.uses[k]) rested.uses[k] -= 1; });
+                replace(rested); setResting(false);
+              }}>Terminar descanso corto</button>
+            </div>
+          </div>
+        )}
         {deathHit && (
           <p className="warn small pc-death-hit" role="status" style={{ margin: 0 }}>
             {deathHit.msg}
@@ -975,7 +1049,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
 
       {/* ataques y paneles de rasgos con pocas tarjetas, uno al lado del otro (con muchas tarjetas, a todo el ancho) */}
       </div>
-      {notesPanel}
+      {!wide && notesPanel}
       {fillersAt(0)}
       </div>
       <div className="pc-mcol">
@@ -1123,46 +1197,6 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
           </ul>
         </section>
       )}
-      {/* estados y descansos, al final de la columna derecha (junto a PG y ataques) */}
-      <section className="panel" aria-label="Estados y descansos">
-        <Picker title="Estados" summary={[...c.conds, c.exh ? 'Agotamiento ' + c.exh : ''].filter(Boolean).join(', ')}>
-          <div className="chips">
-            {CONDITIONS.map(([k]) => <button key={k} className={c.conds.includes(k) ? 'chip on' : 'chip'} aria-pressed={c.conds.includes(k)} onClick={() => set({ conds: c.conds.includes(k) ? c.conds.filter((x) => x !== k) : [...c.conds, k] })}>{k}</button>)}
-          </div>
-          <span className="res">Agotamiento
-            <span className="stepper">
-              <button className="step" aria-label="Reducir agotamiento" onClick={() => set({ exh: Math.max(0, c.exh - 1) })}>−</button>
-              <span className="qty">{c.exh}</span>
-              <button className="step" aria-label="Aumentar agotamiento" onClick={() => set({ exh: Math.min(6, c.exh + 1) })}>+</button>
-            </span>
-          </span>
-        </Picker>
-        {withoutConc(c.conds).length > 0 && <ul className="rem">{withoutConc(c.conds).map((k) => <li key={k}><span><strong>{k}:</strong> {k === 'Furia' ? 'resistencia a daño contundente, cortante y perforante, ventaja en pruebas y salvaciones de Fuerza y +' + rageDmg + ' al daño con Fuerza. Quítala con el botón «Furia» de Ataques.' : CONDITIONS.find((x) => x[0] === k)?.[1]}</span></li>)}</ul>}
-        <div className="pc-rest">
-          <button className="btn small" onClick={() => setResting(!resting)} aria-expanded={resting}>Descanso corto</button>
-          <button className="btn small" onClick={() => { if (confirmLong) { replace(longRest(c, d)); setConfirmLong(false); if (data && restSwapClasses(c).length && c.spells.length) setRestSpells(true); } else setConfirmLong(true); }}>{confirmLong ? '¿Seguro? Descanso largo' : 'Descanso largo'}</button>
-        </div>
-        {resting && (
-          <div className="sub">
-            <span className="small">Gasta dados de golpe para curarte ({fmt(d.mods.con)} cada uno). Te quedan {hdText}.</span>
-            <div className="rollrow">
-              {d.hitDice.map((x) => (
-                <button key={x.die} className="rollbtn" disabled={hdLeft(x.die) <= 0 || c.hp >= d.hpMax} onClick={() => spendHd(x.die)}>{multiHd ? 'Gastar un d' + x.die : 'Gastar un dado de golpe'}</button>
-              ))}
-              <button className="btn small primary" onClick={() => {
-                const res = views.flatMap(({ v }) => choiceResources(v, data, lib));
-                // los de la clase que en 2024 recuperan uno en descanso corto (y todos en largo)
-                const one = new Set([...res.filter((r) => r.now === 'sr1').map((r) => r.key), 'Furia', 'Forma salvaje', 'Segundo aliento', 'Canalizar Divinidad', 'Canalización divina']);
-                const all = [RELENTLESS, ...(c.magicItems || []).filter((i) => i.charges?.per === 'sr').map(itemKey), ...features.filter((f) => f.per === 'sr').map((f) => f.key), ...res.filter((r) => r.now === 'sr').map((r) => r.key)].filter((k) => !one.has(k));
-                const rested = shortRest(c, all);
-                // los que recuperan uno en descanso corto (dados psiónicos, Canalizar divinidad)
-                one.forEach((k) => { if (rested.uses[k]) rested.uses[k] -= 1; });
-                replace(rested); setResting(false);
-              }}>Terminar descanso corto</button>
-            </div>
-          </div>
-        )}
-      </section>
       </div>
       {fillersAt(1)}
       </div>

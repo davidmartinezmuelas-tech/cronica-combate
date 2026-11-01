@@ -1,4 +1,5 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useState, type ReactElement, type ReactNode } from 'react';
+import Pips from './Pips';
 
 /** Ventana con el texto completo de un conjuro, rasgo o dote: se cierra con Esc, con «Cerrar» o pulsando fuera. */
 export function InfoDialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -20,6 +21,19 @@ export function InfoDialog({ title, onClose, children }: { title: string; onClos
   );
 }
 
+/** Saca de `head` los primeros usos (`Pips`), para ponerlos en la línea del nombre en vez de en una propia. */
+function takePips(head: ReactNode): { rest: ReactNode; pips: ReactElement | null } {
+  let pips: ReactElement | null = null;
+  const walk = (n: ReactNode): ReactNode => {
+    if (pips || !isValidElement(n)) return n;
+    if (n.type === Pips) { pips = n; return null; }
+    const kids = (n.props as { children?: ReactNode }).children;
+    return kids == null ? n : cloneElement(n, {}, ...Children.toArray(kids).map(walk));
+  };
+  const rest = walk(head);
+  return { rest, pips };
+}
+
 /**
  * Tarjeta de la hoja: a la vista el nombre, sus datos, usos y botones (`head`); el texto (`children`) se abre en una
  * ventana al pulsar el nombre, junto a lo mismo que la tarjeta para poder tirar desde ahí. Sin texto, el nombre no abre nada.
@@ -27,12 +41,14 @@ export function InfoDialog({ title, onClose, children }: { title: string; onClos
 export default function Card({ name, head, children, dialog }: { name: string; head?: ReactNode; children?: ReactNode; dialog?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const body = dialog ?? children;
+  const { rest, pips } = takePips(head);
+  const title = body ? (
+    <button className="card-title" aria-haspopup="dialog" title="Ver el texto completo" onClick={() => setOpen(true)}><b>{name}</b></button>
+  ) : <b className="card-title">{name}</b>;
   return (
     <div className="card">
-      {body ? (
-        <button className="card-title" aria-haspopup="dialog" title="Ver el texto completo" onClick={() => setOpen(true)}><b>{name}</b></button>
-      ) : <b className="card-title">{name}</b>}
-      {head}
+      {pips ? <div className="card-top">{title}{pips}</div> : title}
+      {pips ? rest : head}
       {open && body && (
         <InfoDialog title={name} onClose={() => setOpen(false)}>
           {dialog ?? <>{head && <div className="card-head-copy">{head}</div>}{children}</>}
