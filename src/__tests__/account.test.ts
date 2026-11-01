@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { blankCharacter, type Character } from '../engine/character';
-import type { Encounter, Monster, RosterEntry } from '../data/types';
+import type { Encounter, Monster, RosterEntry, Script } from '../data/types';
 import { applyItems, diffCharacters, mergeCharacters, mergeItems } from '../engine/sync';
 import { blankRoster } from '../store/persist';
 import { useStore } from '../store/useStore';
@@ -107,6 +107,23 @@ describe('sincronizar con la cuenta', () => {
     expect(cloud.items.encounters.has('e1')).toBe(false);
     cloud.emitItems('monsters', [], ['m3']);
     expect(useStore.getState().custom.some((m) => m.id === 'm3')).toBe(false);
+  });
+  it('el máster: sus guiones suben, bajan y se borran con la cuenta', async () => {
+    useStore.setState({ loaded: true, custom: [], encounters: [], roster: [], scripts: [{ id: 'g1', title: 'Solo aquí', text: 'uno', at: 100 }] });
+    const cloud = fakeCloud({ uid: 'u1', email: 'a@b.c', name: null, anon: false });
+    cloud.items.scripts.set('g2', { id: 'g2', title: 'De otro dispositivo', text: 'dos', at: 50 } as { id: string });
+    setCloudAdapter(async () => cloud.adapter);
+    await useAccount.getState().start();
+    await vi.waitFor(() => expect(cloud.items.scripts.has('g1')).toBe(true));
+    expect(useStore.getState().scripts.map((g) => g.title).sort()).toEqual(['De otro dispositivo', 'Solo aquí']);
+    // editar aquí lo sube; borrar aquí lo borra de la cuenta
+    vi.useFakeTimers();
+    useStore.setState({ scripts: useStore.getState().scripts.map((g) => (g.id === 'g1' ? { ...g, text: 'editado' } : g)) });
+    await vi.advanceTimersByTimeAsync(1500);
+    vi.useRealTimers();
+    expect((cloud.items.scripts.get('g1') as unknown as Script).text).toBe('editado');
+    useStore.setState({ scripts: useStore.getState().scripts.filter((g) => g.id !== 'g2') });
+    expect(cloud.items.scripts.has('g2')).toBe(false);
   });
   it('el jugador: sus subclases y conjuros propios van a la cuenta; lo importado del libro no', async () => {
     const sub = (id: string, n: string, at?: number) => ({ id, n, cls: 'fighter', d: '', f: [], own: true, ...(at ? { at } : {}) });

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Encounter, Monster, RosterEntry } from '../data/types';
+import type { Encounter, Monster, RosterEntry, Script } from '../data/types';
 import { applyItems, diffCharacters, diffItems, mergeCharacters, mergeItems, type Synced } from '../engine/sync';
 import { cloudError, firebaseAdapter, type CloudAdapter, type CloudUser, type DmKind } from './cloudAdapter';
 import { usePlayer } from './player';
@@ -52,8 +52,8 @@ let stopAuth: (() => void) | null = null;
 let stopSync: (() => void) | null = null;
 
 /** Dónde vive en el almacén del máster cada cosa que se guarda en la cuenta. */
-const DM_KEYS: Record<Exclude<DmKind, 'creations'>, 'custom' | 'encounters' | 'roster'> = { monsters: 'custom', encounters: 'encounters', roster: 'roster' };
-type DmItem = Monster | Encounter | RosterEntry;
+const DM_KEYS: Record<Exclude<DmKind, 'creations'>, 'custom' | 'encounters' | 'roster' | 'scripts'> = { monsters: 'custom', encounters: 'encounters', roster: 'roster', scripts: 'scripts' };
+type DmItem = Monster | Encounter | RosterEntry | Script;
 /** La hoja en PDF de un jugador del grupo se queda en el dispositivo donde se subió: no va a la nube. */
 const toCloudItem = (kind: Exclude<DmKind, 'creations'>, x: DmItem) => (kind === 'roster' ? { ...(x as RosterEntry), pdf: null } : x);
 
@@ -64,7 +64,7 @@ function dmLoaded(): Promise<void> {
 }
 
 /**
- * Sincroniza con la cuenta las criaturas propias, los encuentros y el grupo del máster. Cada cambio local se fecha
+ * Sincroniza con la cuenta las criaturas propias, los encuentros, los guiones y el grupo del máster. Cada cambio local se fecha
  * (`at`) y se sube; de la nube solo se aplica lo más reciente, así el eco de lo propio no pisa lo que se está editando.
  */
 async function startDmSync(a: CloudAdapter, uid: string, onError: (e: unknown) => void, onOk: () => void): Promise<() => void> {
