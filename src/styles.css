@@ -1737,8 +1737,16 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 /* movil: margenes laterales de la pagina mas estrechos y controles tactiles mayores */
 @media (max-width:560px){.app-main{padding:14px 12px 32px;gap:14px}.pip{width:22px;height:22px}.pips{gap:8px}.stat .btn.small,.stat-xp .input{min-height:34px}}
 /* editar personaje: dos columnas de tarjetas que se llenan por separado (sin huecos); el asistente va en una, paso a paso */
-.ce-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:14px;align-items:start}
-.ce-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.ce-flat{container-type:inline-size}
+.ce-cols{display:flex;flex-direction:column;gap:14px}
+.ce-col{display:contents}
+.ce-col:first-child>:nth-child(1){order:1}.ce-col:first-child>:nth-child(2){order:3}.ce-col:first-child>:nth-child(3){order:7}
+.ce-col:last-child>:nth-child(1){order:2}.ce-col:last-child>:nth-child(2){order:4}.ce-col:last-child>:nth-child(3){order:5}.ce-col:last-child>:nth-child(4){order:6}
+@container (min-width:940px){
+  .ce-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+  .ce-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .ce-col>*{order:0 !important}
+}
 .ce-wiz .ce-cols,.ce-wiz .ce-col{display:contents}
 .ce-flat .ce-skills{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .shot-row{display:flex;flex-direction:column;gap:4px;padding:6px 0;border-top:1px solid var(--line)}
