@@ -362,7 +362,9 @@ export function derive(c: Character, data: PlayerData | null): Derived {
     const thrown = w.kind === 'ranged' && has('arrojadiza') ? add('dmgThrown', sum('dmgThrown'), 'al daño') : 0;
     // arma cuerpo a cuerpo arrojadiza (daga, jabalina): el bonificador solo cuando se lanza
     const thrownMelee = w.kind === 'melee' && has('arrojadiza') ? add('dmgThrown', sum('dmgThrown'), 'al daño si la lanzas') : 0;
-    const heavy = has('pesada') && featOf('dmgHeavyProf').length ? add('dmgHeavyProf', pb, 'al daño') : 0;
+    // arma propia sin propiedades («Espadón +1»): pesada si lleva el nombre de un arma pesada del libro
+    const heavyByName = !props.length && !!data?.weapons.some((x) => (x.props || []).some((q) => norm(q) === 'pesada') && [x.n, x.en].some((nm) => nm && norm(w.name).includes(norm(nm))) && !data.weapons.some((y) => y !== x && norm(y.n).length > norm(x.n).length && norm(w.name).includes(norm(y.n))));
+    const heavy = (has('pesada') || heavyByName) && featOf('dmgHeavyProf').length ? add('dmgHeavyProf', pb, 'al daño') : 0;
     const iw = ifx.weapons[w.id];
     const wb = (w.bonus || 0) + (iw?.bonus || 0);
     if (iw?.bonus) notes.push(iw.why.join(', ') + ' ' + (iw.bonus > 0 ? '+' : '') + iw.bonus + ' al ataque y al daño');

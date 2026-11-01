@@ -437,6 +437,11 @@ export default function CharacterEditor({ c }: { c: Character }) {
                 <label className="check"><input type="checkbox" checked={w.kind === 'ranged'} onChange={(e) => setWeapon(w.id, { kind: e.target.checked ? 'ranged' : 'melee' })} />A distancia</label>
                 <label className="check"><input type="checkbox" checked={w.finesse} onChange={(e) => setWeapon(w.id, { finesse: e.target.checked })} />Sutil</label>
               </div>
+              <div className="rollrow" role="group" aria-label={'Propiedades de ' + w.name}>
+                {['Pesada', 'A dos manos', 'Ligera', 'Arrojadiza', 'Alcance'].map((p) => (
+                  <label key={p} className="check"><input type="checkbox" checked={(w.props || []).some((x) => norm(x) === norm(p))} onChange={(e) => setWeapon(w.id, { props: e.target.checked ? [...(w.props || []), p] : (w.props || []).filter((x) => norm(x) !== norm(p)) })} />{p}</label>
+                ))}
+              </div>
             </div>
           ))}
         </fieldset>

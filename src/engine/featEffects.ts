@@ -36,7 +36,7 @@ export const FEAT_EFFECTS: { n: string[]; e: FeatEffect }[] = [
   { n: ['Duelo', 'Dueling'], e: { dmgOneHand: 2 } },
   { n: ['Combate con armas arrojadizas', 'Thrown Weapon Fighting'], e: { dmgThrown: 2 } },
   { n: ['Combate con armas a dos manos', 'Combate con arma a dos manos', 'Great Weapon Fighting'], e: { minDie2h: 3 } },
-  { n: ['Maestro en armas pesadas', 'Great Weapon Master'], e: { dmgHeavyProf: true } },
+  { n: ['Maestro en armas pesadas', 'Maestro de armas pesadas', 'Maestro en armas grandes', 'Maestro de armas grandes', 'Great Weapon Master'], e: { dmgHeavyProf: true } },
   { n: ['Defensa', 'Defense'], e: { acArmor: 1 } },
   { n: ['Alerta', 'Alert'], e: { initProf: true } },
   { n: ['Duro', 'Tough'], e: { hpPerLevel: 2 } },
@@ -79,6 +79,8 @@ export function mergeEffects(fx: { e: FeatEffect }[]): FeatEffect {
 
 /** Efectos de las dotes que tiene (por nombre), cada uno con el nombre de la dote que lo da. */
 export function featEffects(names: string[]): { n: string; e: FeatEffect }[] {
-  const have = new Set(names.map(norm));
-  return FEAT_EFFECTS.filter((f) => f.n.some((x) => have.has(norm(x)))).map((f) => ({ n: names.find((x) => f.n.some((y) => norm(y) === norm(x)))!, e: f.e }));
+  // sin espacios ni signos: «GreatWeaponMaster» o «Great-Weapon Master» valen igual
+  const key = (x: string) => norm(x).replace(/[^a-z0-9]/g, '');
+  const have = new Set(names.map(key));
+  return FEAT_EFFECTS.filter((f) => f.n.some((x) => have.has(key(x)))).map((f) => ({ n: names.find((x) => f.n.some((y) => key(y) === key(x)))!, e: f.e }));
 }

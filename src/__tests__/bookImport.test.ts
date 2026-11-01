@@ -200,3 +200,38 @@ describe('limpiar el final del texto de un objeto', () => {
     expect(cleanItemTail('No puede volver a usarse hasta el siguiente amanecer,')).toBe('No puede volver a usarse hasta el siguiente amanecer,');
   });
 });
+
+describe('descripciones de trasfondos que vienen juntas', () => {
+  it('reparte las dos descripciones de una página entre sus dos trasfondos y quita restos de ilustración', () => {
+    const stat = (n: string, feat: string): Line[] => [n, 'Puntuaciones de característica: Fuerza, Destreza, Carisma', 'Dote: ' + feat + ' (consulta el capítulo 5)', 'Competencias en habilidades: Atletismo y Percepción', 'Competencia con herramientas: útiles de herborista', 'Equipo: elige A o B: (A) bastón y 8 po, o (B) 50 po']
+      .map((t, i) => ({ t, col: 0, y: 700 - i * 12 }));
+    const text = (rows: [string, number][]): Line[] => rows.map(([t, y]) => ({ t, col: 1, y }));
+    const lines: Line[] = [
+      ...stat('ACÓLITO', 'Alerta'), ...stat('ANIMADOR', 'Músico'),
+      ...text([['/ RAR «Ss', 700], ['Dedicabas tu vida al servicio de un templo en el bosque.', 688], ['Servías a un sacerdote durante años.', 676],
+        ['Pasaste tu juventud en ferias y festivales', 652], ['con músicos y acróbatas.', 640]]),
+    ];
+    const bg = parseBackgrounds(lines);
+    expect(bg.map((b) => b.n)).toEqual(['Acólito', 'Animador']);
+    expect(bg[0].d).toBe('Dedicabas tu vida al servicio de un templo en el bosque. Servías a un sacerdote durante años.');
+    expect(bg[1].d).toBe('Pasaste tu juventud en ferias y festivales con músicos y acróbatas.');
+  });
+});
+
+describe('subclases: pies de ilustración y nombres en dos líneas', () => {
+  it('el pie con el nombre de la siguiente subclase no se lleva el final del último rasgo; el nombre que acaba en «del» sigue en la línea siguiente', async () => {
+    const { parseSubclasses } = await import('../engine/bookImport');
+    const s = parseSubclasses(L(
+      'SUBCLASES DE GUERRERO',
+      'CAMPEÓN', 'Aspira a la excelencia.', 'NIVEL 3: ATLETA', 'Tienes ventaja.',
+      'SUBCLASE DE', 'GUERRERO PSIÓNICO', // pie de la ilustración de la siguiente, en medio de los rasgos de esta
+      'NIVEL 18: SUPERVIVIENTE', 'Alcanzas la cumbre de la resistencia en batalla.',
+      'GUERRERO PSIÓNICO', 'Aumenta tu poderío físico.', 'NIVEL 3: PODER PSIÓNICO', 'Imbuyes tus ataques.',
+    ));
+    expect(s.map((x) => x.n)).toEqual(['Campeón', 'Guerrero psiónico']);
+    expect(s[0].f[1].d).toBe('Alcanzas la cumbre de la resistencia en batalla.');
+    expect(s[1].d).toBe('Aumenta tu poderío físico.');
+    const p = parseSubclasses(L('SUBCLASES DE PALADÍN', 'JURAMENTO DE ENTREGA', 'Defiende la justicia.', 'NIVEL 3: CONJUROS DEL', 'JURAMENTO DE ENTREGA', 'Siempre preparados.'));
+    expect(p[0].f[0].n).toBe('Conjuros del juramento de entrega');
+  });
+});

@@ -92,7 +92,8 @@ function paragraphs(lines: string[]): string {
     if (newPara) out.push(t);
     else out[out.length - 1] = (out[out.length - 1] + ' ' + t).replace(/(\p{L})- (\p{L})/gu, '$1$2');
   }
-  return out.join('\n\n');
+  // «dl0» por «d10» (el OCR confunde el 1 con una l)
+  return out.join('\n\n').replace(/(?<![a-z])d[lI]([0-9O])\b/g, (_, x: string) => 'd1' + (x === 'O' ? '0' : x));
 }
 
 const id = (prefix: string, n: string) => prefix + '-' + norm(n).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -138,6 +139,7 @@ const FIELD = /^(Puntuaciones de caracter[ií]stica|Dote|Competencias? en habili
 /** Trasfondos: título en mayúsculas y los campos «Puntuaciones de característica:», «Dote:», «Competencias…», «Equipo:». */
 export function parseBackgrounds(lines: Line[]): LibBackground[] {
   const out: LibBackground[] = [];
+  const raws: Line[][] = [];
   for (let i = 0; i < lines.length; i++) {
     if (!/^Puntuaciones de caracter[ií]stica\s*:/i.test(lines[i].t)) continue;
     // el nombre: el título en mayúsculas justo encima (a veces el OCR no lo lee: se deduce después por el orden)
@@ -147,6 +149,7 @@ export function parseBackgrounds(lines: Line[]): LibBackground[] {
     const fields: Record<string, string> = {};
     let key = '';
     const desc: string[] = [];
+    const descL: Line[] = [];
     let j = i;
     for (; j < lines.length; j++) {
       const t = lines[j].t;
@@ -158,7 +161,9 @@ export function parseBackgrounds(lines: Line[]): LibBackground[] {
       if (key && key !== 'x' && key !== 'equipo' && fields[key] != null) fields[key] += ' ' + t;
       // el equipo termina en «… o (B) 50 po»: lo que sigue ya es la descripción
       else if (key === 'equipo' && !/\b\d+\s*po\.?\s*$/i.test(fields.equipo) && fields.equipo.length < 400) fields.equipo += ' ' + t;
-      else { key = 'x'; desc.push(t); }
+      // restos de la ilustración del encabezado leídos como letras sueltas («/ RAR «Ss»): sin ninguna palabra
+      else if (!/\p{Ll}{3,}/u.test(t)) key = 'x';
+      else { key = 'x'; desc.push(t); descL.push(lines[j]); }
     }
     const abilTxt = norm(fields.puntuaciones || '');
     const abil = Object.entries(ABIL_ES).filter(([es]) => abilTxt.includes(es)).map(([, k]) => k);
@@ -166,11 +171,38 @@ export function parseBackgrounds(lines: Line[]): LibBackground[] {
     const skills = Object.entries(SKILL_ES).filter(([es]) => skillTxt.includes(es)).map(([, k]) => k).filter((k, n, a) => a.indexOf(k) === n);
     const feat = (fields.dote || '').replace(/\(.*?\)/g, '').replace(/\s+/g, ' ').trim();
     const name = titled ? titleCase(lines[h].t) : '';
-    out.push({ id: '', n: name, abil, skills, tool: (fields.competencia || fields.herramientas || '').trim(), feat, equip: (fields.equipo || '').trim(), d: paragraphs(desc) });
+    out.push({ id: '', n: name, abil, skills, tool: (fields.competencia || fields.herramientas || '').trim(), feat, equip: (fields.equipo || '').trim().replace(/\(([ab])\)/g, (_, x: string) => '(' + x.toUpperCase() + ')'), d: paragraphs(desc) });
+    raws.push(descL);
     i = j - 1;
   }
+  splitBackgroundTexts(out, raws);
   nameBackgrounds(out);
   return dedupe(out.map((b) => ({ ...b, id: id('lib-trasfondo', b.n) })));
+}
+
+/**
+ * El libro pone las fichas de dos trasfondos seguidas y después sus dos descripciones: todo el texto cae en el último.
+ * Se reparte cortando por los finales de párrafo (línea que acaba en punto y es de las más cortas, seguida de mayúscula).
+ */
+function splitBackgroundTexts(list: LibBackground[], raws: Line[][]) {
+  for (let m = 0; m < list.length; m++) {
+    let k = m;
+    while (k > 0 && !raws[k - 1].length) k--;
+    const parts = m - k + 1;
+    if (parts < 2 || !raws[m].length) continue;
+    const L = raws[m].filter((x) => x.t.trim());
+    const w = Math.max(...L.map((x) => x.t.length));
+    // candidatos: la línea anterior acaba en punto y esta empieza en mayúscula
+    const cands = L.map((x, n) => ({ n, gap: n ? (L[n - 1].col === x.col ? L[n - 1].y - x.y : 0) : 0, r: n ? L[n - 1].t.length / w : 1 }))
+      .filter(({ n }) => n > 0 && /^[A-ZÁÉÍÓÚÑ¿¡]/.test(L[n].t.trim()));
+    // la separación vertical entre párrafos manda; si no se distingue, la línea anterior más corta
+    const typical = [...L.slice(1).map((x, n) => (L[n].col === x.col ? L[n].y - x.y : 0)).filter((g) => g > 0)].sort((a, b) => a - b)[Math.floor(L.length / 2)] || 0;
+    const byGap = cands.filter((c) => typical && c.gap > typical * 1.25).sort((a, b) => b.gap - a.gap);
+    const chosen = (byGap.length >= parts - 1 ? byGap : cands.filter(({ n }) => /[.!?»"]$/.test(L[n - 1].t.trim())).sort((a, b) => a.r - b.r)).slice(0, parts - 1).sort((a, b) => a.n - b.n);
+    if (chosen.length < parts - 1) continue;
+    const bounds = [0, ...chosen.map((c) => c.n), L.length];
+    for (let q = 0; q < parts; q++) list[k + q].d = paragraphs(L.slice(bounds[q], bounds[q + 1]).map((x) => x.t));
+  }
 }
 
 /** Los 16 trasfondos del Manual del Jugador 2024 en español, en el orden alfabético del libro (solo los nombres). */
@@ -377,6 +409,8 @@ export function introNames(cls: string, text: string): string[] {
   }
   return out;
 }
+/** Nivel del último rasgo de subclase de cada clase (2024). */
+const LAST_LEVEL: Record<string, number> = { barbarian: 14, bard: 14, warlock: 14, cleric: 17, druid: 14, ranger: 15, fighter: 18, sorcerer: 18, wizard: 14, monk: 17, paladin: 20, rogue: 17 };
 const CLASS_IDS: Record<string, string> = {
   barbaro: 'barbarian', bardo: 'bard', brujo: 'warlock', clerigo: 'cleric', druida: 'druid', explorador: 'ranger',
   guerrero: 'fighter', hechicero: 'sorcerer', mago: 'wizard', monje: 'monk', paladin: 'paladin', picaro: 'rogue',
@@ -415,8 +449,14 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
   // texto de los rasgos de cada clase: su rasgo «Subclase de …» enumera los nombres de las subclases
   const coreText: Record<string, string> = {};
   let coreCls = '';
+  const caps: string[] = [];
 
+  let noise = false;
   for (const { t } of lines) {
+    // restos de pie de página o de ilustración leídos como texto («CAPÍTUL: | CLASES DE PERSON», «Y YN = = =» y su pie)
+    if (/^CAP[IÍ]TUL\S*\s*\S{0,2}\s*[|¦]/i.test(t) || /(?:\s?=){3}/.test(t)) { noise = true; continue; }
+    if (noise && t.length < 40 && !/[.:]$/.test(t)) { noise = false; continue; }
+    noise = false;
     const section = /^SUBCLASES DE (\p{L}+)/u.exec(t);
     if (section) { flush(); st.pending = null; st.cls = CLASS_IDS[norm(section[1])] || ''; continue; }
     // los rasgos de la clase base (siguiente capítulo de clase) cierran la sección de subclases
@@ -435,7 +475,7 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
       if (lv === START && (!st.cur || top() > START)) {
         const p = st.pending;
         st.pending = null;
-        open(p?.name || '', p?.intro || []);
+        open(p?.name || [...caps].reverse().find((c) => !used.has(norm(c))) || '', p?.intro || []);
       } else if (st.pending && st.cur?.feat) {
         // lo leído tras un título no confirmado pertenecía al rasgo que seguía abierto
         st.cur.feat.body.push(...st.pending.intro);
@@ -446,8 +486,13 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
       st.cur.feat = { lv, n: titleCase(fm[2]), body: [] };
       continue;
     }
+    // «NIVEL 3: CONJUROS DEL» + «JURAMENTO DE ENTREGA»: un nombre que acaba en preposición sigue en la línea siguiente
+    if (st.cur?.feat && !st.cur.feat.body.length && / (de|del|de la|de las|de los)$/i.test(st.cur.feat.n) && isCaps(t)) { st.cur.feat.n += ' ' + t.toLowerCase(); continue; }
     if (isTitle(t) && isSubclassName(st.cls, t)) {
       const name = canonSub(titleCase(t));
+      // con la subclase abierta sin llegar a su último rasgo, un nombre es el pie de una ilustración (el texto que sigue es
+      // del rasgo abierto): solo sirve de nombre a una subclase cuyo título no se leyó
+      if (st.cur && top() < (LAST_LEVEL[st.cls] || 0)) { caps.push(name); continue; }
       // el mismo nombre otra vez o uno ya usado no cuenta; uno más completo sustituye a uno cortado
       if (norm(name) === norm(st.cur?.s.n || '') || used.has(norm(name))) continue;
       if (!st.pending || norm(name).startsWith(norm(st.pending.name)) || !norm(st.pending.name).startsWith(norm(name))) st.pending = { name, intro: st.pending?.intro || [] };

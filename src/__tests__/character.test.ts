@@ -105,6 +105,20 @@ describe('dotes que se aplican solas', () => {
   });
 });
 
+describe('Maestro en armas pesadas con arma propia', () => {
+  const base = { classId: 'fighter', level: 5, abil: { str: 16, dex: 14, con: 14, int: 10, wis: 10, cha: 10 } };
+  const mk = (name: string, props: string[]) => ({ id: 'w-x', name, dmg: '2d6', type: 'cortante', abil: 'auto' as const, kind: 'melee' as const, finesse: false, prof: true, bonus: 0, extra: [], props });
+  const dmg = (name: string, props: string[], feat = 'GreatWeaponMaster') => derive(pj({ ...base, weapons: [mk(name, props)], feats: [feat] }), data).attacks[0];
+  it('suma la competencia al daño si el arma propia es pesada (marcada o por su nombre) y reconoce el nombre en inglés sin espacios', () => {
+    const rara = dmg('Arma rara', []);
+    expect(dmg('Arma rara', ['Pesada', 'A dos manos']).dmg).not.toBe(rara.dmg);
+    expect(dmg('Espadón +1', []).dmg).not.toBe(rara.dmg);
+    expect(dmg('Gran maza', []).dmg).toBe(dmg('Arma rara', ['Pesada']).dmg);
+    expect(dmg('Daga +1', []).dmg).toBe(rara.dmg);
+    expect(dmg('Arma rara', ['Pesada'], 'Maestro de armas pesadas').dmg).toBe(dmg('Arma rara', ['Pesada']).dmg);
+  });
+});
+
 describe('dotes con botones propios', () => {
   const fighter = data.classes.find((c) => c.id === 'fighter')!;
   const W = (en: string) => weaponFromData(data.weapons.find((w) => w.en === en)!, fighter);
