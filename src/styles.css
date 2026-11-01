@@ -643,6 +643,8 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .sp-tab-n{font-size:12px;font-weight:800;color:#8a7652}
 /* conjuros y rasgos en bloques (por nivel / por origen) repartidos en columnas, como las características */
 .pc-blocks{display:grid;gap:10px;align-items:start}
+.pc-blocks.flow{display:flex;flex-wrap:wrap;align-items:stretch}
+.pc-blocks.flow>.pc-block{flex:1 1 auto;min-width:0}
 .pc-block-col{display:flex;flex-direction:column;gap:10px;min-width:0}
 .pc-block{gap:6px}
 .pc-block-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}

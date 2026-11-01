@@ -70,7 +70,8 @@ function chunkGroups<G extends { title: string; list: unknown[] }>(groups: G[], 
 }
 
 /** Peso (alto aproximado, en filas) de un bloque: su cabecera y una fila por elemento. */
-const blockW = (x: { list: unknown[] }) => 1.6 + x.list.length;
+// peso de un bloque al repartirlos en tarjetas: los de una o dos filas van de lado a lado, así que pesan la mitad
+const blockW = (x: { list: unknown[] }) => (x.list.length <= 1 ? 1.8 : 1.6 + x.list.length);
 
 /** Rasgos que tiene a su nivel: de clase, de subclase, de especie y dotes, con sus usos. */
 function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): FeatureRow[] {
@@ -645,7 +646,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     </div>
   );
   const featBlock = ({ key, title, list }: (typeof ftParts)[number]) => (
-    <div key={key} className="pc-abil pc-block pc-block-ft" role="group" aria-label={title}>
+    <div key={key} className="pc-abil pc-block pc-block-ft" role="group" aria-label={title} style={{ flexBasis: list.length <= 1 ? 170 : list.length <= 2 ? 380 : list.length <= 4 ? 260 : 360 }}>
       <span className="pc-abil-k">{title}</span>
       <ul className="pc-features ft-list">
         {list.map((f) => {
@@ -673,6 +674,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       {splitCols(parts, blockW, Math.max(1, Math.min(n, parts.length))).map((col, ci) => <div key={ci} className="pc-block-col">{col.map(render)}</div>)}
     </div>
   );
+  // rasgos y dotes: los bloques pequeños (una o dos filas) van uno al lado del otro, cada uno con su etiqueta; los grandes toman más ancho
+  const blockFlow = <T extends { list: unknown[] }>(parts: T[], render: (p: T) => JSX.Element) => <div className="pc-blocks flow">{parts.map(render)}</div>;
   const spellsPanel = hasSpells ? (
         <section className="panel" aria-label="Conjuros" data-sec="conjuros">
           <div className="panel-head">
@@ -772,7 +775,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         {lib.loaded && missingSubs.map((n) => <p key={n} className="warn small" role="status" style={{ margin: 0 }}>«{n}» no está en la biblioteca de este dispositivo: si la importaste de tu Manual del Jugador, vuelve a importarlo en «Biblioteca» (o carga una copia que incluya tu biblioteca) para tener sus rasgos y sus conjuros.</p>)}
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
-        {ftPieces[0].length > 0 && blockGrid(ftPieces[0], featBlock, lowN)}
+        {ftPieces[0].length > 0 && blockFlow(ftPieces[0], featBlock)}
       </section>
   );
   const fillers: { key: string; node: JSX.Element }[] = [
@@ -785,7 +788,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     { key: 'ft0', node: rasgosPanel },
     ...ftPieces.slice(1).map((part, i) => ({ key: 'ft' + (i + 1), node: (
       <section className="panel" aria-label="Rasgos y dotes (cont.)" data-sec="rasgos">
-        {blockGrid(part, featBlock, lowN)}
+        {blockFlow(part, featBlock)}
       </section>
     ) })),
   ];
