@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { offListSpells, sheetToCharacter, unknownSpells, type SpellRef } from '../../engine/characterImport';
+import { libSpellEn } from '../../engine/spellNames';
 import { subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { sampleCharacter } from '../../engine/sample';
 import { norm } from '../../engine/util';
@@ -54,7 +55,8 @@ export default function CharacterArea() {
     await useLibrary.getState().init();
     const srd: SpellRef[] = (useStore.getState().rules || []).filter((e) => e.cat === 'Conjuros').map((e) => ({ id: e.id, n: e.n, en: e.en }));
     const srdNames = new Set(srd.map((x) => norm(x.n)));
-    const spells: SpellRef[] = [...srd, ...useLibrary.getState().spells.filter((x) => !srdNames.has(norm(x.n))).map((x) => ({ id: x.id, n: x.n, en: '', classes: x.classes }))];
+    const srdEn = new Set(srd.map((x) => norm(x.en)));
+    const spells: SpellRef[] = [...srd, ...useLibrary.getState().spells.filter((x) => !srdNames.has(norm(x.n))).map((x) => ({ id: x.id, n: x.n, en: libSpellEn(x.n, srdEn), classes: x.classes }))];
     const base = create();
     const made = sheetToCharacter(fields, sheet, d, spells, f.name);
     // los conjuros que no están en ningún sitio se anotan en la hoja para no perderlos
