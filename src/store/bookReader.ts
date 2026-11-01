@@ -60,7 +60,7 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
   }, onProgress, signal);
   const kinds = fillClassGaps(pages.map((p) => p.kinds));
   pages.forEach((p, i) => { for (const k of kinds[i]) L[k].push(...p.lines); });
-  return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells), subclasses: parseSubclasses(L.classes), pages: n };
+  return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells, pages.flatMap((p) => p.lines)), subclasses: parseSubclasses(L.classes), pages: n };
 }
 
 /** Lee el PDF del Manual de Monstruos del usuario en su navegador y extrae las fichas de monstruo. */

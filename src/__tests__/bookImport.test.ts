@@ -154,3 +154,36 @@ describe('subclases', () => {
     expect(fillClassGaps([[], ['classes'], [], ['classes'], [], ['spells']])).toEqual([[], ['classes'], ['classes'], ['classes'], [], ['spells']]);
   });
 });
+
+describe('conjuros con errores de OCR y en inglés', () => {
+  const body = (...extra: string[]) => ['Tiempo de lanzamiento: Acción', 'Alcance: 18 m', 'Componentes: V, S', 'Duración: Instantáneo', ...extra];
+  it('lee «nivel1», una escuela con una letra cambiada y una etiqueta mal escrita', () => {
+    const s = parseSpells(L('ROCIADA DE COLOR', 'Hlusionismo de nivel1 (bardo, hechicero, mago)', ...body('Emites una ráfaga de luces.'), 'CÍRCULO', 'Conjuración de nivel 5 (mago)', 'Tiempo de lanzamieñto: 1 minuto', 'Alcance: 3 m', 'Componentes: V', 'Duración: 1 asalto', 'Trazas un círculo.'));
+    expect(s.map((x) => [x.n, x.l, x.esc])).toEqual([['Rociada de color', 1, 'Ilusionismo'], ['Círculo', 5, 'Conjuración']]);
+    expect(s[1].ct).toBe('1 minuto');
+  });
+  it('junta un título largo partido en dos líneas', () => {
+    const s = parseSpells(L('SANCTASANCTÓRUM PRIVADO', 'DE MORDENKAINEN', 'Abjuración de nivel 4 (mago)', ...body('Haces una zona segura.')));
+    expect(s.map((x) => x.n)).toEqual(['Sanctasanctórum privado de Mordenkainen']);
+  });
+  it('corrige un título mal leído con el nombre de las listas del libro', () => {
+    const names = Array.from({ length: 40 }, (_, i) => 'Conjuro número ' + String.fromCharCode(97 + Math.floor(i / 26)) + String.fromCharCode(97 + (i % 26)));
+    const list = L(...names.map((n) => n + ' Abjuración'), 'Escudo Abjuración  C');
+    const s = parseSpells(L('ESCUPO', 'Abjuración de nivel 1 (mago)', ...body('Una barrera.')), list);
+    expect(s[0].n).toBe('Escudo');
+  });
+  it('quita el pie de ilustración mal leído antes de la descripción', () => {
+    const s = parseSpells(L('FLECHA DE RELÁMPAGO', 'Transmutación de nivel 3 (explorador)', ...body('Esuocano conil', 'Cuando tu ataque acierte, el arma se transforma.')));
+    expect(s[0].t).toBe('Cuando tu ataque acierte, el arma se transforma.');
+  });
+  it('lee la cabecera en inglés y guarda la escuela en español', () => {
+    const s = parseSpells(L('FIREBALL', 'Level 3 Evocation (Sorcerer, Wizard)', 'Casting Time: Action', 'Range: 150 feet', 'Components: V, S, M (a ball of bat guano)', 'Duration: Instantaneous', 'A bright streak flashes.', 'SHOCKING GRASP', 'Evocation Cantrip (Sorcerer, Wizard)', 'Casting Time: Action', 'Range: Touch', 'Components: V, S', 'Duration: Instantaneous', 'Lightning springs from your hand.'));
+    expect(s.map((x) => [x.n, x.l, x.esc, x.classes.join(',')])).toEqual([['Fireball', 3, 'Evocación', 'sorcerer,wizard'], ['Shocking grasp', 0, 'Evocación', 'sorcerer,wizard']]);
+    expect(s[0].r).toBe('150 feet');
+  });
+  it('las subclases de nombre fijo se escriben bien aunque el OCR cambie una letra', async () => {
+    const { parseSubclasses } = await import('../engine/bookImport');
+    const s = parseSubclasses(L('SUBCLASES DE MAGO', 'ÁDIVINO', 'NIVEL 3: PRESAGIO', 'Ves.', 'NIVEL 6: OTRO', 'Más.'));
+    expect(s[0].n).toBe('Adivino');
+  });
+});

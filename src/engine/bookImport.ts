@@ -199,23 +199,83 @@ export function nameBackgrounds(list: { n: string }[]) {
 
 // la traducción española dice «Ilusionismo» (no «Ilusión»)
 const SCHOOLS = ['Abjuración', 'Adivinación', 'Conjuración', 'Encantamiento', 'Evocación', 'Ilusionismo', 'Ilusión', 'Nigromancia', 'Transmutación'];
-const CLASS_ES: Record<string, string> = { bardo: 'bard', clerigo: 'cleric', druida: 'druid', explorador: 'ranger', hechicero: 'sorcerer', brujo: 'warlock', mago: 'wizard', paladin: 'paladin' };
-const SPELL_HEAD = /^(?:(Truco) de ([A-Za-zÁÉÍÓÚáéíóúñ]+)|([A-Za-zÁÉÍÓÚáéíóúñ]+) de nivel (\d))\s*(?:\((.*)\)?)?/;
+/** Escuelas en inglés, con su nombre en español (la biblioteca guarda siempre el español). */
+const SCHOOLS_EN: Record<string, string> = { abjuration: 'Abjuración', divination: 'Adivinación', conjuration: 'Conjuración', enchantment: 'Encantamiento', evocation: 'Evocación', illusion: 'Ilusionismo', necromancy: 'Nigromancia', transmutation: 'Transmutación' };
+const CLASS_ES: Record<string, string> = { bardo: 'bard', clerigo: 'cleric', druida: 'druid', explorador: 'ranger', hechicero: 'sorcerer', brujo: 'warlock', mago: 'wizard', paladin: 'paladin', bard: 'bard', cleric: 'cleric', druid: 'druid', ranger: 'ranger', sorcerer: 'sorcerer', warlock: 'warlock', wizard: 'wizard' };
+const W = '[A-Za-zÁÉÍÓÚáéíóúñÜü]+';
+/**
+ * Cabecera de un conjuro, en español («Evocación de nivel 3 (mago)», «Truco de evocación (mago)») o en inglés
+ * («Level 3 Evocation (Wizard)», «Evocation Cantrip (Wizard)»). El OCR puede comerse espacios o cambiar letras.
+ */
+const SPELL_HEAD_ES = new RegExp('^(?:(Truco) de (' + W + ')|(' + W + ') de n[ií]vel\\s*(\\d))\\s*(?:\\((.*)\\)?)?');
+const SPELL_HEAD_EN = new RegExp('^(?:Level\\s*(\\d)\\s+(' + W + ')|(' + W + ')\\s+(Cantrip))\\s*(?:\\((.*)\\)?)?', 'i');
+/** Distancia de edición (para reconocer una palabra con una letra mal leída). */
+function lev(a: string, b: string): number {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+const schoolOf = (raw: string): string => {
+  const n = norm(raw);
+  if (SCHOOLS_EN[n]) return SCHOOLS_EN[n];
+  if (SCHOOLS.some((s) => norm(s) === n)) return SCHOOLS.find((s) => norm(s) === n)!;
+  const all = [...SCHOOLS, ...Object.keys(SCHOOLS_EN)];
+  const best = all.map((s) => ({ s, d: lev(norm(s), n) })).sort((a, b) => a.d - b.d)[0];
+  return best && best.d <= 2 ? SCHOOLS_EN[norm(best.s)] || best.s : '';
+};
+function spellHead(t: string): { school: string; level: number; classes: string } | null {
+  const es = SPELL_HEAD_ES.exec(t);
+  if (es) { const school = schoolOf(es[2] || es[3]); return school ? { school, level: es[1] ? 0 : parseInt(es[4], 10), classes: es[5] || '' } : null; }
+  const en = SPELL_HEAD_EN.exec(t);
+  if (en) { const school = schoolOf(en[2] || en[3]); return school ? { school, level: en[1] ? parseInt(en[1], 10) : 0, classes: en[5] || '' } : null; }
+  return null;
+}
+/** Nombres de conjuro de las listas por clase del libro («Bola de fuego  Evocación  C, M»): sirven para corregir un título mal leído. */
+function listedSpellNames(lines: Line[]): string[] {
+  const sch = [...SCHOOLS, ...Object.values(SCHOOLS_EN), ...Object.keys(SCHOOLS_EN)].join('|');
+  const re = new RegExp('^(.{3,48}?)\\s+(?:' + sch + ')(?:\\s+\\S{1,4})?$', 'i');
+  // el OCR deja a veces el icono de la lista delante como una letra suelta («E Caldero burbujeante…»)
+  const clean = (n: string) => n.replace(/^(?:\p{L}|[^\p{L}\d\s])\s+(?=\p{L}{2})/u, '').trim();
+  return [...new Set(lines.map((l) => clean(re.exec(l.t)?.[1] || '')).filter((n) => n.length > 2 && !/\d|\bnivel\b|\blevel\b/i.test(n)))];
+}
+/** Corrige un título con una letra mal leída («Escupo» por «Escudo») con el nombre que da la lista del propio libro. */
+function fixName(name: string, listed: string[]): string {
+  if (listed.length < 30) return name;
+  const n = norm(name);
+  const same = listed.find((x) => norm(x) === n);
+  if (same) return same;
+  const best = listed.map((x) => ({ x, d: lev(norm(x), n) })).sort((a, b) => a.d - b.d)[0];
+  return best && best.d <= (n.length > 9 ? 2 : 1) ? best.x : name;
+}
+const LBL = {
+  ct: /(?:Tiempo de lanza\S*|Casting Time)\s*:\s*(.*?)(?=(?:Alcance|Range)\s*:|$)/i,
+  r: /(?:Alcance|Range)\s*:\s*(.*?)(?=(?:Componentes|Components)\s*:|$)/i,
+  cmp: /(?:Componentes|Components)\s*:\s*(.*?)(?=(?:Duraci[oó]n|Duration)\s*:|$)/i,
+  du: /(?:Duraci[oó]n|Duration)\s*:\s*(.*)$/i,
+};
+const HAS_DURATION = /(?:Duraci[oó]n|Duration)\s*:/i;
+const STARTS_WRAP = /^(de|del|de la|de las|de los|y|o|con|contra|para|por|en)\s/i;
 
 /** Conjuros: título en mayúsculas y debajo «Escuela de nivel N (clases)» o «Truco de escuela (clases)»; luego tiempo, alcance, componentes y duración. */
-export function parseSpells(lines: Line[]): LibSpell[] {
+/** `book`: todas las líneas del libro (las listas de conjuros por clase están en otras páginas que las fichas). */
+export function parseSpells(lines: Line[], book: Line[] = lines): LibSpell[] {
   const out: LibSpell[] = [];
+  const listed = listedSpellNames(book);
   let cur: { s: LibSpell; meta: string; body: string[] } | null = null;
   const flush = () => {
     if (cur) {
       const m = cur.meta;
       const get = (k: RegExp) => (k.exec(m)?.[1] || '').trim();
-      cur.s.ct = get(/Tiempo de lanzamiento:\s*(.*?)(?=Alcance:|$)/i);
-      cur.s.r = get(/Alcance:\s*(.*?)(?=Componentes:|$)/i);
-      cur.s.cmp = get(/Componentes:\s*(.*?)(?=Duraci[oó]n:|$)/i);
-      cur.s.du = get(/Duraci[oó]n:\s*(.*)$/i);
-      cur.s.c = /concentraci[oó]n/i.test(cur.s.du) ? 1 : 0;
+      cur.s.ct = get(LBL.ct);
+      cur.s.r = get(LBL.r);
+      cur.s.cmp = get(LBL.cmp);
+      cur.s.du = get(LBL.du);
+      cur.s.c = /concentraci[oó]n|concentration/i.test(cur.s.du) ? 1 : 0;
       cur.s.rit = /ritual/i.test(cur.s.ct) ? 1 : 0;
+      // un pie de ilustración mal leído («Esuocano conil») antes de la descripción: una línea corta sin punto y otra que empieza una frase
+      const [first, next] = cur.body;
+      if (cur.body.length > 1 && first.length < 20 && !/[.,:;)]$/.test(first) && /^[A-ZÁÉÍÓÚÑ]/.test(next)) cur.body.shift();
       cur.s.t = paragraphs(cur.body);
       out.push(cur.s);
     }
@@ -223,22 +283,24 @@ export function parseSpells(lines: Line[]): LibSpell[] {
   };
   for (let i = 0; i < lines.length; i++) {
     const t = lines[i].t;
-    const head = SPELL_HEAD.exec(lines[i + 1]?.t || '');
-    const school = head && (head[2] || head[3]);
-    if (isTitle(t) && head && SCHOOLS.some((s) => norm(s) === norm(school || ''))) {
+    const head = spellHead(lines[i + 1]?.t || '');
+    if (isTitle(t) && head) {
       flush();
-      let clsTxt = head[5] || '';
+      let clsTxt = head.classes;
       let j = i + 1;
-      while (clsTxt && !lines[j].t.includes(')') && j + 1 < lines.length && !/^Tiempo de lanzamiento/i.test(lines[j + 1].t)) { j++; clsTxt += ' ' + lines[j].t; }
-      const classes = Object.entries(CLASS_ES).filter(([es]) => norm(clsTxt).includes(es)).map(([, k]) => k);
-      const name = titleCase(t);
-      cur = { s: { id: id('lib-conjuro', name), n: name, l: head[1] ? 0 : parseInt(head[4], 10), esc: SCHOOLS.find((s) => norm(s) === norm(school || '')) || '', classes, ct: '', r: '', cmp: '', du: '', c: 0, rit: 0, t: '' }, meta: '', body: [] };
+      while (clsTxt && !lines[j].t.includes(')') && j + 1 < lines.length && !/^(Tiempo de lanza|Casting Time)/i.test(lines[j + 1].t)) { j++; clsTxt += ' ' + lines[j].t; }
+      const classes = [...new Set(Object.entries(CLASS_ES).filter(([c]) => norm(clsTxt).includes(c)).map(([, k]) => k))];
+      // un título largo se parte en dos líneas («SANTUARIO PRIVADO» + «DE MORDENKAINEN»): la segunda empieza por un conector
+      const prev = lines[i - 1]?.t || '';
+      const title = STARTS_WRAP.test(t) && isCaps(prev) && prev.length <= 36 && !/[.,:;]$/.test(prev) ? prev + ' ' + t : t;
+      const name = fixName(titleCase(title), listed);
+      cur = { s: { id: id('lib-conjuro', name), n: name, l: head.level, esc: head.school, classes, ct: '', r: '', cmp: '', du: '', c: 0, rit: 0, t: '' }, meta: '', body: [] };
       i = j;
       continue;
     }
     if (!cur) continue;
     // metadatos hasta la duración; luego la descripción (los pies de ilustración en mayúsculas se descartan)
-    if (!/Duraci[oó]n:/i.test(cur.meta)) cur.meta += ' ' + t;
+    if (!HAS_DURATION.test(cur.meta)) cur.meta += ' ' + t;
     else if (!isCaps(t)) cur.body.push(t);
   }
   flush();
@@ -256,7 +318,7 @@ export function classifyPage(text: string): ('feats' | 'backgrounds' | 'spells' 
   if (FEATURE_HEAD.test(text) || /SUBCLASES DE/.test(text)) out.push('classes');
   if (/Dote (de origen|general|de estilo de combate|de don [ée]pico)/.test(text)) out.push('feats');
   if (/Puntuaciones de caracter[ií]stica\s*:/.test(text)) out.push('backgrounds');
-  if (/Tiempo de lanzamiento\s*:/.test(text)) out.push('spells');
+  if (/(Tiempo de lanza\S*|Casting Time)\s*:/.test(text)) out.push('spells');
   return out;
 }
 
@@ -286,6 +348,9 @@ const SUB_PREFIX: Record<string, string[]> = {
   wizard: ['abjurador', 'adivino', 'evocador', 'ilusionista'],
   rogue: ['asesino', 'embaucador arcano', 'ladron', 'rebanaalmas'],
 };
+/** Nombre bien escrito de las subclases de nombre fijo (el OCR puede cambiar una letra: «ÁDIVINO»). */
+const SUB_NAMES = ['Acechador en la penumbra', 'Cazador', 'Errante feérico', 'Señor de las bestias', 'Caballero arcano', 'Campeón', 'Guerrero psiónico', 'Maestro del combate', 'Abjurador', 'Adivino', 'Evocador', 'Ilusionista', 'Asesino', 'Embaucador arcano', 'Ladrón', 'Rebanaalmas'];
+const canonSub = (name: string) => SUB_NAMES.find((x) => norm(x) === norm(name)) || SUB_NAMES.find((x) => norm(x).length > 5 && lev(norm(x), norm(name)) <= 1) || name;
 const isSubclassName = (cls: string, t: string) => {
   const n = norm(t).replace(/^[^a-z]+/, '');
   const pre = SUB_PREFIX[cls] || [];
@@ -382,7 +447,7 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
       continue;
     }
     if (isTitle(t) && isSubclassName(st.cls, t)) {
-      const name = titleCase(t);
+      const name = canonSub(titleCase(t));
       // el mismo nombre otra vez o uno ya usado no cuenta; uno más completo sustituye a uno cortado
       if (norm(name) === norm(st.cur?.s.n || '') || used.has(norm(name))) continue;
       if (!st.pending || norm(name).startsWith(norm(st.pending.name)) || !norm(st.pending.name).startsWith(norm(name))) st.pending = { name, intro: st.pending?.intro || [] };

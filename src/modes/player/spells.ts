@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import type { RuleEntry } from '../../engine/rules';
 import type { SpellRoll } from '../../engine/spellRoll';
+import { isSrdTwin } from '../../engine/spellNames';
 import { norm } from '../../engine/util';
 import { useLibrary } from '../../store/library';
 import { useStore } from '../../store/useStore';
@@ -25,12 +26,16 @@ export function useSpells() {
   return useMemo(() => {
     const srd = (rules || []).filter((e) => e.cat === 'Conjuros') as SpellEntry[];
     const srdNames = new Set(srd.map((e) => norm(e.n)));
-    const extra: SpellEntry[] = lib.filter((s) => !srdNames.has(norm(s.n))).map((s) => ({
+    const srdEn = new Set(srd.map((e) => norm(e.en || '')));
+    // los del libro que son el mismo conjuro que uno del SRD con otro nombre no salen en las listas, pero siguen resolviéndose por su id
+    const twins = lib.filter((s) => !srdNames.has(norm(s.n)) && isSrdTwin(s.n, srdEn));
+    const mk = (s: (typeof lib)[number]): SpellEntry => ({
       id: s.id, n: s.n, en: '', cat: 'Conjuros', t: s.t, l: s.l, esc: s.esc, ct: s.ct, r: s.r, du: s.du, c: s.c, rit: s.rit, cmp: s.cmp, classes: s.classes, lib: true,
       ...(s.own ? { own: true } : {}), ...(s.sr ? { sr: s.sr } : {}), ...(s.cond ? { cond: s.cond } : {}),
-    }));
+    });
+    const extra: SpellEntry[] = lib.filter((s) => !srdNames.has(norm(s.n)) && !twins.includes(s)).map(mk);
     const list = [...srd, ...extra];
-    const byId = new Map(list.map((e) => [e.id, e]));
+    const byId = new Map([...list, ...twins.map(mk)].map((e) => [e.id, e]));
     const byEn = new Map(srd.map((e) => [(e.en || '').toLowerCase(), e]));
     const get = (key: string): SpellEntry | undefined => byId.get(key) || (legacy[key] ? byEn.get(legacy[key].en.toLowerCase()) : undefined);
     return { loaded: !!rules, list, get };

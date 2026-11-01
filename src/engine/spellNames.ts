@@ -24,8 +24,8 @@ const PHB_EN: [string, string][] = [
   ['Nube de dagas', 'Cloud of Daggers'], ['Ola destructora', 'Destructive Wave'], ['Palabra de poder: fortalecer', 'Power Word Fortify'], ['Palabra de resplandor', 'Word of Radiance'],
   ['Pequeña choza de Leomund', "Leomund's Tiny Hut"], ['Perdición', 'Bane'], ['Presencia regia de Yolande', "Yolande's Regal Presence"], ['Puerta arcana', 'Arcane Gate'],
   ['Rayo de hechicería', 'Chaos Bolt'], ['Relámpago en cadena', 'Chain Lightning'], ['Risa horrible de Tasha', "Tasha's Hideous Laughter"], ['Saber druídico', 'Druidcraft'],
-  ['De Mordenkainen', "Mordenkainen's Private Sanctum"], ['Santuario privado de Mordenkainen', "Mordenkainen's Private Sanctum"], ['Sentidos de la bestia', 'Beast Sense'], ['Tañido por los muertos', 'Toll the Dead'], ['Telepatía', 'Telepathy'],
-  ['Tentáculos negros de Evard', "Evard's Black Tentacles"], ['Tormenta de espinas', 'Hail of Thorns'], ['Tormenta resplandeciente de Jallarzi', "Jallarzi's Storm of Radiance"], ['Tronar', 'Thunderclap'],
+  ['De Mordenkainen', "Mordenkainen's Private Sanctum"], ['Sanctasanctórum privado de Mordenkainen', "Mordenkainen's Private Sanctum"], ['Sentidos de la bestia', 'Beast Sense'], ['Tañido por los muertos', 'Toll the Dead'], ['Telepatía', 'Telepathy'],
+  ['Tentáculos negros de Evard', "Evard's Black Tentacles"], ['Tormenta de espinas', 'Hail of Thorns'], ['Disco flotante de Tenser', "Tenser's Floating Disk"], ['Tormenta resplandeciente de Jallarzi', "Jallarzi's Storm of Radiance"], ['Tronar', 'Thunderclap'],
 ];
 const EN = new Map(PHB_EN.map(([es, en]) => [norm(es), en]));
 
@@ -33,4 +33,14 @@ const EN = new Map(PHB_EN.map(([es, en]) => [norm(es), en]));
 export const libSpellEn = (nameEs: string, srdEn: Set<string>): string => {
   const en = EN.get(norm(nameEs)) || '';
   return en && !srdEn.has(norm(en)) ? en : '';
+};
+
+/** Conjuros que el SRD trae con otro nombre (el SRD quita el nombre del mago: «Mano arcana» es «La mano de Bigby»). */
+const SRD_RENAMED: Record<string, string> = { "Bigby's Hand": 'Arcane Hand', "Mordenkainen's Sword": 'Arcane Sword', "Nystul's Magic Aura": "Arcanist's Magic Aura" };
+
+/** ¿Es el conjuro del libro el mismo que uno del SRD aunque se llame distinto («Flecha ácida de Melf» y «Flecha ácida»)? */
+export const isSrdTwin = (nameEs: string, srdEn: Set<string>): boolean => {
+  const en = EN.get(norm(nameEs));
+  if (!en) return false;
+  return [en, SRD_RENAMED[en] || '', en.replace(/^\S+'s\s+/, '')].some((x) => !!x && srdEn.has(norm(x)));
 };

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
 import type { LibBackground } from '../../engine/bookImport';
+import { isSrdTwin } from '../../engine/spellNames';
 import { norm } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import HomebrewPanel from './HomebrewPanel';
@@ -14,9 +15,10 @@ const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Con
 const CAT_N: Record<string, string> = { origin: 'origen', general: 'general', 'fighting-style': 'estilo de combate', 'epic-boon': 'don épico' };
 
 /** Lo que el SRD ya trae no se duplica en la biblioteca. */
-function withoutSrd(r: BookResult, srd: { feats: string[]; backgrounds: string[]; spells: string[]; subclasses: string[] }): BookResult {
+function withoutSrd(r: BookResult, srd: { feats: string[]; backgrounds: string[]; spells: string[]; spellsEn: string[]; subclasses: string[] }): BookResult {
+  const srdEn = new Set(srd.spellsEn.map(norm));
   const has = (list: string[], n: string) => list.some((x) => norm(x) === norm(n));
-  return { ...r, feats: r.feats.filter((f) => !has(srd.feats, f.n)), backgrounds: r.backgrounds.filter((b) => !has(srd.backgrounds, b.n)), spells: r.spells.filter((s) => !has(srd.spells, s.n)), subclasses: r.subclasses.filter((s) => !has(srd.subclasses, s.n)) };
+  return { ...r, feats: r.feats.filter((f) => !has(srd.feats, f.n)), backgrounds: r.backgrounds.filter((b) => !has(srd.backgrounds, b.n)), spells: r.spells.filter((s) => !has(srd.spells, s.n) && !isSrdTwin(s.n, srdEn)), subclasses: r.subclasses.filter((s) => !has(srd.subclasses, s.n)) };
 }
 const CLASS_N: Record<string, string> = { barbarian: 'Bárbaro', bard: 'Bardo', cleric: 'Clérigo', druid: 'Druida', fighter: 'Guerrero', monk: 'Monje', paladin: 'Paladín', ranger: 'Explorador', rogue: 'Pícaro', sorcerer: 'Hechicero', warlock: 'Brujo', wizard: 'Mago' };
 const incomplete = (b: LibBackground) => b.abil.length !== 3 || b.skills.length !== 2 || !b.feat;
@@ -45,6 +47,7 @@ export default function LibraryPanel() {
     feats: data?.feats.map((f) => f.n) || [],
     backgrounds: data?.backgrounds.map((b) => b.n) || [],
     spells: (rules || []).filter((e) => e.cat === 'Conjuros').map((e) => e.n),
+    spellsEn: (rules || []).filter((e) => e.cat === 'Conjuros').map((e) => e.en),
     subclasses: (data?.classes || []).map((k) => k.sub?.n || '').filter(Boolean),
   };
   const originFeats = [...(data?.feats.filter((f) => f.cat === 'origin').map((f) => f.n) || []), ...(found?.feats || lib.feats).filter((f) => f.cat === 'origin').map((f) => f.n)];

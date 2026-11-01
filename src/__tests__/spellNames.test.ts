@@ -17,3 +17,17 @@ describe('nombres en inglés de los conjuros del libro', () => {
     expect(libSpellEn('Algo propio', srdEn)).toBe('');
   });
 });
+
+import { isSrdTwin } from '../engine/spellNames';
+describe('conjuros del libro que son el mismo que uno del SRD', () => {
+  const srdEn = new Set(['Acid Arrow', 'Arcane Hand', 'Faithful Hound'].map(norm));
+  it('con el nombre de mago de por medio o con el nombre cambiado', () => {
+    expect(isSrdTwin('Flecha ácida de Melf', srdEn)).toBe(true);
+    expect(isSrdTwin('Mano de Bigby', srdEn)).toBe(true);
+    expect(isSrdTwin('Mastín fiel de Mordenkainen', srdEn)).toBe(true);
+  });
+  it('no confunde un conjuro que el SRD no tiene', () => {
+    expect(isSrdTwin('Palabra de resplandor', srdEn)).toBe(false);
+    expect(isSrdTwin('Algo propio', srdEn)).toBe(false);
+  });
+});
