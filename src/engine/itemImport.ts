@@ -146,6 +146,24 @@ function bodyEs(lines: string[]): string {
   return out.join('\n').replace(/ {2,}/g, ' ').trim();
 }
 
+/**
+ * Quita del final de un texto lo que no es suyo: el pie de página («248 CAPÍTULO 7 TESOROS», «Impreso en…») y las pestañas del
+ * margen con los títulos de la página de al lado, mal leídos («BaBucHas DE TREPAR»). Solo se toca una cola corta de palabras
+ * sueltas, sin minúsculas y tras un final de frase; una tabla o una frase cortada se dejan como están.
+ */
+export function cleanItemTail(d: string): string {
+  const s = d.replace(/\s+(?:\S+\s+){0,3}Impreso en .*$/s, '').replace(/\s+\d{1,3}\s+CAP[IÍ]TULO\s+\d+\s+\p{Lu}[\p{Lu} ]*$/u, '').trimEnd();
+  const m = /^([\s\S]*[.!?)»”:])\s+([^.!?)»”:\n]+)$/.exec(s);
+  if (!m) return s;
+  const words = m[2].trim().split(/\s+/);
+  const kind = (w: string) => (/^\d{1,3}$/.test(w) ? 'num' : /^\p{Lu}{2,}$/u.test(w) ? 'caps' : /\p{Ll}\p{Lu}/u.test(w) ? 'garble' : /^\p{Lu}\p{Ll}*$/u.test(w) ? 'cap' : w.length <= 2 ? 'short' : 'other');
+  const ks = words.map(kind);
+  if (words.length > 12 || ks.includes('other')) return s;
+  // una cola de palabras sueltas: una sola palabra o número, o con mayúsculas / letras mal leídas
+  const odd = ks.some((k) => k === 'caps' || k === 'garble') || words.length === 1 || ks.every((k) => k === 'num' || k === 'cap');
+  return odd && !(ks.length > 1 && ks.every((k) => k === 'num')) ? m[1].trimEnd() : s;
+}
+
 /** Objetos de la Guía del Dungeon Master en español: título en mayúsculas, línea de tipo y rareza, y su texto. */
 export function parseItemsEs(lines: Line[]): LibItem[] {
   // el OCR escribe «+l» por «+1»
@@ -170,7 +188,7 @@ export function parseItemsEs(lines: Line[]): LibItem[] {
     const tail = /(com[uú]n|infrecuente|rar[oa]|legendari[oa]|artefacto)\s+([A-ZÁÉÍÓÚÑ]{4,}(?:\s+[A-ZÁÉÍÓÚÑ]{2,})*)$/.exec(type);
     if (tail) { raw += ' ' + tail[2]; type = type.slice(0, type.length - tail[2].length).trim(); }
     const end = k + 1 < heads.length ? heads[k + 1].name : ts.length;
-    const d = bodyEs(ts.slice(bodyFrom, end).filter((t) => !(isCaps(t) && t.length < 60 && !/\d/.test(t))));
+    const d = cleanItemTail(bodyEs(ts.slice(bodyFrom, end).filter((t) => !(isCaps(t) && t.length < 60 && !/\d/.test(t)))));
     const kind = KINDS_ES.find(([re]) => re.test(type))?.[1] || 'other';
     const attune = /requiere sintonizaci[oó]n/i.test(type);
     const variants = /^(.*?),? \+1, \+2 [O0o] \+3$/i.exec(raw);

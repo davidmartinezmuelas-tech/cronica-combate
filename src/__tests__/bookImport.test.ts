@@ -187,3 +187,16 @@ describe('conjuros con errores de OCR y en inglés', () => {
     expect(s[0].n).toBe('Adivino');
   });
 });
+
+describe('limpiar el final del texto de un objeto', () => {
+  it('quita pie de página y pestañas del margen mal leídas, pero no tablas ni frases cortadas', async () => {
+    const { cleanItemTail } = await import('../engine/itemImport');
+    expect(cleanItemTail('Haces algo. Esta armadura no se ensucia nunca. BaBucHas DE TREPAR')).toBe('Haces algo. Esta armadura no se ensucia nunca.');
+    expect(cleanItemTail('Haces algo. Capa DE')).toBe('Haces algo.');
+    expect(cleanItemTail('Haces algo. Manto')).toBe('Haces algo.');
+    expect(cleanItemTail('Haces algo. Bastón DE Bastón DE BAsTÓóN DE Bastón Bastón DE 248 CAPÍTULO 7 TESOROS')).toBe('Haces algo.');
+    expect(cleanItemTail('Una criatura. Y esto: OS Ml S 8078619697 Impreso en Bélgica/Printec D37101050 SP')).toBe('Una criatura. Y esto:');
+    expect(cleanItemTail('Tiras en la tabla. 01-20 Perro 21-55 Gato 56-00 Tigre')).toBe('Tiras en la tabla. 01-20 Perro 21-55 Gato 56-00 Tigre');
+    expect(cleanItemTail('No puede volver a usarse hasta el siguiente amanecer,')).toBe('No puede volver a usarse hasta el siguiente amanecer,');
+  });
+});

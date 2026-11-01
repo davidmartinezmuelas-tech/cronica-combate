@@ -1,7 +1,7 @@
 import { ABIL, CONDITION_IMMUNITIES, CR_LIST, DMG_TYPES, XP_BY_CR } from '../data/constants';
 import type { Feature, Monster, SectionKey, Spell } from '../data/types';
 import { avgOf, modOf } from './dice';
-import { isCaps, titleCase, type Line } from './bookImport';
+import { isCaps, lev, titleCase, type Line } from './bookImport';
 import { spellKeyByName } from './forge';
 import { abilIndex } from './saveEffect';
 import { norm, pbOf } from './util';
@@ -17,6 +17,12 @@ import { norm, pbOf } from './util';
 const TYPES = ['aberracion', 'automata', 'bestia', 'celestial', 'cieno', 'dragon', 'elemental', 'enjambre', 'feerico', 'gigante', 'humanoide', 'infernal', 'monstruosidad', 'muerto viviente', 'planta'];
 const SIZE_RE = /^(Diminut[oa]s?|Pequeñ[oa]s?|Median[oa]s?|Grandes?|Enormes?|Gargantuesc[oa]s?)$/i;
 
+/** Los tipos con su escritura correcta (el OCR cambia acentos y letras: «ínfernal», «inferna/»). */
+const TYPE_SPELL = ['aberración', 'autómata', 'bestia', 'celestial', 'cieno', 'dragón', 'elemental', 'enjambre', 'feérico', 'gigante', 'humanoide', 'infernal', 'monstruosidad', 'muerto viviente', 'planta'];
+const fixTypeWord = (w: string) => TYPE_SPELL.find((k) => norm(k) === norm(w)) || w;
+/** Un nombre con letras mal leídas: dígitos dentro de una palabra («Búh0»), «/» por «l» o restos de símbolos delante («294 ; \ roc»). */
+export const cleanMonsterName = (n: string) => n.replace(/^[^\p{L}(]+/u, '').replace(/(?<=\p{L})0(?=\p{L}|\)|$)/gu, 'o').replace(/(?<=\p{L})1(?=\p{L})/gu, 'l').replace(/(?<=\p{L})\/(?=\s|\)|$)/gu, 'l').replace(/\s+/g, ' ').trim();
+
 /** «Dragón Enorme (cromático), legal malvado» -> tipo, tamaño y alineamiento. */
 export function parseTypeLine(t: string): { t: string; sz: string; al: string } | null {
   const comma = t.lastIndexOf(',');
@@ -24,7 +30,7 @@ export function parseTypeLine(t: string): { t: string; sz: string; al: string } 
   const head = t.slice(0, comma).trim();
   const al = t.slice(comma + 1).trim().replace(/\/(?=\s|$)/g, 'l').replace(/[.,]$/, '');
   const tag = /\(([^)]*)\)\s*$/.exec(head);
-  const words = head.replace(/\([^)]*\)\s*$/, '').trim().split(/\s+/);
+  const words = head.replace(/\([^)]*\)\s*$/, '').trim().replace(/(?<=\p{L})\/(?=\s|$)/gu, 'l').split(/\s+/).map(fixTypeWord);
   const si = words.findIndex((w) => SIZE_RE.test(w));
   if (si < 1) return null;
   const type = words.slice(0, si).join(' ');
@@ -409,7 +415,7 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
     if (type && !titled && entry && !used.has(norm(entry))) {
       flush();
       used.add(norm(entry));
-      cur = { name: titleCase(entry), type, head: [], secs: {}, sec: null, hab, src: srcOf(i) };
+      cur = { name: cleanMonsterName(titleCase(entry)), type, head: [], secs: {}, sec: null, hab, src: srcOf(i) };
       colBreak = false;
       continue;
     }
@@ -423,7 +429,7 @@ export function parseMonsters(lines: Line[], spells: Record<string, Spell> = {})
       // nombre partido en dos líneas («DRAGÓN» / «AZUL ADULTO»); la línea de arriba suele ser el título del grupo
       // («OGROS» / «OGRO»), así que solo se juntan si la de abajo no es un nombre completo
       if (isName(before) && !/[,.;:]/.test(before) && before.split(' ').length <= 3 && !sectionOf(before) && (/\b(dragon|de|del|cria)$/.test(norm(before)) || /^(joven|adult[oa]|ancian[oa]|cria)$/.test(norm(name)))) name = before + ' ' + name;
-      cur = { name: titleCase(name), type, head: [], secs: {}, sec: null, hab, src: srcOf(i - 1) };
+      cur = { name: cleanMonsterName(titleCase(name)), type, head: [], secs: {}, sec: null, hab, src: srcOf(i - 1) };
       used.add(norm(name));
       colBreak = false;
       continue;
@@ -491,6 +497,14 @@ export function completeFromSrd(list: Monster[], srd: Monster[]): number {
     const cands = srd.filter((s) => s.cr === m.cr && norm(s.sz) === norm(m.sz) && base(s.t) === base(m.t)).map((s) => ({ s, k: score(s) })).sort((a, b) => b.k - a.k);
     return cands[0] && cands[0].k >= 4 && (!cands[1] || cands[1].k < cands[0].k) ? cands[0].s : undefined;
   };
+  // un nombre con una letra mal leída («Cieno gris psíqulco») se corrige con el del SRD si es el único parecido
+  const srdNames = [...byName.keys()];
+  for (const m of list) {
+    const k = norm(m.n);
+    if (byName.has(k) || k.length < 6) continue;
+    const near = srdNames.map((x) => ({ x, d: lev(x, k) })).filter((c) => c.d <= (k.length > 12 ? 2 : 1)).sort((a, b) => a.d - b.d);
+    if (near.length && (!near[1] || near[1].d > near[0].d)) { m.n = byName.get(near[0].x)!.n; m.id = 'mm-' + near[0].x.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+  }
   let n = 0;
   for (const m of list) {
     if (!m.chk?.length) continue;

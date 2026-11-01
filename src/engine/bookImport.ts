@@ -210,7 +210,7 @@ const W = '[A-Za-zÁÉÍÓÚáéíóúñÜü]+';
 const SPELL_HEAD_ES = new RegExp('^(?:(Truco) de (' + W + ')|(' + W + ') de n[ií]vel\\s*(\\d))\\s*(?:\\((.*)\\)?)?');
 const SPELL_HEAD_EN = new RegExp('^(?:Level\\s*(\\d)\\s+(' + W + ')|(' + W + ')\\s+(Cantrip))\\s*(?:\\((.*)\\)?)?', 'i');
 /** Distancia de edición (para reconocer una palabra con una letra mal leída). */
-function lev(a: string, b: string): number {
+export function lev(a: string, b: string): number {
   const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)] as number[]);
   for (let j = 1; j <= b.length; j++) d[0][j] = j;
   for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
