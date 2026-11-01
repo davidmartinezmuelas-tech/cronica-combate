@@ -230,6 +230,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
         {missing.length > 0 ? <p className="small lvl-pending" role="status" data-wstep="s6" style={{ margin: 0 }}>Falta: {missing.join(', ')}.</p> : <p className="small lvl-ok" role="status" data-wstep="s6" style={{ margin: 0 }}>Todo lo básico está elegido.</p>}
         <p className="muted small" data-wstep="x" style={{ margin: 0 }}>Los cambios se guardan solos. Lo que se puede calcular (CA, PG, salvaciones, habilidades, ataques, CD de conjuros) se calcula a partir de lo que elijas; al final puedes ajustar cualquier número a mano. Las listas traen lo que incluye el SRD 5.2.1 (la parte de las reglas de 2024 de uso libre); lo de otros libros se escribe con «Otro» o como rasgo propio.</p>
 
+        <div className="ce-cols">
+        <div className="ce-col">
         <fieldset className="fs" data-wstep="s0 s1">
           <legend>{wizard && step === 1 ? 'Trasfondo' : 'Identidad'}</legend>
           <div className="ce-part" data-wstep="s0">
@@ -324,6 +326,32 @@ export default function CharacterEditor({ c }: { c: Character }) {
           </div>
         </fieldset>
 
+        <fieldset className="fs" data-wstep="s3">
+          <legend>Habilidades</legend>
+          <span className="muted small">{cls ? cls.n + ': elige ' + cls.skills.count + (cls.skills.pool.includes('*') ? ' cualesquiera' : ' de las resaltadas') + ' (llevas ' + classPicked + ').' : ''}{bg ? ' El trasfondo ya da ' + bg.skills.map((s) => data.skills[s]).join(' y ') + '.' : ''} Marca «P» para pericia.</span>
+          <div className="ce-skills">
+            {Object.keys(data.skills).sort((a, b) => data.skills[a].localeCompare(data.skills[b], 'es')).map((k) => (
+              <span key={k} className={pool.includes(k) || fromBg.has(k) ? 'ce-skill suggest' : 'ce-skill'}>
+                <label className="check" title={subSkills.has(k) && !c.skills.includes(k) ? 'Por tu subclase' : undefined}><input type="checkbox" checked={c.skills.includes(k) || subSkills.has(k)} disabled={subSkills.has(k) && !c.skills.includes(k)} onChange={() => toggleSkill(k)} />{data.skills[k]}</label>
+                {(c.skills.includes(k) || subSkills.has(k)) && <button className={c.expertise.includes(k) ? 'ts on' : 'ts'} aria-pressed={c.expertise.includes(k)} aria-label={'Pericia en ' + data.skills[k]} onClick={() => toggleExp(k)}>P</button>}
+              </span>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="fs" data-wstep="x">
+          <legend>Ajustes a mano</legend>
+          <span className="muted small">Déjalos vacíos para usar el cálculo. Útil para objetos mágicos o rasgos que la app no aplica sola.</span>
+          <div className="row4f">
+            {([['ac', 'CA', d.ac], ['hpMax', 'PG máx.', d.hpMax], ['init', 'Iniciativa', d.init], ['speed', 'Velocidad', d.speed]] as const).map(([k, label, calc]) => (
+              <div key={k} className="field"><label htmlFor={'ov-' + k}>{label}</label>
+                <input id={'ov-' + k} className="input" type="number" value={c.ov[k] ?? ''} placeholder={String(calc)} onChange={(e) => { const v = e.target.value === '' ? undefined : parseInt(e.target.value, 10); const ov = { ...c.ov }; if (v == null || Number.isNaN(v)) delete ov[k]; else ov[k] = v; set({ ov }); }} /></div>
+            ))}
+          </div>
+        </fieldset>
+
+        </div>
+        <div className="ce-col">
         <fieldset className="fs" data-wstep="s2">
           <legend>Características</legend>
           <AbilityMethods c={c} cls={cls} set={set} bgAbil={bg?.abil} bgName={bg?.n} />
@@ -344,19 +372,6 @@ export default function CharacterEditor({ c }: { c: Character }) {
             )}
           </fieldset>
         )}
-
-        <fieldset className="fs fs-wide" data-wstep="s3">
-          <legend>Habilidades</legend>
-          <span className="muted small">{cls ? cls.n + ': elige ' + cls.skills.count + (cls.skills.pool.includes('*') ? ' cualesquiera' : ' de las resaltadas') + ' (llevas ' + classPicked + ').' : ''}{bg ? ' El trasfondo ya da ' + bg.skills.map((s) => data.skills[s]).join(' y ') + '.' : ''} Marca «P» para pericia.</span>
-          <div className="ce-skills">
-            {Object.keys(data.skills).sort((a, b) => data.skills[a].localeCompare(data.skills[b], 'es')).map((k) => (
-              <span key={k} className={pool.includes(k) || fromBg.has(k) ? 'ce-skill suggest' : 'ce-skill'}>
-                <label className="check" title={subSkills.has(k) && !c.skills.includes(k) ? 'Por tu subclase' : undefined}><input type="checkbox" checked={c.skills.includes(k) || subSkills.has(k)} disabled={subSkills.has(k) && !c.skills.includes(k)} onChange={() => toggleSkill(k)} />{data.skills[k]}</label>
-                {(c.skills.includes(k) || subSkills.has(k)) && <button className={c.expertise.includes(k) ? 'ts on' : 'ts'} aria-pressed={c.expertise.includes(k)} aria-label={'Pericia en ' + data.skills[k]} onClick={() => toggleExp(k)}>P</button>}
-              </span>
-            ))}
-          </div>
-        </fieldset>
 
         <fieldset className="fs" data-wstep="s4">
           <legend>Armadura</legend>
@@ -425,6 +440,9 @@ export default function CharacterEditor({ c }: { c: Character }) {
             </div>
           ))}
         </fieldset>
+
+        </div>
+        </div>
 
         <fieldset className="fs fs-wide" data-wstep={caster || c.spells.length ? 's5' : 'x'}>
           <legend>Conjuros</legend>
@@ -622,17 +640,6 @@ export default function CharacterEditor({ c }: { c: Character }) {
           ) : (
             <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setNewFeat({ id: 'f-' + uid(), n: '', d: '', cat: 'general', max: null, per: 'lr' })}>+ Dote o rasgo propio</button>
           )}
-        </fieldset>
-
-        <fieldset className="fs fs-wide" data-wstep="x">
-          <legend>Ajustes a mano</legend>
-          <span className="muted small">Déjalos vacíos para usar el cálculo. Útil para objetos mágicos o rasgos que la app no aplica sola.</span>
-          <div className="row4f">
-            {([['ac', 'CA', d.ac], ['hpMax', 'PG máx.', d.hpMax], ['init', 'Iniciativa', d.init], ['speed', 'Velocidad', d.speed]] as const).map(([k, label, calc]) => (
-              <div key={k} className="field"><label htmlFor={'ov-' + k}>{label}</label>
-                <input id={'ov-' + k} className="input" type="number" value={c.ov[k] ?? ''} placeholder={String(calc)} onChange={(e) => { const v = e.target.value === '' ? undefined : parseInt(e.target.value, 10); const ov = { ...c.ov }; if (v == null || Number.isNaN(v)) delete ov[k]; else ov[k] = v; set({ ov }); }} /></div>
-            ))}
-          </div>
         </fieldset>
 
         {wizard && (

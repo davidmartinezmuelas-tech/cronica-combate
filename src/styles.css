@@ -1736,9 +1736,9 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 :root[data-theme="sage"] .phone-note .btn:not(.primary),:root[data-theme="linen"] .phone-note .btn:not(.primary),:root[data-theme="mist"] .phone-note .btn:not(.primary),:root[data-theme="lavender"] .phone-note .btn:not(.primary){color:var(--on-blue);border-color:var(--on-blue)}
 /* movil: margenes laterales de la pagina mas estrechos y controles tactiles mayores */
 @media (max-width:560px){.app-main{padding:14px 12px 32px;gap:14px}.pip{width:22px;height:22px}.pips{gap:8px}.stat .btn.small,.stat-xp .input{min-height:34px}}
-/* editar personaje: tarjetas en dos columnas cuando hay ancho (el asistente va en una, paso a paso) */
-.ce-flat{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:14px;align-items:start}
-.ce-flat>*{min-width:0}
-.ce-flat>:not(.fs),.ce-flat>.fs-wide{grid-column:1/-1}
-@media (min-width:1100px){.ce-flat>.fs[data-wstep="s0 s1"]{grid-row:span 2}}
+/* editar personaje: dos columnas de tarjetas que se llenan por separado (sin huecos); el asistente va en una, paso a paso */
+.ce-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:14px;align-items:start}
+.ce-col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.ce-wiz .ce-cols,.ce-wiz .ce-col{display:contents}
+.ce-flat .ce-skills{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .shot-row{display:flex;flex-direction:column;gap:4px;padding:6px 0;border-top:1px solid var(--line)}
