@@ -5,7 +5,7 @@ import { fmt, shotParts } from '../../engine/dice';
 import { saveEffectOf } from '../../engine/saveEffect';
 import { spellCast, spellRoll } from '../../engine/spellRoll';
 import { hasInvocation } from '../../engine/subclassChoices';
-import { withConc } from '../../engine/concentration';
+import { concOf, withConc } from '../../engine/concentration';
 import { castOnPatch, debuffOf, spellFx } from '../../engine/spellEffects';
 import { elementalTypes } from '../../engine/metamagic';
 import type { Grant } from '../../engine/grantedSpells';
@@ -72,6 +72,8 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   // tras «Sobre otro» en una sala: a quién (de la lista de iniciativa del máster)
   const [targets, setTargets] = useState<{ lv: number; sel: string[] } | null>(null);
   const [sentNote, setSentNote] = useState('');
+  // «Lanzar» ya gastó el espacio: la siguiente tirada de este conjuro no gasta otro
+  const [lanzado, setLanzado] = useState(false);
   const sendBuff = async () => {
     if (!targets || !fx) return;
     const ok = await useRoom.getState().sendCast({ label: label('sobre otros'), targets: targets.sel, crit: false, parts: [], attack: null, heal: null, effect: null,
@@ -82,7 +84,7 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
   const freeMax = grant?.charge ? grant.charge.max : !grant || grant.how === 'known' ? 0 : grant.how === 'will' || grant.how === 'ritual' ? Infinity : grant.how === 'lr' ? 1 : d.pb;
   const freeUsed = grant ? c.uses[grant.charge?.key || grant.key] || 0 : 0;
   const freeCost = grant?.charge?.cost || 1;
-  const spendSlot = (onMe = false, free = false) => {
+  const spendSlot = (onMe = false, free = false, quiet = false) => {
     // un conjuro de concentración la empieza (y termina la de otro)
     const conds = s.c ? withConc(c.conds, s.n) : c.conds;
     const patch: Partial<Character> = { conds };
@@ -105,9 +107,28 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
       }
     }
     // sobre otros en la sala: se eligen los objetivos y se manda a la mesa del máster
-    if (!onMe && fx && !fx.fx.self && inRoom) setTargets({ lv: castLv, sel: [] });
+    if (!quiet && !free) setLanzado(true);
+    if (!quiet && !onMe && fx && !fx.fx.self && inRoom) setTargets({ lv: castLv, sel: [] });
     set(patch);
   };
+  // los botones de tirada (ataque, daño, curar…) gastan el espacio solos: no hace falta darle además a «Lanzar».
+  // El ataque abre el lanzamiento y el daño que le sigue ya va gastado; un conjuro de concentración solo gasta al empezarla.
+  // Con espacios a voluntad o por cargas del rasgo no se gasta ninguno aquí.
+  const [pending, setPending] = useState(false);
+  const usesSlot = base > 0 && grant?.how !== 'will' && freeMax === 0 && (!!d.pact || d.slots.length > 0);
+  const autoCast = (step: 'start' | 'follow') => {
+    if (!usesSlot) return;
+    const spend = () => {
+      if (usePact ? pactLeft <= 0 : slotLeft <= 0) { useStore.getState().showToast('Sin espacio de ' + (usePact ? 'pacto' : 'nivel ' + lv) + ': tirada sin gastar'); return; }
+      spendSlot(false, false, true);
+    };
+    if (lanzado) { setLanzado(false); setPending(step === 'start'); return; }
+    if (s.c) { if (concOf(c.conds) !== s.n) spend(); return; }
+    if (step === 'start') { spend(); setPending(true); }
+    else if (pending) setPending(false);
+    else spend();
+  };
+  const go = (step: 'start' | 'follow', spec: Parameters<typeof roll>[0]) => { autoCast(step); roll(spec); };
   const healAfter = (total: number) => {
     const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
     usePlayer.getState().update(c.id, { hp: Math.min(d.hpMax, cur.hp + Math.max(0, total)), death: { s: 0, f: 0 } });
@@ -129,20 +150,20 @@ export default function SpellRolls({ c, d, s, set, grant }: { c: Character; d: D
         </select>
       )}
       {rr.attack && caster && (
-        <button className="rollbtn" onClick={() => roll({ label: label('ataque'), kind: 'attack', who, ...(cast.count > 1 ? { shots: cast.count } : {}), parts: [{ expr: '1d20' + (caster.atk >= 0 ? '+' : '') + caster.atk + (d.bless ? '+1d4' : '') }], self: { conds: c.conds, exh: c.exh } })}>Ataque {fmt(caster.atk)}{d.bless ? ' +1d4' : ''}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
+        <button className="rollbtn" onClick={() => go('start', { label: label('ataque'), kind: 'attack', who, ...(cast.count > 1 ? { shots: cast.count } : {}), parts: [{ expr: '1d20' + (caster.atk >= 0 ? '+' : '') + caster.atk + (d.bless ? '+1d4' : '') }], self: { conds: c.conds, exh: c.exh } })}>Ataque {fmt(caster.atk)}{d.bless ? ' +1d4' : ''}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
       )}
       {cast.dmg && (cast.count === 1 ? (
-        <button className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [cast.dmg!], ...(effect ? { effect } : {}) })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}{cast.count > 1 ? ' cada uno' : ''}</button>
+        <button className="rollbtn dmg" onClick={() => go('follow', { label: label('daño'), kind: 'damage', who, by: null, parts: [cast.dmg!], ...(effect ? { effect } : {}) })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}{cast.count > 1 ? ' cada uno' : ''}</button>
       ) : (
-        <button className="rollbtn dmg" onClick={() => roll({ label: label(cast.count + ' impactos'), kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who), impacts: cast.count, ...(effect ? { effect } : {}) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
+        <button className="rollbtn dmg" onClick={() => go('follow', { label: label(cast.count + ' impactos'), kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who), impacts: cast.count, ...(effect ? { effect } : {}) })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
       ))}
       {effect && !cast.dmg && !cast.heal && inRoom && (
-        <button className="rollbtn" title="Elige objetivos en la mesa del máster" onClick={() => useStore.getState().startEffect(label('efecto'), effect)}>Objetivos{effect.conds.length ? ' (' + effect.conds.join(', ').toLowerCase() + ')' : ''}</button>
+        <button className="rollbtn" title="Elige objetivos en la mesa del máster" onClick={() => { autoCast('follow'); useStore.getState().startEffect(label('efecto'), effect); }}>Objetivos{effect.conds.length ? ' (' + effect.conds.join(', ').toLowerCase() + ')' : ''}</button>
       )}
       {cast.heal && (
         <>
-          <button className="rollbtn" onClick={() => roll({ label: label('curación'), kind: 'free', heal: true, parts: [{ expr: cast.heal }] })}>Curar {cast.heal}</button>
-          <button className="rollbtn" onClick={() => roll({ label: label('curarme'), kind: 'free', parts: [{ expr: cast.heal }], after: healAfter })}>Curarme</button>
+          <button className="rollbtn" onClick={() => go('follow', { label: label('curación'), kind: 'free', heal: true, parts: [{ expr: cast.heal }] })}>Curar {cast.heal}</button>
+          <button className="rollbtn" onClick={() => go('follow', { label: label('curarme'), kind: 'free', parts: [{ expr: cast.heal }], after: healAfter })}>Curarme</button>
         </>
       )}
       {freeMax > 0 && (

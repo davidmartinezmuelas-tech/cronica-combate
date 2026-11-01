@@ -946,8 +946,8 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await fireball.getByLabel('Nivel de espacio para Bola de fuego').selectOption('4');
   await fireball.getByRole('button', { name: 'Daño 9d6 fuego' }).click();
   await expect(page.locator('.plaque-label')).toContainText('Bola de fuego (nivel 4): daño');
-  await fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' }).click();
-  await expect(fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' })).toBeDisabled(); // solo tenía uno
+  // la tirada de daño ya gastó el espacio de nivel 4 (solo tenía uno): «Lanzar» queda sin espacio
+  await expect(fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' })).toBeDisabled();
   const bolt = sp.locator('.card', { hasText: 'Descarga de fuego' });
   await bolt.getByRole('button', { name: /^Descarga de fuego/ }).click();
   await expect(bolt.getByRole('button', { name: 'Ataque +5' })).toBeVisible();
@@ -2943,4 +2943,31 @@ test('Descarga sobrenatural: el botón de ataque tira un d20 por cada rayo', asy
   const res = page.locator('.plaque').first();
   await expect(res).toContainText('Disparo 1');
   await expect(res).toContainText('Disparo 2');
+});
+
+test('los botones de tirada de un conjuro gastan el espacio solos, una sola vez por lanzamiento', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Sera');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Conjuro', { exact: false }).first().fill('saeta');
+  await page.locator('.ce-spell-results .chip', { hasText: 'Saeta guía' }).click();
+  await page.getByRole('button', { name: 'Añadir conjuro' }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.getByRole('button', { name: 'Saeta guía' }).first().click();
+  const card = page.getByRole('listitem').filter({ hasText: 'Saeta guía' });
+  const pips = page.getByRole('group', { name: /^Espacios de nivel 1:/ });
+  await expect(pips).toHaveAttribute('aria-label', /: 4 de 4/);
+  // el ataque gasta el espacio y el daño que le sigue no gasta otro
+  await card.getByRole('button', { name: /^Ataque/ }).click();
+  await expect(pips).toHaveAttribute('aria-label', /: 3 de 4/);
+  await card.getByRole('button', { name: /^Daño/ }).click();
+  await expect(pips).toHaveAttribute('aria-label', /: 3 de 4/);
+  // «Lanzar» y luego el ataque: un solo espacio
+  await card.getByRole('button', { name: /^Lanzar/ }).click();
+  await expect(pips).toHaveAttribute('aria-label', /: 2 de 4/);
+  await card.getByRole('button', { name: /^Ataque/ }).click();
+  await expect(pips).toHaveAttribute('aria-label', /: 2 de 4/);
 });
