@@ -1805,7 +1805,7 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .ce-flat{container-type:inline-size}
 .ce-cols{display:flex;flex-direction:column;gap:14px}
 .ce-col{display:contents}
-.ce-col:first-child>:nth-child(1){order:1}.ce-col:first-child>:nth-child(2){order:3}.ce-col:first-child>:nth-child(3){order:7}
+.ce-col:first-child>:nth-child(1){order:1}.ce-col:first-child>:nth-child(2){order:3}.ce-col:first-child>:nth-child(3){order:7}.ce-col:first-child>:nth-child(4){order:9}
 .ce-col:last-child>:nth-child(1){order:2}.ce-col:last-child>:nth-child(2){order:4}.ce-col:last-child>:nth-child(3){order:5}.ce-col:last-child>:nth-child(4){order:6}
 @container (min-width:940px){
   .ce-cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
@@ -1915,8 +1915,6 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 
 /* Personaje y equipo: retrato, dinero, equipo y personalidad (todo opcional) */
 .pc-bio{display:flex;flex-direction:column;gap:10px}
-.pc-bio-portrait{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
-.pc-bio-portrait img{display:block;max-width:100%;max-height:220px;border-radius:var(--radius,8px);border:1px solid var(--line,rgba(0,0,0,.25));object-fit:contain}
 .pc-bio-money{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
 .pc-bio-money label{display:flex;flex-direction:column;gap:2px;font-size:12px;font-weight:800;color:var(--muted);align-items:stretch;text-align:center}
 .pc-bio-money input{width:100%;min-width:0;text-align:center;padding-inline:4px}
@@ -1955,7 +1953,6 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 /* Retrato en la cabecera de la hoja */
 .pc-head-id{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 auto}
 .pc-portrait{display:block;flex:none;height:96px;width:auto;max-width:120px;object-fit:cover;border-radius:var(--radius);border:2px solid var(--paper-edge);box-shadow:0 2px 6px rgba(0,0,0,.3)}
-.pc-bio-portrait{flex-direction:row;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 
 /* Identidad del personaje como en la hoja oficial: cada dato con su rotulo debajo */
 .pc-head h2{font-size:30px;line-height:1.05;margin:0;border-bottom:1px solid var(--paper-edge);padding-bottom:2px}
@@ -1985,3 +1982,6 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .pc-stats .stat-sm{flex:0 1 82px}
 .stat-xp .input{width:48px}
 .pc-stats .stat-death .pips{flex-wrap:nowrap}
+
+.ce-portrait{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ce-portrait img{display:block;width:56px;height:56px;border-radius:var(--radius,8px);border:1px solid var(--line,rgba(0,0,0,.25));object-fit:cover}

@@ -703,7 +703,8 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   const psi = page.locator('section[aria-label="Poder psiónico"]');
   await expect(psi).toContainText('Dados de energía psiónica: 6 de 6 (d8)');
   await psi.locator('.card', { hasText: 'Golpe psiónico' }).getByRole('button', { name: /^Daño d8/ }).click();
-  await psi.locator('.card', { hasText: 'Campo protector' }).getByRole('button', { name: /^Tirar d8/ }).click();
+  await expect(psi).not.toContainText('Campo protector');
+  await page.locator('section[aria-label="Reacción"] li', { hasText: 'Campo protector' }).getByRole('button', { name: /^Tirar d8/ }).click();
   await expect(psi).toContainText('4 de 6');
   await page.getByRole('button', { name: 'Descanso corto' }).click();
   await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
@@ -809,7 +810,8 @@ test('recursos de clase: Inspiración bárdica, Canalizar divinidad (clérigo) y
   await make('Lira', 'Bardo', '5', 'Colegio del Saber', ['cha', '16']);
   const bard = page.locator('section[aria-label="Inspiración bárdica"]');
   await expect(bard.locator('.res-head')).toHaveText('3 de 3 (d8)');
-  await bard.locator('.card', { hasText: 'Palabras hirientes' }).getByRole('button', { name: 'Tirar d8' }).click();
+  await expect(bard).not.toContainText('Palabras hirientes');
+  await page.locator('section[aria-label="Reacción"] li', { hasText: 'Palabras hirientes' }).getByRole('button', { name: 'Tirar d8' }).click();
   await bard.getByRole('button', { name: 'Dar un dado a un aliado' }).click();
   await expect(bard).toContainText('1 de 3');
   await shortRest();
@@ -3033,7 +3035,11 @@ test('Personaje y equipo: dinero, equipo y personalidad se guardan; el retrato s
   await bio.getByLabel('Ideales').fill('Proteger a los débiles');
   // un PNG de 1x1 como retrato
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
-  await bio.getByLabel('Imagen del retrato').setInputFiles({ name: 'mara.png', mimeType: 'image/png', buffer: png });
+  await expect(bio.getByRole('button', { name: /retrato/i })).toHaveCount(0); // el retrato se pone en «Editar hoja»
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Imagen del retrato').setInputFiles({ name: 'mara.png', mimeType: 'image/png', buffer: png });
+  await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
   await page.reload();
   const again = page.getByRole('region', { name: 'Personaje y equipo' });
@@ -3041,6 +3047,8 @@ test('Personaje y equipo: dinero, equipo y personalidad se guardan; el retrato s
   await expect(again.getByLabel('Nombre del objeto 1')).toHaveValue('Cuerda de seda');
   await expect(again.getByLabel('Ideales')).toHaveValue('Proteger a los débiles');
   await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
-  await again.getByRole('button', { name: 'Quitar', exact: true }).click();
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByRole('button', { name: 'Quitar retrato' }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toHaveCount(0);
 });

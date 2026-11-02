@@ -96,6 +96,7 @@ export interface KitAction {
   tag?: (x: { level: number; pb: number; mods: Record<Abil, number> }) => string; // número que se muestra al lado
   selfHeal?: (level: number) => number; // reparte curación que te puede incluir, hasta la mitad de tus PG máximos (Preservar vida)
   note?: string;
+  react?: boolean; // se usa con la reacción: sale en la tarjeta Reacción y no en la de su subclase
 }
 
 /** `subs` vacío: rasgos de la clase (con acciones que pueden ser de una subclase concreta). */
@@ -114,7 +115,7 @@ export const KITS: SubclassKit[] = [
     id: 'psi-warrior', cls: 'fighter', subs: ['Guerrero psiónico', 'Psi Warrior'], title: 'Poder psiónico', res: psionic('int'),
     actions: [
       { n: ['Golpe psiónico'], lv: 3, roll: { kind: 'die', plus: 'int', type: 'fuerza' }, note: 'Una vez por turno, tras acertar y dañar con un arma.' },
-      { n: ['Campo protector'], lv: 3, roll: { kind: 'die', plus: 'int' }, note: 'Reduce el daño en el resultado (mínimo 1).' },
+      { n: ['Campo protector'], lv: 3, react: true, roll: { kind: 'die', plus: 'int' }, note: 'Reduce el daño en el resultado (mínimo 1).' },
       { n: ['Movimiento telequinético'], lv: 3, roll: { kind: 'spend' } },
       { n: ['Empujón telequinético'], lv: 7, roll: { kind: 'info' }, save: { abil: 'str', dc: 'int' } },
       { n: ['Salto psiónico'], lv: 7, roll: { kind: 'spend' } },
@@ -151,7 +152,7 @@ export const KITS: SubclassKit[] = [
       { n: ['Pasos feéricos', 'Steps of the Fey'], lv: 3, roll: { kind: 'spend', label: 'Lanzar paso brumoso gratis' }, note: 'Acción adicional. Al lanzarlo puedes elegir uno de sus efectos.' },
       { n: ['Paso refrescante', 'Refreshing Step'], lv: 3, roll: { kind: 'roll', expr: '1d10' }, note: 'PG temporales para ti o una criatura que veas a 3 m.' },
       { n: ['Paso burlón', 'Taunting Step'], lv: 3, roll: { kind: 'info' }, save: { abil: 'wis', dc: 'spell' }, note: 'Las criaturas a 1,5 m del espacio que dejas: si fallan, desventaja al atacar a otros que no seas tú.' },
-      { n: ['Escape brumoso', 'Misty Escape'], lv: 6, roll: { kind: 'spend', label: 'Paso brumoso como reacción' }, note: 'Como reacción al recibir daño.' },
+      { n: ['Escape brumoso', 'Misty Escape'], lv: 6, react: true, roll: { kind: 'spend', label: 'Paso brumoso como reacción' }, note: 'Como reacción al recibir daño.' },
       { n: ['Paso aterrador', 'Dreadful Step'], lv: 6, roll: { kind: 'roll', expr: '2d10', type: 'psíquico' }, save: { abil: 'wis', dc: 'spell' } },
       { n: ['Paso desvanecedor', 'Disappearing Step'], lv: 6, roll: { kind: 'info' }, note: 'Invisible hasta el principio de tu siguiente turno o hasta que ataques, hagas daño o lances un conjuro.' },
     ],
@@ -170,7 +171,7 @@ export const KITS: SubclassKit[] = [
     actions: [
       { n: ['Inspiración bárdica'], lv: 1, roll: { kind: 'spend', label: 'Dar un dado a un aliado' }, note: 'Acción adicional: una criatura a 18 m que te vea u oiga obtiene un dado; lo tira y lo suma cuando falle una prueba con d20.' },
       { n: ['Fuente de inspiración'], lv: 5, roll: { kind: 'regain', label: 'Recuperar un uso (gasta un espacio de conjuro)' }, note: 'Marca el espacio de conjuro gastado en «Conjuros».' },
-      { n: ['Palabras cortantes', 'Palabras hirientes'], lv: 3, subs: LORE, roll: { kind: 'die' }, note: 'Reacción: resta el resultado a la tirada de la criatura.' },
+      { n: ['Palabras cortantes', 'Palabras hirientes'], lv: 3, react: true, subs: LORE, roll: { kind: 'die' }, note: 'Reacción: resta el resultado a la tirada de la criatura.' },
       { n: ['Habilidad sin parangón', 'Habilidad sin par'], lv: 14, subs: LORE, roll: { kind: 'die', spend: false }, note: 'Súmalo a tu prueba o ataque fallado; si aun así fallas, no se gasta (márcalo arriba si se gasta).' },
       { n: ['Inspiración en combate'], lv: 3, subs: VALOR, roll: { kind: 'info' }, note: 'Quien tenga tu dado puede sumarlo a su CA contra un ataque o al daño de un ataque que acierte.' },
       { n: ['Juego de pies deslumbrante'], lv: 3, subs: DANCE, roll: { kind: 'unarmed', abil: 'dex' }, note: 'Ataque sin armas con Destreza: dado de Inspiración bárdica + Destreza (no lo gasta). Al gastar un uso puedes hacer este ataque como parte de esa acción.' },

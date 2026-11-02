@@ -27,7 +27,8 @@ import { grantedSpells, type Grant } from '../../engine/grantedSpells';
 import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel, { FEAT_PANEL_NAMES } from './FeatPanel';
-import ReactionPanel, { REACTION_FEATS } from './ReactionPanel';
+import ReactionPanel, { REACTION, REACTION_FEATS } from './ReactionPanel';
+import KitPanel from './KitPanel';
 import QuickActions, { quickRows, quickTag, RELENTLESS } from './QuickActions';
 import MetamagicPanel from './MetamagicPanel';
 import MagicItemsPanel from './MagicItemsPanel';
@@ -36,7 +37,7 @@ import { TagPicker } from '../../shared/Combo';
 import { LANGUAGES, toolCatalog } from '../../engine/gearCatalog';
 import { itemKey } from '../../engine/magicItems';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
-import { KITS } from '../../engine/subclassActions';
+import { activeKits, KITS } from '../../engine/subclassActions';
 import SpellRolls, { spellCastFor } from './SpellRolls';
 import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
@@ -187,19 +188,30 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     const ps = [...duo.children].filter((e): e is HTMLElement => e instanceof HTMLElement && e.classList.contains('panel'));
     const pairable = (k: number) => ps[k]?.getAttribute('aria-label') !== 'Ataques';
     const decide = () => {
-      ps.forEach((p) => { p.removeAttribute('data-solo'); (p.firstElementChild as HTMLElement | null)?.style.removeProperty('min-height'); });
+      ps.forEach((p) => { p.removeAttribute('data-solo'); p.style.removeProperty('order'); (p.firstElementChild as HTMLElement | null)?.style.removeProperty('min-height'); });
       if (lowW < 1000) return;
       duo.style.alignItems = 'flex-start'; // alto propio de cada tarjeta, sin estirar
       const h = ps.map((p) => p.offsetHeight);
       duo.style.alignItems = '';
+      // Reacción es corta y ancha: se empareja con la tarjeta posterior de altura más parecida (a media anchura se vuelve casi cuadrada), nunca con una que la deje vacía
+      const seq = ps.map((_, k) => k);
+      const ri = ps.findIndex((p) => p.getAttribute('aria-label') === 'Reacción');
+      if (ri >= 0) {
+        let best = -1;
+        for (let j = ri + 1; j < ps.length; j++) if (pairable(j) && (best < 0 || Math.abs(h[j] - h[ri]) < Math.abs(h[best] - h[ri]))) best = j;
+        const alike = (a: number, b: number) => Math.abs(h[a] - h[b]) <= Math.max(36, 0.25 * Math.max(h[a], h[b]));
+        if (best > ri + 1 && alike(ri, best)) { seq.splice(seq.indexOf(best), 1); seq.splice(ri + 1, 0, best); seq.forEach((k, pos) => { ps[k].style.order = String(pos); }); }
+      }
       const pairs: number[] = [];
-      for (let i = 0; i < ps.length; i++) {
-        if (pairable(i) && pairable(i + 1) && Math.abs(h[i] - h[i + 1]) <= Math.max(36, 0.2 * Math.max(h[i], h[i + 1]))) { pairs.push(i); i++; continue; }
+      for (let n = 0; n < seq.length; n++) {
+        const i = seq[n];
+        const j = seq[n + 1];
+        if (pairable(i) && j != null && pairable(j) && Math.abs(h[i] - h[j]) <= Math.max(36, 0.25 * Math.max(h[i], h[j]))) { pairs.push(i, j); n++; continue; }
         ps[i].setAttribute('data-solo', '');
       }
       // las cabeceras de una pareja miden lo mismo (una con contador de usos y otra sin): sus tarjetas empiezan a la misma altura
-      for (const i of pairs) {
-        const hd = [ps[i], ps[i + 1]].map((p) => p.firstElementChild as HTMLElement | null);
+      for (let n = 0; n < pairs.length; n += 2) {
+        const hd = [ps[pairs[n]], ps[pairs[n + 1]]].map((p) => p.firstElementChild as HTMLElement | null);
         if (hd[0] && hd[1]) { const m = Math.max(hd[0].offsetHeight, hd[1].offsetHeight); hd.forEach((e) => { e!.style.minHeight = m + 'px'; }); }
       }
     };
@@ -1273,7 +1285,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         </div>
       </section>
 
-      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
+      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} rows={views.flatMap(({ v, dv }) => activeKits(v).map((k) => <KitPanel key={k.kit.id + v.classId} react c={v} d={dv} lib={lib} set={set} kit={k.kit} actions={k.actions} off={!!c.uses[REACTION]} onUse={() => set({ uses: { ...c.uses, [REACTION]: 1 } })} />))} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
       <QuickActions rows={quick} c={c} d={d} set={set} data={data} views={views} />
 
       {views.map(({ v, dv }, i) => (

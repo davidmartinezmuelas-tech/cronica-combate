@@ -13,6 +13,7 @@ import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { plainText, useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
+import PortraitField from '../../shared/PortraitField';
 import AbilityMethods, { BG_ASI_KEY, bgBonus } from './AbilityMethods';
 import { FxEditor } from './HomebrewPanel';
 import { applyFeatAsi, featAsi, featAsiOptions, removeFeatAsi } from '../../engine/featAsi';
@@ -239,6 +240,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
             <div className="field"><label htmlFor="ce-name">Nombre del personaje</label><input id="ce-name" className="input" value={c.name} onChange={(e) => set({ name: e.target.value })} /></div>
             <div className="field"><label htmlFor="ce-player">Jugador</label><input id="ce-player" className="input" value={c.player} onChange={(e) => set({ player: e.target.value })} /></div>
           </div>
+          <PortraitField value={c.portrait} name={c.name} onChange={(v) => set({ portrait: v })} />
           <div className="row2">
             <div className="field"><label htmlFor="ce-sp">Especie</label>
               <select id="ce-sp" className="input" value={c.speciesId} onChange={(e) => set({ speciesId: e.target.value })}>
@@ -348,6 +350,141 @@ export default function CharacterEditor({ c }: { c: Character }) {
                 <input id={'ov-' + k} className="input" type="number" value={c.ov[k] ?? ''} placeholder={String(calc)} onChange={(e) => { const v = e.target.value === '' ? undefined : parseInt(e.target.value, 10); const ov = { ...c.ov }; if (v == null || Number.isNaN(v)) delete ov[k]; else ov[k] = v; set({ ov }); }} /></div>
             ))}
           </div>
+        </fieldset>
+
+        <fieldset className="fs" data-wstep="s5">
+          <legend>Dotes, estilos de combate y rasgos propios</legend>
+          <span className="muted small">{lib.feats.length ? 'Dotes del SRD y de tu biblioteca.' : 'El SRD trae 4 dotes de origen, 2 generales, 4 estilos de combate y 7 dones épicos. Las de tu libro puedes añadirlas en «Biblioteca» o aquí como dote propia.'}</span>
+          {featGroups.map(([cat, title]) => {
+            const list = allFeats.filter((f) => f.cat === cat).sort((a, b) => a.n.localeCompare(b.n, 'es'));
+            const mine = c.feats.filter((n) => list.some((f) => f.n === n)).concat(c.customFeats.filter((f) => f.cat === cat).map((f) => f.n));
+            return (
+              <Picker key={cat} title={title} summary={mine.join(', ')}>
+                <div className="chips">
+                  {list.map((f) => <button key={f.id} className={c.feats.includes(f.n) ? 'chip on' : 'chip'} aria-pressed={c.feats.includes(f.n)} onClick={() => { setFeatAbil(''); setFeatInfo({ n: f.n, cat }); }}>{f.n}</button>)}
+                </div>
+              </Picker>
+            );
+          })}
+          {/* Iniciado en la magia: lista (la fija el trasfondo si viene de él), característica, dos trucos y un conjuro de nivel 1 */}
+          {hasMagicInitiate(c) && (() => {
+            const mi = c.choices?.[MI_KEY] || [];
+            const fixed = MI_FROM_BACKGROUND[c.backgroundId];
+            const listCls = fixed || mi[0] || 'cleric';
+            const k = data.classes.find((x) => x.id === listCls);
+            const pool = spellIdx.list.filter((x) => k?.spells.includes(x.id));
+            const put = (i: number, v: string) => { const n = [listCls, mi[1] || 'wis', mi[2] || '', mi[3] || '', mi[4] || '']; n[i] = v; if (i === 0) { n[2] = ''; n[3] = ''; n[4] = ''; } set({ choices: { ...(c.choices || {}), [MI_KEY]: n } }); };
+            const pick = (i: number, lvl: number, label: string) => (
+              <div className="field"><label htmlFor={'ce-mi' + i}>{label}</label>
+                <select id={'ce-mi' + i} className="input" value={mi[i] || ''} onChange={(e) => put(i, e.target.value)}>
+                  <option value="">Elige…</option>
+                  {pool.filter((x) => (x.l || 0) === lvl).sort((a, b) => a.n.localeCompare(b.n, 'es')).map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
+                </select></div>
+            );
+            return (
+              <fieldset className="fs ce-mi">
+                <legend>Iniciado en la magia</legend>
+                <div className="row2">
+                  <div className="field"><label htmlFor="ce-mi0">Lista de conjuros</label>
+                    <select id="ce-mi0" className="input" value={listCls} disabled={!!fixed} onChange={(e) => put(0, e.target.value)}>
+                      {['cleric', 'druid', 'wizard'].map((id) => <option key={id} value={id}>{data.classes.find((x) => x.id === id)?.n || id}</option>)}
+                    </select></div>
+                  <div className="field"><label htmlFor="ce-mi1">Característica para lanzarlos</label>
+                    <select id="ce-mi1" className="input" value={mi[1] || 'wis'} onChange={(e) => put(1, e.target.value)}>
+                      {(['int', 'wis', 'cha'] as const).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                    </select></div>
+                </div>
+                <div className="row2">{pick(2, 0, 'Truco')}{pick(3, 0, 'Otro truco')}</div>
+                {pick(4, 1, 'Conjuro de nivel 1 (una vez por descanso largo sin espacio; también con espacios si tienes)')}
+                {fixed && <span className="muted small">La lista la fija tu trasfondo.</span>}
+              </fieldset>
+            );
+          })()}
+          {/* Pacto del tomo: tres trucos y dos rituales de nivel 1 de cualquier lista, en tu Libro de las sombras */}
+          {/* dotes que dan conjuros (Tocado por las hadas, Telequinético, Lanzador de rituales…): su característica y lo que se elige */}
+          {featGrantsOf(c).map((g) => {
+            const ch = c.choices?.[g.key] || [];
+            const put = (i: number, v: string) => { const n = [...ch]; while (n.length <= i) n.push(''); n[i] = v; set({ choices: { ...(c.choices || {}), [g.key]: n } }); };
+            const count = g.pick ? (g.pick.count === 'pb' ? d.pb : g.pick.count) : 0;
+            const opts = g.pick ? spellIdx.list.filter((x) => (x.l || 0) === g.pick!.lv && (!g.pick!.schools || g.pick!.schools.includes(x.esc || '')) && (!g.pick!.ritual || !!x.rit)).sort((a, b) => a.n.localeCompare(b.n, 'es')) : [];
+            return (
+              <fieldset key={g.key} className="fs ce-mi">
+                <legend>{g.feat}</legend>
+                <div className="row2">
+                  <div className="field"><label htmlFor={'ce-' + g.key.replace('.', '-')}>Característica para lanzarlos</label>
+                    <select id={'ce-' + g.key.replace('.', '-')} className="input" value={ch[0] || ''} onChange={(e) => put(0, e.target.value)}>
+                      <option value="">La más alta</option>
+                      {(['int', 'wis', 'cha'] as const).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                    </select></div>
+                </div>
+                {Array.from({ length: count }, (_, i) => (
+                  <div key={i} className="field"><label htmlFor={'ce-' + g.key.replace('.', '-') + i}>{g.pick!.label}{count > 1 ? ' ' + (i + 1) : ''}</label>
+                    <select id={'ce-' + g.key.replace('.', '-') + i} className="input" value={ch[i + 1] || ''} onChange={(e) => put(i + 1, e.target.value)}>
+                      <option value="">Sin elegir</option>
+                      {opts.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
+                    </select></div>
+                ))}
+                <span className="muted small">{g.pick?.how === 'ritual' ? 'Los lanzas como ritual sin gastar espacio.' : 'Una vez por descanso largo sin espacio, y con espacios si los tienes.'} Salen en tus conjuros con la etiqueta de la dote.</span>
+              </fieldset>
+            );
+          })}
+          {classEntries(c).some((e) => e.classId === 'warlock') && hasInvocation(c, 'Pacto del tomo') && (() => {
+            const tome = c.choices?.[TOME_KEY] || [];
+            const put = (i: number, v: string) => { const n = [0, 1, 2, 3, 4].map((j) => tome[j] || ''); n[i] = v; set({ choices: { ...(c.choices || {}), [TOME_KEY]: n } }); };
+            const pick = (i: number, label: string, ok: (x: { l?: number; rit?: number | boolean }) => boolean) => (
+              <div className="field"><label htmlFor={'ce-tome' + i}>{label}</label>
+                <select id={'ce-tome' + i} className="input" value={tome[i] || ''} onChange={(e) => put(i, e.target.value)}>
+                  <option value="">Elige…</option>
+                  {spellIdx.list.filter(ok).filter((x) => x.id === tome[i] || !tome.includes(x.id)).sort((a, b) => a.n.localeCompare(b.n, 'es')).map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
+                </select></div>
+            );
+            const cantrip = (x: { l?: number }) => (x.l || 0) === 0;
+            const ritual = (x: { l?: number; rit?: number | boolean }) => x.l === 1 && !!x.rit;
+            return (
+              <fieldset className="fs ce-mi">
+                <legend>Pacto del tomo: Libro de las sombras</legend>
+                <div className="row2">{pick(0, 'Truco', cantrip)}{pick(1, 'Segundo truco', cantrip)}</div>
+                <div className="row2">{pick(2, 'Tercer truco', cantrip)}<span /></div>
+                <div className="row2">{pick(3, 'Ritual de nivel 1', ritual)}{pick(4, 'Otro ritual de nivel 1', ritual)}</div>
+                <span className="muted small">De cualquier clase. Cuentan como conjuros de brujo (Carisma); los rituales se lanzan como ritual sin espacio.</span>
+              </fieldset>
+            );
+          })()}
+          {c.customFeats.length > 0 && (
+            <ul className="pc-features">
+              {c.customFeats.map((f) => (
+                <li key={f.id} className="ce-custom">
+                  <span><b>{f.n}</b> <span className="muted small">{CAT_ONE[f.cat]}{f.max ? ' · ' + f.max + ' usos por descanso ' + (f.per === 'sr' ? 'corto' : 'largo') : ''}</span></span>
+                  <span className="rollrow">
+                    <button className="btn small ghost" onClick={() => setNewFeat(f)}>Editar</button>
+                    <button className="btn small ghost" onClick={() => set({ customFeats: c.customFeats.filter((x) => x.id !== f.id) })}>Quitar</button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {newFeat ? (
+            <div className="sub">
+              <div className="row2">
+                <div className="field"><label htmlFor="cf-n">Nombre</label><input id="cf-n" className="input" value={newFeat.n} onChange={(e) => setNewFeat({ ...newFeat, n: e.target.value })} placeholder="Protección, Duro, Ataque divino…" /></div>
+                <div className="field"><label htmlFor="cf-c">Tipo</label>
+                  <select id="cf-c" className="input" value={newFeat.cat} onChange={(e) => setNewFeat({ ...newFeat, cat: e.target.value as FeatCat })}>{FEAT_CATS.map(([k]) => <option key={k} value={k}>{CAT_ONE[k]}</option>)}</select></div>
+              </div>
+              <div className="field"><label htmlFor="cf-d">Qué hace</label><textarea id="cf-d" className="input" rows={3} value={newFeat.d} onChange={(e) => setNewFeat({ ...newFeat, d: e.target.value })} /></div>
+              <FxEditor id="cf" fx={newFeat.fx} set={(fx) => setNewFeat({ ...newFeat, fx })} />
+              <div className="row2">
+                <div className="field"><label htmlFor="cf-m">Usos (vacío = sin límite)</label><input id="cf-m" className="input" type="number" min={1} value={newFeat.max ?? ''} onChange={(e) => setNewFeat({ ...newFeat, max: e.target.value ? parseInt(e.target.value, 10) : null })} /></div>
+                <div className="field"><label htmlFor="cf-p">Se recuperan</label>
+                  <select id="cf-p" className="input" value={newFeat.per} onChange={(e) => setNewFeat({ ...newFeat, per: e.target.value as CustomFeat['per'] })}><option value="lr">En descanso largo</option><option value="sr">En descanso corto o largo</option><option value="">No se recuperan solos</option></select></div>
+              </div>
+              <div className="rollrow">
+                <button className="btn small primary" disabled={!newFeat.n.trim()} onClick={saveCustomFeat}>Guardar</button>
+                <button className="btn small ghost" onClick={() => setNewFeat(null)}>Cancelar</button>
+              </div>
+            </div>
+          ) : (
+            <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setNewFeat({ id: 'f-' + uid(), n: '', d: '', cat: 'general', max: null, per: 'lr' })}>+ Dote o rasgo propio</button>
+          )}
         </fieldset>
 
         </div>
@@ -509,141 +646,6 @@ export default function CharacterEditor({ c }: { c: Character }) {
                 ? <div className="chips">{chosen.map((k) => <button key={k} className="chip on" title="Quitar" onClick={() => set({ spells: c.spells.filter((x) => x !== k) })}>{spellIdx.get(k)?.n || k}{always.has(k) && <span className="chip-tag">ya preparado</span>} ✕</button>)}</div>
                 : <span className="muted small">Ninguno en esta pestaña.</span>}
             </div>
-          )}
-        </fieldset>
-
-        <fieldset className="fs fs-wide" data-wstep="s5">
-          <legend>Dotes, estilos de combate y rasgos propios</legend>
-          <span className="muted small">{lib.feats.length ? 'Dotes del SRD y de tu biblioteca.' : 'El SRD trae 4 dotes de origen, 2 generales, 4 estilos de combate y 7 dones épicos. Las de tu libro puedes añadirlas en «Biblioteca» o aquí como dote propia.'}</span>
-          {featGroups.map(([cat, title]) => {
-            const list = allFeats.filter((f) => f.cat === cat).sort((a, b) => a.n.localeCompare(b.n, 'es'));
-            const mine = c.feats.filter((n) => list.some((f) => f.n === n)).concat(c.customFeats.filter((f) => f.cat === cat).map((f) => f.n));
-            return (
-              <Picker key={cat} title={title} summary={mine.join(', ')}>
-                <div className="chips">
-                  {list.map((f) => <button key={f.id} className={c.feats.includes(f.n) ? 'chip on' : 'chip'} aria-pressed={c.feats.includes(f.n)} onClick={() => { setFeatAbil(''); setFeatInfo({ n: f.n, cat }); }}>{f.n}</button>)}
-                </div>
-              </Picker>
-            );
-          })}
-          {/* Iniciado en la magia: lista (la fija el trasfondo si viene de él), característica, dos trucos y un conjuro de nivel 1 */}
-          {hasMagicInitiate(c) && (() => {
-            const mi = c.choices?.[MI_KEY] || [];
-            const fixed = MI_FROM_BACKGROUND[c.backgroundId];
-            const listCls = fixed || mi[0] || 'cleric';
-            const k = data.classes.find((x) => x.id === listCls);
-            const pool = spellIdx.list.filter((x) => k?.spells.includes(x.id));
-            const put = (i: number, v: string) => { const n = [listCls, mi[1] || 'wis', mi[2] || '', mi[3] || '', mi[4] || '']; n[i] = v; if (i === 0) { n[2] = ''; n[3] = ''; n[4] = ''; } set({ choices: { ...(c.choices || {}), [MI_KEY]: n } }); };
-            const pick = (i: number, lvl: number, label: string) => (
-              <div className="field"><label htmlFor={'ce-mi' + i}>{label}</label>
-                <select id={'ce-mi' + i} className="input" value={mi[i] || ''} onChange={(e) => put(i, e.target.value)}>
-                  <option value="">Elige…</option>
-                  {pool.filter((x) => (x.l || 0) === lvl).sort((a, b) => a.n.localeCompare(b.n, 'es')).map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
-                </select></div>
-            );
-            return (
-              <fieldset className="fs ce-mi">
-                <legend>Iniciado en la magia</legend>
-                <div className="row2">
-                  <div className="field"><label htmlFor="ce-mi0">Lista de conjuros</label>
-                    <select id="ce-mi0" className="input" value={listCls} disabled={!!fixed} onChange={(e) => put(0, e.target.value)}>
-                      {['cleric', 'druid', 'wizard'].map((id) => <option key={id} value={id}>{data.classes.find((x) => x.id === id)?.n || id}</option>)}
-                    </select></div>
-                  <div className="field"><label htmlFor="ce-mi1">Característica para lanzarlos</label>
-                    <select id="ce-mi1" className="input" value={mi[1] || 'wis'} onChange={(e) => put(1, e.target.value)}>
-                      {(['int', 'wis', 'cha'] as const).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
-                    </select></div>
-                </div>
-                <div className="row2">{pick(2, 0, 'Truco')}{pick(3, 0, 'Otro truco')}</div>
-                {pick(4, 1, 'Conjuro de nivel 1 (una vez por descanso largo sin espacio; también con espacios si tienes)')}
-                {fixed && <span className="muted small">La lista la fija tu trasfondo.</span>}
-              </fieldset>
-            );
-          })()}
-          {/* Pacto del tomo: tres trucos y dos rituales de nivel 1 de cualquier lista, en tu Libro de las sombras */}
-          {/* dotes que dan conjuros (Tocado por las hadas, Telequinético, Lanzador de rituales…): su característica y lo que se elige */}
-          {featGrantsOf(c).map((g) => {
-            const ch = c.choices?.[g.key] || [];
-            const put = (i: number, v: string) => { const n = [...ch]; while (n.length <= i) n.push(''); n[i] = v; set({ choices: { ...(c.choices || {}), [g.key]: n } }); };
-            const count = g.pick ? (g.pick.count === 'pb' ? d.pb : g.pick.count) : 0;
-            const opts = g.pick ? spellIdx.list.filter((x) => (x.l || 0) === g.pick!.lv && (!g.pick!.schools || g.pick!.schools.includes(x.esc || '')) && (!g.pick!.ritual || !!x.rit)).sort((a, b) => a.n.localeCompare(b.n, 'es')) : [];
-            return (
-              <fieldset key={g.key} className="fs ce-mi">
-                <legend>{g.feat}</legend>
-                <div className="row2">
-                  <div className="field"><label htmlFor={'ce-' + g.key.replace('.', '-')}>Característica para lanzarlos</label>
-                    <select id={'ce-' + g.key.replace('.', '-')} className="input" value={ch[0] || ''} onChange={(e) => put(0, e.target.value)}>
-                      <option value="">La más alta</option>
-                      {(['int', 'wis', 'cha'] as const).map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
-                    </select></div>
-                </div>
-                {Array.from({ length: count }, (_, i) => (
-                  <div key={i} className="field"><label htmlFor={'ce-' + g.key.replace('.', '-') + i}>{g.pick!.label}{count > 1 ? ' ' + (i + 1) : ''}</label>
-                    <select id={'ce-' + g.key.replace('.', '-') + i} className="input" value={ch[i + 1] || ''} onChange={(e) => put(i + 1, e.target.value)}>
-                      <option value="">Sin elegir</option>
-                      {opts.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
-                    </select></div>
-                ))}
-                <span className="muted small">{g.pick?.how === 'ritual' ? 'Los lanzas como ritual sin gastar espacio.' : 'Una vez por descanso largo sin espacio, y con espacios si los tienes.'} Salen en tus conjuros con la etiqueta de la dote.</span>
-              </fieldset>
-            );
-          })}
-          {classEntries(c).some((e) => e.classId === 'warlock') && hasInvocation(c, 'Pacto del tomo') && (() => {
-            const tome = c.choices?.[TOME_KEY] || [];
-            const put = (i: number, v: string) => { const n = [0, 1, 2, 3, 4].map((j) => tome[j] || ''); n[i] = v; set({ choices: { ...(c.choices || {}), [TOME_KEY]: n } }); };
-            const pick = (i: number, label: string, ok: (x: { l?: number; rit?: number | boolean }) => boolean) => (
-              <div className="field"><label htmlFor={'ce-tome' + i}>{label}</label>
-                <select id={'ce-tome' + i} className="input" value={tome[i] || ''} onChange={(e) => put(i, e.target.value)}>
-                  <option value="">Elige…</option>
-                  {spellIdx.list.filter(ok).filter((x) => x.id === tome[i] || !tome.includes(x.id)).sort((a, b) => a.n.localeCompare(b.n, 'es')).map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}
-                </select></div>
-            );
-            const cantrip = (x: { l?: number }) => (x.l || 0) === 0;
-            const ritual = (x: { l?: number; rit?: number | boolean }) => x.l === 1 && !!x.rit;
-            return (
-              <fieldset className="fs ce-mi">
-                <legend>Pacto del tomo: Libro de las sombras</legend>
-                <div className="row2">{pick(0, 'Truco', cantrip)}{pick(1, 'Segundo truco', cantrip)}</div>
-                <div className="row2">{pick(2, 'Tercer truco', cantrip)}<span /></div>
-                <div className="row2">{pick(3, 'Ritual de nivel 1', ritual)}{pick(4, 'Otro ritual de nivel 1', ritual)}</div>
-                <span className="muted small">De cualquier clase. Cuentan como conjuros de brujo (Carisma); los rituales se lanzan como ritual sin espacio.</span>
-              </fieldset>
-            );
-          })()}
-          {c.customFeats.length > 0 && (
-            <ul className="pc-features">
-              {c.customFeats.map((f) => (
-                <li key={f.id} className="ce-custom">
-                  <span><b>{f.n}</b> <span className="muted small">{CAT_ONE[f.cat]}{f.max ? ' · ' + f.max + ' usos por descanso ' + (f.per === 'sr' ? 'corto' : 'largo') : ''}</span></span>
-                  <span className="rollrow">
-                    <button className="btn small ghost" onClick={() => setNewFeat(f)}>Editar</button>
-                    <button className="btn small ghost" onClick={() => set({ customFeats: c.customFeats.filter((x) => x.id !== f.id) })}>Quitar</button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {newFeat ? (
-            <div className="sub">
-              <div className="row2">
-                <div className="field"><label htmlFor="cf-n">Nombre</label><input id="cf-n" className="input" value={newFeat.n} onChange={(e) => setNewFeat({ ...newFeat, n: e.target.value })} placeholder="Protección, Duro, Ataque divino…" /></div>
-                <div className="field"><label htmlFor="cf-c">Tipo</label>
-                  <select id="cf-c" className="input" value={newFeat.cat} onChange={(e) => setNewFeat({ ...newFeat, cat: e.target.value as FeatCat })}>{FEAT_CATS.map(([k]) => <option key={k} value={k}>{CAT_ONE[k]}</option>)}</select></div>
-              </div>
-              <div className="field"><label htmlFor="cf-d">Qué hace</label><textarea id="cf-d" className="input" rows={3} value={newFeat.d} onChange={(e) => setNewFeat({ ...newFeat, d: e.target.value })} /></div>
-              <FxEditor id="cf" fx={newFeat.fx} set={(fx) => setNewFeat({ ...newFeat, fx })} />
-              <div className="row2">
-                <div className="field"><label htmlFor="cf-m">Usos (vacío = sin límite)</label><input id="cf-m" className="input" type="number" min={1} value={newFeat.max ?? ''} onChange={(e) => setNewFeat({ ...newFeat, max: e.target.value ? parseInt(e.target.value, 10) : null })} /></div>
-                <div className="field"><label htmlFor="cf-p">Se recuperan</label>
-                  <select id="cf-p" className="input" value={newFeat.per} onChange={(e) => setNewFeat({ ...newFeat, per: e.target.value as CustomFeat['per'] })}><option value="lr">En descanso largo</option><option value="sr">En descanso corto o largo</option><option value="">No se recuperan solos</option></select></div>
-              </div>
-              <div className="rollrow">
-                <button className="btn small primary" disabled={!newFeat.n.trim()} onClick={saveCustomFeat}>Guardar</button>
-                <button className="btn small ghost" onClick={() => setNewFeat(null)}>Cancelar</button>
-              </div>
-            </div>
-          ) : (
-            <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => setNewFeat({ id: 'f-' + uid(), n: '', d: '', cat: 'general', max: null, per: 'lr' })}>+ Dote o rasgo propio</button>
           )}
         </fieldset>
 

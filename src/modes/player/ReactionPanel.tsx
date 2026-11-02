@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { classLevel, partsShort, type Character, type Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
 import { norm } from '../../engine/util';
@@ -28,7 +29,7 @@ const REACTIONS: { n: string[]; what: string; roll?: (d: Derived) => { label: st
 export const REACTION_FEATS = REACTIONS.flatMap((x) => x.n.map(norm));
 
 /** Las reacciones del personaje: ataque de oportunidad, sus dotes y sus conjuros de reacción, con el uso de la reacción. */
-export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell, onHit }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string; r?: string; k?: string }[]; extra?: QuickRow[]; onSpell?: (k: string) => void; onHit?: (a: Derived['attacks'][number] | null) => void }) {
+export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell, onHit, rows }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string; r?: string; k?: string }[]; extra?: QuickRow[]; onSpell?: (k: string) => void; onHit?: (a: Derived['attacks'][number] | null) => void; rows?: ReactNode }) {
   const { roll } = useStore.getState();
   const who = c.name || 'Personaje';
   // las dotes elegidas y los rasgos propios con el mismo nombre (una dote de otro libro escrita a mano)
@@ -73,6 +74,7 @@ export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell, 
             </span>
           </li>
         ))}
+        {rows}
         {extra.filter((r) => r.kind !== 'bonus').map((r) => (
           <li key={r.key}>
             <InfoPop label={r.n} title={r.n}><p className="muted">{r.src.replace(/ \d+$/, '')}</p><p>{plainText(r.d)}</p></InfoPop>

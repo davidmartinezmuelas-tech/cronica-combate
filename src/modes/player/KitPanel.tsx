@@ -6,6 +6,7 @@ import { atLevel, resourceMax, resourcePer, type KitAction, type SubclassKit } f
 import { optionItems, subclassText, type SubclassText } from '../../engine/subclassChoices';
 import { norm } from '../../engine/util';
 import Card from '../../shared/Card';
+import InfoPop from '../../shared/InfoPop';
 import Pips from '../../shared/Pips';
 import type { LibraryData } from '../../store/library';
 import { useStore } from '../../store/useStore';
@@ -29,7 +30,9 @@ function kitText(src: SubclassText | null, names: string[]): { n: string; d: str
 interface Btn { k: string; t: string; dmg?: boolean; off?: boolean; plain?: boolean; go: () => void }
 
 /** Rasgos de la subclase con sus tiradas: dados del recurso, usos propios, PG temporales, daño extra con las armas… */
-export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Character; d: Derived; lib: LibraryData; set: (patch: Partial<Character>) => void; kit: SubclassKit; actions: KitAction[] }) {
+export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onUse, off }: { c: Character; d: Derived; lib: LibraryData; set: (patch: Partial<Character>) => void; kit: SubclassKit; actions: KitAction[]; react?: boolean; onUse?: () => void; off?: boolean }) {
+  // react: solo los rasgos de reacción, en filas compactas dentro de la tarjeta Reacción; si no, la tarjeta de la subclase sin ellos
+  const actions = all.filter((a) => !!a.react === !!react);
   const { roll } = useStore.getState();
   const who = c.name || 'Personaje';
   // textos: rasgos de la subclase y de la clase (Chispa divina va dentro de «Canalizar Divinidad»)
@@ -47,20 +50,8 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
   const m = (a?: Abil) => (a ? d.mods[a] : 0);
   const [msg, setMsg] = useState<Record<string, string>>({});
 
-  return (
-    <section className="panel" aria-label={kit.title}>
-      <div className="panel-head">
-        <h3 className="eyebrow">{kit.title}</h3>
-        {res && (
-          // los contadores junto al título (cuándo se recuperan, al pasar el ratón)
-          <span className="rollrow res-head" title={res.n + (resPer === 'sr1' ? ': uno vuelve en descanso corto, todos en largo' : ': vuelven en descanso ' + per(resPer))}>
-            <Pips noTotal max={max} used={used} label={res.n} onSet={(v) => set({ uses: { ...c.uses, [res.key]: Math.max(0, Math.min(max, v)) } })} />
-            <span className="muted small">{norm(res.n).includes(norm(kit.title)) ? '' : res.n + ': '}{left} de {max}{die ? ' (' + die + ')' : ''}</span>
-          </span>
-        )}
-      </div>
-      <ul className="pc-features grid acts">
-        {actions.map((a) => {
+  if (!actions.length) return null;
+  const rows = actions.map((a) => {
           const text = kitText(src, a.n);
           const name = text?.n || a.n[0];
           const r = a.roll;
@@ -137,6 +128,20 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
             const n = Math.max(1, c.level + m(r.plus));
             btns.push({ k: 't', t: 'Ganar ' + n + ' PG temporales', plain: true, go: () => set({ temp: Math.max(c.temp, n) }) });
           }
+          if (react) {
+            // fila compacta de la tarjeta Reacción: el nombre con su texto en una ventana, y los botones
+            return (
+              <li key={a.n[0]}>
+                <InfoPop label={name} title={name}>{a.note && <p className="muted small">{a.note}</p>}{text ? <p>{text.d}</p> : <p className="muted small">El texto de este rasgo sale de tu libro: impórtalo en «Biblioteca».</p>}</InfoPop>
+                {res && r.kind !== 'info' && <span className="chip-tag">{left} de {max}{die ? ' ' + die : ''}</span>}
+                {a.save && <span className="chip-tag">CD {dcOf(a.save.dc)} {ABIL_N[a.save.abil]}</span>}
+                <span className="rollrow">
+                  {btns.map((b) => <button key={b.k} className={b.plain ? 'btn small' : b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off || off} onClick={() => { onUse?.(); b.go(); }}>{b.t}</button>)}
+                  {!btns.length && <button className="btn small" disabled={off} onClick={onUse}>Usar</button>}
+                </span>
+              </li>
+            );
+          }
           return (
             <li key={a.n[0]}>
               <Card name={name} head={<>
@@ -157,7 +162,22 @@ export default function KitPanel({ c, d, lib, set, kit, actions }: { c: Characte
               </Card>
             </li>
           );
-        })}
+  });
+  if (react) return <>{rows}</>;
+  return (
+    <section className="panel" aria-label={kit.title}>
+      <div className="panel-head">
+        <h3 className="eyebrow">{kit.title}</h3>
+        {res && (
+          // los contadores junto al título (cuándo se recuperan, al pasar el ratón)
+          <span className="rollrow res-head" title={res.n + (resPer === 'sr1' ? ': uno vuelve en descanso corto, todos en largo' : ': vuelven en descanso ' + per(resPer))}>
+            <Pips noTotal max={max} used={used} label={res.n} onSet={(v) => set({ uses: { ...c.uses, [res.key]: Math.max(0, Math.min(max, v)) } })} />
+            <span className="muted small">{norm(res.n).includes(norm(kit.title)) ? '' : res.n + ': '}{left} de {max}{die ? ' (' + die + ')' : ''}</span>
+          </span>
+        )}
+      </div>
+      <ul className="pc-features grid acts">
+        {rows}
       </ul>
     </section>
   );
