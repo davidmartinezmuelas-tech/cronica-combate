@@ -1966,3 +1966,22 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .pc-id-grid dt{margin-top:1px}
 .pc-head-id>div:last-child{flex:1 1 auto}
 @container (max-width:420px){.pc-id-grid{grid-template-columns:1fr}}
+
+/* Reaccion en una tarjeta estrecha (al lado de Accion adicional): el nombre arriba y la tabla de armas a todo el ancho */
+.pc-rx{container-type:inline-size}
+@container (max-width:460px){
+  .pc-rx .pc-rx-list>li:has(.rx-weap){flex-direction:column;align-items:stretch}
+  .pc-rx .pc-rx-list .rollrow.rx-weap{grid-template-columns:auto minmax(0,1fr) !important;width:100%}
+  .pc-rx .pc-rx-list .rollrow.rx-weap>.rollbtn.dmg{max-width:none}
+}
+
+/* Cabecera: bases algo menores para que todas las casillas quepan en una fila hasta unos 800 px de hoja */
+.pc-stats .stat-lv{flex:1 1 76px;min-width:76px}
+.pc-stats .stat-ac{flex:1 1 88px}
+.pc-stats .stat-hp{flex:1.4 1 124px}
+.pc-stats .stat-hd{flex:1 1 100px}
+.pc-stats .stat-death{flex:1 1 136px;min-width:136px}
+.pc-stats .stat-init{flex:1 1 108px}
+.pc-stats .stat-sm{flex:0 1 82px}
+.stat-xp .input{width:48px}
+.pc-stats .stat-death .pips{flex-wrap:nowrap}
