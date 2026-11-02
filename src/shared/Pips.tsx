@@ -1,10 +1,10 @@
-interface PipProps { max: number; used: number; onSet: (v: number) => void; label: string }
+interface PipProps { max: number; used: number; onSet: (v: number) => void; label: string; noTotal?: boolean }
 /** Usos, como en la hoja oficial: el total y una fila de rombos; los gastados van rellenos. Pulsar uno vacío gasta un uso y uno relleno lo recupera. */
-export default function Pips({ max, used, onSet, label }: PipProps) {
+export default function Pips({ max, used, onSet, label, noTotal }: PipProps) {
   const spent = Math.min(max, Math.max(0, used));
   return (
     <span className={max > 6 ? 'uses-marks many' : 'uses-marks'} role="group" aria-label={label + ': ' + (max - spent) + ' de ' + max + ' disponibles'}>
-      <b className="uses-total" title="Total" aria-hidden="true">{max}</b>
+      {!noTotal && <b className="uses-total" title="Total" aria-hidden="true">{max}</b>}
       {Array.from({ length: max }, (_, j) => {
         const gone = j < spent;
         return (

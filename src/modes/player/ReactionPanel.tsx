@@ -68,6 +68,7 @@ export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell }
         {extra.filter((r) => r.kind !== 'bonus').map((r) => (
           <li key={r.key}>
             <InfoPop label={r.n} title={r.n}><p className="muted">{r.src.replace(/ \d+$/, '')}</p><p>{plainText(r.d)}</p></InfoPop>
+            {r.tag && <span className="chip-tag">{r.tag}</span>}
             <span className="rollrow">
               {/ataque cuerpo a cuerpo|ataque de oportunidad/.test(norm(r.d).slice(0, 420)) && melee.length > 0
                 ? melee.map((a) => <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + r.n + ': ' + a.w.name, kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}><span className="rx-n">{a.w.name}</span> <span>{fmt(a.atk)}</span></button>)

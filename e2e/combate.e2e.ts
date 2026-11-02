@@ -11,6 +11,13 @@ async function open(page: Page) {
 }
 
 /** Abre Ajustes (encabezado) y devuelve su ventana. */
+/** Pulsa el daño del arma; si la hoja pregunta por un castigo, elige «Solo el arma». */
+async function strike(page: Page, card: import('@playwright/test').Locator) {
+  await card.locator('.rollbtn.dmg').first().click();
+  const solo = page.getByRole('dialog').getByRole('button', { name: /^Solo el arma/ });
+  if (await solo.isVisible()) await solo.click();
+}
+
 async function settings(page: Page) {
   await page.getByRole('button', { name: 'Ajustes', exact: true }).click();
   return page.getByRole('dialog', { name: 'Ajustes' });
@@ -499,7 +506,7 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   await expect(sheet.locator('.stat-hp .stat-max')).toHaveText('28');
   await sheet.getByRole('button', { name: 'Ataque +4' }).click();
   await expect(page.locator('.plaque-label')).toContainText('Brakka · Espada larga: ataque', { timeout: 15000 });
-  await expect(sheet.getByRole('button', { name: /Daño 1d8\+2 cortante/ })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: /^1d8\+2 cort\./ })).toBeVisible();
   const traits = sheet.locator('section[aria-label="Rasgos y dotes"]');
   await expect(traits.locator('.card', { hasText: 'Segundo aliento' })).toBeVisible();
   await expect(traits.locator('.card', { hasText: 'Crítico mejorado' })).toBeVisible();
@@ -544,7 +551,7 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   const sheet = page.locator('.pc');
   await expect(sheet).toContainText('Paladín 3 (Juramento de la Estirpe)');
   // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
-  await expect(sheet.getByRole('button', { name: 'Daño 1d8+2 + 1d6' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: /^1d8\+2 cort\. \+ 1d6/ })).toBeVisible();
   await expect(sheet.locator('.card', { hasText: 'Castigo Divino' })).toBeVisible();
   await expect(sheet.getByRole('group', { name: 'Estilo de combate' })).toContainText('Protección');
   // con otra subclase no salen los rasgos de la del SRD
@@ -729,7 +736,7 @@ test('dotes con botones: atacante salvaje, ataque extra con arma ligera, sin arm
   const short = atk.locator('.pc-attack', { hasText: 'Espada corta' });
   await expect(short.getByRole('button', { name: /^Acción adicional 1d6\+\d perforante$/ })).toBeVisible();
   await atk.getByRole('button', { name: 'Atacante salvaje' }).click();
-  await short.getByRole('button', { name: /^Daño / }).click();
+  await strike(page, short);
   await expect(page.locator('.plaque-tags')).toContainText('Atacante salvaje');
   await expect(atk.getByRole('button', { name: 'Atacante salvaje' })).toHaveAttribute('aria-pressed', 'false');
   await expect(atk.locator('.pc-attack', { hasText: 'Ataque sin armas' })).toContainText('repite los 1');
@@ -765,15 +772,15 @@ test('crítico con Perforador y Don del ataque imparable; Duelo se quita por arm
   await page.getByRole('button', { name: 'Listo' }).first().click();
 
   const rapier = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Estoque' });
-  await expect(rapier.getByRole('button', { name: /^Daño 1d8\+4 perforante$/ })).toBeVisible(); // +2 FUE +2 Duelo
+  await expect(rapier.getByRole('button', { name: /^1d8\+4 perf\.$/ })).toBeVisible(); // +2 FUE +2 Duelo
   await rapier.getByRole('checkbox', { name: /Duelo/ }).uncheck();
-  await expect(rapier.getByRole('button', { name: /^Daño 1d8\+2 perforante$/ })).toBeVisible();
+  await expect(rapier.getByRole('button', { name: /^1d8\+2 perf\.$/ })).toBeVisible();
 
   // todos los dados al máximo: 20 natural en el ataque y crítico en el daño
   await page.evaluate(() => { Math.random = () => 0.999; });
   await rapier.getByRole('button', { name: /^Ataque/ }).click();
   await expect(page.locator('.plaque')).toContainText('¡Crítico!', { timeout: 10000 }); // 20 natural
-  await rapier.getByRole('button', { name: /^Daño/ }).click();
+  await strike(page, rapier);
   await expect(page.locator('.plaque-label')).toContainText('daño');
   // 2d8 (16) + 2 + un d8 más de Perforador (8) + Fuerza 15 de Don del ataque imparable = 41
   await expect(page.locator('.plaque-total')).toHaveText('41', { timeout: 10000 });
@@ -892,14 +899,14 @@ test('rasgos de clase en la hoja: Ataque furtivo, Furia, Segundo aliento, Imposi
   // pícaro 5: Ataque furtivo 3d6 con el estoque (sutil), una vez
   await make('Sombra', 'Pícaro', '5', 'Estoque (1d8 perforante)');
   await atk.getByRole('button', { name: 'Ataque furtivo +3d6' }).click();
-  await atk.locator('.pc-attack', { hasText: 'Estoque' }).getByRole('button', { name: /^Daño/ }).click();
+  await strike(page, atk.locator('.pc-attack', { hasText: 'Estoque' }));
   await expect(page.locator('.plaque-rows')).toContainText('Ataque furtivo');
   await expect(atk.getByRole('button', { name: 'Ataque furtivo +3d6' })).toHaveAttribute('aria-pressed', 'false');
 
   // bárbaro 9: entrar en Furia gasta un uso y suma +3 hasta que se apaga
   await make('Ruk', 'Bárbaro', '9', 'Hacha a dos manos (1d12 cortante)');
   await atk.getByRole('button', { name: 'Furia +3' }).click();
-  await atk.locator('.pc-attack', { hasText: 'Hacha a dos manos' }).getByRole('button', { name: /^Daño/ }).click();
+  await strike(page, atk.locator('.pc-attack', { hasText: 'Hacha a dos manos' }));
   await expect(page.locator('.plaque-rows')).toContainText('Furia');
   await expect(atk.getByRole('button', { name: 'Furia +3' })).toHaveAttribute('aria-pressed', 'true');
 
@@ -907,7 +914,7 @@ test('rasgos de clase en la hoja: Ataque furtivo, Furia, Segundo aliento, Imposi
   await make('Brakka', 'Guerrero', '3', 'Espada larga (1d8 cortante)', 'Campeón');
   await page.getByLabel('Cantidad de PG').fill('10');
   await page.getByRole('button', { name: 'Daño', exact: true }).click();
-  await page.locator('section[aria-label="Rasgos de clase"]').getByRole('button', { name: 'Curarte 1d10+3' }).click();
+  await page.locator('section[aria-label="Acción adicional"]').getByRole('button', { name: 'Curarte 1d10+3' }).click();
   await expect(page.locator('.plaque')).toContainText('Recuperas', { timeout: 10000 });
   // crítico con 19
   await page.evaluate(() => { Math.random = () => 0.92; }); // d20 -> 19
@@ -918,7 +925,7 @@ test('rasgos de clase en la hoja: Ataque furtivo, Furia, Segundo aliento, Imposi
   await make('Aldo', 'Paladín', '2');
   await page.getByLabel('Cantidad de PG').fill('4');
   await page.getByRole('button', { name: 'Daño', exact: true }).click();
-  const lay = page.locator('section[aria-label="Rasgos de clase"]');
+  const lay = page.locator('section[aria-label="Acción adicional"]');
   await lay.getByLabel('PG de Imposición de manos').fill('6');
   await lay.getByRole('button', { name: 'Curarme 4' }).click();
   await expect(lay).toContainText('6 de 10 PG');
@@ -942,16 +949,16 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   // los conjuros van plegados: se despliegan al pulsarlos
   await fireball.getByRole('button', { name: /^Bola de fuego/ }).click();
   await expect(fireball).toContainText('CD 13 Destreza · mitad si supera');
-  await expect(fireball.getByRole('button', { name: 'Daño 8d6 fuego' })).toBeVisible();
+  await expect(fireball.getByRole('button', { name: '8d6 fuego' })).toBeVisible();
   await fireball.getByLabel('Nivel de espacio para Bola de fuego').selectOption('4');
-  await fireball.getByRole('button', { name: 'Daño 9d6 fuego' }).click();
+  await fireball.getByRole('button', { name: '9d6 fuego' }).click();
   await expect(page.locator('.plaque-label')).toContainText('Bola de fuego (nivel 4): daño');
   // la tirada de daño ya gastó el espacio de nivel 4 (solo tenía uno): «Lanzar» queda sin espacio
   await expect(fireball.getByRole('button', { name: 'Lanzar (gasta espacio de nivel 4)' })).toBeDisabled();
   const bolt = sp.locator('.card', { hasText: 'Descarga de fuego' });
   await bolt.getByRole('button', { name: /^Descarga de fuego/ }).click();
   await expect(bolt.getByRole('button', { name: 'Ataque +5' })).toBeVisible();
-  await expect(bolt.getByRole('button', { name: 'Daño 2d10 fuego' })).toBeVisible(); // nivel 5+: 2d10
+  await expect(bolt.getByRole('button', { name: '2d10 fuego' })).toBeVisible(); // nivel 5+: 2d10
   // uno abierto a la vez: abrir la Descarga plegó la Bola de fuego
   await expect(fireball.getByRole('button', { name: 'Ver texto' })).toHaveCount(0);
   await fireball.getByRole('button', { name: /^Bola de fuego/ }).click();
@@ -960,7 +967,7 @@ test('tiradas de conjuros: nivel de espacio, trucos que mejoran, curación y gas
   await fireball.getByRole('button', { name: 'Ver texto' }).click();
   const dlg = page.getByRole('dialog', { name: 'Bola de fuego' });
   await expect(dlg).toContainText('Nivel 3');
-  await expect(dlg.getByRole('button', { name: /Daño \d+d6 fuego/ })).toBeVisible();
+  await expect(dlg.getByRole('button', { name: /^\d+d6 fuego/ })).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(dlg).toHaveCount(0);
 
@@ -1139,10 +1146,10 @@ test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ p
   await expect(sp.getByRole('button', { name: /^Ataque de conjuro/ })).toHaveCount(1);
   await expect(sp).toContainText('Carisma');
   await expect(sp).not.toContainText('(Paladín)');
-  await expect(sp).toContainText('Magia de pacto (nivel 2)');
+  await expect(sp.getByRole('group', { name: /^Espacios de magia de pacto \(nivel 2\)/ })).toBeVisible();
   // rasgos de las dos clases
   const traits = page.locator('section[aria-label="Rasgos y dotes"]');
-  await expect(traits.locator('.card', { hasText: 'Imposición de manos' })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Acción adicional' }).locator('.card', { hasText: 'Imposición de manos' })).toBeVisible();
   await expect(traits.getByRole('group', { name: 'Brujo' })).toBeVisible();
 });
 
@@ -1160,7 +1167,7 @@ test('multiclase: los paneles de acciones de cada clase', async ({ page }) => {
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.getByRole('region', { name: 'Canalización divina' })).toBeVisible();
   await expect(page.locator('.card', { hasText: 'Bendición del Oscuro' }).first()).toBeVisible();
-  await expect(page.getByRole('region', { name: 'Rasgos de clase' })).toContainText('Imposición de manos');
+  await expect(page.getByRole('region', { name: 'Acción adicional' })).toContainText('Imposición de manos');
 
   // guerrero con bárbaro: Segundo aliento y Furia en Ataques
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
@@ -1172,7 +1179,7 @@ test('multiclase: los paneles de acciones de cada clase', async ({ page }) => {
   await page.getByLabel('Otra clase').selectOption({ label: 'Bárbaro' });
   await page.getByLabel('Nivel en ella').fill('2');
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(page.getByRole('region', { name: 'Rasgos de clase' })).toContainText('Segundo aliento');
+  await expect(page.getByRole('region', { name: 'Acción adicional' })).toContainText('Segundo aliento');
   await expect(page.getByRole('button', { name: /^Furia \+2/ })).toBeVisible();
   await expect(page.locator('.pc-stats .stat-ac')).toHaveAttribute('title', /Defensa sin armadura/);
 });
@@ -1208,9 +1215,10 @@ test('estados del jugador en sus tiradas: envenenado da desventaja en ataques y 
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  const rest = page.getByRole('region', { name: 'Estados y descansos' });
+  const rest = page.locator('.pc-hp-row');
   await rest.locator('summary').first().click();
   await rest.getByRole('button', { name: 'Envenenado' }).click();
+  await rest.locator('summary').first().click(); // cierra el desplegable, que en tablet tapa las características
   await page.locator('.pc-abil', { hasText: 'FUE' }).getByRole('button', { name: /^Prueba/ }).click();
   await expect(page.locator('.plaque')).toContainText('desventaja: envenenado', { timeout: 15000 });
 });
@@ -1322,7 +1330,7 @@ test('subir de nivel: elecciones de clase o subclase y cambiar un conjuro', asyn
   await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 7' }).click();
   await expect(page.locator('.pc-head')).toContainText('Clérigo 7');
   // descanso largo: quitar Escudo de fe y preparar otro
-  const rest = page.getByRole('region', { name: 'Estados y descansos' });
+  const rest = page.locator('.pc-hp-row');
   await rest.getByRole('button', { name: 'Descanso largo' }).click();
   await rest.getByRole('button', { name: '¿Seguro? Descanso largo' }).click();
   const rd = page.getByRole('dialog', { name: 'Conjuros tras el descanso largo' });
@@ -1361,20 +1369,17 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
 
   const atk = page.locator('section[aria-label="Ataques"]');
   // Castigo del paladín: gratis una vez; luego con espacios de nivel 1 o 2
-  const pick = atk.getByLabel('Espacio del castigo');
-  await expect(pick.locator('option')).toHaveText(['Gratis · 2d8', 'Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
   const sword = atk.locator('.pc-attack', { hasText: 'Espada larga' });
-  // el castigo se deja puesto en el arma y entra en su siguiente daño (y luego se quita)
-  const smiteChip = sword.getByRole('button', { name: 'Divino +2d8' });
-  await smiteChip.click();
-  await expect(smiteChip).toHaveAttribute('aria-pressed', 'true');
-  await sword.getByRole('button', { name: /^Daño/ }).click();
+  const dlg = page.getByRole('dialog');
+  // al pulsar el daño del arma se pregunta si se añade el castigo y con qué espacio
+  await sword.locator('.rollbtn.dmg').first().click();
+  await expect(dlg.getByRole('button', { name: /^Castigo Divino · / })).toHaveText(['Castigo Divino · Gratis · 2d8 radiante', 'Castigo Divino · Nivel 1 · 2d8 radiante', 'Castigo Divino · Nivel 2 · 3d8 radiante']);
+  await dlg.getByRole('button', { name: /· Gratis ·/ }).click();
   await expect(page.locator('.plaque-rows')).toContainText('Castigo Divino');
-  await expect(smiteChip).toHaveAttribute('aria-pressed', 'false');
-  await expect(pick.locator('option')).toHaveText(['Nivel 1 · 2d8', 'Nivel 2 · 3d8']);
-  await pick.selectOption({ label: 'Nivel 2 · 3d8' });
-  await sword.getByRole('button', { name: 'Divino +3d8' }).click();
-  await sword.getByRole('button', { name: /^Daño/ }).click();
+  // el gratis ya está gastado: solo quedan los espacios
+  await sword.locator('.rollbtn.dmg').first().click();
+  await expect(dlg.getByRole('button', { name: /^Castigo Divino · / })).toHaveText(['Castigo Divino · Nivel 1 · 2d8 radiante', 'Castigo Divino · Nivel 2 · 3d8 radiante']);
+  await dlg.getByRole('button', { name: /· Nivel 2 ·/ }).click();
   await expect(page.locator('.plaque-rows')).toContainText('Castigo Divino');
 
   // brujo 5: invocaciones con requisitos y sus efectos
@@ -1396,8 +1401,10 @@ test('escudo en la CA, castigos desde el arma e invocaciones del brujo', async (
   await expect(page.locator('.pc-stats .stat-ac')).toHaveAttribute('title', /Armadura de sombras/);
   const blast = page.locator('section[aria-label="Conjuros"] .card', { hasText: 'Descarga sobrenatural' });
   await blast.getByRole('button', { name: /^Descarga sobrenatural/ }).click();
-  await expect(blast.getByRole('button', { name: /^Daño \d × 1d10\+\d fuerza/ })).toBeVisible();
-  await expect(page.locator('section[aria-label="Ataques"]').getByRole('button', { name: 'Arcano +4d8' })).toBeVisible();
+  await expect(blast.getByRole('button', { name: /^\d × 1d10\+\d fuerza/ })).toBeVisible();
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
+  await expect(page.getByRole('dialog').getByRole('checkbox', { name: /Castigo arcano \(\+4d8/ })).toBeVisible();
+  await page.keyboard.press('Escape');
   await expect(page.locator('.pc-features .card', { hasText: 'Ráfaga agónica' }).first()).toBeVisible();
 });
 
@@ -1427,12 +1434,12 @@ test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con 
   await expect(cunning.getByRole('button', { name: 'Usar (no has gastado espacios de pacto)' })).toBeDisabled();
   // gasta los dos espacios de pacto y la Astucia mágica recupera uno (la mitad, redondeando arriba)
   const sp = page.locator('section[aria-label="Conjuros"]');
-  const pact = sp.getByRole('group', { name: /^Espacios de pacto/ });
+  const pact = sp.getByRole('group', { name: /^Espacios de magia de pacto/ });
   for (let i = 0; i < 2; i++) await pact.getByRole('button', { name: 'Gastar uno' }).first().click();
-  await expect(pact).toHaveAttribute('aria-label', 'Espacios de pacto: 0 de 2 disponibles');
+  await expect(pact).toHaveAttribute('aria-label', /: 0 de 2 disponibles$/);
   await cunning.getByRole('button', { name: 'Usar: recupera 1 espacio de pacto' }).click();
   await expect(cunning.getByRole('button', { name: /^Usar/ })).toBeDisabled();
-  await expect(pact).toHaveAttribute('aria-label', 'Espacios de pacto: 1 de 2 disponibles');
+  await expect(pact).toHaveAttribute('aria-label', /: 1 de 2 disponibles$/);
   // los rasgos con usos no se repiten en «Rasgos y dotes»
   await expect(page.locator('section[aria-label="Rasgos y dotes"] .card', { hasText: 'Astucia mágica' })).toHaveCount(0);
 
@@ -1441,7 +1448,7 @@ test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con 
   const hexChip = page.locator('section[aria-label="Ataques"]').getByRole('button', { name: 'Maleficio +1d6' });
   await hexChip.click();
   for (let i = 0; i < 2; i++) {
-    await sword.getByRole('button', { name: /^Daño 1d8/ }).click();
+    await strike(page, sword);
     await expect(page.locator('.plaque-rows')).toContainText('Maleficio');
   }
   await expect(hexChip).toHaveAttribute('aria-pressed', 'true'); // dura: no se apaga al tirar
@@ -1474,9 +1481,9 @@ test('paladín y brujo: los dos castigos a la vez desde el arma', async ({ page 
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sword = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' });
   // los dos castigos puestos a la vez: entran en el mismo daño
-  await sword.getByRole('button', { name: /^Divino \+/ }).click();
-  await sword.getByRole('button', { name: /^Arcano \+/ }).click();
-  await sword.getByRole('button', { name: /^Daño/ }).click();
+  await sword.locator('.rollbtn.dmg').first().click();
+  await page.getByRole('dialog').getByRole('checkbox', { name: /Castigo arcano/ }).check();
+  await page.getByRole('dialog').getByRole('button', { name: /^Castigo Divino · / }).first().click();
   await expect(page.locator('.plaque-rows')).toHaveText(/Castigo Divino.*Castigo arcano/);
   // una fila por fuente: el arma, el castigo divino y el arcano
   const rows = page.locator('.plaque-rows li');
@@ -1589,7 +1596,7 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   // Favor divino: etiqueta que se queda activa y suma 1d4 radiante en cada golpe
   const favor = atk.getByRole('button', { name: 'Favor divino +1d4' });
   await favor.click();
-  await sword.getByRole('button', { name: /^Daño 1d8/ }).click();
+  await strike(page, sword);
   await expect(page.locator('.plaque-rows')).toContainText('Favor divino');
   await expect(favor).toHaveAttribute('aria-pressed', 'true');
   // Arma mágica: +1 al ataque mientras dura
@@ -1598,12 +1605,14 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   await atk.getByRole('button', { name: 'Arma mágica +1' }).click();
   await expect(atkBtn).toHaveText('Ataque +' + (before + 1));
   // castigos: se elige cuál y con qué espacio
-  await atk.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo abrasador' });
-  await sword.getByRole('button', { name: 'Abrasador +1d6' }).click();
-  await sword.getByRole('button', { name: /^Daño/ }).click();
+  const dlg = page.getByRole('dialog');
+  await sword.locator('.rollbtn.dmg').first().click();
+  await dlg.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo abrasador' });
+  await dlg.getByRole('button', { name: /^Castigo abrasador · / }).first().click();
   await expect(page.locator('.plaque-rows')).toContainText('Castigo abrasador');
-  await atk.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo Divino' });
-  await expect(sword.getByRole('button', { name: 'Divino +2d8' })).toBeVisible();
+  await sword.locator('.rollbtn.dmg').first().click();
+  await dlg.getByLabel('Castigo', { exact: true }).selectOption({ label: 'Castigo Divino' });
+  await expect(dlg.getByRole('button', { name: /^Castigo Divino · / }).first()).toBeVisible();
 });
 
 test('subir de nivel con PG fijados a mano, habilidades por característica y concentración', async ({ page }) => {
@@ -1786,7 +1795,7 @@ test('móvil: la hoja del jugador en pestañas, barra con PG y CA, y caracterís
   await expect(page.locator('section[aria-label="Características"]')).toBeHidden();
   // al bajar, la barra de arriba con PG y CA
   await expect(page.locator('.pc-mini')).toHaveCount(0);
-  await page.locator('section[aria-label="Estados y descansos"]').scrollIntoViewIfNeeded();
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await expect(page.locator('.pc-mini')).toContainText('PG');
   // tiradas: las seis características seguidas y después inspiración y competencias
   await bar.getByRole('button', { name: 'Tiradas' }).click();
@@ -2016,15 +2025,15 @@ test('a 0 PG cada golpe es un fallo de salvación contra la muerte (el crítico,
   await hit(1);
   await expect(fails).toHaveCount(1);
   await expect(page.locator('.pc-death-hit')).toContainText('un fallo de salvación contra la muerte (1/3)');
-  await expect(page.locator('section[aria-label="Estados y descansos"] .picker-sum')).toContainText('Inconsciente'); // al caer a 0 PG
+  await expect(page.locator('.pc-hp-row .picker-sum')).toContainText('Inconsciente'); // al caer a 0 PG
   await page.getByRole('button', { name: 'Crítico o cuerpo a cuerpo a 5 pies: otro fallo' }).click();
   await expect(fails).toHaveCount(2);
   // curarse: vuelve en sí (sin Inconsciente), los contadores a cero y sigue Derribado
   await page.getByLabel('Cantidad de PG').fill('3');
   await page.getByRole('button', { name: 'Curación', exact: true }).click();
   await expect(fails).toHaveCount(0);
-  await expect(page.locator('section[aria-label="Estados y descansos"] .picker-sum')).not.toContainText('Inconsciente');
-  await expect(page.locator('section[aria-label="Estados y descansos"] .picker-sum')).toContainText('Derribado');
+  await expect(page.locator('.pc-hp-row .picker-sum')).not.toContainText('Inconsciente');
+  await expect(page.locator('.pc-hp-row .picker-sum')).toContainText('Derribado');
   // otro personaje: el daño que sobra llega a sus PG máximos
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
   await page.getByLabel('Nombre del personaje').fill('Bran');
@@ -2277,11 +2286,11 @@ test('subclase propia con efectos: ataque, salvación, curación, daño extra al
   await expect(page.locator('.stat').filter({ hasText: 'CA' }).first()).toContainText(String(10 + dex + 1));
   // ataque con Destreza y competencia (+2) y su daño
   await expect(panel.getByRole('button', { name: 'Ataque ' + (dex + 2 >= 0 ? '+' : '') + (dex + 2) })).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Daño 1d8 cortante' })).toBeVisible();
+  await expect(panel.getByRole('button', { name: '1d8 cort.' })).toBeVisible();
   // salvación: CD 8 + 2 + Con, con su estado; gasta su uso
   await expect(panel).toContainText(/CD \d+ Sabiduría · mitad si supera · Asustado/);
-  await panel.getByRole('button', { name: 'Daño 2d6 trueno' }).click();
-  await expect(panel.getByRole('button', { name: 'Daño 2d6 trueno' })).toBeDisabled();
+  await panel.getByRole('button', { name: '2d6 trueno' }).click();
+  await expect(panel.getByRole('button', { name: '2d6 trueno' })).toBeDisabled();
   await expect(panel.getByRole('button', { name: 'Curar 1d10' })).toBeVisible();
   // el daño extra sale como etiqueta en los ataques
   await expect(page.getByRole('button', { name: /Garra ardiente/ }).first()).toBeVisible();
@@ -2326,10 +2335,10 @@ test('conjuro propio: su ficha, en la lista de su clase, siempre preparado por u
   await sp.getByText('Lanza de escarcha').click();
   const card = page.locator('.pc-block-sp li, .pc-block-sp details').filter({ hasText: 'Lanza de escarcha' }).first();
   await expect(card).toContainText(/CD \d+ Constitución/);
-  await expect(card.getByRole('button', { name: /^Daño 3d8 frío/ })).toBeVisible();
+  await expect(card.getByRole('button', { name: /^3d8 frío/ })).toBeVisible();
   // con un espacio de nivel 2: un dado más
   await card.getByLabel('Nivel de espacio para Lanza de escarcha').selectOption('2');
-  await expect(card.getByRole('button', { name: /^Daño 4d8 frío/ })).toBeVisible();
+  await expect(card.getByRole('button', { name: /^4d8 frío/ })).toBeVisible();
 });
 
 test('rasgo propio del personaje con efecto, y conjuro propio con efecto sobre ti (CA y concentración)', async ({ page }) => {
@@ -2383,10 +2392,12 @@ test('reacción: ataque de oportunidad con sus armas, dotes de reacción y la re
   const re = page.getByRole('region', { name: 'Reacción' });
   await expect(re).toContainText('Ataque de oportunidad');
   await expect(re).toContainText('Centinela');
-  await expect(re).toContainText('velocidad pasa a 0');
+  await re.getByRole('button', { name: 'Centinela' }).click();
+  await expect(page.getByRole('dialog')).toContainText('velocidad pasa a 0');
+  await page.keyboard.press('Escape');
   await re.getByRole('button', { name: /^Daga [+−]/ }).click();
-  await expect(re).toContainText('usada');
-  await expect(re.getByRole('button', { name: 'Usar la reacción' })).toBeDisabled();
+  await expect(re.getByRole('button', { name: /^Usada/ })).toBeVisible();
+  await expect(re.getByRole('button', { name: /^Daga [+−]/ })).toBeDisabled();
 });
 
 test('dotes que cambian la magia: Adepto elemental, metamagia del hechicero y dotes que dan conjuros', async ({ page }) => {
@@ -2439,11 +2450,11 @@ test('trucos que atacan con el arma: Impacto certero y Shillelagh salen en Ataqu
   // los trucos de ataque también salen en Ataques (Descarga sobrenatural: 2 rayos a nivel 5)
   const eb = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Descarga sobrenatural' });
   await expect(eb.getByRole('button', { name: /^Ataque [+−]\d+ ×2$/ })).toBeVisible();
-  await expect(eb.getByRole('button', { name: 'Daño 2 × 1d10 fuerza' })).toBeVisible();
+  await expect(eb.getByRole('button', { name: '2 × 1d10 fuerza' })).toBeVisible();
   const cha = Number((await page.locator('[data-abil=cha] .pc-abil-mod b').first().innerText()).replace('−', '-'));
   const row = page.locator('.pc-cantrip-atk', { hasText: 'Impacto certero' });
   await expect(row.getByRole('button', { name: 'Ataque ' + (cha + 3 >= 0 ? '+' : '−') + Math.abs(cha + 3) })).toBeVisible();
-  await expect(row.getByRole('button', { name: /^Daño 1d4[+−]\d+ radiante \+ 1d6 radiante/ })).toBeVisible();
+  await expect(row.getByRole('button', { name: /^1d4[+−]\d+ radi\. \+ 1d6 radi\./ })).toBeVisible();
 });
 
 test('dotes: la mejora de característica se elige al tomar la dote y se deshace al quitarla', async ({ page }) => {
@@ -2482,8 +2493,8 @@ test('rasgos con acción adicional o reacción sin otra tarjeta salen en la hoja
   await expect(page.getByRole('region', { name: 'Acción adicional' })).toContainText('Acción astuta');
   const re = page.getByRole('region', { name: 'Reacción' });
   await expect(re).toContainText('Esquiva asombrosa');
-  await re.getByRole('button', { name: 'Usar la reacción' }).first().click();
-  await expect(re).toContainText('usada');
+  await re.locator('li', { hasText: 'Esquiva asombrosa' }).getByRole('button', { name: 'Usar' }).click();
+  await expect(re.getByRole('button', { name: /^Usada/ })).toBeVisible();
 });
 
 test('rasgos con número: Furia implacable sube la CD, Caída lenta y Hechicería encarnada', async ({ page }) => {
@@ -2527,7 +2538,8 @@ test('objetos mágicos: un ejemplo cambia la CA al ponerlo y sintonizarlo, la si
   const base = await ac();
   const panel = page.getByRole('region', { name: 'Objetos mágicos' });
   const add = async (name: string) => {
-    await panel.getByLabel('Objeto de ejemplo').selectOption({ label: name });
+    await panel.getByRole('button', { name: '+ Objeto' }).click();
+    await page.getByLabel('Partir de un objeto').selectOption({ label: name });
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   };
   // Anillo de protección: +1 CA, pero solo con la sintonía
@@ -2574,7 +2586,8 @@ test('objetos mágicos: el arma ligada suma ataque y daño y el objeto con carga
   await page.getByRole('button', { name: /Bola de fuego/ }).first().click();
   await expect(page.getByRole('button', { name: 'Lanzar (3 cargas)' })).toBeVisible();
   // el efecto de arma pide el arma de la hoja
-  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Arma +1' });
+  await panel.getByRole('button', { name: '+ Objeto' }).click();
+  await page.getByLabel('Partir de un objeto').selectOption({ label: 'Arma +1' });
   await expect(page.getByLabel('Arma de tu hoja')).toBeVisible();
   await page.getByRole('button', { name: 'Cancelar' }).click();
 });
@@ -2595,7 +2608,8 @@ test('biblioteca: los objetos importados salen en los ejemplos del panel de obje
   await page.getByRole('button', { name: /Matriz estándar/ }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const panel = page.getByRole('region', { name: 'Objetos mágicos' });
-  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Brazal de prueba' });
+  await panel.getByRole('button', { name: '+ Objeto' }).click();
+  await page.getByLabel('Partir de un objeto').selectOption({ label: 'Brazal de prueba' });
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   await expect(panel).toContainText('Brazal de prueba');
 });
@@ -2631,7 +2645,7 @@ test('objetos mágicos: el formulario de «+ Objeto» también deja partir de un
     await page.getByRole('button', { name: 'Guardar', exact: true }).click();
     await expect(panel.getByRole('button', { name: n, exact: true })).toBeVisible();
   }
-  await expect(panel.getByLabel('Objeto de ejemplo')).toBeVisible();
+  await expect(panel.getByRole('button', { name: '+ Objeto' })).toBeVisible();
 });
 
 test('objetos mágicos: al elegir uno de la biblioteca se leen sus conjuros con cargas y se elige la variante', async ({ page }) => {
@@ -2654,13 +2668,15 @@ test('objetos mágicos: al elegir uno de la biblioteca se leen sus conjuros con 
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const panel = page.getByRole('region', { name: 'Objetos mágicos' });
   // bastón: los conjuros salen solos, con su coste
-  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Bastón de prueba' });
+  await panel.getByRole('button', { name: '+ Objeto' }).click();
+  await page.getByLabel('Partir de un objeto').selectOption({ label: 'Bastón de prueba' });
   await expect(page.getByLabel('Conjuro', { exact: true }).first()).toHaveValue(/Fireball|Bola|sp-/);
   await expect(page.getByLabel('Cargas por lanzamiento').first()).toHaveValue('3');
   await expect(page.getByLabel('Cargas por lanzamiento')).toHaveCount(2);
   await page.getByRole('button', { name: 'Guardar', exact: true }).click();
   // cinturón: hay que elegir el tipo antes de guardar
-  await panel.getByLabel('Objeto de ejemplo').selectOption({ label: 'Cinturón de fuerza de gigante' });
+  await panel.getByRole('button', { name: '+ Objeto' }).click();
+  await page.getByLabel('Partir de un objeto').selectOption({ label: 'Cinturón de fuerza de gigante' });
   await expect(page.getByRole('button', { name: 'Guardar', exact: true })).toBeDisabled();
   await page.getByLabel(/Tipo de gigante/).selectOption({ label: 'nubes · legendario' });
   await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Cinturón de fuerza de gigante (nubes)');
@@ -2925,7 +2941,8 @@ test('conjuros de varios disparos tiran un ataque por cada uno y el castigo sale
   await page.getByLabel('A distancia').check();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   // la lanza marcada «a distancia» (arrojadiza) también admite el castigo
-  await expect(page.locator('.pc-attack', { hasText: 'Lanza' }).getByRole('button', { name: /Castigo|Divino/ }).first()).toBeVisible();
+  await page.locator('.pc-attack', { hasText: 'Lanza' }).locator('.rollbtn.dmg').first().click();
+  await expect(page.getByRole('dialog').getByRole('button', { name: /^Castigo Divino · / }).first()).toBeVisible();
 });
 
 test('Descarga sobrenatural: el botón de ataque tira un d20 por cada rayo', async ({ page }) => {
@@ -2963,7 +2980,7 @@ test('los botones de tirada de un conjuro gastan el espacio solos, una sola vez 
   // el ataque gasta el espacio y el daño que le sigue no gasta otro
   await card.getByRole('button', { name: /^Ataque/ }).click();
   await expect(pips).toHaveAttribute('aria-label', /: 3 de 4/);
-  await card.getByRole('button', { name: /^Daño/ }).click();
+  await card.locator('.rollbtn.dmg').first().click();
   await expect(pips).toHaveAttribute('aria-label', /: 3 de 4/);
   // «Lanzar» y luego el ataque: un solo espacio
   await card.getByRole('button', { name: /^Lanzar/ }).click();
