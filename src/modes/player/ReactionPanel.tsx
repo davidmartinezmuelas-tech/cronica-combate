@@ -1,9 +1,8 @@
 import type { Character, Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
 import { norm } from '../../engine/util';
-import Pips from '../../shared/Pips';
-import { firstSentence } from '../../engine/actionKind';
-import { QuickCard, type QuickRow } from './QuickActions';
+import InfoPop from '../../shared/InfoPop';
+import type { QuickRow } from './QuickActions';
 import { plainText } from './spells';
 import { useStore } from '../../store/useStore';
 
@@ -29,7 +28,7 @@ const REACTIONS: { n: string[]; what: string; roll?: (d: Derived) => { label: st
 export const REACTION_FEATS = REACTIONS.flatMap((x) => x.n.map(norm));
 
 /** Las reacciones del personaje: ataque de oportunidad, sus dotes y sus conjuros de reacción, con el uso de la reacción. */
-export default function ReactionPanel({ c, d, set, spells, extra = [] }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string }[]; extra?: QuickRow[] }) {
+export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string; k?: string }[]; extra?: QuickRow[]; onSpell?: (k: string) => void }) {
   const { roll } = useStore.getState();
   const who = c.name || 'Personaje';
   // las dotes elegidas y los rasgos propios con el mismo nombre (una dote de otro libro escrita a mano)
@@ -41,47 +40,45 @@ export default function ReactionPanel({ c, d, set, spells, extra = [] }: { c: Ch
   const used = Math.min(1, c.uses[REACTION] || 0);
   const spend = () => set({ uses: { ...c.uses, [REACTION]: 1 } });
   return (
-    <section className="panel" aria-label="Reacción" data-sec="combate">
+    <section className="panel pc-rx" aria-label="Reacción" data-sec="combate">
       <div className="panel-head">
         <h3 className="eyebrow">Reacción</h3>
-        <span className="rollrow">
-          <span className="muted small">{used ? 'usada: vuelve al empezar tu turno' : 'disponible'}</span>
-          <Pips max={1} used={used} label="Reacción" onSet={(v) => set({ uses: { ...c.uses, [REACTION]: Math.max(0, Math.min(1, v)) } })} />
-        </span>
+        <button type="button" className={used ? 'btn small' : 'btn small gold'} aria-pressed={!used} title="Vuelve al empezar tu turno" onClick={() => set({ uses: { ...c.uses, [REACTION]: used ? 0 : 1 } })}>{used ? 'Usada · recuperar' : 'Disponible'}</button>
       </div>
-      <ul className="pc-react">
+      <ul className="pc-rx-list">
         <li>
-          <b>Ataque de oportunidad</b>
-          <span className="muted small">cuando una criatura que ves sale de tu alcance</span>
-          {melee.length > 0 && <span className="rollrow">{melee.map((a) => (
-            <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + a.w.name + ': ataque de oportunidad', kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}>{a.w.name} {fmt(a.atk)}</button>
-          ))}</span>}
+          <InfoPop label="Ataque de oportunidad" title="Ataque de oportunidad"><p>Cuando una criatura que ves sale de tu alcance sin Destrabarse, puedes hacer un ataque cuerpo a cuerpo contra ella con tu reacción.</p></InfoPop>
+          <span className="rollrow">
+            {melee.length ? melee.map((a) => (
+              <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + a.w.name + ': ataque de oportunidad', kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}>{a.w.name} {fmt(a.atk)}</button>
+            )) : <span className="muted small">sin arma cuerpo a cuerpo</span>}
+          </span>
         </li>
         {feats.map((f) => (
           <li key={f.name}>
-            <b>{f.name}</b>
-            <span className="muted small">{f.what}</span>
+            <InfoPop label={f.name} title={f.name}><p>{f.what}</p></InfoPop>
             <span className="rollrow">
-              {f.roll ? <button className="rollbtn" disabled={!!used} onClick={() => { spend(); const x = f.roll!(d); roll({ label: who + ' · ' + x.label, kind: 'free', parts: [{ expr: x.expr }] }); }}>Tirar {f.roll(d).expr}</button>
-                : <button className="btn small" disabled={!!used} onClick={spend}>Usar la reacción</button>}
+              {f.roll ? <button className="rollbtn" disabled={!!used} onClick={() => { spend(); const x = f.roll!(d); roll({ label: who + ' · ' + x.label, kind: 'free', parts: [{ expr: x.expr }] }); }}>{f.roll(d).expr}</button>
+                : <button className="rollbtn" disabled={!!used} onClick={spend}>Usar</button>}
             </span>
           </li>
         ))}
         {extra.filter((r) => r.kind !== 'bonus').map((r) => (
-          <li key={r.key} className="rx">
-            <QuickCard r={r} head={<>
-              <p className="muted small" style={{ margin: 0 }}>{firstSentence(plainText(r.d))}</p>
-              {/* si la reacción es un ataque cuerpo a cuerpo (Represalia…), un botón por arma */}
+          <li key={r.key}>
+            <InfoPop label={r.n} title={r.n}><p className="muted">{r.src.replace(/ \d+$/, '')}</p><p>{plainText(r.d)}</p></InfoPop>
+            <span className="rollrow">
               {/ataque cuerpo a cuerpo|ataque de oportunidad/.test(norm(r.d).slice(0, 420)) && melee.length > 0
-                ? <span className="rollrow">{melee.map((a) => <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + r.n + ': ' + a.w.name, kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}>{a.w.name} {fmt(a.atk)}</button>)}</span>
-                : <button className="btn small" disabled={!!used} onClick={spend}>Usar la reacción</button>}
-            </>} />
+                ? melee.map((a) => <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + r.n + ': ' + a.w.name, kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}>{a.w.name} {fmt(a.atk)}</button>)
+                : <button className="rollbtn" disabled={!!used} onClick={spend}>Usar</button>}
+            </span>
           </li>
         ))}
         {castable.length > 0 && (
           <li>
-            <b>Conjuros de reacción</b>
-            <span className="muted small">{castable.map((s) => s.n).join(', ')} · se lanzan desde Conjuros (gastan la reacción)</span>
+            <span className="muted small">Conjuros</span>
+            <span className="rollrow">{castable.map((s) => (onSpell && s.k
+              ? <button key={s.k} className="btn small" title="Ver el conjuro (se lanza desde Conjuros y gasta la reacción)" onClick={() => onSpell(s.k!)}>{s.n}</button>
+              : <span key={s.n} className="chip-tag">{s.n}</span>))}</span>
           </li>
         )}
       </ul>

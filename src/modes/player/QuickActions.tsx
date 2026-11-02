@@ -6,6 +6,7 @@ import { useStore } from '../../store/useStore';
 import { actionKindOf, firstSentence, type ActionKind } from '../../engine/actionKind';
 import Card from '../../shared/Card';
 import { plainText } from './spells';
+import { LAY, LayOnHands } from './ClassPanel';
 
 /** Un rasgo, dote o especie que se usa con una acción adicional o una reacción y no tiene otra tarjeta en la hoja. */
 export interface QuickRow { key: string; n: string; d: string; src: string; kind: ActionKind; tag?: string }
@@ -79,7 +80,9 @@ export default function QuickActions({ rows, c, d, set }: { rows: QuickRow[]; c:
       <h3 className="eyebrow">{list.length ? 'Acción adicional' : 'Rasgos de clase'}</h3>
       <ul className="pc-features grid acts">
         {rage && <li><Relentless c={c} d={d} set={set} /></li>}
-        {list.map((r) => (
+        {list.map((r) => r.n === LAY && classLevel(c, 'paladin') > 0 ? (
+          <li key={r.key} className="wide"><LayOnHands c={c} d={d} set={set} text={plainText(r.d)} level={classLevel(c, 'paladin')} /></li>
+        ) : (
           <li key={r.key}>
             <QuickCard r={r} head={<p className="muted small" style={{ margin: 0 }}>{firstSentence(plainText(r.d))}</p>} />
           </li>

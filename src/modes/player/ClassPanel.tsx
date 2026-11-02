@@ -7,7 +7,7 @@ import Pips from '../../shared/Pips';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 
-const LAY = 'Imposición de manos';
+export const LAY = 'Imposición de manos';
 const WIND = 'Segundo aliento';
 const FOCUS = 'Concentración del monje';
 
@@ -18,10 +18,31 @@ export function classPanelKeys(c: Character, data: PlayerData | null): string[] 
   return [...(c.classId === 'fighter' && has(WIND) ? [WIND] : []), ...(c.classId === 'monk' && has(FOCUS) ? [FOCUS] : [])];
 }
 
-/** Rasgos de clase que se usan en la mesa con su tirada: Segundo aliento, Imposición de manos, Concentración del monje. */
-export default function ClassPanel({ c, d, data, set }: { c: Character; d: Derived; data: PlayerData | null; set: (patch: Partial<Character>) => void }) {
-  const { roll } = useStore.getState();
+/** Imposición de manos: la reserva de PG, curarte, curar a otro y quitar Envenenado. Va en la tarjeta del rasgo (acción adicional). */
+export function LayOnHands({ c, d, set, text, level = c.level }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; text?: string; level?: number }) {
   const [amount, setAmount] = useState('');
+  const used = c.uses[LAY] || 0;
+  const spend = (n: number) => set({ uses: { ...c.uses, [LAY]: used + n } });
+  const pool = 5 * Math.max(level, 0);
+  const left = Math.max(0, pool - used);
+  const n = Math.max(0, Math.min(left, parseInt(amount, 10) || 0));
+  const self = Math.max(0, Math.min(n, d.hpMax - c.hp));
+  return (
+    <Card name={LAY} head={<>
+      <span className="chip-tag">{left} de {pool} PG</span><span className="muted small">vuelve en descanso largo</span>
+      <div className="rollrow">
+        <input className="input" style={{ width: 90 }} type="number" min={0} max={left} inputMode="numeric" aria-label="PG de Imposición de manos" placeholder="PG" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <button className="btn small" disabled={!self} onClick={() => { set({ hp: c.hp + self, death: { s: 0, f: 0 }, uses: { ...c.uses, [LAY]: used + self } }); setAmount(''); }}>Curarme {self || ''}</button>
+        <button className="btn small" disabled={!n} onClick={() => { spend(n); setAmount(''); }}>Curar a otro {n || ''}</button>
+        <button className="btn small" disabled={left < 5} onClick={() => spend(5)}>Quitar Envenenado (5)</button>
+      </div>
+    </>}>{text && <p className="pc-text">{text}</p>}</Card>
+  );
+}
+
+/** Rasgos de clase que se usan en la mesa con su tirada: Segundo aliento, Imposición de manos, Concentración del monje. */
+export default function ClassPanel({ c, d, data, set, lay = true }: { c: Character; d: Derived; data: PlayerData | null; set: (patch: Partial<Character>) => void; lay?: boolean }) {
+  const { roll } = useStore.getState();
   const cls = data?.classes.find((x) => x.id === c.classId);
   const who = c.name || 'Personaje';
   const feat = (n: string) => cls?.f.find((f) => f.n === n && f.lv <= c.level);
@@ -48,23 +69,7 @@ export default function ClassPanel({ c, d, data, set }: { c: Character; d: Deriv
       </>}><p className="pc-text">Acción adicional: recuperas 1d10 + tu nivel de guerrero.</p></Card></li>,
     );
   }
-  if (c.classId === 'paladin' && feat(LAY)) {
-    const pool = 5 * c.level;
-    const left = Math.max(0, pool - used(LAY));
-    const n = Math.max(0, Math.min(left, parseInt(amount, 10) || 0));
-    const self = Math.min(n, d.hpMax - c.hp);
-    rows.push(
-      <li key="lay"><Card name={LAY} head={<>
-        <span className="chip-tag">{left} de {pool} PG</span><span className="muted small">vuelve en descanso largo</span>
-        <div className="rollrow">
-          <input className="input" style={{ width: 90 }} type="number" min={0} max={left} inputMode="numeric" aria-label="PG de Imposición de manos" placeholder="PG" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          <button className="btn small" disabled={!self} onClick={() => { set({ hp: c.hp + self, death: { s: 0, f: 0 }, uses: { ...c.uses, [LAY]: used(LAY) + self } }); setAmount(''); }}>Curarme {self || ''}</button>
-          <button className="btn small" disabled={!n} onClick={() => { spend(LAY, n); setAmount(''); }}>Curar a otro {n || ''}</button>
-          <button className="btn small" disabled={left < 5} onClick={() => spend(LAY, 5)}>Quitar Envenenado (5)</button>
-        </div>
-      </>}>{feat(LAY)?.d && <p className="pc-text">{feat(LAY)!.d}</p>}</Card></li>,
-    );
-  }
+  if (lay && c.classId === 'paladin' && feat(LAY)) rows.push(<li key="lay"><LayOnHands c={c} d={d} set={set} text={feat(LAY)?.d} /></li>);
   if (c.classId === 'monk' && feat(FOCUS)) {
     const max = maxOf(FOCUS);
     const left = max - Math.min(max, used(FOCUS));

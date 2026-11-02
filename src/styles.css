@@ -1869,3 +1869,20 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 /* botones de daño y tipo de los ataques: relleno suave del mismo tono que el garnet de la hoja, a juego con el dorado del ataque */
 .paper .pc .pc-attack .rollbtn.dmg{background:color-mix(in srgb,var(--garnet) 11%,var(--paper-card));color:var(--garnet);border-color:color-mix(in srgb,var(--garnet) 40%,transparent)}
 .paper .pc .pc-attack .rollbtn.dmg:hover{background:color-mix(in srgb,var(--garnet) 20%,var(--paper-card));border-color:var(--garnet)}
+.pc-features.grid>li.wide{flex-basis:100%}
+
+/* reacción: filas de una línea (nombre que abre su texto | botones), sin una tarjeta por cada una */
+.pc-rx-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pc-rx-list>li{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;padding:7px 2px;border-top:1px solid var(--line)}
+.pc-rx-list>li:first-child{border-top:0}
+.pc-rx-list .info-pop-btn{font-weight:800;font-size:15px;opacity:1;color:var(--ink)}
+.pc-rx-list .rollrow{justify-content:flex-end}
+.pc-rx-list .rollbtn{min-height:0;padding:3px 10px;font-size:13px}
+
+/* reacción: filas de una línea (nombre que abre su texto | botones), sin una tarjeta por cada una */
+.pc-rx-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.pc-rx-list>li{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;padding:7px 2px;border-top:1px solid var(--line)}
+.pc-rx-list>li:first-child{border-top:0}
+.pc-rx-list .info-pop-btn{font-weight:800;font-size:15px;opacity:1;color:var(--ink)}
+.pc-rx-list .rollrow{justify-content:flex-end}
+.pc-rx-list .rollbtn{min-height:0;padding:3px 10px;font-size:13px}

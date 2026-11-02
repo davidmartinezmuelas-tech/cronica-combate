@@ -1204,13 +1204,13 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         </div>
       </section>
 
-      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => x.s!)} extra={quick} />
+      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} />
       <QuickActions rows={quick} c={c} d={d} set={set} />
 
       {views.map(({ v, dv }, i) => (
         <Fragment key={i}>
           <SubclassActions c={v} d={dv} data={data} lib={lib} set={set} />
-          <ClassPanel c={v} d={dv} data={data} set={set} />
+          <ClassPanel c={v} d={dv} data={data} set={set} lay={!quick.some((r) => r.n === 'Imposición de manos' && classLevel(c, 'paladin') > 0)} />
         </Fragment>
       ))}
       <FeatPanel c={c} d={d} set={set} />
