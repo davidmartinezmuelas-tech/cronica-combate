@@ -1859,9 +1859,10 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 /* propiedades y maestría del arma: botón pequeño que abre una ventana emergente */
 .info-pop-btn{align-self:flex-start;padding:0;border:0;background:none;color:inherit;opacity:.75;font:inherit;font-size:13px;font-weight:400;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
 .info-pop-btn:hover,.info-pop-btn[aria-expanded="true"]{opacity:1}
-.info-pop-body>p{margin:0 0 8px}
+.info-pop-body{font-weight:400;font-size:16px;line-height:1.5;text-align:left}
+.info-pop-body>p{margin:0 0 10px}
 .info-pop-body>p:last-child{margin-bottom:0}
-.info-pop-body b{font-weight:800}
+.info-pop-body b{font-weight:800;color:var(--garnet)}
 .pc-name-link{align-self:flex-start;padding:0;border:0;background:none;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer;text-decoration:underline dotted;text-decoration-color:var(--muted-2);text-underline-offset:4px}
 .pc-name-link:hover{text-decoration-color:currentColor}
 
