@@ -79,10 +79,10 @@ export type KitRoll =
   | { kind: 'spend'; label?: string } // gasta un uso o dado del recurso (para usar el rasgo o recuperar su uso)
   | { kind: 'regain'; label: string } // recupera un uso del recurso (p. ej. gastando un espacio de conjuro)
   | { kind: 'unarmed'; abil: Abil } // ataque sin armas que hace el dado del recurso + característica (no lo gasta)
-  | { kind: 'extra'; expr: string } // daño adicional con cada arma
+  | { kind: 'extra'; expr: string; exprAt?: Record<number, string>; type?: string } // daño adicional con cada arma (por nivel; con su tipo o el del arma)
   | { kind: 'blade'; dmg: string; second: string; type: string } // arma que crea el rasgo (sutil): ataque, daño y segundo ataque
-  | { kind: 'pool'; perUse: Abil } // gasta varios dados de la reserva a la vez (hasta el modificador)
-  | { kind: 'roll'; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean }
+  | { kind: 'pool'; perUse: Abil | 'all' } // gasta varios dados de la reserva a la vez (hasta el modificador, o los que queden)
+  | { kind: 'roll'; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; plusHalfLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean }
   | { kind: 'temp'; plus: Abil } // PG temporales: nivel + modificador (mínimo 1)
   | { kind: 'info' }; // sin tirada (solo la CD y el texto)
 
@@ -109,6 +109,9 @@ const GLAMOUR = ['Colegio del glamour', 'College of Glamour'];
 const GLORY = ['Juramento de gloria', 'Oath of Glory'];
 
 const psionic = (dc: Abil): DiceResource => ({ key: 'Dados de energía psiónica', n: 'Dados de energía psiónica', per: 'sr1', count: { 3: 4, 5: 6, 9: 8, 13: 10, 17: 12 }, die: { 3: 6, 5: 8, 11: 10, 17: 12 }, dc: [dc] });
+
+/** Dado de Artes marciales del monje por nivel. */
+const MARTIAL: Record<number, string> = { 1: '1d6', 5: '1d8', 11: '1d10', 17: '1d12' };
 
 export const KITS: SubclassKit[] = [
   {
@@ -152,7 +155,7 @@ export const KITS: SubclassKit[] = [
       { n: ['Pasos feéricos', 'Steps of the Fey'], lv: 3, roll: { kind: 'spend', label: 'Lanzar paso brumoso gratis' }, note: 'Acción adicional. Al lanzarlo puedes elegir uno de sus efectos.' },
       { n: ['Paso refrescante', 'Refreshing Step'], lv: 3, roll: { kind: 'roll', expr: '1d10' }, note: 'PG temporales para ti o una criatura que veas a 3 m.' },
       { n: ['Paso burlón', 'Taunting Step'], lv: 3, roll: { kind: 'info' }, save: { abil: 'wis', dc: 'spell' }, note: 'Las criaturas a 1,5 m del espacio que dejas: si fallan, desventaja al atacar a otros que no seas tú.' },
-      { n: ['Escape brumoso', 'Misty Escape'], lv: 6, react: true, roll: { kind: 'spend', label: 'Paso brumoso como reacción' }, note: 'Como reacción al recibir daño.' },
+      { n: ['Escape brumoso', 'Misty Escape'], lv: 6, react: true, roll: { kind: 'spend', label: 'Paso brumoso' }, note: 'Como reacción al recibir daño.' },
       { n: ['Paso aterrador', 'Dreadful Step'], lv: 6, roll: { kind: 'roll', expr: '2d10', type: 'psíquico' }, save: { abil: 'wis', dc: 'spell' } },
       { n: ['Paso desvanecedor', 'Disappearing Step'], lv: 6, roll: { kind: 'info' }, note: 'Invisible hasta el principio de tu siguiente turno o hasta que ataques, hagas daño o lances un conjuro.' },
     ],
@@ -206,6 +209,40 @@ export const KITS: SubclassKit[] = [
       { n: ['Atleta sin parangón'], lv: 3, subs: GLORY, roll: { kind: 'spend' } },
       { n: ['Ira de la naturaleza'], lv: 3, subs: ['Juramento de los antiguos', 'Oath of the Ancients'], roll: { kind: 'spend' }, save: { abil: 'str', dc: 'spell' } },
       { n: ['Voto de enemistad'], lv: 3, subs: ['Juramento de venganza', 'Oath of Vengeance'], roll: { kind: 'spend' }, tag: () => 'ventaja 1 minuto' },
+    ],
+  },
+  {
+    id: 'berserker', cls: 'barbarian', subs: ['Senda del berserker', 'Path of the Berserker'], title: 'Senda del berserker',
+    actions: [
+      { n: ['Presencia intimidante', 'Intimidating Presence'], lv: 14, roll: { kind: 'info' }, save: { abil: 'wis', dc: 'str' }, note: 'Acción adicional, emanación de 9 m. Una vez por descanso largo, o gastando un uso de Furia.' },
+    ],
+  },
+  {
+    id: 'zealot', cls: 'barbarian', subs: ['Senda del fanático', 'Path of the Zealot'], title: 'Senda del fanático',
+    res: { key: 'Guerrero de los dioses', n: 'Dados de Guerrero de los dioses', per: 'lr', count: { 3: 4, 6: 5, 12: 6, 17: 7 }, die: { 3: 12 }, dc: ['con'] },
+    actions: [
+      { n: ['Furia divina', 'Divine Fury'], lv: 3, roll: { kind: 'roll', expr: '1d6', plusHalfLevel: true, type: 'radiante' }, note: 'Con la Furia activa, al primer objetivo que impactes en tu turno: daño radiante o necrótico, a tu elección.' },
+      { n: ['Guerrero de los dioses', 'Warrior of the Gods'], lv: 3, roll: { kind: 'pool', perUse: 'all' }, note: 'Acción adicional: gasta los dados que quieras y recuperas esos PG.' },
+    ],
+  },
+  {
+    id: 'open-hand', cls: 'monk', subs: ['Guerrero de la mano abierta', 'Warrior of the Open Hand'], title: 'Guerrero de la mano abierta',
+    actions: [
+      { n: ['Plenitud del cuerpo', 'Wholeness of Body'], lv: 6, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', uses: { max: 'wis', per: 'lr' } }, note: 'Acción adicional: recuperas los PG del resultado (mínimo 1).' },
+      { n: ['Palma vibrante', 'Quivering Palm'], lv: 17, roll: { kind: 'roll', expr: '10d12', type: 'fuerza' }, save: { abil: 'con', dc: 'wis' }, note: 'Cuesta 4 Puntos de concentración al golpear. La mitad si supera la salvación.' },
+    ],
+  },
+  {
+    id: 'mercy', cls: 'monk', subs: ['Guerrero de la misericordia', 'Warrior of Mercy'], title: 'Guerrero de la misericordia',
+    actions: [
+      { n: ['Mano curativa', 'Mano sanadora', 'Hand of Healing'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis' }, note: 'Acción de Magia, 1 Punto de concentración (o sustituye un golpe de la Ráfaga sin coste).' },
+      { n: ['Mano dañina', 'Mano de daño', 'Hand of Harm'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico' }, note: 'Una vez por turno al impactar con un Golpe sin armas: 1 Punto de concentración.' },
+    ],
+  },
+  {
+    id: 'fey-wanderer', cls: 'ranger', subs: ['Errante feérico', 'Fey Wanderer'], title: 'Errante feérico',
+    actions: [
+      { n: ['Golpes aterradores', 'Dreadful Strikes'], lv: 3, roll: { kind: 'extra', expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, note: 'Una vez por turno al impactar con un arma.' },
     ],
   },
   {

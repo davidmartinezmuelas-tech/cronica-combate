@@ -114,6 +114,19 @@ describe('recursos de clase: Inspiración bárdica y Canalizar divinidad', () =>
     expect(activeKits({ classId: 'paladin', subclass: '', level: 2 })).toEqual([]);
   });
 
+  it('subclases con tirada: dados por nivel, mitad del nivel y reserva de dados', async () => {
+    const { activeKits, resourceMax } = await import('../engine/subclassActions');
+    const names = (classId: string, subclass: string, level: number) => activeKits({ classId, subclass, level }).flatMap((k) => k.actions.map((a) => a.n[0]));
+    expect(names('barbarian', 'Senda del berserker', 3)).toEqual([]);
+    expect(names('barbarian', 'Senda del berserker', 14)).toEqual(['Presencia intimidante']);
+    const zealot = activeKits({ classId: 'barbarian', subclass: 'Senda del fanático', level: 12 })[0];
+    expect(resourceMax(zealot.kit.res!, 12)).toBe(6);
+    expect(names('monk', 'Guerrero de la mano abierta', 5)).toEqual([]);
+    expect(names('monk', 'Guerrero de la mano abierta', 17)).toEqual(['Plenitud del cuerpo', 'Palma vibrante']);
+    expect(names('monk', 'Guerrero de la misericordia', 3)).toEqual(['Mano curativa', 'Mano dañina']);
+    expect(names('ranger', 'Errante feérico', 3)).toEqual(['Golpes aterradores']);
+  });
+
   it('usos con max(1, …)', async () => {
     const { usesMax, blankCharacter } = await import('../engine/character');
     const c = { ...blankCharacter(), abil: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 8 } };

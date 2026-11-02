@@ -709,6 +709,16 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   await page.getByRole('button', { name: 'Descanso corto' }).click();
   await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
   await expect(psi).toContainText('5 de 6');
+
+  // monje mano abierta: Plenitud del cuerpo con sus usos
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Monje' });
+  await page.getByLabel('Nivel', { exact: true }).fill('6');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Guerrero de la mano abierta' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const hand = page.locator('section[aria-label="Guerrero de la mano abierta"]').locator('.card', { hasText: 'Plenitud del cuerpo' });
+  await hand.getByRole('button', { name: /^Tirar 1d8/ }).click();
+  await expect(hand.getByRole('group', { name: /^Usos de Plenitud del cuerpo: \d+ de \d+ disponibles/ })).toBeVisible();
 });
 
 test('dotes con botones: atacante salvaje, ataque extra con arma ligera, sin armas, suerte y recuperación', async ({ page }) => {
@@ -1199,6 +1209,11 @@ test('Furia: estado guardado, resistencias, ventaja en Fuerza y daño recibido a
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await page.getByRole('button', { name: /^Furia \+2/ }).click();
   await expect(page.locator('.pc-resist')).toContainText('cortante (Furia)');
+  // entrar en Furia gasta un uso; el descanso corto recupera uno
+  await expect(page.getByRole('group', { name: 'Furias: 2 de 3 disponibles' })).toBeVisible();
+  await page.getByRole('button', { name: 'Descanso corto' }).click();
+  await page.getByRole('button', { name: 'Terminar descanso corto' }).click();
+  await expect(page.getByRole('group', { name: 'Furias: 3 de 3 disponibles' })).toBeVisible();
   await expect(page.locator('.pc-abil', { hasText: 'FUE' }).getByRole('button', { name: /^Salv/ })).toContainText('V');
   // sigue en Furia tras recargar
   await page.reload();

@@ -27,6 +27,9 @@ function kitText(src: SubclassText | null, names: string[]): { n: string; d: str
   return null;
 }
 
+/** Valor de una tabla por nivel (la última entrada que ya se alcanza). */
+const atLevel2 = (t: Record<number, string>, level: number, first: string) => Object.entries(t).reduce((e, [lv, x]) => (parseInt(lv, 10) <= level ? x : e), first);
+
 interface Btn { k: string; t: string; dmg?: boolean; off?: boolean; plain?: boolean; go: () => void }
 
 /** Rasgos de la subclase con sus tiradas: dados del recurso, usos propios, PG temporales, daño extra con las armas… */
@@ -91,9 +94,10 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
           } else if (r.kind === 'spend') {
             btns.push({ k: 's', t: r.label || (sides ? 'Gastar un dado (recuperar el uso)' : 'Usar (gasta un uso)'), plain: true, off: left <= 0, go: () => spend() });
           } else if (r.kind === 'extra') {
+            const xe = r.exprAt ? atLevel2(r.exprAt, c.level, r.expr) : r.expr;
             d.attacks.forEach(({ w, parts, verParts }) => {
-              btns.push({ k: 'w' + w.id, t: 'Daño con ' + w.name + ' + ' + r.expr, dmg: true, go: () => roll({ label: label('daño con ' + w.name), kind: 'damage', who, by: null, parts: [...parts, { expr: r.expr, type: w.type }] }) });
-              if (verParts.length) btns.push({ k: 'v' + w.id, t: 'Daño con ' + w.name + ' a dos manos + ' + r.expr, dmg: true, go: () => roll({ label: label('daño con ' + w.name + ' a dos manos'), kind: 'damage', who, by: null, parts: [...verParts, { expr: r.expr, type: w.type }] }) });
+              btns.push({ k: 'w' + w.id, t: 'Daño con ' + w.name + ' + ' + xe, dmg: true, go: () => roll({ label: label('daño con ' + w.name), kind: 'damage', who, by: null, parts: [...parts, { expr: xe, type: r.type || w.type }] }) });
+              if (verParts.length) btns.push({ k: 'v' + w.id, t: 'Daño con ' + w.name + ' a dos manos + ' + xe, dmg: true, go: () => roll({ label: label('daño con ' + w.name + ' a dos manos'), kind: 'damage', who, by: null, parts: [...verParts, { expr: xe, type: r.type || w.type }] }) });
             });
           } else if (r.kind === 'blade') {
             // arma sencilla y sutil: la mejor entre Fuerza y Destreza, con competencia
@@ -102,13 +106,13 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
             btns.push({ k: 'b', t: 'Daño ' + r.dmg + sgn(ab) + ' ' + r.type, dmg: true, go: () => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [{ expr: r.dmg + sgn(ab), type: r.type }] }) });
             btns.push({ k: 'c', t: 'Segunda cuchilla ' + r.second + sgn(ab), dmg: true, go: () => roll({ label: label('segunda cuchilla'), kind: 'damage', who, by: null, parts: [{ expr: r.second + sgn(ab), type: r.type }] }) });
           } else if (r.kind === 'pool') {
-            const most = Math.max(1, m(r.perUse));
+            const most = r.perUse === 'all' ? Math.max(1, max) : Math.max(1, m(r.perUse));
             for (let n = 1; n <= most; n++) {
               btns.push({ k: 'p' + n, t: 'Curar ' + n + die, off: left < n, go: () => { spend(n); roll({ label: label('curación'), kind: 'free', parts: [{ expr: n + die }] }); } });
             }
           } else if (r.kind === 'roll') {
-            const plus = m(r.plus) + (r.plusLevel ? c.level : 0);
-            const base = r.exprAt ? Object.entries(r.exprAt).reduce((e, [lv, x]) => (parseInt(lv, 10) <= c.level ? x : e), r.expr) : r.expr;
+            const plus = m(r.plus) + (r.plusLevel ? c.level : 0) + (r.plusHalfLevel ? Math.floor(c.level / 2) : 0);
+            const base = r.exprAt ? atLevel2(r.exprAt, c.level, r.expr) : r.expr;
             const expr = base + (plus ? sgn(plus) : '');
             if (r.spend) {
               if (r.heal) btns.push({ k: 'h', t: 'Curar ' + expr, off: left <= 0, go: () => { spend(); roll({ label: label('curación'), kind: 'free', parts: [{ expr }] }); } });
