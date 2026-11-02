@@ -54,7 +54,7 @@ export default function CharacterBioCard({ c, set, readOnly = false }: { c: Char
   const hasMoney = COINS.some((x) => (money[x.k] || 0) > 0);
   const hasPersona = PERSONA.some((x) => (persona[x.k] || '').trim());
   const hasGear = gear.some((g) => g.n.trim());
-  if (readOnly && !c.portrait && !hasMoney && !hasPersona && !hasGear) return null;
+  if (readOnly && !hasMoney && !hasPersona && !hasGear) return null;
 
   const pick = async (f?: File) => {
     if (!f) return;
@@ -72,15 +72,13 @@ export default function CharacterBioCard({ c, set, readOnly = false }: { c: Char
       </div>
       {!readOnly && <input ref={file} type="file" accept="image/*" hidden aria-label="Imagen del retrato" onChange={(e) => void pick(e.target.files?.[0])} />}
       {err && <p className="warn small" role="status" style={{ margin: 0 }}>{err}</p>}
-      {c.portrait && (
+      {c.portrait && !readOnly && (
         <div className="pc-bio-portrait">
-          <img src={c.portrait} alt={'Retrato de ' + (c.name || 'personaje')} />
-          {!readOnly && (
-            <span className="rollrow">
-              <button className="btn small ghost" onClick={() => file.current?.click()}>Cambiar</button>
-              <button className="btn small ghost" onClick={() => set({ portrait: undefined })}>Quitar</button>
-            </span>
-          )}
+          <span className="muted small">El retrato sale en la cabecera de la hoja.</span>
+          <span className="rollrow">
+            <button className="btn small ghost" onClick={() => file.current?.click()}>Cambiar</button>
+            <button className="btn small ghost" onClick={() => set({ portrait: undefined })}>Quitar</button>
+          </span>
         </div>
       )}
       {(!readOnly || hasMoney) && (

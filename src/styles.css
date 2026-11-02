@@ -1951,3 +1951,8 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .tagpick-t{display:inline-flex;align-items:center;gap:4px}
 .tagpick-t button{border:0;background:none;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0 2px}
 .pc-bio-row .combo{flex:none}
+
+/* Retrato en la cabecera de la hoja */
+.pc-head-id{display:flex;align-items:center;gap:14px;min-width:0}
+.pc-portrait{display:block;flex:none;height:96px;width:auto;max-width:120px;object-fit:cover;border-radius:var(--radius);border:2px solid var(--paper-edge);box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.pc-bio-portrait{flex-direction:row;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}

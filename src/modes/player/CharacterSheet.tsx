@@ -917,10 +917,13 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       )}
       <div className="panel pc-head" data-sec="combate" ref={headRef}>
         <div className="panel-head">
+          <div className="pc-head-id">
+          {c.portrait && <img className="pc-portrait" src={c.portrait} alt={'Retrato de ' + (c.name || 'personaje')} />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
             <h2>{c.name || 'Sin nombre'}</h2>
             <span className="muted">{[sp?.n || c.speciesName, classEntries(c).map((e) => (data?.classes.find((x) => x.id === e.classId)?.n || e.className || 'Sin clase') + ' ' + e.level + (e.subclass ? ' (' + e.subclass + ')' : '')).join(' / '), bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</span>
             {d.resist.length > 0 && <span className="small pc-resist">Resistencias: {d.resist.map((x) => x.type + ' (' + x.why + ')').join(' · ')}</span>}
+          </div>
           </div>
           <div className="pc-head-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {data && <button className={xpReady ? 'btn small primary lvl-ready' : 'btn small primary'} title={xpReady ? 'Tienes PX para el nivel ' + (d.level + 1) : undefined} onClick={() => setLeveling(true)}>{xpReady ? '¡Subir de nivel!' : 'Subir de nivel'}</button>}

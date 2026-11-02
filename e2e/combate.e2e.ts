@@ -3001,7 +3001,7 @@ test('Personaje y equipo: dinero, equipo y personalidad se guardan; el retrato s
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const bio = page.getByRole('region', { name: 'Personaje y equipo' });
   await expect(bio).toBeVisible();
-  await expect(bio.getByRole('img')).toHaveCount(0); // sin retrato no hay imagen
+  await expect(page.getByRole('img', { name: /^Retrato/ })).toHaveCount(0); // sin retrato no hay imagen
   await bio.getByLabel('Monedas de oro').fill('25');
   await bio.getByRole('button', { name: '+ Objeto' }).click();
   // el desplegable ofrece el equipo del manual (y se puede escribir otra cosa, como la cuerda de seda)
@@ -3025,13 +3025,13 @@ test('Personaje y equipo: dinero, equipo y personalidad se guardan; el retrato s
   // un PNG de 1x1 como retrato
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
   await bio.getByLabel('Imagen del retrato').setInputFiles({ name: 'mara.png', mimeType: 'image/png', buffer: png });
-  await expect(bio.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
   await page.reload();
   const again = page.getByRole('region', { name: 'Personaje y equipo' });
   await expect(again.getByLabel('Monedas de oro')).toHaveValue('25');
   await expect(again.getByLabel('Nombre del objeto 1')).toHaveValue('Cuerda de seda');
   await expect(again.getByLabel('Ideales')).toHaveValue('Proteger a los débiles');
-  await expect(again.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
   await again.getByRole('button', { name: 'Quitar', exact: true }).click();
-  await expect(again.getByRole('img')).toHaveCount(0);
+  await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toHaveCount(0);
 });
