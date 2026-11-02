@@ -569,13 +569,13 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     if (fx.kind === 'attack') {
       const atk = d.pb + m;
       out.push(<button key="a" className="rollbtn" disabled={!left} onClick={use(() => r(f.n + ': ataque', 'attack', d20b(atk)))}>Ataque {fmt(atk)}</button>);
-      if (fx.dmg) out.push(<button key="d" className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [{ expr: amount, type: fx.type || '' }] })}>Daño {amount}{fx.type ? ' ' + fx.type : ''}</button>);
+      if (fx.dmg) out.push(<button key="d" className="rollbtn dmg" onClick={() => roll({ label: label('daño'), kind: 'damage', who, by: null, parts: [{ expr: amount, type: fx.type || '' }] })} title={amount + (fx.type ? ' ' + fx.type : '')}>{amount}{fx.type ? ' ' + shortType(fx.type) : ''}</button>);
     }
     if (fx.kind === 'save') {
       const dc = 8 + d.pb + m;
       const effect: SaveEffect = { dc, abil: ABILS.indexOf(fx.save || 'dex'), half: !!fx.half, conds: fx.cond ? [fx.cond] : [], rounds: null, until: null, repeat: false };
       out.push(<span key="dc" className="chip-tag">CD {dc} {ABIL_N[fx.save || 'dex']}{fx.half ? ' · mitad si supera' : ''}{fx.cond ? ' · ' + fx.cond : ''}</span>);
-      if (fx.dmg) out.push(<button key="d" className="rollbtn dmg" disabled={!left} onClick={use(() => roll({ label: label('daño'), kind: 'damage', who, by: null, half: !!fx.half, parts: [{ expr: amount, type: fx.type || '' }], effect }))}>Daño {amount}{fx.type ? ' ' + fx.type : ''}</button>);
+      if (fx.dmg) out.push(<button key="d" className="rollbtn dmg" disabled={!left} onClick={use(() => roll({ label: label('daño'), kind: 'damage', who, by: null, half: !!fx.half, parts: [{ expr: amount, type: fx.type || '' }], effect }))} title={amount + (fx.type ? ' ' + fx.type : '')}>{amount}{fx.type ? ' ' + shortType(fx.type) : ''}</button>);
     }
     if (fx.kind === 'heal' && fx.dmg) out.push(<button key="h" className="rollbtn" disabled={!left} onClick={use(() => roll({ label: label('curación'), kind: 'free', heal: true, parts: [{ expr: amount }] }))}>Curar {amount}</button>);
     if (fx.kind === 'temp' && fx.dmg) out.push(<button key="t" className="rollbtn" disabled={!left} onClick={use(() => roll({ label: label('PG temporales'), kind: 'free', parts: [{ expr: amount }], after: (total) => {
