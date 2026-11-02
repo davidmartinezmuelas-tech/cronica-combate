@@ -612,11 +612,24 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       return { key: 'own:' + f.key, n: f.n, dmg: f.fx!.dmg! + (m ? sgn(m) : ''), type: f.fx!.type || '', atk: 0, conc: false, why: f.fx!.dmg + (m ? sgn(m) : '') + (f.fx!.type ? ' ' + f.fx!.type : '') + ' en cada golpe (' + f.src + ')' };
     }),
   ];
-  const toggleBuff = (b: (typeof hitBuffs)[number]) => {
+  // el conjuro de cada etiqueta (las propias de rasgos no lo tienen): al encenderla se pide confirmar el lanzamiento
+  const BUFF_SPELL: Record<string, [string, RegExp]> = {
+    mark: ["Hunter's Mark", /^marca del cazador$/], hex: ['Hex', /^maleficio$/], favor: ['Divine Favor', /^favor divino$/], mantle: ["Crusader's Mantle", /^manto del cruzado$/],
+    elemental: ['Elemental Weapon', /^arma elemental$/], magic: ['Magic Weapon', /^arma magica$/], minorelem: ['Conjure Minor Elementals', /^conjurar elementales menores$/], enlarge: ['Enlarge/Reduce', /^agrandar\/reducir$/],
+  };
+  const buffSpellOf = (b: { key: string }) => { const m = BUFF_SPELL[b.key]; return m ? spellList.find((x) => x.s!.en === m[0] || m[1].test(norm(x.s!.n)))?.s : undefined; };
+  const [castBuff, setCastBuff] = useState<{ b: (typeof hitBuffs)[number]; s: NonNullable<ReturnType<typeof buffSpellOf>> } | null>(null);
+  const switchBuff = (b: (typeof hitBuffs)[number], patch: Partial<Character> = {}) => {
     const on = buffs.includes(b.key);
     setBuffs(on ? buffs.filter((x) => x !== b.key) : [...buffs, b.key]);
-    if (b.conc && !on) set({ conds: withConc(c.conds, b.n) });
-    if (b.conc && on && concOf(c.conds) === b.n) set({ conds: withoutConc(c.conds) });
+    const conds = b.conc && !on ? withConc(c.conds, b.n) : b.conc && on && concOf(c.conds) === b.n ? withoutConc(c.conds) : null;
+    const all = { ...patch, ...(conds ? { conds } : {}) };
+    if (Object.keys(all).length) set(all);
+  };
+  const toggleBuff = (b: (typeof hitBuffs)[number]) => {
+    const sp = buffs.includes(b.key) ? undefined : buffSpellOf(b);
+    if (sp) setCastBuff({ b, s: sp });
+    else switchBuff(b);
   };
   const buffAtk = hitBuffs.filter((b) => buffs.includes(b.key)).reduce((a, b) => a + b.atk, 0);
   // castigos: se lanzan al acertar y su daño va en la misma tirada que el arma (Castigo divino, abrasador, brillante…)
@@ -921,7 +934,15 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
           {c.portrait && <img className="pc-portrait" src={c.portrait} alt={'Retrato de ' + (c.name || 'personaje')} />}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
             <h2>{c.name || 'Sin nombre'}</h2>
-            <span className="muted">{[sp?.n || c.speciesName, classEntries(c).map((e) => (data?.classes.find((x) => x.id === e.classId)?.n || e.className || 'Sin clase') + ' ' + e.level + (e.subclass ? ' (' + e.subclass + ')' : '')).join(' / '), bg?.n || c.backgroundName].filter(Boolean).join(' · ')}</span>
+            <span className="pc-id-k">Nombre del personaje</span>
+            <dl className="pc-id-grid">
+              {[
+                [bg?.n || c.backgroundName, 'Trasfondo'],
+                [classEntries(c).map((e) => (data?.classes.find((x) => x.id === e.classId)?.n || e.className || 'Sin clase') + ' ' + e.level).join(' / '), 'Clase'],
+                [sp?.n || c.speciesName, 'Especie'],
+                [classEntries(c).map((e) => e.subclass).filter(Boolean).join(' / '), 'Subclase'],
+              ].map(([v, k]) => <div key={k}><dd>{v || '—'}</dd><dt>{k}</dt></div>)}
+            </dl>
             {d.resist.length > 0 && <span className="small pc-resist">Resistencias: {d.resist.map((x) => x.type + ' (' + x.why + ')').join(' · ')}</span>}
           </div>
           </div>
@@ -1144,6 +1165,25 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               {brutalDice && <button className={brutal ? 'chip on' : 'chip'} aria-pressed={brutal} title="Renuncias a la ventaja en un ataque con Fuerza: si acierta, este daño extra" onClick={() => setBrutal(!brutal)}>Golpe brutal +{brutalDice}</button>}
               {sneakDice && <button className={sneak ? 'chip on' : 'chip'} aria-pressed={sneak} title="Una vez por turno, con un arma sutil o a distancia, si tienes ventaja o un aliado junto al objetivo" onClick={() => setSneak(!sneak)}>Ataque furtivo +{sneakDice}</button>}
               {hitBuffs.map((b) => { const on = buffs.includes(b.key); return <button key={b.key} className={on ? 'chip on' : 'chip'} aria-pressed={on} title={'Mientras dure: ' + b.why} onClick={() => toggleBuff(b)}>{b.n} +{b.atk && !/d/.test(b.dmg) ? b.atk : b.dmg}</button>; })}
+              {castBuff && (() => {
+                const { b, s: sp } = castBuff;
+                const base = sp.l || 1;
+                const opts: { key: string; label: string; spend: () => Partial<Character> }[] = [
+                  ...d.slots.map((n, i) => ({ n, lv: i + 1, used: c.slotsUsed[i] || 0 })).filter((o) => o.lv >= base && o.n - o.used > 0).map((o) => ({ key: 'n' + o.lv, label: 'Espacio de nivel ' + o.lv + ' (quedan ' + (o.n - o.used) + ')', spend: () => { const u = c.slotsUsed.slice(); u[o.lv - 1] = (u[o.lv - 1] || 0) + 1; return { slotsUsed: u }; } })),
+                  ...(d.pact && d.pact.lv >= base && d.pact.n - Math.min(d.pact.n, c.pactUsed) > 0 ? [{ key: 'p', label: 'Espacio de pacto de nivel ' + d.pact.lv + ' (quedan ' + (d.pact.n - Math.min(d.pact.n, c.pactUsed)) + ')', spend: () => ({ pactUsed: c.pactUsed + 1 }) }] : []),
+                ];
+                const go = (patch: Partial<Character>) => { setCastBuff(null); switchBuff(b, patch); };
+                return (
+                  <InfoDialog title={'Lanzar ' + sp.n} onClose={() => setCastBuff(null)}>
+                    <p className="muted small" style={{ marginTop: 0 }}>{b.why}{sp.c ? ' · concentración' : ''}</p>
+                    <div className="rollrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+                      {opts.map((o) => <button key={o.key} className="btn gold" onClick={() => go(o.spend())}>Lanzar con {o.label.charAt(0).toLowerCase() + o.label.slice(1)}</button>)}
+                      {!opts.length && <span className="muted small">No te quedan espacios de nivel {base} o superior.</span>}
+                      <button className="btn" onClick={() => go({})}>Solo activar (sin gastar espacio)</button>
+                    </div>
+                  </InfoDialog>
+                );
+              })()}
               {strikeDice && <button className={strike ? 'chip on' : 'chip'} aria-pressed={strike} title={'Una vez por turno al impactar con un arma: ' + (blessed ? 'radiante o necrótico' : 'frío, fuego, relámpago o trueno')} onClick={() => setStrike(!strike)}>{strikeName} +{strikeDice}</button>}
               {d.fx.piercer && <button className={pierce ? 'chip on' : 'chip'} aria-pressed={pierce} title="Una vez por turno: el próximo daño perforante repite su dado más bajo si no llega a la mitad" onClick={() => setPierce(!pierce)}>Perforador</button>}
               {d.fx.charge && <button className={charge ? 'chip on' : 'chip'} aria-pressed={charge} title={'Tras moverte 3 m en línea recta: el próximo daño cuerpo a cuerpo suma ' + d.fx.charge} onClick={() => setCharge(!charge)}>Carga +{d.fx.charge}</button>}

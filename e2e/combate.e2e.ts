@@ -500,7 +500,7 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   // FUE 15 (+2), competencia +2: espada larga +4 y 1d8+2; CA 16 + escudo; PG 10+1+2×(6+1) + 3 (enano) = 28
   const sheet = page.locator('.pc');
   await expect(sheet.getByRole('heading', { name: 'Brakka' })).toBeVisible();
-  await expect(sheet).toContainText('Enano · Guerrero 3 (Campeón) · Soldado');
+  for (const t of ['Soldado', 'Guerrero 3', 'Enano', 'Campeón']) await expect(sheet.locator('.pc-id-grid')).toContainText(t);
   await expect(sheet.locator('.stat', { hasText: 'CA' }).first()).toContainText('18');
   await expect(sheet.locator('.stat-hp .stat-v')).toHaveText('28');
   await expect(sheet.locator('.stat-hp .stat-max')).toHaveText('28');
@@ -549,7 +549,8 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   await page.getByRole('button', { name: 'Listo' }).first().click();
 
   const sheet = page.locator('.pc');
-  await expect(sheet).toContainText('Paladín 3 (Juramento de la Estirpe)');
+  await expect(sheet.locator('.pc-id-grid')).toContainText('Paladín 3');
+  await expect(sheet.locator('.pc-id-grid')).toContainText('Juramento de la Estirpe');
   // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
   await expect(sheet.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^1d8\+2 cort\. \+ 1d6/ })).toBeVisible();
   await expect(sheet.locator('.card', { hasText: 'Castigo Divino' })).toBeVisible();
@@ -585,7 +586,9 @@ test('biblioteca propia: cargar un archivo y usar sus trasfondos, dotes y conjur
   await page.getByRole('button', { name: 'Añadir conjuro' }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const sheet = page.locator('.pc');
-  await expect(sheet).toContainText('Paladín 3 (Juramento del faro) · Farero');
+  await expect(sheet.locator('.pc-id-grid')).toContainText('Paladín 3');
+  await expect(sheet.locator('.pc-id-grid')).toContainText('Juramento del faro');
+  await expect(sheet.locator('.pc-id-grid')).toContainText('Farero');
   await expect(sheet.getByRole('group', { name: 'Juramento del faro' }).locator('.card', { hasText: 'Luz guía' })).toContainText('3');
   await expect(sheet.locator('.card', { hasText: 'Aura del faro' })).toHaveCount(0); // es de nivel 7
   await expect(sheet.getByRole('group', { name: 'Dote de origen' })).toContainText('Vigía nocturno');
@@ -1305,7 +1308,8 @@ test('subir de nivel: PG tirados, mejora de característica, conjuros nuevos, mu
   await expect(dlg).toContainText('Ganas 3 trucos');
   await dlg.locator('.lvl-spells .chip').first().click();
   await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 4' }).click();
-  await expect(page.locator('.pc-head')).toContainText('Guerrero 3 (Campeón) / Mago 1');
+  await expect(page.locator('.pc-head')).toContainText('Guerrero 3 / Mago 1');
+  await expect(page.locator('.pc-head')).toContainText('Campeón');
 });
 
 test('subir de nivel: elecciones de clase o subclase y cambiar un conjuro', async ({ page }) => {
@@ -1446,7 +1450,8 @@ test('rasgos con usos (Astucia mágica recupera espacios de pacto, Afinidad con 
   // Maleficio: etiqueta que se queda activa y suma su daño a cada golpe
   const sword = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' });
   const hexChip = page.locator('section[aria-label="Ataques"]').getByRole('button', { name: 'Maleficio +1d6' });
-  await hexChip.click();
+  await hexChip.click(); // pide confirmar el lanzamiento
+  await page.getByRole('dialog').getByRole('button', { name: /^Lanzar con espacio de pacto/ }).click();
   for (let i = 0; i < 2; i++) {
     await strike(page, sword);
     await expect(page.locator('.plaque-rows')).toContainText('Maleficio');
@@ -1596,6 +1601,7 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   // Favor divino: etiqueta que se queda activa y suma 1d4 radiante en cada golpe
   const favor = atk.getByRole('button', { name: 'Favor divino +1d4' });
   await favor.click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Lanzar con espacio de nivel 1/ }).click();
   await strike(page, sword);
   await expect(page.locator('.plaque-rows')).toContainText('Favor divino');
   await expect(favor).toHaveAttribute('aria-pressed', 'true');
@@ -1603,6 +1609,7 @@ test('conjuros de golpe: Favor divino se queda activo y los castigos se eligen j
   const atkBtn = sword.getByRole('button', { name: /^Ataque/ });
   const before = Number((await atkBtn.textContent())!.replace(/[^\d-]/g, ''));
   await atk.getByRole('button', { name: 'Arma mágica +1' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Solo activar/ }).click();
   await expect(atkBtn).toHaveText('Ataque +' + (before + 1));
   // castigos: se elige cuál y con qué espacio
   const dlg = page.getByRole('dialog');
@@ -1651,6 +1658,7 @@ test('subir de nivel con PG fijados a mano, habilidades por característica y co
 
   // concentración: Marca del cazador desde Ataques, daño y salvación
   await page.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^Marca del cazador/ }).click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Solo activar/ }).click();
   await expect(page.locator('.pc-conc')).toHaveText('Concentración: Marca del cazador ✕');
   await page.getByLabel('Cantidad de PG').fill('6');
   await page.getByRole('button', { name: 'Daño', exact: true }).click();
@@ -1669,6 +1677,7 @@ test('subir de nivel con PG fijados a mano, habilidades por característica y co
   await detect.getByRole('button', { name: /^Lanzar/ }).click();
   await expect(page.locator('.pc-conc')).toHaveText('Concentración: Detectar magia ✕');
   await mark.click();
+  await page.getByRole('dialog').getByRole('button', { name: /^Solo activar/ }).click();
   await expect(page.locator('.pc-conc')).toHaveText('Concentración: Marca del cazador ✕');
 });
 

@@ -1953,6 +1953,16 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .pc-bio-row .combo{flex:none}
 
 /* Retrato en la cabecera de la hoja */
-.pc-head-id{display:flex;align-items:center;gap:14px;min-width:0}
+.pc-head-id{display:flex;align-items:center;gap:14px;min-width:0;flex:1 1 auto}
 .pc-portrait{display:block;flex:none;height:96px;width:auto;max-width:120px;object-fit:cover;border-radius:var(--radius);border:2px solid var(--paper-edge);box-shadow:0 2px 6px rgba(0,0,0,.3)}
 .pc-bio-portrait{flex-direction:row;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+
+/* Identidad del personaje como en la hoja oficial: cada dato con su rotulo debajo */
+.pc-head h2{font-size:30px;line-height:1.05;margin:0;border-bottom:1px solid var(--paper-edge);padding-bottom:2px}
+.pc-id-k,.pc-id-grid dt{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-brown)}
+.pc-id-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 22px;margin:6px 0 0}
+.pc-id-grid>div{display:flex;flex-direction:column;min-width:0;border-top:0}
+.pc-id-grid dd{margin:0;font-size:17px;font-weight:600;border-bottom:1px solid var(--paper-edge);padding-bottom:1px;overflow-wrap:anywhere}
+.pc-id-grid dt{margin-top:1px}
+.pc-head-id>div:last-child{flex:1 1 auto}
+@container (max-width:420px){.pc-id-grid{grid-template-columns:1fr}}
