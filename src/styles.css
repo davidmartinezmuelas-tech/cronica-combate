@@ -1928,3 +1928,26 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .pc-bio-persona .field{margin-bottom:8px}
 .pc-bio-persona textarea{resize:vertical;width:100%}
 .paper .pc-bio-money label{color:#5e4d38}
+
+/* Reaccion: cada arma en una fila, ataque a la izquierda y daño a la derecha */
+.pc-rx-list>li:has(.rx-weap){flex-direction:column;align-items:stretch}
+.pc-rx-list .rollrow.rx-weap{display:flex;flex-direction:column;align-items:stretch;gap:5px;flex:1 1 auto;width:100%}
+.pc-rx-list .rx-pair{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr);gap:6px}
+.pc-rx-list .rx-pair>.rollbtn{width:100%;min-width:0;box-sizing:border-box;justify-content:center;text-align:center;min-height:28px;padding:3px 8px;font-size:13px}
+.pc-rx-list .rx-pair>.rollbtn.dmg{white-space:normal;line-height:1.15}
+
+/* Cabecera: PG algo mas corta para que la velocidad quepa en la misma linea; la velocidad no se estira sola en su fila */
+.pc-stats .stat-hp{flex:1.4 1 150px}
+.pc-stats .stat-hd{flex:1 1 120px}
+.pc-stats .stat-sm{flex:0 1 96px}
+
+/* Campos con desplegable propio (equipo, herramientas, idiomas) */
+.combo{position:relative;display:block;flex:1 1 120px;min-width:0}
+.combo-list{position:absolute;z-index:30;left:0;right:0;top:100%;margin:2px 0 0;padding:4px;list-style:none;max-height:220px;overflow-y:auto;background:var(--paper-lite);color:var(--ink);border:1px solid var(--paper-edge);border-radius:var(--radius);box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.combo-list li{padding:6px 8px;border-radius:var(--radius-sm);cursor:pointer;font-size:14px}
+.combo-list li:hover{background:var(--paper-gold)}
+.tagpick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;width:100%}
+.tagpick .combo{flex:1 1 110px}
+.tagpick-t{display:inline-flex;align-items:center;gap:4px}
+.tagpick-t button{border:0;background:none;color:inherit;font:inherit;font-weight:800;cursor:pointer;padding:0 2px}
+.pc-bio-row .combo{flex:none}

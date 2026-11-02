@@ -32,6 +32,8 @@ import QuickActions, { quickRows, quickTag, RELENTLESS } from './QuickActions';
 import MetamagicPanel from './MetamagicPanel';
 import MagicItemsPanel from './MagicItemsPanel';
 import CharacterBioCard from './CharacterBioCard';
+import { TagPicker } from '../../shared/Combo';
+import { LANGUAGES, toolCatalog } from '../../engine/gearCatalog';
 import { itemKey } from '../../engine/magicItems';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import { KITS } from '../../engine/subclassActions';
@@ -162,6 +164,9 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const [spFold, setSpFold] = useState<number[]>([]); // niveles plegados (solo en esta visita)
   const [spText, setSpText] = useState<string | null>(null);
   // conjuros y rasgos van en bloques repartidos en columnas, según el ancho
+  const rulesList = useStore((s) => s.rules);
+  useEffect(() => { if (!readOnly) void useStore.getState().loadRules(); }, [readOnly]);
+  const toolOpts = useMemo(() => (rulesList ? toolCatalog(rulesList) : []), [rulesList]);
   const lowRef = useRef<HTMLDivElement>(null);
   const [lowW, setLowW] = useState(0);
   // columna (0 izquierda, 1 derecha) de cada tarjeta que se reparte
@@ -212,6 +217,16 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   });
 
   // reparto: a la columna más corta, contando lo fijo de cada una (izquierda: características y notas; derecha: ataques y estados)
+  const placeSig = useRef('');
+  const lastTouch = useRef(0);
+  useEffect(() => {
+    const m = lowRef.current;
+    if (!m) return;
+    const t = () => { lastTouch.current = Date.now(); };
+    m.addEventListener('pointerdown', t, true);
+    m.addEventListener('keydown', t, true);
+    return () => { m.removeEventListener('pointerdown', t, true); m.removeEventListener('keydown', t, true); };
+  }, [lowW >= TWO_COLS]); // eslint-disable-line react-hooks/exhaustive-deps
   useLayoutEffect(() => {
     const m = lowRef.current;
     if (!m || typeof ResizeObserver !== 'function' || lowW < TWO_COLS) return;
@@ -220,6 +235,10 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     const ht = (e: Element) => e.getBoundingClientRect().height + 14;
     const fixed = (col: Element) => [...col.children].filter((e) => !e.classList.contains('pc-fill')).reduce((a, e) => a + ht(e), 0);
     const place = () => {
+      // una tarjeta que se abre o se cierra por una pulsación no mueve a las demás: el reparto solo cambia si cambia el ancho o las tarjetas
+      const sig = lowW + '|' + fillers.map((f) => f.key).join(',');
+      if (placeSig.current === sig && Date.now() - lastTouch.current < 1500) return;
+      placeSig.current = sig;
       // los conjuros van seguidos: las primeras piezas a la izquierda y el resto a la derecha (o todas juntas en una columna si cuadra igual de bien).
       // El resto de tarjetas, cada una a la columna más corta. Siempre en el mismo orden (el del DOM cambia al mover tarjetas y el reparto oscilaría)
       const hs = fillers.map(({ key }) => { if (key === 'nt') return 190; const p = m.querySelector('[data-fk="' + key + '"]')?.firstElementChild; return p ? ht(p) : 0; });
@@ -1095,8 +1114,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               <dl>
                 <dt>Armaduras</dt><dd>{profText.armor || 'ninguna'}</dd>
                 <dt>Armas</dt><dd>{profText.weapons || 'ninguna'}</dd>
-                <dt><label htmlFor="pc-tools">Herramientas</label></dt><dd><input id="pc-tools" className="input pc-prof-input" value={c.tools} placeholder="—" onChange={(e) => set({ tools: e.target.value })} /></dd>
-                <dt><label htmlFor="pc-langs">Idiomas</label></dt><dd><input id="pc-langs" className="input pc-prof-input" value={c.langs} placeholder="—" onChange={(e) => set({ langs: e.target.value })} /></dd>
+                <dt>Herramientas</dt><dd>{readOnly ? (c.tools || '—') : <TagPicker label="Herramientas" value={c.tools} options={toolOpts} placeholder="—" onChange={(v) => set({ tools: v })} />}</dd>
+                <dt>Idiomas</dt><dd>{readOnly ? (c.langs || '—') : <TagPicker label="Idiomas" value={c.langs} options={LANGUAGES} placeholder="—" onChange={(v) => set({ langs: v })} />}</dd>
               </dl>
             </div>
             )}
@@ -1211,7 +1230,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         </div>
       </section>
 
-      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} />
+      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
       <QuickActions rows={quick} c={c} d={d} set={set} data={data} views={views} />
 
       {views.map(({ v, dv }, i) => (

@@ -1,5 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Character } from '../../engine/character';
+import { gearCatalog } from '../../engine/gearCatalog';
+import Combo from '../../shared/Combo';
+import { usePlayer } from '../../store/player';
+import { useStore } from '../../store/useStore';
 
 const COINS = [
   { k: 'cp', short: 'PC', name: 'cobre' },
@@ -38,6 +42,11 @@ async function shrink(file: File): Promise<string> {
  */
 export default function CharacterBioCard({ c, set, readOnly = false }: { c: Character; set: (patch: Partial<Character>) => void; readOnly?: boolean }) {
   const file = useRef<HTMLInputElement>(null);
+  const rules = useStore((s) => s.rules);
+  const data = usePlayer((s) => s.data);
+  useEffect(() => { if (!readOnly) void useStore.getState().loadRules(); }, [readOnly]);
+  // sugerencias del manual al escribir; lo que no esté ahí se escribe a mano y vale igual
+  const catalog = useMemo(() => (rules ? gearCatalog(rules, data?.weapons, data?.armor) : []), [rules, data]);
   const [err, setErr] = useState('');
   const money = c.money || {};
   const gear = c.gear || [];
@@ -96,7 +105,7 @@ export default function CharacterBioCard({ c, set, readOnly = false }: { c: Char
             <>
               {gear.map((g, i) => (
                 <div key={i} className="pc-bio-row">
-                  <input className="input" aria-label={'Nombre del objeto ' + (i + 1)} value={g.n} placeholder="Objeto" onChange={(e) => setGear(gear.map((x, j) => (j === i ? { ...x, n: e.target.value } : x)))} />
+                  <Combo label={'Nombre del objeto ' + (i + 1)} value={g.n} options={catalog} placeholder="Del manual o escrito por ti" onChange={(v) => setGear(gear.map((x, j) => (j === i ? { ...x, n: v } : x)))} />
                   <input className="input" type="number" min={1} inputMode="numeric" aria-label={'Cantidad del objeto ' + (i + 1)} value={g.q} onChange={(e) => setGear(gear.map((x, j) => (j === i ? { ...x, q: Math.max(1, Math.floor(Number(e.target.value) || 1)) } : x)))} />
                   <button className="btn small ghost" aria-label={'Quitar objeto ' + (i + 1)} onClick={() => setGear(gear.filter((_, j) => j !== i))}>×</button>
                 </div>

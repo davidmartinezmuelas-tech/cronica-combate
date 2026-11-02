@@ -506,7 +506,7 @@ test('modo jugador: crear personaje, tirar desde la hoja y que se guarde', async
   await expect(sheet.locator('.stat-hp .stat-max')).toHaveText('28');
   await sheet.getByRole('button', { name: 'Ataque +4' }).click();
   await expect(page.locator('.plaque-label')).toContainText('Brakka · Espada larga: ataque', { timeout: 15000 });
-  await expect(sheet.getByRole('button', { name: /^1d8\+2 cort\./ })).toBeVisible();
+  await expect(sheet.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^1d8\+2 cort\./ })).toBeVisible();
   const traits = sheet.locator('section[aria-label="Rasgos y dotes"]');
   await expect(traits.locator('.card', { hasText: 'Segundo aliento' })).toBeVisible();
   await expect(traits.locator('.card', { hasText: 'Crítico mejorado' })).toBeVisible();
@@ -551,7 +551,7 @@ test('modo jugador: arma mágica con daño extra, conjuros de su lista, subclase
   const sheet = page.locator('.pc');
   await expect(sheet).toContainText('Paladín 3 (Juramento de la Estirpe)');
   // FUE 15 → +2: 1d8+2 cortante + 1d6 fuego
-  await expect(sheet.getByRole('button', { name: /^1d8\+2 cort\. \+ 1d6/ })).toBeVisible();
+  await expect(sheet.locator('section[aria-label="Ataques"]').getByRole('button', { name: /^1d8\+2 cort\. \+ 1d6/ })).toBeVisible();
   await expect(sheet.locator('.card', { hasText: 'Castigo Divino' })).toBeVisible();
   await expect(sheet.getByRole('group', { name: 'Estilo de combate' })).toContainText('Protección');
   // con otra subclase no salen los rasgos de la del SRD
@@ -2398,6 +2398,9 @@ test('reacción: ataque de oportunidad con sus armas, dotes de reacción y la re
   await re.getByRole('button', { name: /^Daga [+−]/ }).click();
   await expect(re.getByRole('button', { name: /^Usada/ })).toBeVisible();
   await expect(re.getByRole('button', { name: /^Daga [+−]/ })).toBeDisabled();
+  // el daño del ataque de oportunidad sigue disponible tras gastar la reacción
+  await re.locator('.rollbtn.dmg').first().click();
+  await expect(page.locator('.plaque-label')).toContainText('Daga', { timeout: 15000 });
 });
 
 test('dotes que cambian la magia: Adepto elemental, metamagia del hechicero y dotes que dan conjuros', async ({ page }) => {
@@ -3001,8 +3004,22 @@ test('Personaje y equipo: dinero, equipo y personalidad se guardan; el retrato s
   await expect(bio.getByRole('img')).toHaveCount(0); // sin retrato no hay imagen
   await bio.getByLabel('Monedas de oro').fill('25');
   await bio.getByRole('button', { name: '+ Objeto' }).click();
+  // el desplegable ofrece el equipo del manual (y se puede escribir otra cosa, como la cuerda de seda)
+  await bio.getByLabel('Nombre del objeto 1').click();
+  await expect(bio.getByRole('option', { name: 'Mochila', exact: true })).toBeVisible();
   await bio.getByLabel('Nombre del objeto 1').fill('Cuerda de seda');
   await bio.getByLabel('Cantidad del objeto 1').fill('2');
+  // herramientas e idiomas: del desplegable o escritos
+  const profs = page.locator('.pc-profs');
+  await profs.getByLabel('Idiomas').click();
+  await profs.getByRole('option', { name: 'Élfico', exact: true }).click();
+  await profs.getByLabel('Idiomas').fill('Jerga del puerto');
+  await profs.getByLabel('Idiomas').press('Enter');
+  await profs.getByLabel('Herramientas').click();
+  await profs.getByRole('option', { name: /^Kit de disfraz/ }).click();
+  await expect(profs).toContainText('Élfico');
+  await expect(profs).toContainText('Jerga del puerto');
+  await expect(profs).toContainText('Kit de disfraz');
   await bio.getByText('Personalidad', { exact: true }).click();
   await bio.getByLabel('Ideales').fill('Proteger a los débiles');
   // un PNG de 1x1 como retrato
