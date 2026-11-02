@@ -1,7 +1,8 @@
 import { useState, type JSX } from 'react';
 import type { Abil } from '../../data/player';
-import type { Character, Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
+import { usesMax, type Character, type Derived } from '../../engine/character';
+import { firstSentence } from '../../engine/actionKind';
 import { atLevel, resourceMax, resourcePer, type KitAction, type SubclassKit } from '../../engine/subclassActions';
 import { optionItems, subclassText, type SubclassText } from '../../engine/subclassChoices';
 import { norm } from '../../engine/util';
@@ -52,6 +53,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
   const dcOf = (a: Abil | 'spell') => (a === 'spell' ? d.spell?.dc ?? 8 + d.pb + d.mods.cha : 8 + d.pb + d.mods[a]);
   const m = (a?: Abil) => (a ? d.mods[a] : 0);
   const [msg, setMsg] = useState<Record<string, string>>({});
+  const [amt, setAmt] = useState('');
 
   if (!actions.length) return null;
   const rows = actions.map((a) => {
@@ -124,10 +126,26 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
             const umax = r.uses ? (typeof r.uses.max === 'number' ? r.uses.max : Math.max(1, m(r.uses.max))) : 0;
             const uused = r.uses ? Math.min(umax, c.uses[name] || 0) : 0;
             if (!r.spend && r.uses) usesEl = <span onClick={(e) => e.preventDefault()}><Pips max={umax} used={uused} label={'Usos de ' + name} onSet={(v) => set({ uses: { ...c.uses, [name]: Math.max(0, Math.min(umax, v)) } })} /></span>;
+            // coste en un recurso de clase (Puntos de concentración): gasta uno, o la variante sin coste
+            const costMax = r.cost ? usesMax(d.cls?.f.find((f) => f.n === r.cost)?.u, c, d.cls) || 0 : 0;
+            const costLeft = r.cost ? costMax - Math.min(costMax, c.uses[r.cost] || 0) : 1;
+            const what = (r.type ? 'Daño ' : 'Tirar ') + expr + (r.type ? ' ' + r.type : '');
             if (!r.spend) btns.push({
-              k: 'r', t: (r.type ? 'Daño ' : 'Tirar ') + expr + (r.type ? ' ' + r.type : ''), dmg: !!r.type, off: !!r.uses && uused >= umax,
-              go: () => { if (r.uses) set({ uses: { ...c.uses, [name]: uused + 1 } }); roll({ label: label(), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }] }); },
+              k: 'r', t: what + (r.cost ? ' · −1 concentración' : ''), dmg: !!r.type, off: (!!r.uses && uused >= umax) || costLeft < 1,
+              go: () => { if (r.uses) set({ uses: { ...c.uses, [name]: uused + 1 } }); if (r.cost) set({ uses: { ...c.uses, [r.cost]: (c.uses[r.cost] || 0) + 1 } }); roll({ label: label(), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }] }); },
             });
+            if (r.freeAlt) btns.push({ k: 'f', t: what + ' · ' + r.freeAlt, go: () => roll({ label: label(r.freeAlt), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }] }) });
+          } else if (r.kind === 'ward') {
+            const wmax = Math.max(0, 2 * c.level + d.mods.int);
+            const cur = Math.min(wmax, c.uses[name] || 0);
+            const n = Math.max(0, parseInt(amt, 10) || 0);
+            usesEl = <><span className="chip-tag">{cur} de {wmax} PG</span><input className="input" style={{ width: 72 }} type="number" min={0} inputMode="numeric" aria-label="PG de la salvaguarda" placeholder="PG" value={amt} onChange={(e) => setAmt(e.target.value)} /></>;
+            btns.push({ k: 'c', t: 'Crear (' + wmax + ' PG)', plain: true, go: () => set({ uses: { ...c.uses, [name]: wmax } }) });
+            btns.push({
+              k: 'a', t: 'Absorber ' + (n || ''), plain: true, off: !n || cur <= 0,
+              go: () => { set({ uses: { ...c.uses, [name]: Math.max(0, cur - n) } }); setAmt(''); setMsg({ ...msg, [name]: n > cur ? 'Absorbe ' + cur + ' PG; te quedan ' + (n - cur) + ' de daño.' : 'Absorbe ' + n + ' PG.' }); },
+            });
+            btns.push({ k: 'r', t: 'Recuperar ' + (n || ''), plain: true, off: !n || wmax <= 0, go: () => { set({ uses: { ...c.uses, [name]: Math.min(wmax, cur + n) } }); setAmt(''); } });
           } else if (r.kind === 'temp') {
             const n = Math.max(1, c.level + m(r.plus));
             btns.push({ k: 't', t: 'Ganar ' + n + ' PG temporales', plain: true, go: () => set({ temp: Math.max(c.temp, n) }) });
@@ -151,6 +169,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
               <Card name={name} head={<>
                   {a.save && <span className="chip-tag">CD {dcOf(a.save.dc)} {ABIL_N[a.save.abil]}</span>}
                   {tag && <span className="chip-tag">{tag}</span>}
+                  {!a.save && !tag && !btns.length && !usesEl && (a.note || text) && <span className="muted small">{a.note || firstSentence(text!.d)}</span>}
                   {r.kind === 'roll' && r.uses && <span className="muted small">vuelve en descanso {per(r.uses.per)}</span>}
                   {usesEl}
                   {btns.length > 0 && (

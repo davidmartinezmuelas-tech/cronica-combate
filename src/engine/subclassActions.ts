@@ -82,8 +82,9 @@ export type KitRoll =
   | { kind: 'extra'; expr: string; exprAt?: Record<number, string>; type?: string } // daño adicional con cada arma (por nivel; con su tipo o el del arma)
   | { kind: 'blade'; dmg: string; second: string; type: string } // arma que crea el rasgo (sutil): ataque, daño y segundo ataque
   | { kind: 'pool'; perUse: Abil | 'all' } // gasta varios dados de la reserva a la vez (hasta el modificador, o los que queden)
-  | { kind: 'roll'; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; plusHalfLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean }
+  | { kind: 'roll'; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; plusHalfLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean; cost?: string; freeAlt?: string }
   | { kind: 'temp'; plus: Abil } // PG temporales: nivel + modificador (mínimo 1)
+  | { kind: 'ward' } // reserva de PG que absorbe daño (Salvaguarda arcana): 2 × nivel + Inteligencia, hasta el descanso largo
   | { kind: 'info' }; // sin tirada (solo la CD y el texto)
 
 export interface KitAction {
@@ -109,6 +110,9 @@ const GLAMOUR = ['Colegio del glamour', 'College of Glamour'];
 const GLORY = ['Juramento de gloria', 'Oath of Glory'];
 
 const psionic = (dc: Abil): DiceResource => ({ key: 'Dados de energía psiónica', n: 'Dados de energía psiónica', per: 'sr1', count: { 3: 4, 5: 6, 9: 8, 13: 10, 17: 12 }, die: { 3: 6, 5: 8, 11: 10, 17: 12 }, dc: [dc] });
+
+/** Clave de los Puntos de concentración del monje (la misma que usa su tarjeta de clase). */
+const FOCUS = 'Concentración del monje';
 
 /** Dado de Artes marciales del monje por nivel. */
 const MARTIAL: Record<number, string> = { 1: '1d6', 5: '1d8', 11: '1d10', 17: '1d12' };
@@ -235,14 +239,20 @@ export const KITS: SubclassKit[] = [
   {
     id: 'mercy', cls: 'monk', subs: ['Guerrero de la misericordia', 'Warrior of Mercy'], title: 'Guerrero de la misericordia',
     actions: [
-      { n: ['Mano de curación', 'Mano curativa', 'Hand of Healing'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis' }, note: 'Acción de Magia, 1 Punto de concentración (o sustituye un golpe de la Ráfaga sin coste).' },
-      { n: ['Mano de aflicción', 'Mano dañina', 'Hand of Harm'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico' }, note: 'Una vez por turno al impactar con un Golpe sin armas: 1 Punto de concentración.' },
+      { n: ['Mano de curación', 'Mano curativa', 'Hand of Healing'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', cost: FOCUS, freeAlt: 'gratis en Ráfaga' }, note: 'Acción de Magia, 1 Punto de concentración (o sustituye un golpe de la Ráfaga sin coste).' },
+      { n: ['Mano de aflicción', 'Mano dañina', 'Hand of Harm'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico', cost: FOCUS }, note: 'Una vez por turno al impactar con un Golpe sin armas: 1 Punto de concentración.' },
     ],
   },
   {
     id: 'fey-wanderer', cls: 'ranger', subs: ['Errante feérico', 'Fey Wanderer'], title: 'Errante feérico',
     actions: [
       { n: ['Golpes pavorosos', 'Golpes aterradores', 'Dreadful Strikes'], lv: 3, roll: { kind: 'extra', expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, note: 'Una vez por turno al impactar con un arma.' },
+    ],
+  },
+  {
+    id: 'abjurer', cls: 'wizard', subs: ['Abjurador', 'Abjurer'], title: 'Salvaguarda arcana',
+    actions: [
+      { n: ['Salvaguarda arcana', 'Arcane Ward'], lv: 3, roll: { kind: 'ward' }, note: 'Al lanzar un conjuro de Abjuración con un espacio la creas o la recuperas en el doble del nivel del espacio. Absorbe el daño que recibes; dura hasta un descanso largo.' },
     ],
   },
   {

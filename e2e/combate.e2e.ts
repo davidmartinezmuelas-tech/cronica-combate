@@ -3085,3 +3085,41 @@ test('una subclase del libro con el nombre de la del SRD no duplica sus rasgos',
   await expect(page.locator('main')).toContainText('Saber del cazador');
   await expect(page.locator('main')).not.toContainText('Rasgo repetido del libro');
 });
+
+test('Salvaguarda arcana absorbe daño y Mano de aflicción gasta un Punto de concentración', async ({ page }) => {
+  const sub = (cls: string, n: string, f: [string, string][]) => ({ id: 'lib-sub-' + cls, n, cls, d: '', f: f.map(([fn, d]) => ({ lv: 3, n: fn, d })) });
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [sub('wizard', 'Abjurador', [['Salvaguarda arcana', 'Creas una salvaguarda.']]), sub('monk', 'Guerrero de la misericordia', [['Mano de curación', 'Curas.'], ['Mano de aflicción', 'Dañas.']])] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Ilda');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Mago' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Abjurador' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const ward = page.locator('section[aria-label="Salvaguarda arcana"] .card', { hasText: 'Salvaguarda arcana' });
+  await expect(ward).toContainText('0 de 10 PG');
+  await ward.getByRole('button', { name: /^Crear/ }).click();
+  await expect(ward).toContainText('10 de 10 PG');
+  await ward.getByLabel('PG de la salvaguarda').fill('4');
+  await ward.getByRole('button', { name: 'Absorber 4' }).click();
+  await expect(ward).toContainText('6 de 10 PG');
+  await ward.getByLabel('PG de la salvaguarda').fill('9');
+  await ward.getByRole('button', { name: 'Absorber 9' }).click();
+  await expect(ward).toContainText('0 de 10 PG');
+  await expect(ward).toContainText('te quedan 3 de daño');
+
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Monje' });
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Guerrero de la misericordia' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const mercy = page.locator('section[aria-label="Guerrero de la misericordia"]');
+  await mercy.locator('.card', { hasText: 'Mano de aflicción' }).getByRole('button', { name: /−1 concentración/ }).click();
+  await expect(page.getByRole('group', { name: 'Concentración del monje: 4 de 5 disponibles' })).toBeVisible();
+  await mercy.locator('.card', { hasText: 'Mano de curación' }).getByRole('button', { name: /gratis en Ráfaga/ }).click();
+  await expect(page.getByRole('group', { name: 'Concentración del monje: 4 de 5 disponibles' })).toBeVisible();
+});
