@@ -1886,3 +1886,21 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .pc-rx-list .info-pop-btn{font-weight:800;font-size:15px;opacity:1;color:var(--ink)}
 .pc-rx-list .rollrow{justify-content:flex-end}
 .pc-rx-list .rollbtn{min-height:0;padding:3px 10px;font-size:13px}
+/* reacción: botones del mismo tamaño y en cuadrícula; una fila con varios botones pone el nombre arriba y los reparte debajo a partes iguales */
+.pc-rx .panel-head .btn{min-height:0;padding:3px 12px;font-size:13px}
+.pc-rx-list .rollrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:6px;flex:0 1 auto}
+.pc-rx-list .rollrow>.rollbtn,.pc-rx-list .rollrow>.btn{width:100%;min-width:104px;box-sizing:border-box;justify-content:center;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:0;padding:3px 8px;font-size:13px}
+.pc-rx-list>li:has(.rollrow>:nth-child(2)){flex-direction:column;align-items:stretch}
+.pc-rx-list>li:has(.rollrow>:nth-child(2))>.rollrow{grid-template-columns:repeat(auto-fit,minmax(104px,1fr))}
+.pc-rx-list>li:not(:has(.rollrow>:nth-child(2)))>.rollrow{grid-template-columns:104px}
+.pc-rx-list .rollrow>.chip-tag{justify-self:center}
+
+/* columna estrecha pero con sitio: el nombre y los botones comparten fila (sin la franja en blanco a la izquierda) */
+@container (min-width:380px) and (max-width:469px){
+  .pc-attacks>.pc-attack>.pc-attack-n{grid-column:1}
+  .pc-attacks>.pc-attack{padding:5px 10px}
+}
+@container (max-width:379px){
+  .pc-attacks>.pc-attack>.pc-attack-n{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:0 8px}
+  .pc-attacks>.pc-attack{gap:4px 6px;padding:4px 10px}
+}
