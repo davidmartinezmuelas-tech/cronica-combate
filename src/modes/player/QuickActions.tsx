@@ -6,7 +6,8 @@ import { useStore } from '../../store/useStore';
 import { actionKindOf, firstSentence, type ActionKind } from '../../engine/actionKind';
 import Card from '../../shared/Card';
 import { plainText } from './spells';
-import { LAY, LayOnHands } from './ClassPanel';
+import { LAY, LayOnHands, classRows } from './ClassPanel';
+import type { PlayerData } from '../../data/player';
 
 /** Un rasgo, dote o especie que se usa con una acción adicional o una reacción y no tiene otra tarjeta en la hoja. */
 export interface QuickRow { key: string; n: string; d: string; src: string; kind: ActionKind; tag?: string }
@@ -71,15 +72,17 @@ function Relentless({ c, d, set }: { c: Character; d: Derived; set: (patch: Part
 }
 
 /** Rasgos y dotes que se usan con una acción adicional (los de reacción salen en el panel de la reacción). */
-export default function QuickActions({ rows, c, d, set }: { rows: QuickRow[]; c: Character; d: Derived; set: (patch: Partial<Character>) => void }) {
+export default function QuickActions({ rows, c, d, set, data, views }: { rows: QuickRow[]; c: Character; d: Derived; set: (patch: Partial<Character>) => void; data: PlayerData | null; views: { v: Character; dv: Derived }[] }) {
   const list = rows.filter((r) => r.kind !== 'reaction');
   const rage = classLevel(c, 'barbarian') >= 11;
-  if (!list.length && !rage) return null;
+  const classBonus = views.flatMap(({ v, dv }) => classRows(v, dv, data, set, 'bonus'));
+  if (!list.length && !rage && !classBonus.length) return null;
   return (
-    <section className="panel" aria-label={list.length ? 'Acción adicional' : 'Rasgos de clase'} data-sec="combate">
-      <h3 className="eyebrow">{list.length ? 'Acción adicional' : 'Rasgos de clase'}</h3>
+    <section className="panel" aria-label={list.length || classBonus.length ? 'Acción adicional' : 'Rasgos de clase'} data-sec="combate">
+      <h3 className="eyebrow">{list.length || classBonus.length ? 'Acción adicional' : 'Rasgos de clase'}</h3>
       <ul className="pc-features grid acts">
         {rage && <li><Relentless c={c} d={d} set={set} /></li>}
+        {classBonus}
         {list.map((r) => r.n === LAY && classLevel(c, 'paladin') > 0 ? (
           <li key={r.key} className="wide"><LayOnHands c={c} d={d} set={set} text={plainText(r.d)} level={classLevel(c, 'paladin')} /></li>
         ) : (

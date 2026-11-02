@@ -1205,7 +1205,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       </section>
 
       <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} />
-      <QuickActions rows={quick} c={c} d={d} set={set} />
+      <QuickActions rows={quick} c={c} d={d} set={set} data={data} views={views} />
 
       {views.map(({ v, dv }, i) => (
         <Fragment key={i}>

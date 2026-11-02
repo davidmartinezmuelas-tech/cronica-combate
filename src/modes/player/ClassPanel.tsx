@@ -41,7 +41,7 @@ export function LayOnHands({ c, d, set, text, level = c.level }: { c: Character;
 }
 
 /** Rasgos de clase que se usan en la mesa con su tirada: Segundo aliento, Imposición de manos, Concentración del monje. */
-export default function ClassPanel({ c, d, data, set, lay = true }: { c: Character; d: Derived; data: PlayerData | null; set: (patch: Partial<Character>) => void; lay?: boolean }) {
+export function classRows(c: Character, d: Derived, data: PlayerData | null, set: (patch: Partial<Character>) => void, only: 'bonus' | 'lay'): JSX.Element[] {
   const { roll } = useStore.getState();
   const cls = data?.classes.find((x) => x.id === c.classId);
   const who = c.name || 'Personaje';
@@ -58,7 +58,7 @@ export default function ClassPanel({ c, d, data, set, lay = true }: { c: Charact
   };
 
   const rows: JSX.Element[] = [];
-  if (c.classId === 'fighter' && feat(WIND)) {
+  if (only === 'bonus' && c.classId === 'fighter' && feat(WIND)) {
     const max = maxOf(WIND);
     rows.push(
       <li key="wind"><Card name={WIND} head={<>
@@ -69,23 +69,28 @@ export default function ClassPanel({ c, d, data, set, lay = true }: { c: Charact
       </>}><p className="pc-text">Acción adicional: recuperas 1d10 + tu nivel de guerrero.</p></Card></li>,
     );
   }
-  if (lay && c.classId === 'paladin' && feat(LAY)) rows.push(<li key="lay"><LayOnHands c={c} d={d} set={set} text={feat(LAY)?.d} /></li>);
-  if (c.classId === 'monk' && feat(FOCUS)) {
+  if (only === 'lay' && c.classId === 'paladin' && feat(LAY)) rows.push(<li key="lay"><LayOnHands c={c} d={d} set={set} text={feat(LAY)?.d} /></li>);
+  if (only === 'bonus' && c.classId === 'monk' && feat(FOCUS)) {
     const max = maxOf(FOCUS);
     const left = max - Math.min(max, used(FOCUS));
     const flurry = c.level >= 10 ? 3 : 2;
     rows.push(
-      <li key="focus"><Card name="Puntos de concentración" head={<>
+      <li key="focus" className="wide"><Card name="Puntos de concentración" head={<>
         <span className="muted small">{left} de {max} · vuelven en descanso corto o largo</span>{pips(FOCUS, max)}
         <span className="rollrow">
           <button className="rollbtn dmg" disabled={left < 1 || !d.unarmed} onClick={() => { spend(FOCUS); roll({ label: who + ' · ráfaga de golpes (' + flurry + ' golpes)', kind: 'damage', who, by: null, parts: Array.from({ length: flurry }, () => d.unarmed!.parts).flat() }); }}>Ráfaga de golpes: {flurry} golpes</button>
           <button className="btn small" disabled={left < 1} onClick={() => spend(FOCUS)}>Defensa paciente</button>
           <button className="btn small" disabled={left < 1} onClick={() => spend(FOCUS)}>Paso del viento</button>
-          {c.level >= 3 && <button className="rollbtn" onClick={() => roll({ label: who + ' · desviar ataques', kind: 'free', parts: [{ expr: '1d10' + sgn(d.mods.dex + c.level) }] })}>Desviar ataques 1d10{sgn(d.mods.dex + c.level)}</button>}
         </span>
-      </>}><p className="pc-text">La ráfaga tira el daño de todos sus golpes sin armas de una vez (cada uno necesita su ataque). Desviar ataques reduce el daño recibido en el resultado.</p></Card></li>,
+      </>}><p className="pc-text">La ráfaga tira el daño de todos sus golpes sin armas de una vez (cada uno necesita su ataque).</p></Card></li>,
     );
   }
+  return rows;
+}
+
+/** Imposición de manos como tarjeta propia, solo si el rasgo no salió ya en Acción adicional. */
+export default function ClassPanel({ c, d, data, set, lay = true }: { c: Character; d: Derived; data: PlayerData | null; set: (patch: Partial<Character>) => void; lay?: boolean }) {
+  const rows = lay ? classRows(c, d, data, set, 'lay') : [];
   if (!rows.length) return null;
   return (
     <section className="panel" aria-label="Rasgos de clase">

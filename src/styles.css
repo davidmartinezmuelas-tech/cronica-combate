@@ -1904,3 +1904,5 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
   .pc-attacks>.pc-attack>.pc-attack-n{flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:0 8px}
   .pc-attacks>.pc-attack{gap:4px 6px;padding:4px 10px}
 }
+.rollbtn:has(>.rx-n){display:inline-flex;gap:4px;min-width:0;max-width:100%}
+.rx-n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

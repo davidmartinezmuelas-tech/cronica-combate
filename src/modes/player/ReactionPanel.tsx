@@ -1,4 +1,4 @@
-import type { Character, Derived } from '../../engine/character';
+import { classLevel, type Character, type Derived } from '../../engine/character';
 import { fmt, sgn } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import InfoPop from '../../shared/InfoPop';
@@ -50,8 +50,10 @@ export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell }
           <InfoPop label="Ataque de oportunidad" title="Ataque de oportunidad"><p>Cuando una criatura que ves sale de tu alcance sin Destrabarse, puedes hacer un ataque cuerpo a cuerpo contra ella con tu reacción.</p></InfoPop>
           <span className="rollrow">
             {melee.length ? melee.map((a) => (
-              <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + a.w.name + ': ataque de oportunidad', kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}>{a.w.name} {fmt(a.atk)}</button>
-            )) : <span className="muted small">sin arma cuerpo a cuerpo</span>}
+              <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + a.w.name + ': ataque de oportunidad', kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}><span className="rx-n">{a.w.name}</span> <span>{fmt(a.atk)}</span></button>
+            )) : null}
+            {d.unarmed && <button className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ataque sin armas de oportunidad', kind: 'attack', who, parts: [{ expr: '1d20' + sgn(d.unarmed!.atk) }], self: { conds: c.conds, exh: c.exh } }); }}><span className="rx-n">Sin armas</span> <span>{fmt(d.unarmed.atk)}</span></button>}
+            {!melee.length && !d.unarmed && <span className="muted small">sin arma cuerpo a cuerpo</span>}
           </span>
         </li>
         {feats.map((f) => (
@@ -68,7 +70,8 @@ export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell }
             <InfoPop label={r.n} title={r.n}><p className="muted">{r.src.replace(/ \d+$/, '')}</p><p>{plainText(r.d)}</p></InfoPop>
             <span className="rollrow">
               {/ataque cuerpo a cuerpo|ataque de oportunidad/.test(norm(r.d).slice(0, 420)) && melee.length > 0
-                ? melee.map((a) => <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + r.n + ': ' + a.w.name, kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}>{a.w.name} {fmt(a.atk)}</button>)
+                ? melee.map((a) => <button key={a.w.id} className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · ' + r.n + ': ' + a.w.name, kind: 'attack', who, parts: [{ expr: '1d20' + sgn(a.atk) }], self: { conds: c.conds, exh: c.exh } }); }}><span className="rx-n">{a.w.name}</span> <span>{fmt(a.atk)}</span></button>)
+                : /^desviar ataques/.test(norm(r.n)) ? <button className="rollbtn" disabled={!!used} onClick={() => { spend(); roll({ label: who + ' · desviar ataques', kind: 'free', parts: [{ expr: '1d10' + sgn(d.mods.dex + classLevel(c, 'monk')) }] }); }}>1d10{sgn(d.mods.dex + classLevel(c, 'monk'))}</button>
                 : <button className="rollbtn" disabled={!!used} onClick={spend}>Usar</button>}
             </span>
           </li>
