@@ -1,7 +1,9 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { masteryText, weaponPropText } from '../../engine/weaponRules';
+import InfoPop from '../../shared/InfoPop';
 import { CONDITIONS, DMG_TYPES, XP_LEVELS } from '../../data/constants';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
-import { asClass, classEntries, classLevel, derive, expandCustomFeats, longRest, partsLabel, shortRest, usesMax, type Character, type Derived } from '../../engine/character';
+import { asClass, classEntries, classLevel, derive, expandCustomFeats, longRest, partsLabel, partsShort, shortRest, shortType, usesMax, type Character, type Derived } from '../../engine/character';
 import { fmt, sgn, shotParts, type RollPart } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import Card, { InfoDialog } from '../../shared/Card';
@@ -90,6 +92,9 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
 }
 
 /** `readOnly`: la hoja de otro (la de un jugador en la mesa del máster): se ve igual pero no guarda ni manda nada. */
+/** Ancho de la hoja (px) desde el que va en dos columnas. */
+const TWO_COLS = 520;
+
 export default function CharacterSheet({ c, readOnly = false }: { c: Character; readOnly?: boolean }) {
   const data = usePlayer((s) => s.data);
   const store = usePlayer.getState();
@@ -151,6 +156,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // conjuros: pestañas por clase (con varias clases lanzadoras); cada conjuro, plegado hasta pulsarlo (uno abierto a la vez)
   const [spCls, setSpCls] = useState('all');
   const [spOpen, setSpOpen] = useState<string | null>(null);
+  const [spQ, setSpQ] = useState(''); // buscador de conjuros
+  const [spFold, setSpFold] = useState<number[]>([]); // niveles plegados (solo en esta visita)
   const [spText, setSpText] = useState<string | null>(null);
   // conjuros y rasgos van en bloques repartidos en columnas, según el ancho
   const lowRef = useRef<HTMLDivElement>(null);
@@ -205,7 +212,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // reparto: a la columna más corta, contando lo fijo de cada una (izquierda: características y notas; derecha: ataques y estados)
   useLayoutEffect(() => {
     const m = lowRef.current;
-    if (!m || typeof ResizeObserver !== 'function' || lowW < 1000) return;
+    if (!m || typeof ResizeObserver !== 'function' || lowW < TWO_COLS) return;
     const [ca, cb] = [m.children[0], m.children[1]];
     if (!ca || !cb) return;
     const ht = (e: Element) => e.getBoundingClientRect().height + 14;
@@ -512,10 +519,16 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const spellList = baseList.filter((x) => x.s).sort((a, b) => (a.s!.l || 0) - (b.s!.l || 0) || a.s!.n.localeCompare(b.s!.n, 'es'));
   const spClasses = casterIds.filter((k) => spellList.some((x) => x.cls.includes(k)));
   const clsTab = spCls !== 'all' && spClasses.includes(spCls) ? spCls : 'all';
-  const spellShown = spellList.filter((x) => clsTab === 'all' || x.cls.includes(clsTab));
+  const spQn = norm(spQ.trim());
+  const spellShown = spellList.filter((x) => (clsTab === 'all' || x.cls.includes(clsTab)) && (!spQn || norm(x.s!.n).includes(spQn)));
   // un bloque por nivel (con sus espacios al lado, como las habilidades bajo su característica): los que tienen conjuros o espacios
-  const spBlocks = [...new Set([...spellShown.map((x) => x.s!.l || 0), ...d.slots.map((n, i) => (n > 0 ? i + 1 : -1)).filter((l) => l > 0)])]
-    .sort((a, b) => a - b).map((l) => ({ l, title: l ? 'Nivel ' + l : 'Trucos', list: spellShown.filter((x) => (x.s!.l || 0) === l) }));
+  // (buscando, solo los niveles con resultados; un nivel plegado muestra solo su título)
+  const spBlocks = [...new Set([...spellShown.map((x) => x.s!.l || 0), ...(spQn ? [] : d.slots.map((n, i) => (n > 0 ? i + 1 : -1)).filter((l) => l > 0))])]
+    .sort((a, b) => a - b).map((l) => {
+      const all = spellShown.filter((x) => (x.s!.l || 0) === l);
+      const folded = !spQn && spFold.includes(l);
+      return { l, title: l ? 'Nivel ' + l : 'Trucos', n: all.length, folded, list: folded ? [] : all };
+    });
   const spTextOf = spText ? spellList.find((x) => x.k === spText) : undefined;
   // abajo: conjuros a la izquierda y rasgos a la derecha. En dos columnas, si una es mucho más larga, sus últimos bloques
   // siguen al final de la otra («Conjuros (cont.)» bajo los rasgos o «Rasgos y dotes (cont.)» bajo los conjuros) para que acaben a la par
@@ -532,8 +545,9 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const castNamed = castLines.length > 1;
   // hoja en mosaico (desde 1000 px de ancho: dos columnas que reparte el navegador). Para que encajen sin huecos, conjuros y rasgos se parten
   // en tarjetas de unas 6 filas («Conjuros (cont.)», «Rasgos y dotes (cont.)»); a menos ancho, una sola tarjeta cada uno
-  const wide = lowW >= 1000;
-  const lowN = wide ? 1 : lowW >= 900 ? 3 : lowW >= 600 ? 2 : 1;
+  const wide = lowW >= TWO_COLS; // dos columnas en la hoja (el móvil, con su propia vista, queda aparte)
+  const roomy = lowW >= 1000; // con sitio de sobra: columnas también dentro de las tarjetas, tarjetas de combate de dos en dos…
+  const lowN = roomy ? 2 : wide ? 1 : lowW >= 600 ? 2 : 1;
   const spParts = chunkGroups(spBlocks, Infinity); // los conjuros fluyen en columnas dentro de su tarjeta: cada nivel entero
   const ftParts = chunkGroups(featGroups, Infinity); // rasgos como los conjuros: una lista que fluye en columnas, cada origen entero
   const spPieces = [spParts]; // una sola tarjeta de conjuros, con sus columnas dentro
@@ -627,13 +641,16 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     </section>
   );
   // un bloque de conjuros (un nivel) y uno de rasgos (un origen); y su rejilla de columnas
-  const spellBlock = ({ key, title, first, l, list }: (typeof spParts)[number]) => (
+  const spellBlock = ({ key, title, first, l, list, n, folded }: (typeof spParts)[number]) => (
     <div key={key} className="pc-abil pc-block pc-block-sp" role="group" aria-label={l ? 'Conjuros de nivel ' + l : 'Trucos'}>
       <div className="pc-block-head">
-        <span className="pc-abil-k">{title}</span>
-        {first && l > 0 && (d.slots[l - 1] || 0) > 0 && <Pips max={d.slots[l - 1]} used={Math.min(d.slots[l - 1], c.slotsUsed[l - 1] || 0)} label={'Espacios de nivel ' + l} onSet={(v) => { const u = c.slotsUsed.slice(); u[l - 1] = Math.max(0, Math.min(d.slots[l - 1], v)); set({ slotsUsed: u }); }} />}
+        {first && !spQn ? (
+          <button className="pc-abil-k pc-fold" aria-expanded={!folded} title={folded ? 'Desplegar' : 'Plegar'} onClick={() => setSpFold(folded ? spFold.filter((x) => x !== l) : [...spFold, l])}>
+            <span aria-hidden="true">{folded ? '▸' : '▾'}</span> {title}{folded && n > 0 && <span className="pc-fold-n"> ({n})</span>}
+          </button>
+        ) : <span className="pc-abil-k">{title}</span>}
       </div>
-      {!list.length ? <span className="muted small">Ningún conjuro de este nivel{clsTab !== 'all' ? ' en esta clase' : ''}.</span> : (
+      {folded ? null : !list.length ? <span className="muted small">Ningún conjuro de este nivel{clsTab !== 'all' ? ' en esta clase' : ''}.</span> : (
         <ul className="pc-features sp-list">
           {list.map(({ k, s, sub, grant }) => {
             const open = spOpen === k;
@@ -689,7 +706,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // conjuros sin cuadros por nivel: una lista que fluye en dos columnas dentro de la tarjeta, con el nivel como título de sección
   const flow = <T extends { key: string; list: unknown[] }>(parts: T[], render: (p: T) => JSX.Element, split = false) => {
     const rows = parts.reduce((a, x) => a + Math.max(1, x.list.length), 0);
-    const n = Math.max(1, Math.min(rows < 6 ? 1 : wide ? 2 : lowN, split ? rows : parts.length));
+    const n = Math.max(1, Math.min(rows < 6 ? 1 : lowN, split ? rows : parts.length));
     const W_HEAD = 1.6;
     // puntos de corte posibles: entre grupos y, si `split`, entre filas de un mismo grupo (el trozo que sigue deja su título en blanco para que las filas arranquen a la misma altura)
     const cand: { at: [number, number]; w: number; mid: boolean }[] = [];
@@ -734,7 +751,31 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               ))}
             </span>}
           </div>
-          {d.pact && <div className="pc-slots"><span className="res">Magia de pacto (nivel {d.pact.lv})<Pips max={d.pact.n} used={Math.min(d.pact.n, c.pactUsed)} label="Espacios de pacto" onSet={(v) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) })} /></span></div>}
+          {(d.slots.some((n) => n > 0) || d.pact) && (() => {
+            // tabla de espacios: columnas de 3 niveles (1-3, 4-6, 7-9), con la etiqueta, el total y los rombos alineados
+            const cells = [
+              ...d.slots.map((n, i) => ({ k: 'n' + i, label: 'N' + (i + 1), title: 'Espacios de nivel ' + (i + 1), max: n, used: Math.min(n, c.slotsUsed[i] || 0), set: (v: number) => { const u = c.slotsUsed.slice(); u[i] = Math.max(0, Math.min(n, v)); set({ slotsUsed: u }); } })).filter((x) => x.max > 0),
+              ...(d.pact ? [{ k: 'pact', label: 'Pacto ' + d.pact.lv, title: 'Espacios de magia de pacto (nivel ' + d.pact.lv + ')', max: d.pact.n, used: Math.min(d.pact.n, c.pactUsed), set: (v: number) => set({ pactUsed: Math.max(0, Math.min(d.pact!.n, v)) }) }] : []),
+            ];
+            const rows = Math.min(3, cells.length);
+            return (
+              <div className="pc-slots" role="group" aria-label="Espacios de conjuro" style={{ gridTemplateRows: 'repeat(' + rows + ', auto)' }}>
+                {cells.map((x, i) => (
+                  <span key={x.k} className={i >= rows ? 'res sep' : 'res'} title={x.title}>
+                    <span className="pc-slot-k">{x.label}</span>
+                    <Pips max={x.max} used={x.used} label={x.title} onSet={x.set} />
+                  </span>
+                ))}
+              </div>
+            );
+          })()}
+          {spellList.length > 12 && (
+            <div className="sp-tools">
+              <input className="input" type="search" aria-label="Buscar conjuro" placeholder="Buscar conjuro…" value={spQ} onChange={(e) => setSpQ(e.target.value)} />
+              {!spQn && spBlocks.length > 2 && <button className="btn small" onClick={() => setSpFold(spFold.length ? [] : spBlocks.map((b) => b.l))}>{spFold.length ? 'Desplegar todo' : 'Plegar todo'}</button>}
+            </div>
+          )}
+          {spQn && !spellShown.length && <p className="muted small" style={{ margin: 0 }}>Ningún conjuro con «{spQ.trim()}».</p>}
           {spClasses.length > 1 && (
             <div className="sp-tabs" role="tablist" aria-label="Conjuros por clase">
               {['all', ...spClasses].map((k) => <button key={k} role="tab" aria-selected={clsTab === k} className={clsTab === k ? 'sp-tab on' : 'sp-tab'} onClick={() => setSpCls(k)}>{k === 'all' ? 'Todas las clases' : data?.classes.find((x) => x.id === k)?.n || k}</button>)}
@@ -922,6 +963,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
           <button className="btn primary" onClick={damage} title={resisted ? 'Resistencia (' + resisted.why + '): recibes la mitad' : undefined}>Daño{resisted ? ' (mitad)' : ''}</button>
           <button className="btn heal" onClick={heal}>Curación</button>
           <button className="btn temp" onClick={giveTemp}>PG temporales</button>
+          {readOnly && (c.conds.length > 0 || c.exh > 0) && <span className="chip on pc-conc" title="Estados del personaje">{[...c.conds, c.exh ? 'Agotamiento ' + c.exh : ''].filter(Boolean).join(' · ')}</span>}
           <div className="pc-rest pc-state">
             <Picker pop title="Estados" summary={[...c.conds, c.exh ? 'Agotamiento ' + c.exh : ''].filter(Boolean).join(', ')}>
               {conc && <button className="chip on pc-conc" title="Te concentras en este conjuro. Pulsa para dejar de concentrarte." onClick={() => set({ conds: withoutConc(c.conds) })}>Concentración: {conc} ✕</button>}
@@ -1079,18 +1121,24 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         </div>
         {!d.attacks.length && !d.unarmed && <p className="muted small" style={{ margin: 0 }}>Añade tus armas en «Editar hoja».</p>}
         <div className="pc-attacks">
+        <div className="pc-att-head" aria-hidden="true"><span>Arma o truco</span><span>Ataque</span><span>Daño y tipo</span></div>
         {d.attacks.map(({ w, atk, abil, parts, verParts, throwParts, offParts, poleParts, notes }) => (
           <div key={w.id} className="pc-attack">
-            <span className="pc-attack-n">{w.name}<span className="muted small">{[w.kind === 'ranged' ? 'distancia' : 'cuerpo a cuerpo', w.range, ...(w.props || []), w.mastery ? 'maestría: ' + w.mastery : ''].filter(Boolean).join(' · ')}</span>{notes.length > 0 && <span className="pc-attack-feat small" title={notes.join(' · ')}>{notes.join(' · ')}</span>}
+            <span className="pc-attack-n">{w.name}
+              <InfoPop label={(w.props || []).length || w.mastery ? 'Propiedades' + (w.mastery ? ' y maestría' : '') : (w.kind === 'ranged' ? 'A distancia' : 'Cuerpo a cuerpo')} title={w.name}>
+                <p className="muted">{[w.kind === 'ranged' ? 'A distancia' : 'Cuerpo a cuerpo', w.range].filter(Boolean).join(' · ')}</p>
+                {(w.props || []).map((pr) => <p key={pr}><b>{pr}.</b> {weaponPropText(pr)}</p>)}
+                {w.mastery && <p><b>Maestría: {w.mastery}.</b> {masteryText(w.mastery)}</p>}
+              </InfoPop>{notes.length > 0 && <span className="pc-attack-feat small" title={notes.join(' · ')}>{notes.join(' · ')}</span>}
               {d.fx.dmgOneHand != null && w.kind === 'melee' && !(w.props || []).some((p) => norm(p) === 'a dos manos') && (
                 <label className="check small pc-duel"><input type="checkbox" checked={w.duel !== false} onChange={(e) => set({ weapons: c.weapons.map((x) => (x.id === w.id ? { ...x, duel: e.target.checked } : x)) })} />A una mano, sin nada en la otra (Duelo)</label>
               )}
             </span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r(w.name + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn, ...(reckless && abil === 'str' ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(atk + buffAtk)}{reckless && abil === 'str' && <span className="adv-mark">V</span>}</button>
-              <button className="rollbtn dmg" title={parts.length > 1 ? partsLabel(parts) : undefined} onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged', thrownMelee: (w.props || []).some((p) => norm(p) === 'arrojadiza') }, w.id)}>Daño {parts.length > 1 ? parts.map((p) => p.expr).join(' + ') : partsLabel(parts)}{armTag(w.id)}</button>
+              <button className="rollbtn dmg" title={partsLabel(parts)} onClick={() => dmgRoll(w.name + ': daño', parts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged', thrownMelee: (w.props || []).some((p) => norm(p) === 'arrojadiza') }, w.id)}>{partsShort(parts)}{armTag(w.id)}</button>
               {(w.kind === 'melee' || (w.props || []).some((p) => norm(p) === 'arrojadiza')) && smiteChips(w.id)}
-              {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse }, w.id)}>A dos manos {partsLabel(verParts)}{armTag(w.id)}</button>}
+              {verParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño a dos manos', verParts, { melee: true, str: abil === 'str', finesse: w.finesse }, w.id)}>A dos manos {partsShort(verParts)}{armTag(w.id)}</button>}
               {throwParts.length > 0 && <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': daño lanzada', throwParts, { melee: false, str: abil === 'str', finesse: true })}>Lanzada {partsLabel(throwParts)}</button>}
               {offParts.length > 0 && <button className="rollbtn dmg" title="Ataque extra de la propiedad «ligera» (acción adicional); el ataque se tira con «Ataque»" onClick={() => dmgRoll(w.name + ': ataque extra', offParts, { melee: w.kind === 'melee', str: abil === 'str', finesse: w.finesse || w.kind === 'ranged' })}>Acción adicional {partsLabel(offParts)}</button>}
               {poleParts.length > 0 && <button className="rollbtn dmg" title="Maestro en armas de asta: ataque con el otro extremo (acción adicional)" onClick={() => dmgRoll(w.name + ': otro extremo', poleParts, { melee: true, str: abil === 'str', finesse: false }, w.id)}>Otro extremo {partsLabel(poleParts)}</button>}
@@ -1106,7 +1154,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
                   <span key="ts" className="rollrow pc-cantrip-atk">
                     <span className="chip-tag" title="Truco: el ataque y el daño usan tu característica de conjuros; el daño puede ser radiante o el del arma">Impacto certero</span>
                     <button className="rollbtn" onClick={() => r(w.name + ': Impacto certero', 'attack', d20b(spAtk + buffAtk), { critOn: d.critOn })}>Ataque {fmt(spAtk + buffAtk)}</button>
-                    <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': Impacto certero', p, { melee: w.kind === 'melee', str: false, finesse: true }, w.id)}>Daño {partsLabel(p)}</button>
+                    <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': Impacto certero', p, { melee: w.kind === 'melee', str: false, finesse: true }, w.id)}>{partsShort(p)}</button>
                   </span>,
                 );
               }
@@ -1116,7 +1164,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
                   <span key="sh" className="rollrow pc-cantrip-atk">
                     <span className="chip-tag" title="Truco: con el garrote o el bastón usas tu característica de conjuros y un dado mayor; el daño puede ser de fuerza o el del arma">Shillelagh</span>
                     <button className="rollbtn" onClick={() => r(w.name + ': Shillelagh', 'attack', d20b(spAtk + buffAtk), { critOn: d.critOn })}>Ataque {fmt(spAtk + buffAtk)}</button>
-                    <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': Shillelagh', p, { melee: true, str: false, finesse: true }, w.id)}>Daño {partsLabel(p)}</button>
+                    <button className="rollbtn dmg" onClick={() => dmgRoll(w.name + ': Shillelagh', p, { melee: true, str: false, finesse: true }, w.id)}>{partsShort(p)}</button>
                   </span>,
                 );
               }
@@ -1129,7 +1177,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
             <span className="pc-attack-n">Ataque sin armas<span className="muted small">cuerpo a cuerpo</span><span className="pc-attack-feat small">{d.unarmed.notes.join(', ')}{d.unarmed.parts[0].reroll1 ? ' · repite los 1' : ''}</span></span>
             <span className="rollrow">
               <button className="rollbtn" onClick={() => r('ataque sin armas', 'attack', d20b(d.unarmed!.atk), { critOn: d.critOn, ...(reckless && uaHit.str ? { adv: 'Ataque temerario' } : {}) })}>Ataque {fmt(d.unarmed.atk)}{reckless && uaHit.str && <span className="adv-mark">V</span>}</button>
-              <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, 'ua')}>Daño {partsLabel(d.unarmed.parts)}{armTag('ua')}</button>
+              <button className="rollbtn dmg" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.parts, uaHit, 'ua')} title={partsLabel(d.unarmed.parts)}>{partsShort(d.unarmed.parts)}{armTag('ua')}</button>
               {smiteChips('ua', false)}
               {d.unarmed.free.length > 0 && <button className="rollbtn dmg" title="Sin empuñar armas ni embrazar escudo" onClick={() => dmgRoll('ataque sin armas: daño', d.unarmed!.free, uaHit, 'ua')}>Sin armas ni escudo {partsLabel(d.unarmed.free)}</button>}
               {d.unarmed.grapple && <button className="rollbtn dmg" title="Al principio de tu turno, a una criatura que tengas agarrada" onClick={() => roll({ label: who + ' · daño a la criatura agarrada', kind: 'damage', who, by: null, parts: [{ expr: d.unarmed!.grapple, type: 'contundente' }] })}>Agarrada {d.unarmed.grapple} contundente</button>}
@@ -1142,13 +1190,13 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
           if (!caster) return null;
           const atk = caster.atk;
           return (
-            <div key={'sp' + k} className="pc-attack">
-              <span className="pc-attack-n">{sp.n}<span className="muted small">{sp.l ? 'conjuro de nivel ' + sp.l + ' · ataque cada turno mientras dura' : 'truco'}{sp.r ? ' · ' + sp.r : ''}</span></span>
+            <div key={'sp' + k} className="pc-attack sp">
+              <span className="pc-attack-n"><button type="button" className="pc-name-link" aria-haspopup="dialog" title="Ver el texto del conjuro" onClick={() => setSpText(k)}>{sp.n}</button><span className="muted small">{sp.l ? 'conjuro de nivel ' + sp.l + ' · ataque cada turno mientras dura' : 'truco'}{sp.r ? ' · ' + sp.r : ''}</span></span>
               <span className="rollrow">
                 <button className="rollbtn" onClick={() => r(sp.n + ': ataque', 'attack', d20b(atk + buffAtk), { critOn: d.critOn, ...(cast.count > 1 ? { shots: cast.count } : {}) })}>Ataque {fmt(atk + buffAtk)}{cast.count > 1 ? ' ×' + cast.count : ''}</button>
                 {cast.dmg && (cast.count > 1
-                  ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who), impacts: cast.count })}>Daño {cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>
-                  : <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': daño', kind: 'damage', who, by: null, parts: [cast.dmg!] })}>Daño {cast.dmg.expr}{cast.dmg.type ? ' ' + cast.dmg.type : ''}</button>)}
+                  ? <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': ' + cast.count + ' impactos', kind: 'damage', who, by: null, parts: shotParts(cast.dmg!, cast.count, useStore.getState().critFor, who), impacts: cast.count })}>{cast.count} × {cast.dmg.expr}{cast.dmg.type ? ' ' + shortType(cast.dmg.type) : ''}</button>
+                  : <button className="rollbtn dmg" onClick={() => roll({ label: who + ' · ' + sp.n + ': daño', kind: 'damage', who, by: null, parts: [cast.dmg!] })} title={cast.dmg.expr + (cast.dmg.type ? ' ' + cast.dmg.type : '')}>{cast.dmg.expr}{cast.dmg.type ? ' ' + shortType(cast.dmg.type) : ''}</button>)}
               </span>
             </div>
           );

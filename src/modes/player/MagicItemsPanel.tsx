@@ -135,24 +135,26 @@ export default function MagicItemsPanel({ c, set, spells, readOnly = false }: { 
     set({ uses: { ...c.uses, [itemKey(i)]: used + 1 } });
     if (i.roll) useStore.getState().roll({ label: who + ' · ' + i.n, kind: 'free', who, parts: [{ expr: i.roll }] });
   };
-  if (readOnly && !items.length) return null;
-  return (
-    <section className="panel" aria-label="Objetos mágicos" data-sec="rasgos">
-      <div className="panel-head">
-        <h3 className="eyebrow">Objetos mágicos</h3>
-        <span className={att > ATTUNE_MAX ? 'chip-tag warn' : 'chip-tag'} title="Un personaje solo puede estar sintonizado con tres objetos a la vez">Sintonía {att}/{ATTUNE_MAX}</span>
-      </div>
-      {!readOnly && <div className="rollrow">
+  const controlsEl = readOnly ? null : (
+    <div className="rollrow">
         <select className="input" style={{ maxWidth: 260 }} aria-label="Objeto de ejemplo" value={preset} onChange={(e) => { setPreset(''); const v = e.target.value; const p = v.startsWith('lib:') ? libItems.find((x) => x.id === v.slice(4)) : ITEM_PRESETS[Number(v)]; if (p) setForm(fromTemplate(p, v.startsWith('lib:'), spells, 'mi-' + uid())); }}>
           <option value="">Ejemplos…</option>
           {ITEM_PRESETS.map((p, i) => <option key={p.n} value={i}>{p.n}</option>)}
           {libItems.length > 0 && <optgroup label="De tu biblioteca">{libItems.map((x) => <option key={x.id} value={'lib:' + x.id}>{x.n}</option>)}</optgroup>}
         </select>
-        <button className="btn small" onClick={() => setForm(blank())}>+ Objeto</button>
-      </div>}
+        <button className="btn small" title="Añade un objeto a mano o parte de un ejemplo: sus efectos (CA, salvaciones, características…) se suman solos mientras esté puesto y sintonizado" onClick={() => setForm(blank())}>+ Objeto</button>
+    </div>
+  );
+  if (readOnly && !items.length) return null;
+  return (
+    <section className="panel" aria-label="Objetos mágicos" data-sec="rasgos">
+      <div className="panel-head">
+        <h3 className="eyebrow">Objetos mágicos</h3>
+        {items.length === 0 ? (readOnly ? null : <button className="btn small" title="Añade un objeto a mano o parte de un ejemplo: sus efectos (CA, salvaciones, características…) se suman solos mientras esté puesto y sintonizado" onClick={() => setForm(blank())}>+ Objeto</button>) : <span className={att > ATTUNE_MAX ? 'chip-tag warn' : 'chip-tag'} title="Un personaje solo puede estar sintonizado con tres objetos a la vez">Sintonía {att}/{ATTUNE_MAX}</span>}
+      </div>
+      {items.length > 0 && controlsEl}
       {fixed.length > 0 && <p className="warn small" role="status" style={{ margin: 0 }}>Tienes {fixed.join(', ')} fijado(s) a mano en «Editar hoja»: los objetos no lo cambian. Quita el valor fijado para que se sume solo.</p>}
       {att > ATTUNE_MAX && <p className="warn small" role="status" style={{ margin: 0 }}>Estás sintonizado con más de tres objetos: las reglas no lo permiten.</p>}
-      {items.length === 0 && !readOnly && <p className="muted small" style={{ margin: 0 }}>Añade un objeto a mano o parte de un ejemplo: sus efectos (CA, salvaciones, características…) se suman solos mientras esté puesto y sintonizado.</p>}
       <ul className="pc-features grid acts">
         {items.map((i) => {
           const used = i.charges ? Math.min(i.charges.max, c.uses[itemKey(i)] || 0) : 0;

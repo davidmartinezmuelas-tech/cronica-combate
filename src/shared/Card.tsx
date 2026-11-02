@@ -21,12 +21,13 @@ export function InfoDialog({ title, onClose, children }: { title: string; onClos
   );
 }
 
-/** Saca de `head` los primeros usos (`Pips`), para ponerlos en la línea del nombre en vez de en una propia. */
+/** Saca de `head` los primeros usos (`Pips`, hasta 6), para ponerlos en la línea del nombre en vez de en una propia. */
 function takePips(head: ReactNode): { rest: ReactNode; pips: ReactElement | null } {
   let pips: ReactElement | null = null;
   const walk = (n: ReactNode): ReactNode => {
     if (pips || !isValidElement(n)) return n;
-    if (n.type === Pips) { pips = n; return null; }
+    // con muchos usos (más de 6) los rombos no caben junto al nombre: se quedan donde estaban
+    if (n.type === Pips && ((n.props as { max?: number }).max ?? 0) <= 6) { pips = n; return null; }
     const kids = (n.props as { children?: ReactNode }).children;
     return kids == null ? n : cloneElement(n, {}, ...Children.toArray(kids).map(walk));
   };

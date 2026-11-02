@@ -203,6 +203,12 @@ export interface Derived {
 type Part = { expr: string; type: string; min?: number; reroll1?: boolean };
 
 /** Texto de un daño con varias partes: «1d8+3 cortante + 1d6 fuego». */
+/** Tipo de daño abreviado para los botones pequeños (el nombre completo va en el título). */
+const SHORT_DMG: Record<string, string> = { contundente: 'cont.', cortante: 'cort.', perforante: 'perf.', ácido: 'ácid.', relámpago: 'relám.', necrótico: 'necr.', radiante: 'radi.', psíquico: 'psíq.', veneno: 'ven.' };
+export const shortType = (t: string) => SHORT_DMG[t.toLowerCase()] || t;
+/** Solo el dado y el tipo abreviado: «1d8 cort. + 1d6 radi.». */
+export const partsShort = (parts: { expr: string; type: string }[]) => parts.map((p) => p.expr + (p.type ? ' ' + shortType(p.type) : '')).join(' + ');
+
 export const partsLabel = (parts: { expr: string; type: string }[]) => parts.map((p) => p.expr + (p.type ? ' ' + p.type : '')).join(' + ');
 
 /** Bonificador de una fórmula de daño: «1d8» + 3 -> «1d8+3». */

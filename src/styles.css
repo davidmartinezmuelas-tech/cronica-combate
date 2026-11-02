@@ -9,6 +9,8 @@ body{color:var(--text);font-family:'Alegreya Sans','Gill Sans','Trebuchet MS',sa
 .col-center{flex:999 1 480px;min-width:0;display:flex;flex-direction:column;gap:16px}
 .col-right{flex:1 1 320px;max-width:420px;min-width:0;display:flex;flex-direction:column;gap:16px}
 .center-grid{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+/* tablet (821-1023px): la hoja ocupa todo el ancho (dos columnas) y la mesa de dados baja debajo */
+@media (min-width:821px) and (max-width:1023px){.app-main:has(.pc-mosaic) .col-center{flex-basis:100%}.app-main:has(.pc-mosaic) .col-right{max-width:none;flex-basis:100%}}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .kbd{display:inline-block;min-width:22px;padding:1px 6px;border:1px solid var(--line-5);border-bottom-width:2px;border-radius:5px;background:var(--bg);font-size:12px;font-weight:800;text-align:center;color:var(--text-hi)}
 .overlay{position:fixed;inset:0;background:rgba(10,7,5,.72);display:grid;place-items:center;z-index:50;padding:16px}
@@ -624,8 +626,8 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-prof-input{padding:3px 8px;min-height:30px;font-size:14px;width:100%;box-sizing:border-box}
 .pc-profs dt label{cursor:pointer}
 .pc-profs dt{align-self:center}
-.pc-notes{display:flex;flex-direction:column;gap:6px;min-height:190px}
-.pc-notes textarea{flex:1;min-height:130px;resize:vertical}
+.pc-notes{display:flex;flex-direction:column;gap:6px;min-height:150px}
+.pc-notes textarea{flex:1;min-height:90px;resize:vertical}
 .pc-profs dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:14px}
 .pc-profs dt{font-weight:800;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
 .pc-profs dd{margin:0;min-width:0;overflow-wrap:anywhere}
@@ -652,6 +654,13 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-attack{display:flex;flex-direction:column;align-items:flex-start;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface-dim);min-height:var(--card-act);box-sizing:border-box}
 /* cada arma en su tarjeta, varias por fila */
 .pc-attacks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));align-items:stretch;gap:6px}
+/* ataque de conjuro: una sola fila (nombre y datos a la izquierda, tiradas a la derecha) */
+.pc-attack.sp{min-height:0;padding:4px 10px;flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px;grid-column:1/-1}
+.pc-attack.sp .pc-attack-n{flex:1 1 150px}
+.pc-attack.sp .rollrow{margin-left:auto;display:flex;flex-wrap:wrap;gap:6px}
+.pc-attack.sp .rollrow .rollbtn{white-space:nowrap;justify-content:center;text-align:center}
+/* columna estrecha (tarjetas): botones de ataque y daño pequeños y del mismo tamaño en armas y conjuros */
+@container (max-width:469px){.pc-attack .rollbtn{min-height:0;padding:3px 10px;font-size:13px;line-height:1.3}.pc-attack.sp{flex-direction:column;align-items:flex-start;gap:8px;padding:6px 10px}.pc-attack.sp .pc-attack-n{flex:none}.pc-attack.sp .rollrow{margin-left:0}.pc-attack .rollrow{align-self:stretch;justify-content:flex-end}.pc-attack .pc-cantrip-atk{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center}.pc-attack .pc-cantrip-atk>.chip-tag{grid-column:1/-1;justify-self:start}.pc-attack .pc-cantrip-atk>.rollbtn:nth-last-child(2){grid-column:2}.pc-attack .pc-cantrip-atk>.rollbtn:last-child{min-width:104px;text-align:center}.pc-attack .rollrow>.rollbtn:first-child,.pc-attack .pc-cantrip-atk>.rollbtn:nth-last-child(2){min-width:84px;text-align:center}.pc-attack .rollrow:not(.pc-cantrip-atk)>.rollbtn:not(:first-child){min-width:104px;text-align:center}}
 /* pestañas de conjuros (por clase y por nivel) dentro del pergamino */
 .sp-tabs-wrap{display:flex;flex-direction:column;gap:6px}
 .sp-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--paper-line)}
@@ -698,10 +707,12 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
 .pc-mosaic .pc-split-in,.pc-mosaic .pc-duo{display:flex;flex-direction:column;gap:14px;min-width:0}
 .pc-mosaic .pc-fill{display:contents}
 .pc-mosaic .panel{min-width:0}
-@container (min-width:1000px){
+@container (min-width:520px){
   .pc-mosaic{flex-direction:row;align-items:stretch}
   .pc-mosaic .pc-notes{flex:1 0 auto}
   .pc-mcol{flex:1 1 0}
+}
+@container (min-width:1000px){
   .pc-mosaic .pc-abils{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto 1fr}
   /* tarjetas de combate y rasgos: las pequeñas van de dos en dos (cada una con su título); ataques, a todo el ancho */
   .pc-mosaic .pc-duo{flex-direction:row;flex-wrap:wrap;align-items:stretch;column-gap:10px}
@@ -709,7 +720,18 @@ div.pc{display:flex;flex-direction:column;gap:14px;min-width:0;container-type:in
   .pc-mosaic .pc-duo>.panel[aria-label="Ataques"],.pc-mosaic .pc-duo>.panel[data-solo]{flex-basis:100%}
 }
 .pc-attack-n{display:flex;flex-direction:column;gap:2px;font-weight:800;color:var(--text-hi);min-width:0}
-.pc-slots{display:flex;flex-wrap:wrap;gap:8px 18px}
+.pc-slots{display:grid;grid-auto-flow:column;grid-auto-columns:max-content;width:fit-content;max-width:100%;gap:4px 0;padding:6px 0;border:1px solid var(--paper-edge-2);border-radius:8px}
+.pc-slots>.res{display:grid;grid-template-columns:minmax(40px,max-content) auto;align-items:center;justify-content:start;gap:0 4px;padding:0 14px;min-width:0}
+.pc-slots>.res.sep{border-left:1px solid var(--paper-edge-2)}
+.pc-slot-k{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--garnet-2);white-space:nowrap}
+.pc-slots .uses-total{min-width:14px;margin-right:3px}
+.pc-slots .mark{width:17px;height:17px}
+.pc-slots .mark svg{width:14px;height:14px}
+.sp-tools{display:flex;gap:8px;align-items:center}
+.sp-tools .input{flex:1;min-width:0;max-width:280px}
+.pc-fold{background:none;border:0;padding:0;font-family:inherit;text-align:left;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+.pc-fold:hover{text-decoration:underline;text-underline-offset:3px}
+.pc-fold-n{font-weight:600;opacity:.75}
 .pc-features{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .pc-features details{border:1px solid var(--line);border-radius:6px;background:var(--surface-dim);padding:6px 10px}
 .pc-features summary{cursor:pointer;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
@@ -1793,3 +1815,56 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
 .ce-wiz .ce-cols,.ce-wiz .ce-col{display:contents}
 .ce-flat .ce-skills{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
 .shot-row{display:flex;flex-direction:column;gap:4px;padding:6px 0;border-top:1px solid var(--line)}
+
+/* ataques como la tabla de la hoja oficial (arma o truco | ataque | daño y tipo), con las columnas alineadas entre filas.
+   Con poco ancho cada uno vuelve a ser una tarjeta con sus botones debajo */
+.pc-att-head{display:none}
+.panel[aria-label="Ataques"]{container-type:inline-size}
+@container (min-width:470px){
+  .pc-attacks{grid-template-columns:minmax(0,1fr) 92px minmax(150px,230px);gap:0 10px;align-items:start}
+  .pc-att-head{display:grid;grid-column:1/-1;grid-template-columns:subgrid;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--garnet-2);padding-bottom:3px}
+  .pc-att-head:only-child{display:none}
+  .pc-att-head>span{border-bottom:1px solid var(--line);padding-bottom:3px}
+  .pc-attacks>.pc-attack{display:grid;grid-template-columns:subgrid;grid-column:1/-1;gap:4px 10px;align-items:start;background:none;border:0;border-radius:0;border-top:1px solid var(--line);padding:8px 0;min-height:0;box-shadow:none}
+  .pc-attacks>.pc-attack>.pc-attack-n{grid-column:1}
+  .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk){display:contents}
+  .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk)>:first-child{grid-column:2}
+  .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk)>:not(:first-child){grid-column:3}
+  .pc-attacks>.pc-attack .rollbtn{width:100%;justify-content:center;text-align:center;white-space:normal}
+  .pc-attacks>.pc-attack>.pc-cantrip-atk{grid-column:1/-1;display:grid;grid-template-columns:subgrid;gap:4px 10px;align-items:center;margin:2px 0 0;padding-top:6px;border-top:1px dashed var(--line)}
+  .paper .pc-attacks>.pc-attack,.paper .pc-attack{background:none}
+  .pc-att-head+.pc-attack{border-top:0}
+  .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk)>:not(.rollbtn){justify-self:start}
+}
+
+/* columna estrecha: los botones van en una tabla de dos columnas fijas (ataque | dado y tipo), alineados en vertical y en horizontal */
+@container (max-width:469px){
+  .pc-attacks{grid-template-columns:minmax(0,1fr) 78px 148px;gap:6px}
+  .pc-att-head{display:grid;grid-column:1/-1;grid-template-columns:subgrid;gap:6px;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--garnet-2)}
+  .pc-att-head:only-child{display:none}
+  .pc-att-head>span:first-child{visibility:hidden}
+  .pc-att-head>span:nth-child(n+2){text-align:center;padding-right:10px}
+  .pc-attacks>.pc-attack{display:grid;grid-template-columns:subgrid;grid-column:1/-1;gap:6px;align-items:center;padding:6px 10px}
+  .pc-attacks>.pc-attack>.pc-attack-n{grid-column:1/-1}
+  .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk){display:contents}
+  .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk)>:first-child{grid-column:2}
+  .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk)>:not(:first-child){grid-column:3}
+  .pc-attacks>.pc-attack>.pc-cantrip-atk{grid-column:1/-1;display:grid;grid-template-columns:subgrid;gap:6px;align-items:center}
+  .pc-attacks>.pc-attack>.pc-cantrip-atk>.chip-tag{grid-column:1;justify-self:start;white-space:normal;line-height:1.15;font-size:10.5px}
+  .pc-attacks>.pc-attack>.pc-cantrip-atk>.rollbtn:nth-last-child(2){grid-column:2}
+  .pc-attacks>.pc-attack>.pc-cantrip-atk>.rollbtn:last-child{grid-column:3}
+  .pc-attacks>.pc-attack .rollbtn{width:100%;min-width:0!important;box-sizing:border-box;justify-content:center;text-align:center;white-space:nowrap;padding:3px 4px;font-size:12.5px}
+}
+
+/* propiedades y maestría del arma: botón pequeño que abre una ventana emergente */
+.info-pop-btn{align-self:flex-start;padding:0;border:0;background:none;color:inherit;opacity:.75;font:inherit;font-size:13px;font-weight:400;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.info-pop-btn:hover,.info-pop-btn[aria-expanded="true"]{opacity:1}
+.info-pop-body>p{margin:0 0 8px}
+.info-pop-body>p:last-child{margin-bottom:0}
+.info-pop-body b{font-weight:800}
+.pc-name-link{align-self:flex-start;padding:0;border:0;background:none;color:inherit;font:inherit;font-weight:inherit;text-align:left;cursor:pointer;text-decoration:underline dotted;text-decoration-color:var(--muted-2);text-underline-offset:4px}
+.pc-name-link:hover{text-decoration-color:currentColor}
+
+/* botones de daño y tipo de los ataques: relleno suave del mismo tono que el garnet de la hoja, a juego con el dorado del ataque */
+.paper .pc .pc-attack .rollbtn.dmg{background:color-mix(in srgb,var(--garnet) 11%,var(--paper-card));color:var(--garnet);border-color:color-mix(in srgb,var(--garnet) 40%,transparent)}
+.paper .pc .pc-attack .rollbtn.dmg:hover{background:color-mix(in srgb,var(--garnet) 20%,var(--paper-card));border-color:var(--garnet)}
