@@ -64,6 +64,11 @@ describe('elecciones de subclase', () => {
     expect(terr('Árido')).toEqual(['bola', 'escudo']);
     expect(terr('Polar')).toEqual(['luz']);
     expect(subclassSpells({ classId: 'druid', subclass: 'x', level: 5 }, druid, land, spells)).toEqual([]);
+    // erratas del libro: palabras juntas («defuego») o «del» por «de»
+    const cleric = data.classes.find((k) => k.id === 'cleric')!;
+    const typo = { f: [{ n: 'Conjuros del dominio', d: 'Siempre tendrás preparados los conjuros. CONJUROS Nivel de clérigo Conjuros preparados 3 Escudo 5 Luz del día 7 Muro defuego, libertad del movimiento' }], x: [] };
+    const sp2 = [...spells, { id: 'muro', n: 'Muro de fuego', l: 4 }, { id: 'libertad', n: 'Libertad de movimiento', l: 4 }];
+    expect(subclassSpells({ classId: 'cleric', subclass: 'x', level: 9 }, cleric, typo, sp2).map((s) => s.id).sort()).toEqual(['escudo', 'libertad', 'luzdia', 'muro']);
   });
 });
 

@@ -219,8 +219,17 @@ export function subclassSpells(c: Pick<Character, 'classId' | 'subclass' | 'leve
   for (const s of [...spells].sort((a, b) => b.n.length - a.n.length)) {
     const k = words(s.n);
     if (k.length < 5 || !t.includes(k)) continue;
-    t = t.split(k).join(' ');
+    t = t.split(k).join(' # ');
     if (!out.some((o) => o.id === s.id)) out.push({ id: s.id, at: subclassSpellLevel(s.l || 0, cls?.caster) });
+  }
+  // el libro a veces junta o cambia palabras («Muro defuego», «libertad del movimiento»): segunda pasada sin espacios
+  const squash = (x: string) => x.replace(/\s+/g, '').replace(/del/g, 'de');
+  let q = squash(t);
+  for (const s of [...spells].sort((a, b) => b.n.length - a.n.length)) {
+    const k = squash(words(s.n));
+    if (k.length < 8 || out.some((o) => o.id === s.id) || !q.includes(k)) continue;
+    q = q.split(k).join('#');
+    out.push({ id: s.id, at: subclassSpellLevel(s.l || 0, cls?.caster) });
   }
   return out.filter((o) => o.at <= c.level);
 }
