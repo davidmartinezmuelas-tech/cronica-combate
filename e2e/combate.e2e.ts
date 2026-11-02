@@ -2988,3 +2988,33 @@ test('los botones de tirada de un conjuro gastan el espacio solos, una sola vez 
   await card.getByRole('button', { name: /^Ataque/ }).click();
   await expect(pips).toHaveAttribute('aria-label', /: 2 de 4/);
 });
+
+test('Personaje y equipo: dinero, equipo y personalidad se guardan; el retrato solo aparece si se sube', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Mara');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const bio = page.getByRole('region', { name: 'Personaje y equipo' });
+  await expect(bio).toBeVisible();
+  await expect(bio.getByRole('img')).toHaveCount(0); // sin retrato no hay imagen
+  await bio.getByLabel('Monedas de oro').fill('25');
+  await bio.getByRole('button', { name: '+ Objeto' }).click();
+  await bio.getByLabel('Nombre del objeto 1').fill('Cuerda de seda');
+  await bio.getByLabel('Cantidad del objeto 1').fill('2');
+  await bio.getByText('Personalidad', { exact: true }).click();
+  await bio.getByLabel('Ideales').fill('Proteger a los débiles');
+  // un PNG de 1x1 como retrato
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64');
+  await bio.getByLabel('Imagen del retrato').setInputFiles({ name: 'mara.png', mimeType: 'image/png', buffer: png });
+  await expect(bio.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
+  await page.reload();
+  const again = page.getByRole('region', { name: 'Personaje y equipo' });
+  await expect(again.getByLabel('Monedas de oro')).toHaveValue('25');
+  await expect(again.getByLabel('Nombre del objeto 1')).toHaveValue('Cuerda de seda');
+  await expect(again.getByLabel('Ideales')).toHaveValue('Proteger a los débiles');
+  await expect(again.getByRole('img', { name: 'Retrato de Mara' })).toBeVisible();
+  await again.getByRole('button', { name: 'Quitar', exact: true }).click();
+  await expect(again.getByRole('img')).toHaveCount(0);
+});

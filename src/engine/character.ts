@@ -96,6 +96,14 @@ export interface Character {
   langs: string;
   tools: string;
   notes: string;
+  /** Monedas (opcional): cobre, plata, electro, oro y platino. */
+  money?: Partial<Record<'cp' | 'sp' | 'ep' | 'gp' | 'pp', number>>;
+  /** Equipo (opcional): objeto y cantidad. */
+  gear?: { n: string; q: number }[];
+  /** Personalidad (opcional): rasgos, ideales, vínculos, defectos y aspecto. */
+  persona?: Partial<Record<'traits' | 'ideals' | 'bonds' | 'flaws' | 'look', string>>;
+  /** Retrato (opcional): imagen reducida como data URL; no viaja a la mesa del máster. */
+  portrait?: string;
   ov: Partial<Record<'ac' | 'hpMax' | 'init' | 'speed' | 'pp' | 'spellDc' | 'spellAtk', number>>;
   /** Multiclase: las clases además de la primera (classId/level/subclass). Sin esto, una sola clase como siempre. */
   multi?: ClassEntry[];

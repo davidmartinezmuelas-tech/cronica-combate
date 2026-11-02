@@ -1912,3 +1912,19 @@ h2.script-h{font-size:26px}h3.script-h{font-size:21px}h4.script-h{font-size:18px
   .pc-attacks>.pc-attack .rollbtn,.pc-attacks>.pc-attack .rollrow .chip{box-sizing:border-box;justify-content:center;text-align:center;white-space:normal;overflow-wrap:anywhere;line-height:1.2;min-height:28px;padding:3px 8px}
   .pc-attacks>.pc-attack .rollrow:not(.pc-cantrip-atk) .chip{width:100%}
 }
+
+/* Personaje y equipo: retrato, dinero, equipo y personalidad (todo opcional) */
+.pc-bio{display:flex;flex-direction:column;gap:10px}
+.pc-bio-portrait{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.pc-bio-portrait img{display:block;max-width:100%;max-height:220px;border-radius:var(--radius,8px);border:1px solid var(--line,rgba(0,0,0,.25));object-fit:contain}
+.pc-bio-money{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.pc-bio-money label{display:flex;flex-direction:column;gap:2px;font-size:12px;font-weight:800;color:var(--muted);align-items:stretch;text-align:center}
+.pc-bio-money input{width:100%;min-width:0;text-align:center;padding-inline:4px}
+.pc-bio-money b{font-size:16px;color:var(--text,inherit)}
+.pc-bio-gear{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.pc-bio-gear ul{margin:0;padding-left:18px;font-size:14px}
+.pc-bio-row{display:grid;grid-template-columns:minmax(0,1fr) 64px auto;gap:6px;align-self:stretch}
+.pc-bio-persona summary{cursor:pointer;margin-bottom:6px}
+.pc-bio-persona .field{margin-bottom:8px}
+.pc-bio-persona textarea{resize:vertical;width:100%}
+.paper .pc-bio-money label{color:#5e4d38}

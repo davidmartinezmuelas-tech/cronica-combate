@@ -31,6 +31,7 @@ import ReactionPanel, { REACTION_FEATS } from './ReactionPanel';
 import QuickActions, { quickRows, quickTag, RELENTLESS } from './QuickActions';
 import MetamagicPanel from './MetamagicPanel';
 import MagicItemsPanel from './MagicItemsPanel';
+import CharacterBioCard from './CharacterBioCard';
 import { itemKey } from '../../engine/magicItems';
 import SubclassActions, { actionPanelKeys, choiceResources } from './SubclassActions';
 import { KITS } from '../../engine/subclassActions';
@@ -880,6 +881,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const fillers: { key: string; node: JSX.Element }[] = [
     ...(hasSpells && spellsPanel ? [{ key: 'sp0', node: spellsPanel }] : []),
     { key: 'ft0', node: rasgosPanel },
+    { key: 'bio', node: <CharacterBioCard c={c} set={set} readOnly={readOnly} /> },
     // las notas rellenan el hueco: van a la columna más corta, al final, y crecen hasta igualar el fondo
     ...(wide ? [{ key: 'nt', node: notesPanel }] : []),
   ];
