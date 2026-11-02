@@ -1,6 +1,6 @@
 import { useState, type JSX } from 'react';
 import type { Abil } from '../../data/player';
-import { fmt, sgn } from '../../engine/dice';
+import { fmt, rollDie, sgn } from '../../engine/dice';
 import { usesMax, type Character, type Derived } from '../../engine/character';
 import { firstSentence } from '../../engine/actionKind';
 import { atLevel, resourceMax, resourcePer, type KitAction, type SubclassKit } from '../../engine/subclassActions';
@@ -146,6 +146,18 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
               go: () => { set({ uses: { ...c.uses, [name]: Math.max(0, cur - n) } }); setAmt(''); setMsg({ ...msg, [name]: n > cur ? 'Absorbe ' + cur + ' PG; te quedan ' + (n - cur) + ' de daño.' : 'Absorbe ' + n + ' PG.' }); },
             });
             btns.push({ k: 'r', t: 'Recuperar ' + (n || ''), plain: true, off: !n || wmax <= 0, go: () => { set({ uses: { ...c.uses, [name]: Math.min(wmax, cur + n) } }); setAmt(''); } });
+          } else if (r.kind === 'portent') {
+            // los d20 presagiados se guardan en los usos (positivo: sin gastar; negativo: gastado); el descanso largo los borra
+            const slots = Array.from({ length: c.level >= 14 ? 3 : 2 }, (_, i) => ({ key: name + ' ' + (i + 1), v: c.uses[name + ' ' + (i + 1)] || 0 }));
+            const any = slots.some((x) => x.v !== 0);
+            usesEl = <span className="rollrow" aria-label="Resultados presagiados">
+              {!any && <span className="muted small">Sin tirar</span>}
+              {slots.filter((x) => x.v !== 0).map((x) => x.v > 0
+                ? <button key={x.key} className="rollbtn" title="Sustituye una tirada de d20 y se gasta" onClick={() => set({ uses: { ...c.uses, [x.key]: -x.v } })}>Usar {x.v}</button>
+                : <span key={x.key} className="chip-tag" style={{ textDecoration: 'line-through' }} title="Gastado">{-x.v}</span>)}
+            </span>;
+            btns.push({ k: 'p', t: 'Tirar ' + slots.length + ' d20', plain: true, off: any, go: () => set({ uses: { ...c.uses, ...Object.fromEntries(slots.map((x) => [x.key, rollDie(20)])) } }) });
+            if (any) btns.push({ k: 'x', t: 'Borrar', plain: true, go: () => set({ uses: { ...c.uses, ...Object.fromEntries(slots.map((x) => [x.key, 0])) } }) });
           } else if (r.kind === 'temp') {
             const n = Math.max(1, c.level + m(r.plus));
             btns.push({ k: 't', t: 'Ganar ' + n + ' PG temporales', plain: true, go: () => set({ temp: Math.max(c.temp, n) }) });

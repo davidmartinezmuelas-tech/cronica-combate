@@ -3123,3 +3123,29 @@ test('Salvaguarda arcana absorbe daño y Mano de aflicción gasta un Punto de co
   await mercy.locator('.card', { hasText: 'Mano de curación' }).getByRole('button', { name: /gratis en Ráfaga/ }).click();
   await expect(page.getByRole('group', { name: 'Concentración del monje: 4 de 5 disponibles' })).toBeVisible();
 });
+
+test('Presagio del adivino: tira los d20, los gasta uno a uno y el descanso largo los borra', async ({ page }) => {
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [{ id: 'lib-sub-wizard', n: 'Adivino', cls: 'wizard', d: '', f: [{ lv: 3, n: 'Presagio', d: 'Tira 2d20 tras un descanso largo.' }] }] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Oraculo');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Mago' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Adivino' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const card = page.locator('section[aria-label="Presagio"] .card', { hasText: 'Presagio' });
+  await expect(card).toContainText('Sin tirar');
+  await card.getByRole('button', { name: 'Tirar 2 d20' }).click();
+  await expect(card.getByRole('button', { name: /^Usar \d+$/ })).toHaveCount(2);
+  await expect(card.getByRole('button', { name: 'Tirar 2 d20' })).toBeDisabled();
+  await card.getByRole('button', { name: /^Usar \d+$/ }).first().click();
+  await expect(card.getByRole('button', { name: /^Usar \d+$/ })).toHaveCount(1);
+  await expect(card.getByTitle('Gastado')).toHaveCount(1);
+  await card.getByRole('button', { name: 'Borrar' }).click();
+  await expect(card).toContainText('Sin tirar');
+});

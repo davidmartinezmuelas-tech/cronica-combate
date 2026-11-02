@@ -131,6 +131,7 @@ describe('recursos de clase: Inspiración bárdica y Canalizar divinidad', () =>
     expect(names('monk', 'Guerrero de la misericordia', 3)).toEqual(['Mano de curación', 'Mano de aflicción']);
     expect(names('ranger', 'Errante feérico', 3)).toEqual(['Golpes pavorosos']);
     expect(names('wizard', 'Abjurador', 3)).toEqual(['Salvaguarda arcana']);
+    expect(names('wizard', 'Adivino', 3)).toEqual(['Presagio']);
   });
 
   it('usos con max(1, …)', async () => {

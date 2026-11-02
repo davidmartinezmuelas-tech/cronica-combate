@@ -85,6 +85,7 @@ export type KitRoll =
   | { kind: 'roll'; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; plusHalfLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean; cost?: string; freeAlt?: string }
   | { kind: 'temp'; plus: Abil } // PG temporales: nivel + modificador (mínimo 1)
   | { kind: 'ward' } // reserva de PG que absorbe daño (Salvaguarda arcana): 2 × nivel + Inteligencia, hasta el descanso largo
+  | { kind: 'portent' } // Presagio del adivino: 2 d20 (3 desde el nivel 14) tras el descanso largo; cada uno se gasta una vez
   | { kind: 'info' }; // sin tirada (solo la CD y el texto)
 
 export interface KitAction {
@@ -247,6 +248,12 @@ export const KITS: SubclassKit[] = [
     id: 'fey-wanderer', cls: 'ranger', subs: ['Errante feérico', 'Fey Wanderer'], title: 'Errante feérico',
     actions: [
       { n: ['Golpes pavorosos', 'Golpes aterradores', 'Dreadful Strikes'], lv: 3, roll: { kind: 'extra', expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, note: 'Una vez por turno al impactar con un arma.' },
+    ],
+  },
+  {
+    id: 'diviner', cls: 'wizard', subs: ['Adivino', 'Diviner'], title: 'Presagio',
+    actions: [
+      { n: ['Presagio', 'Portent'], lv: 3, roll: { kind: 'portent' }, note: 'Tras un descanso largo, tira los d20 y anótalos. Sustituye una tirada de d20 tuya o de una criatura que veas, antes de tirar y solo una vez por turno. Los que no uses se pierden en el siguiente descanso largo (3 d20 desde el nivel 14).' },
     ],
   },
   {
