@@ -3067,3 +3067,21 @@ test('Personaje y equipo: dinero, equipo y personalidad se guardan; el retrato s
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.getByRole('img', { name: 'Retrato de Mara' })).toHaveCount(0);
 });
+
+test('una subclase del libro con el nombre de la del SRD no duplica sus rasgos', async ({ page }) => {
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [{ id: 'lib-subclase-ranger-cazador', n: 'Cazador', cls: 'ranger', d: '', f: [{ lv: 3, n: 'Rasgo repetido del libro', d: 'Texto del libro.' }] }] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Aelin');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Cazador' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.locator('main')).toContainText('Saber del cazador');
+  await expect(page.locator('main')).not.toContainText('Rasgo repetido del libro');
+});

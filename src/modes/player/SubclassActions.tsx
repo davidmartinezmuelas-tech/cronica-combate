@@ -23,6 +23,8 @@ export function actionPanelKeys(c: Character, data: PlayerData | null, lib: Libr
     ...activeKits(c).flatMap((k) => (k.kit.res ? [k.kit.res.key] : [])),
     // los rasgos que ya tienen su tarjeta con usos en el panel (Venganza ardiente, Pasos feéricos…)
     ...activeKits(c).flatMap((k) => k.actions.flatMap((a) => a.n)),
+    // el rasgo que contiene una reacción de un kit (Poder psiónico → Campo protector) no repite su fila en Reacción
+    ...activeKits(c).filter((k) => k.actions.some((a) => a.react)).map((k) => k.kit.title),
     ...resolveChoices(c, data, lib).filter((r) => r.def.res && r.picked.length).map((r) => r.def.res!.key),
   ];
 }

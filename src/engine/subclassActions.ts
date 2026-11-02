@@ -228,21 +228,21 @@ export const KITS: SubclassKit[] = [
   {
     id: 'open-hand', cls: 'monk', subs: ['Guerrero de la mano abierta', 'Warrior of the Open Hand'], title: 'Guerrero de la mano abierta',
     actions: [
-      { n: ['Plenitud del cuerpo', 'Wholeness of Body'], lv: 6, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', uses: { max: 'wis', per: 'lr' } }, note: 'Acción adicional: recuperas los PG del resultado (mínimo 1).' },
-      { n: ['Palma vibrante', 'Quivering Palm'], lv: 17, roll: { kind: 'roll', expr: '10d12', type: 'fuerza' }, save: { abil: 'con', dc: 'wis' }, note: 'Cuesta 4 Puntos de concentración al golpear. La mitad si supera la salvación.' },
+      { n: ['Plenitud de cuerpo', 'Plenitud del cuerpo', 'Wholeness of Body'], lv: 6, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', uses: { max: 'wis', per: 'lr' } }, note: 'Acción adicional: recuperas los PG del resultado (mínimo 1).' },
+      { n: ['Palma estremecedora', 'Palma vibrante', 'Quivering Palm'], lv: 17, roll: { kind: 'roll', expr: '10d12', type: 'fuerza' }, save: { abil: 'con', dc: 'wis' }, note: 'Cuesta 4 Puntos de concentración al golpear. La mitad si supera la salvación.' },
     ],
   },
   {
     id: 'mercy', cls: 'monk', subs: ['Guerrero de la misericordia', 'Warrior of Mercy'], title: 'Guerrero de la misericordia',
     actions: [
-      { n: ['Mano curativa', 'Mano sanadora', 'Hand of Healing'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis' }, note: 'Acción de Magia, 1 Punto de concentración (o sustituye un golpe de la Ráfaga sin coste).' },
-      { n: ['Mano dañina', 'Mano de daño', 'Hand of Harm'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico' }, note: 'Una vez por turno al impactar con un Golpe sin armas: 1 Punto de concentración.' },
+      { n: ['Mano de curación', 'Mano curativa', 'Hand of Healing'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis' }, note: 'Acción de Magia, 1 Punto de concentración (o sustituye un golpe de la Ráfaga sin coste).' },
+      { n: ['Mano de aflicción', 'Mano dañina', 'Hand of Harm'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico' }, note: 'Una vez por turno al impactar con un Golpe sin armas: 1 Punto de concentración.' },
     ],
   },
   {
     id: 'fey-wanderer', cls: 'ranger', subs: ['Errante feérico', 'Fey Wanderer'], title: 'Errante feérico',
     actions: [
-      { n: ['Golpes aterradores', 'Dreadful Strikes'], lv: 3, roll: { kind: 'extra', expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, note: 'Una vez por turno al impactar con un arma.' },
+      { n: ['Golpes pavorosos', 'Golpes aterradores', 'Dreadful Strikes'], lv: 3, roll: { kind: 'extra', expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, note: 'Una vez por turno al impactar con un arma.' },
     ],
   },
   {

@@ -74,8 +74,8 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
     cls?.f.filter((f) => f.lv <= e.level).forEach((f) => add(f, cls.n + ' ' + f.lv, v, cls));
     // los rasgos de la subclase del SRD solo si es la elegida
     if (cls?.sub && e.level >= cls.sub.lv && norm(e.subclass) === norm(cls.sub.n)) cls.sub.f.filter((f) => f.lv <= e.level).forEach((f) => add(f, cls.sub!.n + ' ' + f.lv, v, cls));
-    // subclase de la biblioteca propia (si es la elegida)
-    const libSub = lib.subclasses.find((s) => s.cls === e.classId && norm(s.n) === norm(e.subclass));
+    // subclase de la biblioteca propia (si es la elegida y no es la misma del SRD: el manual repite sus nombres)
+    const libSub = cls?.sub && norm(e.subclass) === norm(cls.sub.n) ? undefined : lib.subclasses.find((s) => s.cls === e.classId && norm(s.n) === norm(e.subclass));
     libSub?.f.filter((f) => f.lv <= e.level).forEach((f) => {
       const u = f.u || featureUses(f.n, f.d, e.level) || undefined;
       const max = usesMax(u, v, cls);

@@ -122,9 +122,9 @@ describe('recursos de clase: Inspiración bárdica y Canalizar divinidad', () =>
     const zealot = activeKits({ classId: 'barbarian', subclass: 'Senda del fanático', level: 12 })[0];
     expect(resourceMax(zealot.kit.res!, 12)).toBe(6);
     expect(names('monk', 'Guerrero de la mano abierta', 5)).toEqual([]);
-    expect(names('monk', 'Guerrero de la mano abierta', 17)).toEqual(['Plenitud del cuerpo', 'Palma vibrante']);
-    expect(names('monk', 'Guerrero de la misericordia', 3)).toEqual(['Mano curativa', 'Mano dañina']);
-    expect(names('ranger', 'Errante feérico', 3)).toEqual(['Golpes aterradores']);
+    expect(names('monk', 'Guerrero de la mano abierta', 17)).toEqual(['Plenitud de cuerpo', 'Palma estremecedora']);
+    expect(names('monk', 'Guerrero de la misericordia', 3)).toEqual(['Mano de curación', 'Mano de aflicción']);
+    expect(names('ranger', 'Errante feérico', 3)).toEqual(['Golpes pavorosos']);
   });
 
   it('usos con max(1, …)', async () => {
