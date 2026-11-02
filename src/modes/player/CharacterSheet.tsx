@@ -9,6 +9,7 @@ import { norm } from '../../engine/util';
 import Card, { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import Pips from '../../shared/Pips';
+import { actionKindOf } from '../../engine/actionKind';
 import { useLibrary, type LibraryData } from '../../store/library';
 import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
@@ -118,6 +119,9 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // Furia y Castigo del paladín se usan desde «Ataques»
   const usable = features.filter((f) => (f.max || (f.fx && f.fx.kind !== 'bonus' && f.fx.kind !== 'hit')) && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));
   const usableKeys = new Set(usable.map((f) => f.key));
+  // los que además son una reacción (Fulgor protector, Giro seductor…) van en la tarjeta Reacción, con su contador
+  const rxCounted = usable.filter((f) => f.max && !f.fx && actionKindOf(f.d) === 'reaction');
+  const usableCards = usable.filter((f) => !rxCounted.includes(f));
   // rasgos con acción adicional o reacción (por su texto) que no tienen otra tarjeta: Acción astuta, Esquiva asombrosa…
   const quick = quickRows(features, (r) => usableKeys.has(r.key) || panelKeys.has(r.key) || panelKeys.has(r.n) || REACTION_FEATS.includes(norm(r.n)) || FEAT_PANEL_NAMES.includes(norm(r.n)) || ['Furia', 'Castigo del paladín'].includes(r.key) || r.n === RELENTLESS, (n) => quickTag(c, n));
   // subclases escritas que no son del SRD, ni de la biblioteca de este dispositivo, ni de las que la app ya conoce
@@ -1286,7 +1290,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         </div>
       </section>
 
-      <ReactionPanel c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} rows={views.flatMap(({ v, dv }) => activeKits(v).map((k) => <KitPanel key={k.kit.id + v.classId} react c={v} d={dv} lib={lib} set={set} kit={k.kit} actions={k.actions} off={!!c.uses[REACTION]} onUse={() => set({ uses: { ...c.uses, [REACTION]: 1 } })} />))} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
+      <ReactionPanel counted={rxCounted} c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} rows={views.flatMap(({ v, dv }) => activeKits(v).map((k) => <KitPanel key={k.kit.id + v.classId} react c={v} d={dv} lib={lib} set={set} kit={k.kit} actions={k.actions} off={!!c.uses[REACTION]} onUse={() => set({ uses: { ...c.uses, [REACTION]: 1 } })} />))} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
       <QuickActions rows={quick} c={c} d={d} set={set} data={data} views={views} />
 
       {views.map(({ v, dv }, i) => (
@@ -1298,11 +1302,11 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       <FeatPanel c={c} d={d} set={set} />
       <MetamagicPanel c={c} data={data} set={set} />
       <MagicItemsPanel c={c} set={set} spells={spellIdx.list} readOnly={readOnly} />
-      {usable.length > 0 && (
+      {usableCards.length > 0 && (
         <section className="panel" aria-label="Rasgos con usos">
           <h3 className="eyebrow">Rasgos con usos</h3>
           <ul className="pc-features grid acts">
-            {usable.map((f) => {
+            {usableCards.map((f) => {
               const used = f.max ? Math.min(f.max, c.uses[f.key] || 0) : 0;
               const spend = (patch: Partial<Character> = {}) => set({ ...patch, uses: { ...c.uses, [f.key]: used + 1 } });
               // Astucia mágica (brujo): recupera la mitad de los espacios de pacto (redondeando arriba); con Maestro arcano, todos

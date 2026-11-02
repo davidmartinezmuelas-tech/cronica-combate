@@ -3,6 +3,7 @@ import { classLevel, partsShort, type Character, type Derived } from '../../engi
 import { fmt, sgn } from '../../engine/dice';
 import { norm } from '../../engine/util';
 import InfoPop from '../../shared/InfoPop';
+import Pips from '../../shared/Pips';
 import type { QuickRow } from './QuickActions';
 import { plainText } from './spells';
 import { useStore } from '../../store/useStore';
@@ -29,7 +30,7 @@ const REACTIONS: { n: string[]; what: string; roll?: (d: Derived) => { label: st
 export const REACTION_FEATS = REACTIONS.flatMap((x) => x.n.map(norm));
 
 /** Las reacciones del personaje: ataque de oportunidad, sus dotes y sus conjuros de reacción, con el uso de la reacción. */
-export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell, onHit, rows }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string; r?: string; k?: string }[]; extra?: QuickRow[]; onSpell?: (k: string) => void; onHit?: (a: Derived['attacks'][number] | null) => void; rows?: ReactNode }) {
+export default function ReactionPanel({ c, d, set, spells, extra = [], counted = [], onSpell, onHit, rows }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; spells: { n: string; ct?: string; r?: string; k?: string }[]; extra?: QuickRow[]; counted?: { key: string; n: string; d: string; src: string; max: number | null; per: string }[]; onSpell?: (k: string) => void; onHit?: (a: Derived['attacks'][number] | null) => void; rows?: ReactNode }) {
   const { roll } = useStore.getState();
   const who = c.name || 'Personaje';
   // las dotes elegidas y los rasgos propios con el mismo nombre (una dote de otro libro escrita a mano)
@@ -75,6 +76,19 @@ export default function ReactionPanel({ c, d, set, spells, extra = [], onSpell, 
           </li>
         ))}
         {rows}
+        {counted.map((f) => {
+          const max = f.max || 0;
+          const left = max - Math.min(max, c.uses[f.key] || 0);
+          return (
+            <li key={f.key}>
+              <InfoPop label={f.n} title={f.n}><p className="muted">{f.src.replace(/ \d+$/, '')} · {f.per === 'sr' ? 'descanso corto o largo' : 'descanso largo'}</p><p>{plainText(f.d)}</p></InfoPop>
+              <span className="rollrow">
+                <Pips max={max} used={max - left} label={'Usos de ' + f.n} onSet={(v) => set({ uses: { ...c.uses, [f.key]: Math.max(0, Math.min(max, v)) } })} />
+                <button className="rollbtn" disabled={!!used || left <= 0} onClick={() => set({ uses: { ...c.uses, [REACTION]: 1, [f.key]: max - left + 1 } })}>Usar</button>
+              </span>
+            </li>
+          );
+        })}
         {extra.filter((r) => r.kind !== 'bonus').map((r) => (
           <li key={r.key}>
             <InfoPop label={r.n} title={r.n}><p className="muted">{r.src.replace(/ \d+$/, '')}</p><p>{plainText(r.d)}</p></InfoPop>

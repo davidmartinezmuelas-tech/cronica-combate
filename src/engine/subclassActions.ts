@@ -109,7 +109,7 @@ const DANCE = ['Colegio de la danza', 'College of Dance'];
 const GLAMOUR = ['Colegio del glamour', 'College of Glamour'];
 const GLORY = ['Juramento de gloria', 'Oath of Glory'];
 
-const psionic = (dc: Abil): DiceResource => ({ key: 'Dados de energía psiónica', n: 'Dados de energía psiónica', per: 'sr1', count: { 3: 4, 5: 6, 9: 8, 13: 10, 17: 12 }, die: { 3: 6, 5: 8, 11: 10, 17: 12 }, dc: [dc] });
+const psionic = (dc: Abil, key = 'Dados de energía psiónica'): DiceResource => ({ key, n: 'Dados de energía psiónica', per: 'sr1', count: { 3: 4, 5: 6, 9: 8, 13: 10, 17: 12 }, die: { 3: 6, 5: 8, 11: 10, 17: 12 }, dc: [dc] });
 
 /** Clave de los Puntos de concentración del monje (la misma que usa su tarjeta de clase). */
 const FOCUS = 'Concentración del monje';
@@ -132,7 +132,7 @@ export const KITS: SubclassKit[] = [
     ],
   },
   {
-    id: 'soulknife', cls: 'rogue', subs: ['Rebanaalmas', 'Soulknife'], title: 'Poder psiónico', res: psionic('dex'),
+    id: 'soulknife', cls: 'rogue', subs: ['Rebanaalmas', 'Soulknife'], title: 'Poder psiónico', res: psionic('dex', 'Dados de energía psiónica (Rebanaalmas)'),
     actions: [
       { n: ['Cuchillas psíquicas'], lv: 3, roll: { kind: 'blade', dmg: '1d6', second: '1d4', type: 'psíquico' } },
       { n: ['Don psirreforzado'], lv: 3, roll: { kind: 'die', spend: false }, note: 'El dado solo se gasta si la prueba tiene éxito: márcalo arriba.' },
