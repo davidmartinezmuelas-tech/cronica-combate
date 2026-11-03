@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, parseFeats, parseSpells, type Line } from '../engine/bookImport';
+import { fixDice, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, parseFeats, parseSpells, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
 const L = (...t: string[]): Line[] => t.map((s, i) => ({ t: s, col: 0, y: 1000 - i * 20 }));
 
 describe('importar el libro del usuario (OCR)', () => {
+  it('corrige los dados que el OCR lee con un 4 en lugar de la d', () => {
+    expect(fixDice('tira 2420 y anota; 1410 + 3 de daño; 1412 (Enorme); 1420 y 3410')).toBe('tira 2d20 y anota; 1d10 + 3 de daño; 1d12 (Enorme); 1d20 y 3d10');
+    expect(fixDice('dl0 y dI2 de daño')).toBe('d10 y d12 de daño');
+    // números sueltos, años y precios no se tocan
+    expect(fixDice('146 criaturas, el año 1420 po, 5420 y 14200')).toBe('146 criaturas, el año 1420 po, 5d20 y 14200');
+  });
+
   it('reconstruye líneas por columna y descarta cabeceras, números y letras sueltas', () => {
     const items = [
       { str: 'TÍTULO', x: 80, y: 900 }, { str: 'de la izquierda', x: 160, y: 901 },

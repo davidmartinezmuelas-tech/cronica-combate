@@ -92,8 +92,17 @@ function paragraphs(lines: string[]): string {
     if (newPara) out.push(t);
     else out[out.length - 1] = (out[out.length - 1] + ' ' + t).replace(/(\p{L})- (\p{L})/gu, '$1$2');
   }
-  // «dl0» por «d10» (el OCR confunde el 1 con una l)
-  return out.join('\n\n').replace(/(?<![a-z])d[lI]([0-9O])\b/g, (_, x: string) => 'd1' + (x === 'O' ? '0' : x));
+  return fixDice(out.join('\n\n'));
+}
+
+/**
+ * Dados mal leídos por el OCR: «dl0» por «d10» (el 1 como una l) y «1420» por «1d20» (la d como un 4: «1410», «1412»,
+ * «2420»). Solo con dados de dos cifras o más, para no tocar números sueltos de tres cifras («146»), ni precios.
+ */
+export function fixDice(text: string): string {
+  return text
+    .replace(/(?<![a-z])d[lI]([0-9O])\b/g, (_, x: string) => 'd1' + (x === 'O' ? '0' : x))
+    .replace(/(?<![\d.,])([1-9])4(10|12|20|100)(?!\d|\s*(?:po|pp|pe|pc|pt)\b)/g, '$1d$2');
 }
 
 const id = (prefix: string, n: string) => prefix + '-' + norm(n).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
