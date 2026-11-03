@@ -92,7 +92,27 @@ function paragraphs(lines: string[]): string {
     if (newPara) out.push(t);
     else out[out.length - 1] = (out[out.length - 1] + ' ' + t).replace(/(\p{L})- (\p{L})/gu, '$1$2');
   }
-  return fixDice(out.join('\n\n'));
+  return fixOcr(fixDice(out.join('\n\n')));
+}
+
+/**
+ * Otros fallos frecuentes del OCR en el texto corrido: un cero leído como «O» («velocidad de O»), la «o» de una frase
+ * escrita «O», «9 mo menos» por «9 m o menos», una letra suelta que es el icono de la lista y algún despiste suelto.
+ */
+export function fixOcr(text: string): string {
+  return text
+    // «O» mayúscula como cero tras «a», «de» o «ser/será/sea» cuando acaba la frase o sigue «hasta», «para», «o»…
+    .replace(/(?<=\b(?:a|de|ser|será|sea) )O(?= (?:hasta|para|o|antes|si|y|al|en|durante|cuando)\b|[.,;])/g, '0')
+    // «O» entre palabras en minúscula: la conjunción
+    .replace(/(?<=[a-záéíóúñ] )O(?= [a-záéíóúñ])/g, 'o')
+    // «9 mo menos» por «9 m o menos» y «3'm» por «3 m»
+    .replace(/(\d) mo\b/g, '$1 m o')
+    .replace(/(\d)'m\b/g, '$1 m')
+    // una «l» o una «I» sueltas entre palabras: el icono de la lista que el OCR deja en medio del texto
+    .replace(/(?<=[a-záéíóúñ:] )[lI] (?=[a-záéíóúñ])/g, '')
+    .replace(/\bel 4(20|10|12)\b/g, 'el d$1')
+    .replace(/\bAdgquieres\b/g, 'Adquieres')
+    .replace(/\bde la (\d) puntos\b/g, 'de 1 a $1 puntos');
 }
 
 /**

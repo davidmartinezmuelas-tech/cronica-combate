@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { fixDice, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, parseFeats, parseSpells, type Line } from '../engine/bookImport';
+import { fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, parseFeats, parseSpells, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
 const L = (...t: string[]): Line[] => t.map((s, i) => ({ t: s, col: 0, y: 1000 - i * 20 }));
 
 describe('importar el libro del usuario (OCR)', () => {
+  it('corrige otros fallos frecuentes del OCR (ceros, la o, metros pegados, iconos sueltos)', () => {
+    expect(fixOcr('su velocidad pasará a ser O para el resto; velocidad de O hasta el final; se reduzcan a O o que el familiar se retire')).toBe('su velocidad pasará a ser 0 para el resto; velocidad de 0 hasta el final; se reduzcan a 0 o que el familiar se retire');
+    expect(fixOcr('lobos, serpientes O aves; termine O hasta que')).toBe('lobos, serpientes o aves; termine o hasta que');
+    expect(fixOcr("a 9 mo menos de ti; 3'm; un objetivo l no voluntario; el 420; Adgquieres; gastar de la 5 puntos")).toBe('a 9 m o menos de ti; 3 m; un objetivo no voluntario; el d20; Adquieres; gastar de 1 a 5 puntos');
+    expect(fixOcr('mide 30 m y 1 mochila o 2 l de agua')).toBe('mide 30 m y 1 mochila o 2 de agua'.replace('2 de', '2 l de'));
+  });
+
   it('corrige los dados que el OCR lee con un 4 en lugar de la d', () => {
     expect(fixDice('tira 2420 y anota; 1410 + 3 de daño; 1412 (Enorme); 1420 y 3410')).toBe('tira 2d20 y anota; 1d10 + 3 de daño; 1d12 (Enorme); 1d20 y 3d10');
     expect(fixDice('dl0 y dI2 de daño')).toBe('d10 y d12 de daño');
