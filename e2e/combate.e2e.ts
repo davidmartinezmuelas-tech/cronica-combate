@@ -3261,3 +3261,35 @@ test('Sobrecanalizar crece con cada uso, Ira de los mares tira d6 por Sabiduría
   await page.locator('section[aria-label="Árbol del Mundo"] .card', { hasText: 'Vitalidad del árbol' }).getByRole('button', { name: 'Ganar 14 PG temporales' }).click();
   await expect(page.locator('.stat-hp .stat-tmp')).toBeVisible();
 });
+
+test('Bastión de la ley gasta puntos de hechicería y sus d8; Implosión deformadora tira 3d10', async ({ page }) => {
+  const sub = (n: string, f: [string, string][]) => ({ id: 'lib-sub-' + n, n, cls: 'sorcerer', d: '', f: f.map(([fn, d]) => ({ lv: 3, n: fn, d })) });
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [sub('Hechicería mecánica', [['Bastión de la ley', 'Protección de d8.']]), sub('Hechicería aberrante', [['Implosión deformadora', 'Anomalía.']])] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Engranaje');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Hechicero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('18');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Hechicería mecánica' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const bw = page.locator('section[aria-label="Hechicería mecánica"] .card', { hasText: 'Bastión de la ley' });
+  await expect(bw).toContainText('0 d8');
+  await bw.getByLabel('Puntos de hechicería para el bastión').fill('4');
+  await bw.getByRole('button', { name: /^Crear 4d8/ }).click();
+  await expect(bw).toContainText('4 d8');
+  await bw.getByRole('button', { name: 'Restar 3d8' }).click();
+  await expect(bw).toContainText('1 d8');
+  await expect(bw.getByRole('button', { name: 'Restar 2d8' })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Hechicería aberrante' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const imp = page.locator('section[aria-label="Hechicería aberrante"] .card', { hasText: 'Implosión deformadora' });
+  await imp.getByRole('button', { name: /^Daño 3d10 fuerza/ }).click();
+  await expect(imp.getByRole('button', { name: /^Daño 3d10 fuerza/ })).toBeDisabled();
+});

@@ -149,6 +149,15 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
               go: () => { set({ uses: { ...c.uses, [name]: Math.max(0, cur - n) } }); setAmt(''); setMsg({ ...msg, [name]: n > cur ? 'Absorbe ' + cur + ' PG; te quedan ' + (n - cur) + ' de daño.' : 'Absorbe ' + n + ' PG.' }); },
             });
             btns.push({ k: 'r', t: 'Recuperar ' + (n || ''), plain: true, off: !n || wmax <= 0, go: () => { set({ uses: { ...c.uses, [name]: Math.min(wmax, cur + n) } }); setAmt(''); } });
+          } else if (r.kind === 'bastion') {
+            // d8 que quedan (se guardan en los usos con el nombre del rasgo); crearlos cuesta tantos puntos de hechicería como d8
+            const dice = Math.min(5, c.uses[name] || 0);
+            const pts = Math.min(5, Math.max(1, parseInt(amt, 10) || 1));
+            const spMax = usesMax(d.cls?.f.find((f) => f.n === 'Fuente de magia')?.u, c, d.cls) || 0;
+            const spLeft = spMax - Math.min(spMax, c.uses['Fuente de magia'] || 0);
+            usesEl = <><span className="chip-tag">{dice} d8</span><input className="input" style={{ width: 72 }} type="number" min={1} max={5} inputMode="numeric" aria-label="Puntos de hechicería para el bastión" placeholder="Puntos" value={amt} onChange={(e) => setAmt(e.target.value)} /></>;
+            btns.push({ k: 'c', t: 'Crear ' + pts + 'd8 · −' + pts + (pts === 1 ? ' punto' : ' puntos'), plain: true, off: spLeft < pts, go: () => set({ uses: { ...c.uses, [name]: pts, 'Fuente de magia': (c.uses['Fuente de magia'] || 0) + pts } }) });
+            for (let k = 1; k <= dice; k++) btns.push({ k: 'g' + k, t: 'Restar ' + k + 'd8', go: () => { set({ uses: { ...c.uses, [name]: dice - k } }); roll({ label: label('daño que evitas'), kind: 'free', who, by: null, parts: [{ expr: k + 'd8' }] }); } });
           } else if (r.kind === 'overchannel') {
             // veces ya usado desde el último descanso largo (se guarda en los usos con el nombre del rasgo)
             const times = c.uses[name] || 0;

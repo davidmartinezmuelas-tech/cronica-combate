@@ -84,6 +84,7 @@ export type KitRoll =
   | { kind: 'pool'; perUse: Abil | 'all' } // gasta varios dados de la reserva a la vez (hasta el modificador, o los que queden)
   | { kind: 'roll'; times?: Abil; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; plusHalfLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean; cost?: string; freeAlt?: string }
   | { kind: 'temp'; plus?: Abil } // PG temporales: nivel + modificador (mínimo 1)
+  | { kind: 'bastion' } // Bastión de la ley: 1 a 5 d8 que se crean con puntos de hechicería y se gastan para restar daño
   | { kind: 'overchannel' } // Sobrecanalizar del evocador: daño máximo; el daño necrótico crece con cada uso sin descansar
   | { kind: 'ward' } // reserva de PG que absorbe daño (Salvaguarda arcana): 2 × nivel + Inteligencia, hasta el descanso largo
   | { kind: 'portent' } // Presagio del adivino: 2 d20 (3 desde el nivel 14) tras el descanso largo; cada uno se gasta una vez
@@ -260,6 +261,7 @@ export const KITS: SubclassKit[] = [
   {
     id: 'wild-magic', cls: 'sorcerer', subs: ['Hechicería de magia salvaje', 'Wild Magic Sorcery'], title: 'Magia salvaje',
     actions: [
+      { n: ['Sobrecarga de magia salvaje', 'Wild Magic Surge'], lv: 3, roll: { kind: 'roll', expr: '1d20' }, note: 'Una vez por turno, justo después de lanzar un conjuro de hechicero con espacio: con un 20, tira en la tabla de Sobrecarga de magia salvaje.' },
       { n: ['Doblegar la suerte', 'Bend Luck'], lv: 6, react: true, roll: { kind: 'roll', expr: '1d4', cost: 'Fuente de magia' }, note: 'Tras la tirada de d20 de otra criatura: sumas o restas el resultado, a tu elección.' },
     ],
   },
@@ -280,6 +282,18 @@ export const KITS: SubclassKit[] = [
     id: 'gloom-stalker', cls: 'ranger', subs: ['Acechador en la penumbra', 'Gloom Stalker'], title: 'Acechador en la penumbra',
     actions: [
       { n: ['Emboscador pavoroso', 'Dread Ambusher'], lv: 3, roll: { kind: 'roll', expr: '2d6', type: 'psíquico', uses: { max: 'wis', per: 'lr' } }, note: 'Golpe pavoroso: una vez por turno, al acertar con un arma.' },
+    ],
+  },
+  {
+    id: 'clockwork', cls: 'sorcerer', subs: ['Hechicería mecánica', 'Clockwork Sorcery'], title: 'Hechicería mecánica',
+    actions: [
+      { n: ['Bastión de la ley', 'Bastion of Law'], lv: 6, roll: { kind: 'bastion' }, note: 'Acción de magia: gastas de 1 a 5 puntos de hechicería para crear tantos d8. Quien protejas puede gastar varios al recibir daño y restar la tirada. Dura hasta el descanso largo o hasta que lo uses de nuevo.' },
+    ],
+  },
+  {
+    id: 'aberrant', cls: 'sorcerer', subs: ['Hechicería aberrante', 'Aberrant Sorcery'], title: 'Hechicería aberrante',
+    actions: [
+      { n: ['Implosión deformadora', 'Warping Implosion'], lv: 18, roll: { kind: 'roll', expr: '3d10', type: 'fuerza', uses: { max: 1, per: 'lr' } }, save: { abil: 'str', dc: 'spell' }, note: 'Te teletransportas a 36 m; quien esté a 9 m del espacio que dejas es arrastrado a él (mitad de daño si supera la salvación). Restablecer el uso cuesta 5 puntos de hechicería.' },
     ],
   },
   {
