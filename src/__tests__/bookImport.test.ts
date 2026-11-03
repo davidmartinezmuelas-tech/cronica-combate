@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, parseFeats, parseSpells, type Line } from '../engine/bookImport';
+import { fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, parseClasses, parseFeats, parseSpells, parseSubclasses, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
@@ -247,5 +247,41 @@ describe('subclases: pies de ilustración y nombres en dos líneas', () => {
     expect(s[1].d).toBe('Aumenta tu poderío físico.');
     const p = parseSubclasses(L('SUBCLASES DE PALADÍN', 'JURAMENTO DE ENTREGA', 'Defiende la justicia.', 'NIVEL 3: CONJUROS DEL', 'JURAMENTO DE ENTREGA', 'Siempre preparados.'));
     expect(p[0].f[0].n).toBe('Conjuros del juramento de entrega');
+  });
+});
+
+describe('importar clases nuevas del libro', () => {
+  // clase inventada con la forma del recuadro y los rasgos del Manual del Jugador (etiquetas entremezcladas con los valores)
+  const BOX = [
+    'ATRIBUTOS BÁSICOS DE CHAMÁN', 'Característica principal Sabiduría', 'Dado de puntos de golpe 1d3 por nivel de chamán', 'Competencias en Sabiduría y Constitución', 'tiradas de salvación',
+    'Competencias en Elige dos: Conocimiento', 'habilidades arcano, Medicina, Naturaleza, Percepción', 'o Supervivencia', 'Competencias con armas Armas sencillas', 'Entrenamiento con Armaduras ligeras y escudos', 'armaduras', 'Equipo inicial Elige A o B: (A) bastón', 'CONVERTIRSE EN CHAMÁN',
+  ];
+  const BODY = [
+    'RASGOS DE CLASE DE CHAMÁN', 'NIVEL l: ESPÍRITUS GUÍA', 'Invocas a un espíritu.', 'NIVEL 1: LANZAMIENTO DE CONJUROS', 'Sabiduría es tu característica de lanzamiento de conjuros.',
+    'NIVEL 3: SUBCLASE DE CHAMÁN', 'Eliges una subclase.', 'NIVEL 4: MEJORA DE CARACTERÍSTICA', 'Obtienes una dote. Vuelves a obtener este rasgo en los niveles 8, 12 y 16 de chamán.', 'NIVEL 19: DON ÉPICO', 'Un don.',
+    'RASGOS DE CHAMÁN', '1 +2 Espíritus guía', 'NIVEL 5: PIEL DE ROCA', 'Tu piel se endurece.', 'SUBCLASES DE CHAMÁN',
+  ];
+  const lines = L(...BOX, ...BODY);
+
+  it('lee los atributos básicos aunque las etiquetas vayan dentro de los valores y el OCR cambie el 8 por un 3', () => {
+    const [k] = parseClasses(lines);
+    expect(k).toMatchObject({ n: 'Chamán', hd: 8, saves: ['wis', 'con'], primary: ['wis'], weapons: ['sim'], armor: ['lgt', 'shl'], skills: { count: 2 } });
+    expect([...k.skills.pool].sort()).toEqual(['arc', 'med', 'nat', 'prc', 'sur']);
+  });
+
+  it('lee los rasgos por nivel, sin la tabla ni los de mejora, subclase y don épico, y deduce el lanzamiento, los niveles de mejora y el de subclase', () => {
+    const [k] = parseClasses(lines);
+    expect(k.f.map((f) => f.lv + ' ' + f.n)).toEqual(['1 Espíritus guía', '1 Lanzamiento de conjuros', '5 Piel de roca']);
+    expect(k.caster).toBe('full');
+    expect(k.spellAb).toBe('wis');
+    expect(k.asi).toEqual([4, 8, 12, 16, 19]);
+    expect(k.subLv).toBe(3);
+    expect(k.f[2].d).toBe('Tu piel se endurece.');
+    expect(k.problems.join(' ')).toMatch(/tablas de trucos/);
+  });
+
+  it('las subclases de una clase nueva se reconocen con su id', () => {
+    const sub = parseSubclasses(L('SUBCLASES DE CHAMÁN', 'NIVEL 3: VOZ DEL TRUENO', 'Truena.'), { chaman: 'lib-clase-chaman' });
+    expect(sub[0].cls).toBe('lib-clase-chaman');
   });
 });

@@ -171,7 +171,7 @@ export default function HomebrewPanel() {
   const [extraLv, setExtraLv] = useState(1);
   const [castTxt, setCastTxt] = useState({ c: '', p: '' }); // las tablas de lanzamiento como se escriben («3:2, 10:3»)
   const own = lib.subclasses.filter((s) => s.own && !s.guest);
-  const ownClasses = lib.classes.filter((s) => s.own && !s.guest);
+  const ownClasses = lib.classes.filter((s) => !s.guest); // las propias y las leídas de un libro (editables para completar sus tablas)
   const classes = data?.classes || [];
   const clsName = (id: string) => classes.find((k) => k.id === id)?.n || id;
 
@@ -204,7 +204,7 @@ export default function HomebrewPanel() {
           <ul className="hb-list">
             {ownClasses.map((s) => (
               <li key={s.id}>
-                <span><b>{s.n}</b> <span className="muted small">clase · d{s.hd} · {s.f.length} {s.f.length === 1 ? 'rasgo' : 'rasgos'}</span></span>
+                <span><b>{s.n}</b> <span className="muted small">clase{s.own ? '' : ' del libro'} · d{s.hd} · {s.f.length} {s.f.length === 1 ? 'rasgo' : 'rasgos'}</span></span>
                 <span className="rollrow">
                   <button className="btn small" onClick={() => { setClsDraft(s); setClsCast(castTextOf(s)); }}>Editar</button>
                   <button className="btn small ghost danger" onClick={() => { if (confirmDel === s.id) { void lib.save({ classes: lib.classes.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>

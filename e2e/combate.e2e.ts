@@ -3413,3 +3413,28 @@ test('clase propia en el personaje: rasgos con usos por nivel, espacios de conju
   await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 6' }).click();
   await expect(page.locator('.pc-head')).toContainText('Chamán 6');
 });
+
+test('clase de un libro cargada desde la biblioteca: sale como «del libro», se completa en «Mis creaciones» y se elige en el personaje', async ({ page }) => {
+  const cls = { id: 'lib-clase-chaman', n: 'Chamán', en: 'Chamán', hd: 8, saves: ['wis', 'con'], skills: { count: 2, pool: ['*'] }, armor: ['lgt'], weapons: ['sim'], caster: 'full', spellAb: 'wis', primary: ['wis'], asi: [4, 8, 12, 16, 19], sc: {}, sub: null, d: '', spells: [], subLv: 3,
+    f: [{ lv: 1, n: 'Espíritus guía', d: 'Invocas a un espíritu.' }, { lv: 5, n: 'Piel de roca', d: 'Tu piel se endurece.' }] };
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [], subclasses: [], classes: [cls] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await expect(page.getByText('clase del libro · d8 · 2 rasgos')).toBeVisible();
+  // completar la tabla de preparados y guardar: sigue siendo «del libro»
+  await page.getByRole('button', { name: 'Editar' }).first().click();
+  await page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)').fill('1:2, 5:4');
+  await page.getByRole('button', { name: 'Guardar clase' }).click();
+  await expect(page.getByText('clase del libro · d8 · 2 rasgos')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Rexxar');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Chamán' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByText('Piel de roca').first()).toBeVisible();
+  await expect(page.locator('section[aria-label="Conjuros"]').getByRole('group', { name: /^Espacios de nivel 1/ })).toBeVisible();
+});

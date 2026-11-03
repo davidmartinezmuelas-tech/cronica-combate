@@ -32,7 +32,7 @@ export function cleanClass(d: LibClass, castTxt: { c: string; p: string }): LibC
   const casts = d.caster !== 'none';
   if (casts) { sc[d.id + '.cantrips-known'] = parseTable(castTxt.c); sc[d.id + '.max-prepared'] = parseTable(castTxt.p); }
   const asi = [...new Set(d.asi.filter((n) => n >= 1 && n <= 20))].sort((a, b) => a - b);
-  return { ...d, n: d.n.trim(), en: d.n.trim(), f: feats, sc, asi, spellAb: casts ? d.spellAb || d.primary[0] || 'int' : '', own: true, ...(casts ? {} : { listFrom: undefined }) };
+  return { ...d, n: d.n.trim(), en: d.n.trim(), f: feats, sc, asi, spellAb: casts ? d.spellAb || d.primary[0] || 'int' : '', ...(casts ? {} : { listFrom: undefined }) };
 }
 
 export const castTextOf = (c: LibClass) => ({ c: fmtTable(c.sc[c.id + '.cantrips-known'] as Record<number, number>), p: fmtTable(c.sc[c.id + '.max-prepared'] as Record<number, number>) });

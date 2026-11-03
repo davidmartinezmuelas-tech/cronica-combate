@@ -461,7 +461,8 @@ const CLASS_IDS: Record<string, string> = {
  */
 interface SubDraft { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[] } | null; sec: { n: string; body: string[] } | null }
 
-export function parseSubclasses(lines: Line[]): LibSubclass[] {
+export function parseSubclasses(lines: Line[], extraClasses: Record<string, string> = {}): LibSubclass[] {
+  const classIds = { ...CLASS_IDS, ...extraClasses }; // (nombre sin acentos -> id) de las clases nuevas del libro
   // en 2024 todas las subclases empiezan en el nivel 3
   const START = 3;
   const out: LibSubclass[] = [];
@@ -496,10 +497,10 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
     if (noise && t.length < 40 && !/[.:]$/.test(t)) { noise = false; continue; }
     noise = false;
     const section = /^SUBCLASES DE (\p{L}+)/u.exec(t);
-    if (section) { flush(); st.pending = null; st.cls = CLASS_IDS[norm(section[1])] || ''; continue; }
+    if (section) { flush(); st.pending = null; st.cls = classIds[norm(section[1])] || ''; continue; }
     // los rasgos de la clase base (siguiente capítulo de clase) cierran la sección de subclases
     const core = /^RASGOS DE (\p{L}+)/u.exec(t);
-    if (core) { flush(); st.pending = null; st.cls = ''; coreCls = CLASS_IDS[norm(core[1])] || ''; continue; }
+    if (core) { flush(); st.pending = null; st.cls = ''; coreCls = classIds[norm(core[1])] || ''; continue; }
     // la tabla de atributos de la clase siguiente también cierra la sección
     if (/^ATRIBUTOS B[ÁA]SICOS DE/i.test(t)) { flush(); st.pending = null; st.cls = ''; coreCls = ''; continue; }
     if (!st.cls) { if (coreCls) coreText[coreCls] = (coreText[coreCls] || '') + ' ' + t; continue; }
@@ -557,4 +558,102 @@ export function parseSubclasses(lines: Line[]): LibSubclass[] {
     const name = s.n || listed || 'Subclase de ' + (CLASS_ES[s.cls] || s.cls) + ' sin título ' + ++n;
     return { ...s, n: name, id: id('lib-subclase-' + s.cls, name) };
   }));
+}
+
+const NUMBER_ES: Record<string, number> = { una: 1, uno: 1, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6 };
+const CLASS_FEATURE = /^N\s*[rRiI1]{0,3}\s*[vV]\s*[eE]+\s*[lL]\s*(\d{1,2}|[lI])\s*:\s*(.+)$/;
+/** Características que cita el texto, en el orden en que las cita. */
+const abilsIn = (t: string): Abil[] => Object.entries(ABIL_ES).map(([k, v]) => ({ v, at: norm(t).indexOf(k) })).filter((x) => x.at >= 0).sort((x, y) => x.at - y.at).map((x) => x.v);
+
+/** Rasgos básicos de una clase a partir del recuadro «ATRIBUTOS BÁSICOS DE …» (texto de varias líneas unido). */
+export function parseClassAttrs(raw: string): Pick<LibClass, 'primary' | 'hd' | 'saves' | 'skills' | 'weapons' | 'armor'> & { problems: string[] } {
+  const t = fixOcr(fixDice(raw.replace(/-\s+/g, '').replace(/\s+/g, ' ')));
+  const problems: string[] = [];
+  const grab = (re: RegExp) => re.exec(t)?.[1]?.trim() || '';
+  const primary = abilsIn(grab(/Caracter[ií]sticas? principal(?:es)?\s+(.+?)\s+Dado de puntos/i));
+  // el OCR lee a veces el 8 como 3 (un dado de golpe nunca es d3)
+  const hdn = parseInt(/Dado de puntos de golpe\s+\S*?[1lI]\s*d\s*(\d{1,2})/i.exec(t)?.[1] || '0', 10);
+  const hd = hdn === 3 ? 8 : [6, 8, 10, 12].includes(hdn) ? hdn : 0;
+  // las etiquetas y sus valores van entremezclados y no siempre en el mismo orden: se trocea por los valores que siempre aparecen
+  const afterHd = t.slice(Math.max(0, t.search(/Dado de puntos de golpe/i)));
+  const iSk = afterHd.search(/(?<!\p{L})Elige(?!\p{L})/u);
+  const iWp = afterHd.search(/(?<!\p{L})(?:Armas|Amas) sencillas|(?<!\p{L})armas marciales/iu);
+  const iAr = afterHd.search(/Entrenamiento/i);
+  const iTool = afterHd.search(/Competencias (?:con herramientas|Elige)|Equipo inicial/i);
+  const saves = abilsIn(afterHd.slice(0, iSk > 0 ? iSk : iWp > 0 ? iWp : 120).replace(/^.*?por nivel de \p{L}+/iu, ''));
+  // quitar las etiquetas que se cuelan entre los nombres («Conocimiento habilidades arcano»)
+  const sk = (iSk >= 0 ? afterHd.slice(iSk, iWp > iSk ? iWp : iAr > iSk ? iAr : undefined) : '').replace(/(?<!\p{L})(?:Competencias|en|habilidades)(?!\p{L})/giu, ' ').replace(/\s+/g, ' ');
+  const count = NUMBER_ES[norm(/^Elige\s+(\p{L}+)/iu.exec(sk)?.[1] || '')] || 2;
+  const any = /cualesquiera/i.test(sk);
+  const pool = any ? ['*'] : Object.entries(SKILL_ES).filter(([n]) => norm(sk).includes(n)).map(([, v]) => v);
+  const wp = iWp >= 0 ? afterHd.slice(iWp, iAr > iWp ? iAr : iTool > iWp ? iTool : undefined) : '';
+  const ar = iAr >= 0 ? afterHd.slice(iAr, /Equipo inicial/i.test(afterHd) ? afterHd.search(/Equipo inicial/i) : undefined) : '';
+  const weapons = [...(/sencillas/i.test(wp) ? ['sim'] : []), ...(/marciales/i.test(wp) && !/propiedad|tengan/i.test(wp) ? ['mar'] : [])];
+  const armor = [...(/ligeras/i.test(ar) ? ['lgt'] : []), ...(/medias/i.test(ar) ? ['med'] : []), ...(/pesadas/i.test(ar) ? ['hvy'] : []), ...(/escudos?/i.test(ar) ? ['shl'] : [])];
+  if (!hd) problems.push('No se leyó el dado de golpe.');
+  if (!primary.length) problems.push('No se leyó la característica principal.');
+  if (saves.length !== 2) problems.push('Revisa las salvaciones con competencia.');
+  if (!pool.length) problems.push('Revisa las habilidades de la clase.');
+  if (/propiedad|tengan/i.test(wp)) problems.push('Revisa las armas: la clase usa solo algunas armas marciales.');
+  return { primary, hd: hd || 8, saves, skills: { count, pool: pool.length ? pool : ['*'] }, weapons: weapons.length ? weapons : ['sim'], armor, problems };
+}
+
+/** Niveles de mejora de característica: el del rasgo y los que cita su texto («Vuelves a obtener este rasgo en los niveles 8, 12 y 16»), más el don épico. */
+function asiLevels(f: { lv: number; n: string; d: string }[]): number[] {
+  const m = f.find((x) => /^mejora de caracteristica/.test(norm(x.n)));
+  if (!m) return [];
+  const cited = /niveles?[^.]*/i.exec(m.d.replace(/(\d),(\d)/g, '$1, $2'))?.[0].match(/\d{1,2}/g) || [];
+  return [...new Set([m.lv, ...cited.map(Number), ...(f.some((x) => /^don epico/.test(norm(x.n))) ? [19] : [])])].filter((n) => n >= 1 && n <= 20).sort((a, b) => a - b);
+}
+
+/**
+ * Clases: tras «ATRIBUTOS BÁSICOS DE <CLASE>» vienen el recuadro de atributos, la tabla de rasgos (sus columnas salen
+ * desordenadas del PDF y no se leen) y los rasgos nivel a nivel («NIVEL 3: …») hasta «SUBCLASES DE <CLASE>». Las tablas de
+ * usos y de conjuros no se leen: la clase sale para revisar y completar en «Mis creaciones».
+ */
+export function parseClasses(lines: Line[]): (LibClass & { problems: string[] })[] {
+  const out: (LibClass & { problems: string[] })[] = [];
+  let cur: { n: string; attrs: string[]; f: { lv: number; n: string; body: string[] }[] } | null = null;
+  let mode: 'none' | 'attrs' | 'feat' | 'table' = 'none';
+  let noise = false;
+  const flush = () => {
+    if (!cur) return;
+    const a = parseClassAttrs(cur.attrs.join(' '));
+    const f = cur.f.map((x) => ({ lv: x.lv, n: x.n, d: paragraphs(x.body) })).filter((x) => x.d || x.n);
+    const problems = [...a.problems];
+    if (!f.length) problems.push('No se leyó ningún rasgo.');
+    const caster = f.some((x) => /^magia (de|del) pacto/.test(norm(x.n))) ? 'pact' : f.some((x) => /^lanzamiento de conjuros/.test(norm(x.n))) ? (a.hd <= 8 ? 'full' : 'half') : 'none';
+    const text = f.map((x) => x.d).join(' ');
+    const spellAb = caster === 'none' ? '' : abilsIn(/(\p{L}+) es tu caracter[ií]stica de lanzamiento/iu.exec(text)?.[1] || '')[0] || a.primary[0] || 'int';
+    if (caster !== 'none') problems.push('Revisa el tipo de lanzador y completa las tablas de trucos y de conjuros preparados.');
+    const sub = f.find((x) => /^subclase de/.test(norm(x.n)));
+    const name = titleCase(cur.n);
+    out.push({
+      id: id('lib-clase', name), n: name, en: name, hd: a.hd, saves: a.saves, skills: a.skills, armor: a.armor, weapons: a.weapons,
+      caster, spellAb, primary: a.primary, asi: asiLevels(f), f: f.filter((x) => x.lv > 0 && !/^(subclase de|mejora de caracteristica|don epico)/.test(norm(x.n))),
+      sc: {}, sub: null, d: '', spells: [], subLv: sub?.lv || 3, own: false, problems,
+    });
+    cur = null;
+  };
+  for (const { t } of lines) {
+    if (/^CAP[IÍ]TUL\S*\s*\S{0,2}\s*[|¦]/i.test(t) || /(?:\s?=){3}/.test(t)) { noise = true; continue; }
+    if (noise && t.length < 40 && !/[.:]$/.test(t)) { noise = false; continue; }
+    noise = false;
+    const head = /ATRIBUTOS B[ÁA]SICOS DE ([A-ZÁÉÍÓÚÑ ]+)$/.exec(t);
+    if (head) { flush(); cur = { n: head[1].trim(), attrs: [], f: [] }; mode = 'attrs'; continue; }
+    if (!cur) continue;
+    if (/^SUBCLASES DE/.test(t)) { flush(); mode = 'none'; continue; }
+    if (/^RASGOS DE CLASE DE/i.test(t)) { mode = 'feat'; continue; }
+    if (/^RASGOS DE \p{L}/u.test(t)) { mode = 'table'; continue; }
+    const fm = CLASS_FEATURE.exec(t);
+    if (fm) { cur.f.push({ lv: /^\d+$/.test(fm[1]) ? parseInt(fm[1], 10) : 1, n: titleCase(fm[2]), body: [] }); mode = 'feat'; continue; }
+    const last = cur.f[cur.f.length - 1];
+    if (mode === 'attrs') { if (/^CONVERTIRSE EN|^COMO PERSONAJE/i.test(t)) mode = 'none'; else cur.attrs.push(t); continue; }
+    if (mode === 'table' || !last) continue;
+    // nombre de rasgo partido en dos líneas: «NIVEL 3: CONJUROS DEL» + «CÍRCULO»
+    if (!last.body.length && isCaps(t) && / (DE|DEL|DE LA|DE LAS|DE LOS)$/.test(last.n.toUpperCase())) { last.n += ' ' + t.toLowerCase(); continue; }
+    last.body.push(t);
+  }
+  flush();
+  return dedupe(out);
 }

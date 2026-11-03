@@ -15,10 +15,10 @@ const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Con
 const CAT_N: Record<string, string> = { origin: 'origen', general: 'general', 'fighting-style': 'estilo de combate', 'epic-boon': 'don épico' };
 
 /** Lo que el SRD ya trae no se duplica en la biblioteca. */
-function withoutSrd(r: BookResult, srd: { feats: string[]; backgrounds: string[]; spells: string[]; spellsEn: string[]; subclasses: string[] }): BookResult {
+function withoutSrd(r: BookResult, srd: { feats: string[]; backgrounds: string[]; spells: string[]; spellsEn: string[]; subclasses: string[]; classes: string[] }): BookResult {
   const srdEn = new Set(srd.spellsEn.map(norm));
   const has = (list: string[], n: string) => list.some((x) => norm(x) === norm(n));
-  return { ...r, feats: r.feats.filter((f) => !has(srd.feats, f.n)), backgrounds: r.backgrounds.filter((b) => !has(srd.backgrounds, b.n)), spells: r.spells.filter((s) => !has(srd.spells, s.n) && !isSrdTwin(s.n, srdEn)), subclasses: r.subclasses.filter((s) => !has(srd.subclasses, s.n)) };
+  return { ...r, feats: r.feats.filter((f) => !has(srd.feats, f.n)), backgrounds: r.backgrounds.filter((b) => !has(srd.backgrounds, b.n)), spells: r.spells.filter((s) => !has(srd.spells, s.n) && !isSrdTwin(s.n, srdEn)), subclasses: r.subclasses.filter((s) => !has(srd.subclasses, s.n)), classes: r.classes.filter((k) => !has(srd.classes, k.n)) };
 }
 const CLASS_N: Record<string, string> = { barbarian: 'Bárbaro', bard: 'Bardo', cleric: 'Clérigo', druid: 'Druida', fighter: 'Guerrero', monk: 'Monje', paladin: 'Paladín', ranger: 'Explorador', rogue: 'Pícaro', sorcerer: 'Hechicero', warlock: 'Brujo', wizard: 'Mago' };
 const incomplete = (b: LibBackground) => b.abil.length !== 3 || b.skills.length !== 2 || !b.feat;
@@ -49,7 +49,9 @@ export default function LibraryPanel() {
     spells: (rules || []).filter((e) => e.cat === 'Conjuros').map((e) => e.n),
     spellsEn: (rules || []).filter((e) => e.cat === 'Conjuros').map((e) => e.en),
     subclasses: (data?.classes || []).map((k) => k.sub?.n || '').filter(Boolean),
+    classes: (data?.classes || []).map((k) => k.n),
   };
+  const clsLabel = (id: string) => CLASS_N[id] || found?.classes.find((k) => k.id === id)?.n || lib.classes.find((k) => k.id === id)?.n || id;
   const originFeats = [...(data?.feats.filter((f) => f.cat === 'origin').map((f) => f.n) || []), ...(found?.feats || lib.feats).filter((f) => f.cat === 'origin').map((f) => f.n)];
 
   const importPdf = async (f: File | undefined) => {
@@ -59,7 +61,7 @@ export default function LibraryPanel() {
     cancel.current = { cancelled: false };
     try {
       const r = await readBook(f, (p, t) => setProgress([p, t]), cancel.current);
-      const nothing = !r.feats.length && !r.backgrounds.length && !r.spells.length && !r.subclasses.length;
+      const nothing = !r.feats.length && !r.backgrounds.length && !r.spells.length && !r.subclasses.length && !r.classes.length;
       if (nothing) setMsg('No se ha encontrado ninguna dote, trasfondo ni conjuro. El importador está hecho para el Manual del Jugador 2024 en español con texto (no un PDF de imágenes).');
       else {
         const f = withoutSrd(r, srd);
@@ -112,8 +114,8 @@ export default function LibraryPanel() {
   const saveFound = () => {
     if (!found) return;
     const merge = <T extends { id: string }>(a: T[], b: T[]) => [...a.filter((x) => !b.some((y) => y.id === x.id)), ...b];
-    void lib.save({ source: 'Manual del Jugador 2024 (tu PDF)', feats: merge(lib.feats, found.feats), backgrounds: merge(lib.backgrounds, found.backgrounds), spells: merge(lib.spells, found.spells), subclasses: merge(lib.subclasses, found.subclasses) });
-    setMsg('Guardado en tu biblioteca: ' + found.subclasses.length + ' subclases, ' + found.feats.length + ' dotes, ' + found.backgrounds.length + ' trasfondos y ' + found.spells.length + ' conjuros. Ya aparecen al crear o editar un personaje.');
+    void lib.save({ source: 'Manual del Jugador 2024 (tu PDF)', feats: merge(lib.feats, found.feats), backgrounds: merge(lib.backgrounds, found.backgrounds), spells: merge(lib.spells, found.spells), subclasses: merge(lib.subclasses, found.subclasses), classes: merge(lib.classes, found.classes.map(({ problems: _p, ...k }) => k)) });
+    setMsg('Guardado en tu biblioteca: ' + (found.classes.length ? found.classes.length + ' clases (revísalas y completa sus tablas en «Mis creaciones»), ' : '') + found.subclasses.length + ' subclases, ' + found.feats.length + ' dotes, ' + found.backgrounds.length + ' trasfondos y ' + found.spells.length + ' conjuros. Ya aparecen al crear o editar un personaje.');
     setFound(null);
   };
   const exportFile = () => {
@@ -206,14 +208,25 @@ export default function LibraryPanel() {
               </div>
             ))}
           </Picker>
+          {found.classes.length > 0 && (
+            <Picker open title={'Clases nuevas (' + found.classes.length + ')'} summary={found.classes.map((k) => k.n).join(', ')}>
+              <p className="muted small" style={{ margin: 0 }}>Clases que el libro trae y el SRD no. Se leen sus atributos básicos y sus rasgos nivel a nivel; las tablas de usos y de conjuros no se leen del PDF: complétalas después en «Mis creaciones».</p>
+              <ul className="lib-list">
+                {found.classes.map((k) => (
+                  <li key={k.id}><b>{k.n}</b> <span className="muted small">d{k.hd} · {k.f.length} rasgos{k.caster !== 'none' ? ' · lanza conjuros' : ''}</span>
+                    {k.problems.map((p) => <span key={p} className="warn small"> · {p}</span>)}</li>
+                ))}
+              </ul>
+            </Picker>
+          )}
           <Picker open={found.subclasses.some((s) => / sin título /.test(s.n))} title={'Subclases (' + found.subclasses.length + ')'} summary={found.subclasses.some((s) => / sin título /.test(s.n)) ? 'pon nombre a ' + found.subclasses.filter((s) => / sin título /.test(s.n)).length + ' sin título' : found.subclasses.map((s) => s.n).join(', ')}>
             <ul className="lib-list">
               {found.subclasses.map((s, i) => (
                 <li key={s.id + i}>
                   {/ sin título /.test(s.n) || renaming === i
-                    ? <input className="input" aria-label={'Nombre de la subclase de ' + CLASS_N[s.cls]} defaultValue={/ sin título /.test(s.n) ? '' : s.n} placeholder={'Nombre (subclase de ' + (CLASS_N[s.cls] || s.cls) + ')'} onBlur={(e) => { const n = e.target.value.trim(); if (n) setFound({ ...found, subclasses: found.subclasses.map((x, j) => (j === i ? { ...x, n } : x)) }); setRenaming(null); }} />
+                    ? <input className="input" aria-label={'Nombre de la subclase de ' + clsLabel(s.cls)} defaultValue={/ sin título /.test(s.n) ? '' : s.n} placeholder={'Nombre (subclase de ' + clsLabel(s.cls) + ')'} onBlur={(e) => { const n = e.target.value.trim(); if (n) setFound({ ...found, subclasses: found.subclasses.map((x, j) => (j === i ? { ...x, n } : x)) }); setRenaming(null); }} />
                     : <button className="gen-link" title="Cambiar el nombre" onClick={() => setRenaming(i)}>{s.n}</button>}
-                  <span className="muted small"> {CLASS_N[s.cls] || s.cls} · rasgos de nivel {[...new Set(s.f.map((f) => f.lv))].join(', ')}{/ sin título /.test(s.n) ? ' · el PDF no deja leer su título: escríbelo' : ''}</span>
+                  <span className="muted small"> {clsLabel(s.cls)} · rasgos de nivel {[...new Set(s.f.map((f) => f.lv))].join(', ')}{/ sin título /.test(s.n) ? ' · el PDF no deja leer su título: escríbelo' : ''}</span>
                 </li>
               ))}
             </ul>

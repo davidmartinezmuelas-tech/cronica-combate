@@ -1,6 +1,7 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseFeats, parseSpells, parseSubclasses, type Line, type LibBackground, type LibFeat, type LibSpell, type LibSubclass, type TextItem } from '../engine/bookImport';
+import { classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseClasses, parseFeats, parseSpells, parseSubclasses, type Line, type LibBackground, type LibClass, type LibFeat, type LibSpell, type LibSubclass, type TextItem } from '../engine/bookImport';
 import { parseItems, parseItemsEs } from '../engine/itemImport';
+import { norm } from '../engine/util';
 import type { LibItem } from '../engine/magicItems';
 import { parseMonsters } from '../engine/monsterImport';
 import type { Monster, Spell } from '../data/types';
@@ -10,6 +11,7 @@ export interface BookResult {
   backgrounds: LibBackground[];
   spells: LibSpell[];
   subclasses: LibSubclass[];
+  classes: (LibClass & { problems: string[] })[];
   pages: number;
 }
 
@@ -60,7 +62,10 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
   }, onProgress, signal);
   const kinds = fillClassGaps(pages.map((p) => p.kinds));
   pages.forEach((p, i) => { for (const k of kinds[i]) L[k].push(...p.lines); });
-  return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells, pages.flatMap((p) => p.lines)), subclasses: parseSubclasses(L.classes), pages: n };
+  // las clases que el libro trae (con ellas se reconocen también sus subclases)
+  const classes = parseClasses(L.classes);
+  const extra = Object.fromEntries(classes.map((k) => [norm(k.n), k.id]));
+  return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells, pages.flatMap((p) => p.lines)), subclasses: parseSubclasses(L.classes, extra), classes, pages: n };
 }
 
 /** Lee el PDF del Manual de Monstruos del usuario en su navegador y extrae las fichas de monstruo. */
