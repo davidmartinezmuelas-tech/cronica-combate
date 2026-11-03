@@ -588,7 +588,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
 
         <fieldset className="fs fs-wide" data-wstep={caster || c.spells.length ? 's5' : 'x'}>
           <legend>Conjuros</legend>
-          {subCaster && !cls?.spells.length && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: conjuros de mago. Lanzas con Inteligencia.</p>}
+          {subCaster && !cls?.spells.length && <p className="muted small" style={{ margin: 0 }}>{c.subclass}: conjuros de {data?.classes.find((k) => k.id === subCaster.list)?.n.toLowerCase() || subCaster.list}. Lanzas con {ABIL_N[subCaster.abil]}.</p>}
           {preps.length > 0 && (
             <div className="spell-counts">
               {preps.map((pr) => {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ABILS, type Abil, type Uses } from '../../data/player';
 import { CONDITIONS, DMG_TYPES } from '../../data/constants';
 import type { LibSubclass } from '../../engine/bookImport';
-import { validDice, type HbFx } from '../../engine/homebrew';
+import { validDice, type CastingRule, type HbFx } from '../../engine/homebrew';
 import { norm, uid } from '../../engine/util';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
@@ -102,6 +102,15 @@ const kindOf = (u?: Uses): { k: UseKind; n: number; a: Abil } => {
 const usesOf = (k: UseKind, n: number, a: Abil, per: string): Uses | undefined =>
   k === 'n' ? { max: String(Math.max(1, Math.min(10, n))), per } : k === 'pb' ? { max: '@prof', per } : k === 'mod' ? { max: 'max(1, @abilities.' + a + '.mod)', per } : undefined;
 
+/** «3:2, 10:3» como tabla nivel -> cantidad (lo que no se entiende se ignora). */
+const parseTable = (t: string): Record<number, number> => {
+  const out: Record<number, number> = {};
+  for (const part of t.split(',')) { const m = /^\s*(\d{1,2})\s*[:=]\s*(\d{1,2})\s*$/.exec(part); if (m && +m[1] >= 1 && +m[1] <= 20) out[+m[1]] = +m[2]; }
+  return out;
+};
+const fmtTable = (t: Record<number, number> | undefined) => Object.entries(t || {}).map(([l, n]) => l + ':' + n).join(', ');
+const PROGRESSION: [CastingRule['progression'], string][] = [['third', 'Un tercio (como el Caballero arcano)'], ['half', 'La mitad (como el Paladín)'], ['full', 'Completo (como el Mago)']];
+
 /**
  * Mis creaciones: subclases propias (homebrew o de otros libros) escritas a mano, nivel a nivel. Se guardan en la
  * biblioteca (y, con cuenta, en la nube) como una subclase más, así que el editor, la subida de nivel y la hoja las usan igual.
@@ -112,6 +121,7 @@ export default function HomebrewPanel() {
   const [draft, setDraft] = useState<LibSubclass | null>(null);
   const [confirmDel, setConfirmDel] = useState('');
   const [extraLv, setExtraLv] = useState(1);
+  const [castTxt, setCastTxt] = useState({ c: '', p: '' }); // las tablas de lanzamiento como se escriben («3:2, 10:3»)
   const own = lib.subclasses.filter((s) => s.own && !s.guest);
   const classes = data?.classes || [];
   const clsName = (id: string) => classes.find((k) => k.id === id)?.n || id;
@@ -135,20 +145,21 @@ export default function HomebrewPanel() {
               <li key={s.id}>
                 <span><b>{s.n}</b> <span className="muted small">subclase de {clsName(s.cls)} · {s.f.length} {s.f.length === 1 ? 'rasgo' : 'rasgos'}</span></span>
                 <span className="rollrow">
-                  <button className="btn small" onClick={() => setDraft(s)}>Editar</button>
+                  <button className="btn small" onClick={() => { setDraft(s); setCastTxt({ c: fmtTable(s.casting?.cantrips), p: fmtTable(s.casting?.prepared) }); }}>Editar</button>
                   <button className="btn small ghost danger" onClick={() => { if (confirmDel === s.id) { void lib.save({ subclasses: lib.subclasses.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
                 </span>
               </li>
             ))}
           </ul>
         )}
-        <button className="btn small" style={{ alignSelf: 'flex-start' }} disabled={!classes.length} onClick={() => setDraft({ id: 'own-' + uid(), n: '', cls: classes[0]?.id || '', d: '', f: [], own: true })}>Crear subclase</button>
+        <button className="btn small" style={{ alignSelf: 'flex-start' }} disabled={!classes.length} onClick={() => { setDraft({ id: 'own-' + uid(), n: '', cls: classes[0]?.id || '', d: '', f: [], own: true }); setCastTxt({ c: '', p: '' }); }}>Crear subclase</button>
         <HomebrewSpells />
       </div>
     );
   }
 
   const cls = classes.find((k) => k.id === draft.cls);
+  const casters = classes.filter((k) => k.spells.length > 0); // las que tienen lista de conjuros propia
   // los niveles en que la clase gana rasgos de subclase (los de su subclase del SRD) y los que ya tengan rasgos
   const levels = [...new Set([...(cls?.sub?.f.map((f) => f.lv) || [3]), ...draft.f.map((f) => f.lv)])].sort((a, b) => a - b);
   const setF = (i: number, patch: Partial<Feature>) => setDraft({ ...draft, f: draft.f.map((f, j) => (j === i ? { ...f, ...patch } : f)) });
@@ -176,6 +187,41 @@ export default function HomebrewPanel() {
       <div className="field"><label htmlFor="hb-d">Descripción (opcional)</label>
         <textarea id="hb-d" className="input" rows={2} value={draft.d} onChange={(e) => setDraft({ ...draft, d: e.target.value })} /></div>
       <p className="muted small" style={{ margin: 0 }}>Si ya la lleva algún personaje y le cambias el nombre, vuelve a elegirla en su «Editar hoja».</p>
+      <fieldset className="fs hb-level">
+        <legend>Lanzamiento de conjuros</legend>
+        <label className="hb-check"><input type="checkbox" checked={!!draft.casting} onChange={(e) => setDraft({ ...draft, casting: e.target.checked ? { progression: 'third', abil: 'int', list: casters[0]?.id || 'wizard', cantrips: {}, prepared: {}, from: 3 } : undefined })} /> Esta subclase lanza conjuros aunque su clase no los lance</label>
+        {draft.casting && (() => {
+          const cs = draft.casting;
+          const put = (patch: Partial<CastingRule>) => setDraft({ ...draft, casting: { ...cs, ...patch } });
+          return (
+            <>
+              <div className="row2">
+                <div className="field"><label htmlFor="hb-cp">Avance de los espacios</label>
+                  <select id="hb-cp" className="input" value={cs.progression} onChange={(e) => put({ progression: e.target.value as CastingRule['progression'] })}>
+                    {PROGRESSION.map(([k, n]) => <option key={k} value={k}>{n}</option>)}
+                  </select></div>
+                <div className="field"><label htmlFor="hb-ca">Característica de lanzamiento</label>
+                  <select id="hb-ca" className="input" value={cs.abil} onChange={(e) => put({ abil: e.target.value as Abil })}>
+                    {ABILS.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+                  </select></div>
+              </div>
+              <div className="row2">
+                <div className="field"><label htmlFor="hb-cl">Lista de conjuros de</label>
+                  <select id="hb-cl" className="input" value={cs.list} onChange={(e) => put({ list: e.target.value })}>
+                    {casters.map((k) => <option key={k.id} value={k.id}>{k.n}</option>)}
+                  </select></div>
+                <div className="field"><label htmlFor="hb-cf">Lanza desde el nivel</label>
+                  <input id="hb-cf" className="input" type="number" min={1} max={20} value={cs.from ?? 3} onChange={(e) => put({ from: Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 3)) })} /></div>
+              </div>
+              <div className="field"><label htmlFor="hb-ct">Trucos por nivel (nivel:cantidad)</label>
+                <input id="hb-ct" className="input" value={castTxt.c} placeholder="3:2, 10:3" onChange={(e) => { setCastTxt({ ...castTxt, c: e.target.value }); put({ cantrips: parseTable(e.target.value) }); }} /></div>
+              <div className="field"><label htmlFor="hb-cc">Conjuros preparados por nivel (nivel:cantidad)</label>
+                <input id="hb-cc" className="input" value={castTxt.p} placeholder="3:3, 4:4, 7:5" onChange={(e) => { setCastTxt({ ...castTxt, p: e.target.value }); put({ prepared: parseTable(e.target.value) }); }} /></div>
+              {!Object.keys(cs.prepared).length && <p className="warn small" style={{ margin: 0 }}>Sin la tabla de preparados, la subclase no tendrá conjuros de nivel 1 o más.</p>}
+            </>
+          );
+        })()}
+      </fieldset>
 
       {levels.map((lv) => (
         <fieldset key={lv} className="fs hb-level">

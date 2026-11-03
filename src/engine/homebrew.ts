@@ -22,11 +22,30 @@ export interface HbFx {
   resist?: string;
 }
 
+/**
+ * Cómo lanza conjuros una subclase de una clase que no los lanza (Caballero arcano, Embaucador arcano…): cuánto avanzan
+ * sus espacios (un tercio, la mitad o todo el nivel), con qué característica, de la lista de qué clase salen sus conjuros
+ * y cuántos trucos y conjuros preparados tiene a cada nivel de clase (una tabla «nivel: cantidad»).
+ */
+export interface CastingRule {
+  progression: 'third' | 'half' | 'full';
+  abil: Abil;
+  list: string; // id de la clase de cuya lista salen los conjuros
+  cantrips: Record<number, number>;
+  prepared: Record<number, number>;
+  from?: number; // nivel de clase desde el que lanza (3 si no se dice)
+}
+
 interface OwnSub { cls: string; n: string; own?: boolean; f: { lv: number; n: string; fx?: HbFx }[] }
 
 // las subclases propias de la biblioteca de este dispositivo (la biblioteca las registra al cargarse o cambiar)
 let own: OwnSub[] = [];
 export const setOwnSubclasses = (list: OwnSub[]) => { own = list.filter((s) => s.own); };
+
+// las reglas de lanzamiento de las subclases de la biblioteca (propias o importadas), por clase y nombre
+let casting: { cls: string; n: string; rule: CastingRule }[] = [];
+export const setCastingRules = (list: { cls: string; n: string; casting?: CastingRule }[]) => { casting = list.filter((s) => s.casting).map((s) => ({ cls: s.cls, n: s.n, rule: s.casting! })); };
+export const libCastingRule = (cls: string, sub: string): CastingRule | undefined => casting.find((x) => x.cls === cls && norm(x.n) === norm(sub))?.rule;
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 

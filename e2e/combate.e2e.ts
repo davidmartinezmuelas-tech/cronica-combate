@@ -3293,3 +3293,33 @@ test('Bastión de la ley gasta puntos de hechicería y sus d8; Implosión deform
   await imp.getByRole('button', { name: /^Daño 3d10 fuerza/ }).click();
   await expect(imp.getByRole('button', { name: /^Daño 3d10 fuerza/ })).toBeDisabled();
 });
+
+test('subclase propia que lanza conjuros: su regla (avance, característica, lista y tablas) da espacios y la hoja la usa', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Monje' });
+  await page.getByLabel('Nombre de la subclase').fill('Camino de las Estrellas');
+  await page.getByLabel('Esta subclase lanza conjuros aunque su clase no los lance').check();
+  await page.getByLabel('Avance de los espacios').selectOption({ label: 'La mitad (como el Paladín)' });
+  await page.getByLabel('Característica de lanzamiento').selectOption({ label: 'Sabiduría' });
+  await page.getByLabel('Lista de conjuros de').selectOption({ label: 'Druida' });
+  await page.getByLabel('Lanza desde el nivel').fill('3');
+  await page.getByLabel('Trucos por nivel (nivel:cantidad)').fill('3:2');
+  await page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)').fill('3:3, 5:4');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+  await expect(page.getByText('subclase de Monje')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Lyra');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Monje' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.locator('#ce-subsel').selectOption({ label: 'Camino de las Estrellas (propia)' });
+  await expect(page.getByText('Camino de las Estrellas: conjuros de druida. Lanzas con Sabiduría.')).toBeVisible();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // mitad de lanzador a nivel 5: tres espacios de nivel 1 (tabla de semilanzador, nivel 3 de lanzador) y espacios de nivel 2
+  const sp = page.locator('section[aria-label="Conjuros"]');
+  await expect(sp).toBeVisible();
+  await expect(sp.getByRole('group', { name: /^Espacios de nivel 1/ })).toBeVisible();
+});

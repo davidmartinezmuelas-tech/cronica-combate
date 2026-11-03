@@ -2,7 +2,7 @@ import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-ke
 import { create } from 'zustand';
 import type { LibBackground, LibFeat, LibSpell, LibSubclass } from '../engine/bookImport';
 import type { LibItem } from '../engine/magicItems';
-import { setOwnSubclasses } from '../engine/homebrew';
+import { setCastingRules, setOwnSubclasses } from '../engine/homebrew';
 import { ownSelfFx, setOwnSpellFx } from '../engine/spellEffects';
 
 /**
@@ -115,7 +115,7 @@ const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: 
 
 // los rasgos propios con bonificadores fijos entran en el cálculo de la hoja
 useLibrary.subscribe((s, prev) => {
-  if (s.subclasses !== prev.subclasses) setOwnSubclasses(s.subclasses);
+  if (s.subclasses !== prev.subclasses) { setOwnSubclasses(s.subclasses); setCastingRules(s.subclasses); }
   // y los conjuros propios con efecto sobre quien lo recibe
   if (s.spells !== prev.spells) setOwnSpellFx(s.spells.filter((x) => x.own && x.self).map((x) => ({ id: x.id, n: x.n, fx: ownSelfFx(x.self!) })));
 });

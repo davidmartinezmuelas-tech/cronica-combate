@@ -342,11 +342,11 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const fxHp = effects.reduce((t, e) => t + (e.fx.hpMax ? e.fx.hpMax(e.lv) : 0), 0);
   const hpMax = Math.max(1, classHp + (c.speciesId === 'dwarf' ? lvl : 0) + sum('hpPerLevel') * lvl + sum('hpFlat') + (draconic ? lvOf('sorcerer') : 0) + fxHp + ifx.hp);
 
-  // lanzadores: cada clase con su característica (y el Caballero arcano / Embaucador arcano, con Inteligencia)
+  // lanzadores: cada clase con su característica (y las subclases con su propia regla de lanzamiento, como el Caballero arcano, con la suya)
   const casterOf = (e: ClassEntry) => {
     const cd = clsOf(e.classId);
     const sc = subclassCaster(e);
-    const kind: ClassData['caster'] | 'third' | undefined = cd?.caster && cd.caster !== 'none' ? cd.caster : sc ? 'third' : undefined;
+    const kind: ClassData['caster'] | 'third' | undefined = cd?.caster && cd.caster !== 'none' ? cd.caster : sc ? sc.progression : undefined;
     const abil = (cd?.spellAb || sc?.abil || '') as Abil | '';
     return { e, cd, kind, abil };
   };

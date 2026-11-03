@@ -1,8 +1,9 @@
 import { DMG_TYPES } from '../data/constants';
-import type { ClassData, PlayerData } from '../data/player';
+import type { Abil, ClassData, PlayerData } from '../data/player';
 import type { LibSubclass } from './bookImport';
 import type { DiceResource } from './subclassActions';
 import type { Character } from './character';
+import { libCastingRule, type CastingRule } from './homebrew';
 import { norm } from './util';
 
 /**
@@ -161,20 +162,25 @@ export function spellOptions(from: { classes: string[]; school?: string; minLeve
 }
 
 /**
- * Subclases que lanzan conjuros de mago con Inteligencia (Caballero arcano, Embaucador arcano): un tercio de lanzador,
- * trucos y conjuros preparados según su tabla.
+ * Subclases que lanzan conjuros aunque su clase no los lance (Caballero arcano, Embaucador arcano…). Cada una sigue una
+ * regla («CastingRule»: avance de espacios, característica, lista de conjuros y tablas de trucos y preparados). Las del
+ * manual vienen aquí; las de la biblioteca (propias o importadas) la llevan en su propio dato.
  */
 const THIRD_PREPARED = { 3: 3, 4: 4, 7: 5, 8: 6, 10: 7, 11: 8, 13: 9, 14: 10, 16: 11, 19: 12, 20: 13 };
-export const SUB_CASTERS = [
-  { cls: 'fighter', subs: ['Caballero arcano', 'Eldritch Knight'], cantrips: { 3: 2, 10: 3 }, prepared: THIRD_PREPARED },
-  { cls: 'rogue', subs: ['Embaucador arcano', 'Arcane Trickster'], cantrips: { 3: 3, 10: 4 }, prepared: THIRD_PREPARED },
+const BUILTIN_CASTING: { cls: string; subs: string[]; rule: CastingRule }[] = [
+  { cls: 'fighter', subs: ['Caballero arcano', 'Eldritch Knight'], rule: { progression: 'third', abil: 'int', list: 'wizard', cantrips: { 3: 2, 10: 3 }, prepared: THIRD_PREPARED } },
+  { cls: 'rogue', subs: ['Embaucador arcano', 'Arcane Trickster'], rule: { progression: 'third', abil: 'int', list: 'wizard', cantrips: { 3: 3, 10: 4 }, prepared: THIRD_PREPARED } },
 ];
-export function subclassCaster(c: Pick<Character, 'classId' | 'subclass' | 'level'>): { abil: 'int'; list: 'wizard'; cantrips: number; prepared: number } | null {
-  if (c.level < 3) return null;
-  const sc = SUB_CASTERS.find((x) => x.cls === c.classId && x.subs.some((s) => norm(s) === norm(c.subclass || '')));
-  if (!sc) return null;
+
+/** La regla de lanzamiento de una subclase (la de la biblioteca manda sobre la del manual). */
+export const castingRuleOf = (cls: string, sub: string): CastingRule | undefined =>
+  libCastingRule(cls, sub) || BUILTIN_CASTING.find((x) => x.cls === cls && x.subs.some((s) => norm(s) === norm(sub)))?.rule;
+
+export function subclassCaster(c: Pick<Character, 'classId' | 'subclass' | 'level'>): { abil: Abil; list: string; progression: CastingRule['progression']; cantrips: number; prepared: number } | null {
+  const rule = c.subclass ? castingRuleOf(c.classId, c.subclass) : undefined;
+  if (!rule || c.level < (rule.from ?? 3)) return null;
   const at = (t: Record<number, number>) => Object.entries(t).reduce((v, [lv, n]) => (parseInt(lv, 10) <= c.level ? n : v), 0);
-  return { abil: 'int', list: 'wizard', cantrips: at(sc.cantrips), prepared: at(sc.prepared) };
+  return { abil: rule.abil, list: rule.list, progression: rule.progression, cantrips: at(rule.cantrips), prepared: at(rule.prepared) };
 }
 
 /** Habilidades con competencia que dan las elecciones de su subclase (claves de habilidad). */

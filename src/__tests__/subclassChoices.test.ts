@@ -169,11 +169,24 @@ describe('conjuros de subclase elegidos y lanzadores de un tercio', () => {
   it('Caballero arcano: Inteligencia y espacios de un tercio de lanzador', async () => {
     const { subclassCaster } = await import('../engine/subclassChoices');
     const { spellSlots } = await import('../engine/character');
-    expect(subclassCaster({ classId: 'fighter', subclass: 'Caballero arcano', level: 7 })).toEqual({ abil: 'int', list: 'wizard', cantrips: 2, prepared: 5 });
+    expect(subclassCaster({ classId: 'fighter', subclass: 'Caballero arcano', level: 7 })).toEqual({ abil: 'int', list: 'wizard', progression: 'third', cantrips: 2, prepared: 5 });
     expect(subclassCaster({ classId: 'rogue', subclass: 'Arcane Trickster', level: 10 })!.cantrips).toBe(4);
     expect(subclassCaster({ classId: 'fighter', subclass: 'Campeón', level: 7 })).toBeNull();
     expect([2, 3, 4, 7, 10, 13, 16, 19].map((l) => spellSlots('third', l))).toEqual([[], [2], [3], [4, 2], [4, 3], [4, 3, 2], [4, 3, 3], [4, 3, 3, 1]]);
     const d = derive(pj({ classId: 'fighter', subclass: 'Caballero arcano', level: 7, abil: { str: 16, dex: 10, con: 10, int: 14, wis: 10, cha: 10 } }), data);
     expect([d.spell?.abil, d.spell?.dc, d.slots]).toEqual(['int', 8 + 3 + 2, [4, 2]]);
+  });
+
+  it('una subclase de la biblioteca trae su propia regla de lanzamiento (no solo el Caballero y el Embaucador)', async () => {
+    const { subclassCaster } = await import('../engine/subclassChoices');
+    const { setCastingRules } = await import('../engine/homebrew');
+    setCastingRules([{ cls: 'monk', n: 'Camino de las Estrellas', casting: { progression: 'half', abil: 'wis', list: 'druid', cantrips: { 2: 1, 10: 2 }, prepared: { 2: 2, 6: 4 }, from: 2 } }]);
+    try {
+      expect(subclassCaster({ classId: 'monk', subclass: 'camino de las estrellas', level: 1 })).toBeNull();
+      expect(subclassCaster({ classId: 'monk', subclass: 'Camino de las Estrellas', level: 6 })).toEqual({ abil: 'wis', list: 'druid', progression: 'half', cantrips: 1, prepared: 4 });
+      const d = derive(pj({ classId: 'monk', subclass: 'Camino de las Estrellas', level: 5, abil: { str: 10, dex: 16, con: 10, int: 10, wis: 14, cha: 10 } }), data);
+      expect([d.spell?.abil, d.slots]).toEqual(['wis', [4, 2]]);
+    } finally { setCastingRules([]); }
+    expect(subclassCaster({ classId: 'monk', subclass: 'Camino de las Estrellas', level: 6 })).toBeNull();
   });
 });

@@ -29,6 +29,7 @@ const at = (table: Record<string, number | string> | undefined, lv: number): num
 export function classMaxSpell(caster: string, level: number): number {
   if (caster === 'full') return Math.min(9, Math.ceil(level / 2));
   if (caster === 'half') return Math.min(5, Math.ceil(level / 4));
+  if (caster === 'third') return level < 3 ? 0 : level < 7 ? 1 : level < 13 ? 2 : level < 19 ? 3 : 4;
   if (caster === 'pact') return pactSlots(level).lv;
   return 0;
 }
@@ -44,10 +45,9 @@ export function casterPreps(c: Character, data: PlayerData, spells: SpellLite[])
     const listCls = sub ? data.classes.find((x) => x.id === sub.list) : cls;
     if (!listCls) continue;
     const list = new Set([...listCls.spells, ...spells.filter((s) => s.classes?.includes(listCls.id)).map((s) => s.id)]);
-    const third = (lv: number) => (lv < 3 ? 0 : lv < 7 ? 1 : lv < 13 ? 2 : lv < 19 ? 3 : 4);
     out.push({
       id: listCls.id, n: cls.n, level: e.level, list,
-      maxLv: sub ? third(e.level) : classMaxSpell(cls.caster, e.level),
+      maxLv: classMaxSpell(sub ? sub.progression : cls.caster, e.level),
       cantrips: sub ? sub.cantrips : at(cls.sc[cls.id + '.cantrips-known'], e.level),
       prepared: sub ? sub.prepared : at(cls.sc[cls.id + '.max-prepared'], e.level),
     });
