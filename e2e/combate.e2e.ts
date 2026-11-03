@@ -3112,6 +3112,14 @@ test('Salvaguarda arcana absorbe daño y Mano de aflicción gasta un Punto de co
   await ward.getByRole('button', { name: 'Absorber 9' }).click();
   await expect(ward).toContainText('0 de 10 PG');
   await expect(ward).toContainText('te quedan 3 de daño');
+  // el descanso largo la deshace
+  await ward.getByRole('button', { name: /^Crear/ }).click();
+  await expect(ward).toContainText('10 de 10 PG');
+  await page.getByRole('button', { name: 'Descanso largo' }).click();
+  await page.getByRole('button', { name: '¿Seguro? Descanso largo' }).click();
+  const swap = page.getByRole('dialog').getByRole('button', { name: /Cerrar|Listo|Hecho/ }).first();
+  if (await swap.count()) await swap.click();
+  await expect(ward).toContainText('0 de 10 PG');
 
   await page.getByRole('button', { name: 'Editar hoja' }).click();
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Monje' });
@@ -3147,5 +3155,13 @@ test('Presagio del adivino: tira los d20, los gasta uno a uno y el descanso larg
   await expect(card.getByRole('button', { name: /^Usar \d+$/ })).toHaveCount(1);
   await expect(card.getByTitle('Gastado')).toHaveCount(1);
   await card.getByRole('button', { name: 'Borrar' }).click();
+  await expect(card).toContainText('Sin tirar');
+  // el descanso largo borra los d20 presagiados
+  await card.getByRole('button', { name: 'Tirar 2 d20' }).click();
+  await expect(card.getByRole('button', { name: /^Usar \d+$/ })).toHaveCount(2);
+  await page.getByRole('button', { name: 'Descanso largo' }).click();
+  await page.getByRole('button', { name: '¿Seguro? Descanso largo' }).click();
+  const swap = page.getByRole('dialog').getByRole('button', { name: /Cerrar|Listo|Hecho/ }).first();
+  if (await swap.count()) await swap.click();
   await expect(card).toContainText('Sin tirar');
 });
