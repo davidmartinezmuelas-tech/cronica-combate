@@ -3438,3 +3438,72 @@ test('clase de un libro cargada desde la biblioteca: sale como «del libro», se
   await expect(page.getByText('Piel de roca').first()).toBeVisible();
   await expect(page.locator('section[aria-label="Conjuros"]').getByRole('group', { name: /^Espacios de nivel 1/ })).toBeVisible();
 });
+
+test('clase propia: las tablas de trucos y de preparados se ven en la hoja, en la subida de nivel y en la multiclase con una clase del SRD', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear clase' }).click();
+  await page.getByLabel('Nombre de la clase').fill('Chamán');
+  await page.getByLabel('Dado de golpe').selectOption('8');
+  await page.getByRole('group', { name: 'Características principales' }).getByRole('button', { name: 'Sabiduría' }).click();
+  await page.getByLabel('Tipo de lanzador').selectOption({ label: 'Completo (como el Mago)' });
+  await page.getByLabel('Característica de lanzamiento').selectOption({ label: 'Sabiduría' });
+  await page.getByLabel('Lista de conjuros de').selectOption({ label: 'Druida' });
+  await page.getByLabel('Trucos por nivel (nivel:cantidad)').fill('1:2, 4:3');
+  await page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)').fill('1:2, 5:4, 6:5');
+  await page.getByRole('button', { name: 'Guardar clase' }).click();
+  await expect(page.getByText('clase · d8')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Rexxar');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Chamán' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  const counts = page.locator('.spell-counts');
+  await expect(counts).toContainText('Trucos 0 de 3');
+  await expect(counts).toContainText('Conjuros preparados 0 de 4');
+  await expect(counts).toContainText('hasta el nivel 3');
+
+  // multiclase con una clase del SRD: cada una con su fila de conteo
+  await page.getByRole('button', { name: 'Añadir otra clase (multiclase)' }).click();
+  await page.getByLabel('Otra clase').selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel en ella').fill('3');
+  await expect(counts.locator('.spell-count-row', { hasText: 'Chamán 5' })).toContainText('Conjuros preparados 0 de 4');
+  await expect(counts.locator('.spell-count-row', { hasText: 'Paladín 3' })).toContainText('Conjuros preparados 0 de 4');
+});
+
+test('clase propia: al subir de nivel pide los conjuros y trucos que dicen sus tablas', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear clase' }).click();
+  await page.getByLabel('Nombre de la clase').fill('Chamán');
+  await page.getByRole('group', { name: 'Características principales' }).getByRole('button', { name: 'Sabiduría' }).click();
+  await page.getByLabel('Tipo de lanzador').selectOption({ label: 'Completo (como el Mago)' });
+  await page.getByLabel('Característica de lanzamiento').selectOption({ label: 'Sabiduría' });
+  await page.getByLabel('Lista de conjuros de').selectOption({ label: 'Druida' });
+  await page.getByLabel('Trucos por nivel (nivel:cantidad)').fill('1:2, 4:3');
+  await page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)').fill('1:2, 5:4, 6:5');
+  await page.getByRole('button', { name: 'Guardar clase' }).click();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Rexxar');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Chamán' });
+  await page.getByLabel('Nivel', { exact: true }).fill('3');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  // 3 -> 4: un truco más
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  let dlg = page.getByRole('dialog', { name: 'Subir a nivel 4' });
+  await expect(dlg).toContainText('Ganas 1 truco');
+  await dlg.locator('.lvl-spells .chip').first().click();
+  await dlg.getByLabel('Característica que sube').selectOption('wis');
+  await dlg.getByRole('button', { name: /^Tirar 1d8/ }).click();
+  await expect(dlg.getByText(/^Tirada: \d+/)).toBeVisible({ timeout: 15000 });
+  await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 4' }).click();
+  await expect(page.locator('.pc-head')).toContainText('Chamán 4');
+  // 4 -> 5: los preparados pasan de 2 a 4
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  dlg = page.getByRole('dialog', { name: 'Subir a nivel 5' });
+  await expect(dlg).toContainText('2 conjuros preparados más');
+});
