@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
 import { applyFeatAsi, featAsi, featAsiOptions } from '../../engine/featAsi';
 import { asClass, classEntries, derive, totalLevel, type Character, type ClassEntry } from '../../engine/character';
-import { activeChoices, choiceCount, spellSwapRules, subclassSpells, subclassText } from '../../engine/subclassChoices';
+import { activeChoices, choiceCount, spellSwapRules, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { classAlwaysSpells } from '../../engine/spellPrep';
 import { grantedSpells } from '../../engine/grantedSpells';
 import { fmt } from '../../engine/dice';
@@ -60,7 +60,13 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const cls = data.classes.find((x) => x.id === classId);
   const cur: ClassEntry | undefined = classEntries(c).find((e) => e.classId === classId);
   const newLv = (cur?.level || 0) + 1;
-  const next = withLevel(c, classId);
+  const needSub = !!cls?.sub && newLv === cls.sub.lv && !cur?.subclass;
+  // con la subclase que se elige en esta subida (Caballero arcano y Embaucador arcano dan espacios y conjuros desde que se eligen)
+  const next = (() => {
+    const n = withLevel(c, classId);
+    if (!needSub || !sub) return n;
+    return classId === c.classId ? { ...n, subclass: sub } : { ...n, multi: (n.multi || []).map((e) => (e.classId === classId ? { ...e, subclass: sub } : e)) };
+  })();
   const before = derive(c, data);
   const after = derive(next, data);
   const con = after.mods.con;
@@ -76,7 +82,6 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const subFeatures = (subSrd?.f || []).filter((f) => f.lv === newLv);
   const libSub = lib.subclasses.find((s) => s.cls === classId && norm(s.n) === norm(subName));
   const libSubFeatures = (libSub?.f || []).filter((f) => f.lv === newLv);
-  const needSub = !!cls?.sub && newLv === cls.sub.lv && !cur?.subclass;
   const asiLevel = !!cls?.asi.includes(newLv);
   const unmet = (() => {
     if (cur || !cls?.primary?.length) return '';
@@ -86,8 +91,11 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   // conjuros: los que le tocan de más a su nuevo nivel en esa clase, y hasta qué nivel puede elegir
   const maxBefore = Math.max(before.slots.length, before.pact?.lv || 0);
   const maxAfter = Math.max(after.slots.length, after.pact?.lv || 0);
-  const newCantrips = Math.max(0, tableAt(cls, 'cantrips-known', newLv) - tableAt(cls, 'cantrips-known', newLv - 1));
-  const newPrepared = Math.max(0, tableAt(cls, 'max-prepared', newLv) - tableAt(cls, 'max-prepared', newLv - 1));
+  // Caballero arcano y Embaucador arcano: un tercio de lanzador con la lista de mago (trucos y conjuros por su propia tabla)
+  const subCastBefore = cur ? subclassCaster({ classId, subclass: cur.subclass || '', level: cur.level }) : null;
+  const subCastAfter = subName ? subclassCaster({ classId, subclass: subName, level: newLv }) : null;
+  const newCantrips = subCastAfter ? Math.max(0, subCastAfter.cantrips - (subCastBefore?.cantrips || 0)) : Math.max(0, tableAt(cls, 'cantrips-known', newLv) - tableAt(cls, 'cantrips-known', newLv - 1));
+  const newPrepared = subCastAfter ? Math.max(0, subCastAfter.prepared - (subCastBefore?.prepared || 0)) : Math.max(0, tableAt(cls, 'max-prepared', newLv) - tableAt(cls, 'max-prepared', newLv - 1));
   // la clase que sube, vista sola con su nuevo nivel y subclase: sus elecciones y si alguna gana opciones en este nivel
   const view = asClass({ ...next, choices }, { classId, className: cur?.className || '', level: newLv, subclass: subName });
   const growing = activeChoices(view).filter((d) => choiceCount(d, newLv) > choiceCount(d, newLv - 1));
@@ -119,7 +127,8 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
     ...(subNow ? subclassSpells(subNow, cls, subclassText(subNow, cls, lib.subclasses), spellIdx.list).map((x) => x.id) : [])]);
   const capCantrips = newCantrips;
   const capSpells = newPrepared;
-  const classSpells = new Set([...(cls?.spells || []), ...spellIdx.list.filter((s) => s.classes?.includes(classId)).map((s) => s.id)]);
+  const listId = subCastAfter ? subCastAfter.list : classId;
+  const classSpells = new Set([...(data.classes.find((x) => x.id === listId)?.spells || []), ...spellIdx.list.filter((s) => s.classes?.includes(listId)).map((s) => s.id)]);
   // solo lo que toca: trucos si gana trucos; conjuros si gana preparados o un nivel nuevo (los del nivel recién desbloqueado, primero)
   const wantSpells = newPrepared > 0 || maxAfter > maxBefore;
   const pickable = spellIdx.list

@@ -3194,3 +3194,32 @@ test('Doblegar la suerte gasta un punto de hechicería y Golpe pavoroso sus usos
   await gs.getByRole('button', { name: /^Daño 2d6 psíquico/ }).click();
   await expect(gs.getByRole('group', { name: /Usos de Emboscador pavoroso/ })).toBeVisible();
 });
+
+test('subir al 3 como Caballero arcano ofrece sus trucos y conjuros de mago', async ({ page }) => {
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [{ id: 'lib-sub-fighter', n: 'Caballero arcano', cls: 'fighter', d: '', f: [{ lv: 3, n: 'Lanzamiento de conjuros', d: 'Lanzas conjuros de mago.' }] }] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Sir Arcano');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Guerrero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('2');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.locator('.lvl-sum')).not.toContainText('trucos');
+  await dlg.getByRole('group', { name: 'Subclase' }).getByRole('button', { name: /Caballero arcano/ }).click();
+  await expect(dlg.locator('.lvl-sum')).toContainText('+2 trucos');
+  await expect(dlg.locator('.lvl-sum')).toContainText('+3 conjuros preparados');
+  const chips = dlg.locator('.lvl-spells .chip');
+  for (let i = 0; i < 2; i++) await chips.nth(i).click();
+  await dlg.getByRole('tab', { name: 'Nivel 1' }).click();
+  for (let i = 0; i < 3; i++) await chips.nth(i).click();
+  await expect(dlg.locator('.lvl-sum')).toContainText('Todo elegido');
+  await dlg.getByRole('button', { name: /^Confirmar: subir a nivel 3/ }).click();
+  await expect(page.locator('.pc-head')).toContainText('Caballero arcano');
+});
