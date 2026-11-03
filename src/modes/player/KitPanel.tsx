@@ -116,7 +116,8 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
             }
           } else if (r.kind === 'roll') {
             const plus = m(r.plus) + (r.plusLevel ? c.level : 0) + (r.plusHalfLevel ? Math.floor(c.level / 2) : 0);
-            const base = r.exprAt ? atLevel2(r.exprAt, c.level, r.expr) : r.expr;
+            const base0 = r.exprAt ? atLevel2(r.exprAt, c.level, r.expr) : r.expr;
+            const base = r.times ? Math.max(1, m(r.times)) + base0.replace(/^\d+/, '') : base0;
             const expr = base + (plus ? sgn(plus) : '');
             if (r.spend) {
               if (r.heal) btns.push({ k: 'h', t: 'Curar ' + expr, off: left <= 0, go: () => { spend(); roll({ label: label('curación'), kind: 'free', parts: [{ expr }] }); } });
@@ -148,6 +149,17 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
               go: () => { set({ uses: { ...c.uses, [name]: Math.max(0, cur - n) } }); setAmt(''); setMsg({ ...msg, [name]: n > cur ? 'Absorbe ' + cur + ' PG; te quedan ' + (n - cur) + ' de daño.' : 'Absorbe ' + n + ' PG.' }); },
             });
             btns.push({ k: 'r', t: 'Recuperar ' + (n || ''), plain: true, off: !n || wmax <= 0, go: () => { set({ uses: { ...c.uses, [name]: Math.min(wmax, cur + n) } }); setAmt(''); } });
+          } else if (r.kind === 'overchannel') {
+            // veces ya usado desde el último descanso largo (se guarda en los usos con el nombre del rasgo)
+            const times = c.uses[name] || 0;
+            const lvl = Math.min(5, Math.max(1, parseInt(amt, 10) || 1));
+            const dice = (times + 1) * lvl;
+            usesEl = <><span className="chip-tag">{times} {times === 1 ? 'uso' : 'usos'} sin descansar</span><input className="input" style={{ width: 72 }} type="number" min={1} max={5} inputMode="numeric" aria-label="Nivel del espacio" placeholder="Nivel" value={amt} onChange={(e) => setAmt(e.target.value)} /></>;
+            btns.push({
+              k: 'o', t: times ? 'Sobrecanalizar: ' + dice + 'd12 necrótico' : 'Sobrecanalizar (sin daño)', plain: !times, dmg: !!times,
+              go: () => { set({ uses: { ...c.uses, [name]: times + 1 } }); if (times) roll({ label: label('daño necrótico por sobrecanalizar'), kind: 'damage', who, by: null, parts: [{ expr: dice + 'd12', type: 'necrótico' }] }); else setMsg({ ...msg, [name]: 'Daño máximo en tu conjuro; esta vez no sufres daño.' }); },
+            });
+            if (times) btns.push({ k: 'z', t: 'Reiniciar', plain: true, go: () => set({ uses: { ...c.uses, [name]: 0 } }) });
           } else if (r.kind === 'portent') {
             // los d20 presagiados se guardan en los usos (positivo: sin gastar; negativo: gastado); el descanso largo los borra
             const slots = Array.from({ length: c.level >= 14 ? 3 : 2 }, (_, i) => ({ key: name + ' ' + (i + 1), v: c.uses[name + ' ' + (i + 1)] || 0 }));

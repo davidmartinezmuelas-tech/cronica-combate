@@ -82,8 +82,9 @@ export type KitRoll =
   | { kind: 'extra'; expr: string; exprAt?: Record<number, string>; type?: string } // daño adicional con cada arma (por nivel; con su tipo o el del arma)
   | { kind: 'blade'; dmg: string; second: string; type: string } // arma que crea el rasgo (sutil): ataque, daño y segundo ataque
   | { kind: 'pool'; perUse: Abil | 'all' } // gasta varios dados de la reserva a la vez (hasta el modificador, o los que queden)
-  | { kind: 'roll'; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; plusHalfLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean; cost?: string; freeAlt?: string }
-  | { kind: 'temp'; plus: Abil } // PG temporales: nivel + modificador (mínimo 1)
+  | { kind: 'roll'; times?: Abil; expr: string; exprAt?: Record<number, string>; plus?: Abil; plusLevel?: boolean; plusHalfLevel?: boolean; type?: string; uses?: { max: Abil | number; per: 'sr' | 'lr' }; spend?: boolean; heal?: boolean; cost?: string; freeAlt?: string }
+  | { kind: 'temp'; plus?: Abil } // PG temporales: nivel + modificador (mínimo 1)
+  | { kind: 'overchannel' } // Sobrecanalizar del evocador: daño máximo; el daño necrótico crece con cada uso sin descansar
   | { kind: 'ward' } // reserva de PG que absorbe daño (Salvaguarda arcana): 2 × nivel + Inteligencia, hasta el descanso largo
   | { kind: 'portent' } // Presagio del adivino: 2 d20 (3 desde el nivel 14) tras el descanso largo; cada uno se gasta una vez
   | { kind: 'info' }; // sin tirada (solo la CD y el texto)
@@ -265,6 +266,7 @@ export const KITS: SubclassKit[] = [
   {
     id: 'world-tree', cls: 'barbarian', subs: ['Senda del árbol del mundo', 'Path of the World Tree'], title: 'Árbol del Mundo',
     actions: [
+      { n: ['Vitalidad del árbol', 'Vitality of the Tree'], lv: 3, roll: { kind: 'temp' }, note: 'Al enfurecerte: PG temporales igual a tu nivel de bárbaro. Cada turno, otra criatura a 3 m recibe tantos d6 como tu daño de furia en PG temporales.' },
       { n: ['Ramas del árbol', 'Branches of the Tree'], lv: 6, react: true, roll: { kind: 'info' }, save: { abil: 'str', dc: 'str' } },
     ],
   },
@@ -278,6 +280,18 @@ export const KITS: SubclassKit[] = [
     id: 'gloom-stalker', cls: 'ranger', subs: ['Acechador en la penumbra', 'Gloom Stalker'], title: 'Acechador en la penumbra',
     actions: [
       { n: ['Emboscador pavoroso', 'Dread Ambusher'], lv: 3, roll: { kind: 'roll', expr: '2d6', type: 'psíquico', uses: { max: 'wis', per: 'lr' } }, note: 'Golpe pavoroso: una vez por turno, al acertar con un arma.' },
+    ],
+  },
+  {
+    id: 'evoker', cls: 'wizard', subs: ['Evocador', 'Evoker'], title: 'Evocación',
+    actions: [
+      { n: ['Sobrecanalizar', 'Overchannel'], lv: 14, roll: { kind: 'overchannel' }, note: 'Conjuro de mago con daño y espacio de nivel 1 a 5: daño máximo. La primera vez no sufres nada; las siguientes, sin descansar, recibes necrótico (ignora resistencias).' },
+    ],
+  },
+  {
+    id: 'sea', cls: 'druid', subs: ['Círculo del mar', 'Circle of the Sea'], title: 'Círculo del mar',
+    actions: [
+      { n: ['Ira de los mares', 'Wrath of the Sea'], lv: 3, roll: { kind: 'roll', expr: '1d6', times: 'wis', type: 'frío' }, save: { abil: 'con', dc: 'spell' }, note: 'Acción adicional, gastando un uso de Forma salvaje. Daño: tantos d6 como tu modificador de Sabiduría (mínimo 1).' },
     ],
   },
   {

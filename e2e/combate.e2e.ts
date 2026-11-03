@@ -3223,3 +3223,41 @@ test('subir al 3 como Caballero arcano ofrece sus trucos y conjuros de mago', as
   await dlg.getByRole('button', { name: /^Confirmar: subir a nivel 3/ }).click();
   await expect(page.locator('.pc-head')).toContainText('Caballero arcano');
 });
+
+test('Sobrecanalizar crece con cada uso, Ira de los mares tira d6 por Sabiduría y Vitalidad del árbol da PG temporales', async ({ page }) => {
+  const sub = (cls: string, n: string, f: [string, string][]) => ({ id: 'lib-sub-' + cls, n, cls, d: '', f: f.map(([fn, d]) => ({ lv: 3, n: fn, d })) });
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [sub('wizard', 'Evocador', [['Sobrecanalizar', 'Daño máximo.']]), sub('druid', 'Círculo del mar', [['Ira de los mares', 'Emanación.']]), sub('barbarian', 'Senda del árbol del mundo', [['Vitalidad del árbol', 'PG temporales.']])] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Tormenta');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Mago' });
+  await page.getByLabel('Nivel', { exact: true }).fill('14');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Evocador' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const oc = page.locator('section[aria-label="Evocación"] .card', { hasText: 'Sobrecanalizar' });
+  await oc.getByLabel('Nivel del espacio').fill('3');
+  await oc.getByRole('button', { name: 'Sobrecanalizar (sin daño)' }).click();
+  await expect(oc).toContainText('1 uso sin descansar');
+  await expect(oc.getByRole('button', { name: 'Sobrecanalizar: 6d12 necrótico' })).toBeVisible();
+  await oc.getByRole('button', { name: 'Sobrecanalizar: 6d12 necrótico' }).click();
+  await expect(oc.getByRole('button', { name: 'Sobrecanalizar: 9d12 necrótico' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Druida' });
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Círculo del mar' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const wr = page.locator('section[aria-label="Círculo del mar"] .card', { hasText: 'Ira de los mares' });
+  await expect(wr.getByRole('button', { name: /^Daño \d+d6 frío/ })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Bárbaro' });
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Senda del árbol del mundo' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.locator('section[aria-label="Árbol del Mundo"] .card', { hasText: 'Vitalidad del árbol' }).getByRole('button', { name: 'Ganar 14 PG temporales' }).click();
+  await expect(page.locator('.stat-hp .stat-tmp')).toBeVisible();
+});

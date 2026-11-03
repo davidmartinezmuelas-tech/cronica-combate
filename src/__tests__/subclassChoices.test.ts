@@ -133,7 +133,9 @@ describe('recursos de clase: Inspiración bárdica y Canalizar divinidad', () =>
     expect(names('wizard', 'Abjurador', 3)).toEqual(['Salvaguarda arcana']);
     expect(names('wizard', 'Adivino', 3)).toEqual(['Presagio']);
     expect(names('sorcerer', 'Hechicería de magia salvaje', 6)).toEqual(['Doblegar la suerte']);
-    expect(names('barbarian', 'Senda del árbol del mundo', 6)).toEqual(['Ramas del árbol']);
+    expect(names('barbarian', 'Senda del árbol del mundo', 6)).toEqual(['Vitalidad del árbol', 'Ramas del árbol']);
+    expect(names('wizard', 'Evocador', 14)).toEqual(['Sobrecanalizar']);
+    expect(names('druid', 'Círculo del mar', 3)).toEqual(['Ira de los mares']);
     expect(names('druid', 'Círculo de las estrellas', 6)).toEqual(['Presagio cósmico']);
     expect(names('ranger', 'Acechador en la penumbra', 3)).toEqual(['Emboscador pavoroso']);
   });
