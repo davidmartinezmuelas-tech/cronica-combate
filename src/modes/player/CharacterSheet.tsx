@@ -1290,7 +1290,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
         </div>
       </section>
 
-      <ReactionPanel counted={rxCounted} c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} rows={views.flatMap(({ v, dv }) => activeKits(v).map((k) => <KitPanel key={k.kit.id + v.classId} react c={v} d={dv} lib={lib} set={set} kit={k.kit} actions={k.actions} off={!!c.uses[REACTION]} onUse={() => set({ uses: { ...c.uses, [REACTION]: 1 } })} />))} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
+      <ReactionPanel counted={rxCounted} c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} rows={views.flatMap(({ v, dv }) => activeKits(v).map((k) => <KitPanel key={k.kit.id + v.classId} react c={v} d={dv} lib={lib} set={set} kit={k.kit} actions={k.actions} off={!!c.uses[REACTION]} onUse={() => update(c.id, (cur) => ({ uses: { ...cur.uses, [REACTION]: 1 } }))} />))} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
       <QuickActions rows={quick} c={c} d={d} set={set} data={data} views={views} />
 
       {views.map(({ v, dv }, i) => (

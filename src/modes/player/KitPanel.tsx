@@ -31,6 +31,8 @@ function kitText(src: SubclassText | null, names: string[]): { n: string; d: str
 /** Valor de una tabla por nivel (la última entrada que ya se alcanza). */
 const atLevel2 = (t: Record<number, string>, level: number, first: string) => Object.entries(t).reduce((e, [lv, x]) => (parseInt(lv, 10) <= level ? x : e), first);
 
+const FOCUS_COST = 'Concentración del monje';
+
 interface Btn { k: string; t: string; dmg?: boolean; off?: boolean; plain?: boolean; go: () => void }
 
 /** Rasgos de la subclase con sus tiradas: dados del recurso, usos propios, PG temporales, daño extra con las armas… */
@@ -131,7 +133,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
             const costLeft = r.cost ? costMax - Math.min(costMax, c.uses[r.cost] || 0) : 1;
             const what = (r.type ? 'Daño ' : 'Tirar ') + expr + (r.type ? ' ' + r.type : '');
             if (!r.spend) btns.push({
-              k: 'r', t: what + (r.cost ? ' · −1 concentración' : ''), dmg: !!r.type, off: (!!r.uses && uused >= umax) || costLeft < 1,
+              k: 'r', t: what + (r.cost ? (r.cost === FOCUS_COST ? ' · −1 concentración' : ' · −1 punto de hechicería') : ''), dmg: !!r.type, off: (!!r.uses && uused >= umax) || costLeft < 1,
               go: () => { if (r.uses) set({ uses: { ...c.uses, [name]: uused + 1 } }); if (r.cost) set({ uses: { ...c.uses, [r.cost]: (c.uses[r.cost] || 0) + 1 } }); roll({ label: label(), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }] }); },
             });
             if (r.freeAlt) btns.push({ k: 'f', t: what + ' · ' + r.freeAlt, go: () => roll({ label: label(r.freeAlt), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }] }) });
@@ -170,7 +172,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
                 {res && r.kind !== 'info' && <span className="chip-tag">{left} de {max}{die ? ' ' + die : ''}</span>}
                 {a.save && <span className="chip-tag">CD {dcOf(a.save.dc)} {ABIL_N[a.save.abil]}</span>}
                 <span className="rollrow">
-                  {btns.map((b) => <button key={b.k} className={b.plain ? 'btn small' : b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off || off} onClick={() => { onUse?.(); b.go(); }}>{b.t}</button>)}
+                  {btns.map((b) => <button key={b.k} className={b.plain ? 'btn small' : b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off || off} onClick={() => { b.go(); onUse?.(); }}>{b.t}</button>)}
                   {!btns.length && <button className="btn small" disabled={off} onClick={onUse}>Usar</button>}
                 </span>
               </li>

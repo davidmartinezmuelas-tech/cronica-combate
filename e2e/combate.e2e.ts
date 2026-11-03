@@ -3165,3 +3165,32 @@ test('Presagio del adivino: tira los d20, los gasta uno a uno y el descanso larg
   if (await swap.count()) await swap.click();
   await expect(card).toContainText('Sin tirar');
 });
+
+test('Doblegar la suerte gasta un punto de hechicería y Golpe pavoroso sus usos', async ({ page }) => {
+  const sub = (cls: string, n: string, f: [string, string][]) => ({ id: 'lib-sub-' + cls, n, cls, d: '', f: f.map(([fn, d]) => ({ lv: 3, n: fn, d })) });
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
+    subclasses: [sub('sorcerer', 'Hechicería de magia salvaje', [['Doblegar la suerte', 'Reacción y 1 punto de hechicería.']]), sub('ranger', 'Acechador en la penumbra', [['Emboscador pavoroso', 'Golpe pavoroso.']])] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: 'Biblioteca cargada' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Caos');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Hechicero' });
+  await page.getByLabel('Nivel', { exact: true }).fill('6');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Hechicería de magia salvaje' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const rx = page.locator('section[aria-label="Reacción"]');
+  await expect(rx).toContainText('Doblegar la suerte');
+  await rx.locator('li', { hasText: 'Doblegar la suerte' }).getByRole('button', { name: /−1 punto de hechicería/ }).click();
+  await expect(rx.getByRole('button', { name: 'Usada · recuperar' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Acechador en la penumbra' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const gs = page.locator('section[aria-label="Acechador en la penumbra"] .card', { hasText: 'Emboscador pavoroso' });
+  await gs.getByRole('button', { name: /^Daño 2d6 psíquico/ }).click();
+  await expect(gs.getByRole('group', { name: /Usos de Emboscador pavoroso/ })).toBeVisible();
+});

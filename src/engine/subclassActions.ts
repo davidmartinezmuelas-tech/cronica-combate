@@ -257,6 +257,30 @@ export const KITS: SubclassKit[] = [
     ],
   },
   {
+    id: 'wild-magic', cls: 'sorcerer', subs: ['Hechicería de magia salvaje', 'Wild Magic Sorcery'], title: 'Magia salvaje',
+    actions: [
+      { n: ['Doblegar la suerte', 'Bend Luck'], lv: 6, react: true, roll: { kind: 'roll', expr: '1d4', cost: 'Fuente de magia' }, note: 'Tras la tirada de d20 de otra criatura: sumas o restas el resultado, a tu elección.' },
+    ],
+  },
+  {
+    id: 'world-tree', cls: 'barbarian', subs: ['Senda del árbol del mundo', 'Path of the World Tree'], title: 'Árbol del Mundo',
+    actions: [
+      { n: ['Ramas del árbol', 'Branches of the Tree'], lv: 6, react: true, roll: { kind: 'info' }, save: { abil: 'str', dc: 'str' } },
+    ],
+  },
+  {
+    id: 'stars', cls: 'druid', subs: ['Círculo de las estrellas', 'Circle of the Stars'], title: 'Círculo de las estrellas',
+    actions: [
+      { n: ['Presagio cósmico', 'Cosmic Omen'], lv: 6, react: true, roll: { kind: 'roll', expr: '1d6' }, note: 'Desdicha (resta) si tiraste impar, Fortuna (suma) si tiraste par: la reacción especial dura hasta el siguiente descanso largo.' },
+    ],
+  },
+  {
+    id: 'gloom-stalker', cls: 'ranger', subs: ['Acechador en la penumbra', 'Gloom Stalker'], title: 'Acechador en la penumbra',
+    actions: [
+      { n: ['Emboscador pavoroso', 'Dread Ambusher'], lv: 3, roll: { kind: 'roll', expr: '2d6', type: 'psíquico', uses: { max: 'wis', per: 'lr' } }, note: 'Golpe pavoroso: una vez por turno, al acertar con un arma.' },
+    ],
+  },
+  {
     id: 'abjurer', cls: 'wizard', subs: ['Abjurador', 'Abjurer'], title: 'Salvaguarda arcana',
     actions: [
       { n: ['Salvaguarda arcana', 'Arcane Ward'], lv: 3, roll: { kind: 'ward' }, note: 'Al lanzar un conjuro de Abjuración con un espacio la creas o la recuperas en el doble del nivel del espacio. Absorbe el daño que recibes; dura hasta un descanso largo.' },
