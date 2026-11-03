@@ -1,7 +1,7 @@
 import { createStore, del, entries, set as idbSet } from 'idb-keyval';
 import { wizardPref } from '../shared/prefs';
 import { create } from 'zustand';
-import type { PlayerData } from '../data/player';
+import type { ClassData, PlayerData } from '../data/player';
 import { blankCharacter, type Character } from '../engine/character';
 
 /**
@@ -13,7 +13,10 @@ const store = () => (idb ??= createStore('cronica-personajes', 'pj'));
 const ACTIVE_KEY = 'cronica-pj-activo';
 
 export interface PlayerState {
-  data: PlayerData | null;
+  data: PlayerData | null; // el SRD con las clases de la biblioteca ya sumadas
+  srd: PlayerData | null; // solo lo del SRD
+  libClasses: ClassData[];
+  setLibClasses: (list: ClassData[]) => void;
   dataError: string;
   loaded: boolean;
   characters: Character[];
@@ -52,8 +55,11 @@ function save(c: Character) {
 
 let dataLoading: Promise<void> | null = null;
 
+/** Los datos del SRD con las clases de la biblioteca (las del SRD mandan si coincide el id). */
+const withClasses = (d: PlayerData, extra: ClassData[]): PlayerData => (extra.length ? { ...d, classes: [...d.classes, ...extra.filter((x) => !d.classes.some((c) => c.id === x.id))] } : d);
+
 export const usePlayer = create<PlayerState>()((set, get) => ({
-  data: null, dataError: '', loaded: false, characters: [], activeId: null, editing: false, creating: null,
+  data: null, srd: null, libClasses: [], dataError: '', loaded: false, characters: [], activeId: null, editing: false, creating: null,
 
   async init() {
     if (get().loaded) return;
@@ -72,9 +78,14 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     if (get().data) return Promise.resolve();
     dataLoading ??= fetch(import.meta.env.BASE_URL + 'data/jugador_es.json')
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json() as Promise<PlayerData>; })
-      .then((d) => set({ data: d, dataError: '' }))
+      .then((d) => set({ srd: d, data: withClasses(d, get().libClasses), dataError: '' }))
       .catch((e: Error) => { dataLoading = null; set({ dataError: 'No se pudieron cargar las clases y especies (' + e.message + ').' }); });
     return dataLoading;
+  },
+
+  setLibClasses(list) {
+    const srd = get().srd;
+    set({ libClasses: list, ...(srd ? { data: withClasses(srd, list) } : {}) });
   },
 
   select(id) {

@@ -5,7 +5,7 @@ import { cloudError, firebaseAdapter, type CloudAdapter, type CloudUser, type Dm
 import { usePlayer } from './player';
 import { useStore } from './useStore';
 import { useLibrary } from './library';
-import type { LibSpell, LibSubclass } from '../engine/bookImport';
+import type { LibClass, LibSpell, LibSubclass } from '../engine/bookImport';
 
 /**
  * Cuenta opcional (Google o correo) y sincronización de los personajes con la nube. Sin cuenta todo sigue en el
@@ -121,12 +121,13 @@ async function startDmSync(a: CloudAdapter, uid: string, onError: (e: unknown) =
  * Subclases y conjuros propios («Mis creaciones») en la cuenta del jugador, como los datos del máster: cada cambio
  * se fecha y se sube; de la nube solo se aplica lo más reciente. Lo importado del libro no sale del dispositivo.
  */
-type Creation = (LibSubclass | LibSpell) & { at?: number };
-const isSub = (x: Creation): x is LibSubclass => 'cls' in x;
+type Creation = (LibSubclass | LibSpell | LibClass) & { at?: number };
+const isClass = (x: Creation): x is LibClass => 'hd' in x; // las clases llevan dado de golpe
+const isSub = (x: Creation): x is LibSubclass => !isClass(x) && 'cls' in x;
 async function startCreationsSync(a: CloudAdapter, uid: string, onError: (e: unknown) => void, onOk: () => void): Promise<() => void> {
   await useLibrary.getState().init();
   const lib = () => useLibrary.getState();
-  const list = (s = lib()): Creation[] => [...s.subclasses.filter((x) => x.own && !x.guest), ...s.spells.filter((x) => x.own && !x.guest)];
+  const list = (s = lib()): Creation[] => [...s.subclasses.filter((x) => x.own && !x.guest), ...s.spells.filter((x) => x.own && !x.guest), ...s.classes.filter((x) => x.own && !x.guest)];
   let applying = false;
   let ready = false;
   const pending = new Map<string, ReturnType<typeof setTimeout>>();
@@ -136,10 +137,10 @@ async function startCreationsSync(a: CloudAdapter, uid: string, onError: (e: unk
     const clean = (x: Creation) => { const { kind: _k, ...rest } = x as Creation & { kind?: string }; return rest as Creation; };
     const own = next.map(clean);
     try {
-      await s.save({ subclasses: [...s.subclasses.filter((x) => !x.own || x.guest), ...own.filter(isSub).map((x) => ({ ...x, own: true }))], spells: [...s.spells.filter((x) => !x.own || x.guest), ...own.filter((x) => !isSub(x)).map((x) => ({ ...(x as LibSpell), own: true }))] });
+      await s.save({ subclasses: [...s.subclasses.filter((x) => !x.own || x.guest), ...own.filter(isSub).map((x) => ({ ...x, own: true }))], spells: [...s.spells.filter((x) => !x.own || x.guest), ...own.filter((x) => !isSub(x) && !isClass(x)).map((x) => ({ ...(x as LibSpell), own: true }))], classes: [...s.classes.filter((x) => !x.own || x.guest), ...own.filter(isClass).map((x) => ({ ...x, own: true }))] });
     } finally { applying = false; }
   };
-  const put = (x: Creation) => { const doc: { id: string; kind: string } = { ...x, kind: isSub(x) ? 'sub' : 'spell' }; return a.putItem(uid, 'creations', doc); };
+  const put = (x: Creation) => { const doc: { id: string; kind: string } = { ...x, kind: isClass(x) ? 'class' : isSub(x) ? 'sub' : 'spell' }; return a.putItem(uid, 'creations', doc); };
   const push = (x: Creation) => {
     clearTimeout(pending.get(x.id));
     pending.set(x.id, setTimeout(() => { pending.delete(x.id); put(x).then(onOk, onError); }, 1200));
@@ -157,7 +158,7 @@ async function startCreationsSync(a: CloudAdapter, uid: string, onError: (e: unk
     onOk();
   }, onError);
   const stopLocal = useLibrary.subscribe((s, prev) => {
-    if (applying || !ready || (s.subclasses === prev.subclasses && s.spells === prev.spells)) return;
+    if (applying || !ready || (s.subclasses === prev.subclasses && s.spells === prev.spells && s.classes === prev.classes)) return;
     const { changed, removed } = diffItems<Synced>(list(prev), list(s));
     if (changed.length) {
       // se fecha lo que ha cambiado aquí

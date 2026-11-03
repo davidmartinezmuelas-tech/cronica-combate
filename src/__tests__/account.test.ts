@@ -145,6 +145,23 @@ describe('sincronizar con la cuenta', () => {
   });
 });
 
+describe('clases propias', () => {
+  it('una clase propia va a la cuenta con kind «class», baja la de otro dispositivo y se suma a los datos del jugador', async () => {
+    const cls = (id: string, n: string, at?: number) => ({ id, n, en: n, hd: 8, saves: [], skills: { count: 2, pool: [] }, armor: [], weapons: [], caster: 'none' as const, spellAb: '' as const, primary: [], asi: [], f: [], sc: {}, sub: null, d: '', spells: [], own: true, ...(at ? { at } : {}) });
+    await useLibrary.getState().init();
+    await useLibrary.getState().save({ classes: [cls('c1', 'Caballero de la Muerte', 100)] });
+    useStore.setState({ loaded: true, custom: [], encounters: [], roster: [] });
+    const cloud = fakeCloud({ uid: 'u1', email: 'a@b.c', name: null, anon: false });
+    cloud.items.creations.set('c2', { ...cls('c2', 'Cazador de Demonios', 50), kind: 'class' } as { id: string });
+    setCloudAdapter(async () => cloud.adapter);
+    await useAccount.getState().start();
+    await vi.waitFor(() => expect(cloud.items.creations.has('c1')).toBe(true));
+    expect((cloud.items.creations.get('c1') as unknown as { kind: string }).kind).toBe('class');
+    expect(useLibrary.getState().classes.map((x) => x.n).sort()).toEqual(['Caballero de la Muerte', 'Cazador de Demonios']);
+    expect(usePlayer.getState().libClasses.map((x) => x.id).sort()).toEqual(['c1', 'c2']);
+  });
+});
+
 describe('juntar listas con fecha', () => {
   it('gana la más reciente y lo de la nube que no es más nuevo no pisa lo local', () => {
     const { toLocal, toRemote } = mergeItems([{ id: 'a', at: 1 }, { id: 'b', at: 5 }, { id: 'c' }], [{ id: 'a', at: 3 }, { id: 'b', at: 2 }, { id: 'd', at: 1 }]);
