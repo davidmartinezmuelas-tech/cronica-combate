@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { ABILS, type Abil, type Uses } from '../../data/player';
 import { CONDITIONS, DMG_TYPES } from '../../data/constants';
-import type { LibSubclass } from '../../engine/bookImport';
+import type { LibClass, LibSubclass } from '../../engine/bookImport';
 import { validDice, type CastingRule, type HbFx } from '../../engine/homebrew';
 import { norm, uid } from '../../engine/util';
 import { useLibrary } from '../../store/library';
 import { usePlayer } from '../../store/player';
+import HomebrewClass, { blankClass, castTextOf, cleanClass } from './HomebrewClass';
 import HomebrewSpells from './HomebrewSpells';
 import { useSpells } from './spells';
 
@@ -91,25 +92,70 @@ export function FxEditor({ id, fx, set }: { id: string; fx: HbFx | undefined; se
 }
 
 /** Usos de un rasgo propio, en la forma de los datos de la app («2», «@prof», «max(1, @abilities.cha.mod)»). */
-type UseKind = '' | 'n' | 'pb' | 'mod';
+type UseKind = '' | 'n' | 'pb' | 'mod' | 'tbl'; // tbl: segun el nivel de clase (solo en clases)
 const kindOf = (u?: Uses): { k: UseKind; n: number; a: Abil } => {
   if (!u) return { k: '', n: 1, a: 'cha' };
+  if (u.max.startsWith('@scale.')) return { k: 'tbl', n: 1, a: 'cha' };
   if (u.max === '@prof') return { k: 'pb', n: 1, a: 'cha' };
   const m = /@abilities\.(\w+)\.mod/.exec(u.max);
   if (m) return { k: 'mod', n: 1, a: m[1] as Abil };
   return { k: 'n', n: parseInt(u.max, 10) || 1, a: 'cha' };
 };
-const usesOf = (k: UseKind, n: number, a: Abil, per: string): Uses | undefined =>
-  k === 'n' ? { max: String(Math.max(1, Math.min(10, n))), per } : k === 'pb' ? { max: '@prof', per } : k === 'mod' ? { max: 'max(1, @abilities.' + a + '.mod)', per } : undefined;
+const usesOf = (k: UseKind, n: number, a: Abil, per: string, scale?: string): Uses | undefined =>
+  k === 'tbl' && scale ? { max: '@scale.' + scale, per } : k === 'n' ? { max: String(Math.max(1, Math.min(10, n))), per } : k === 'pb' ? { max: '@prof', per } : k === 'mod' ? { max: 'max(1, @abilities.' + a + '.mod)', per } : undefined;
 
 /** «3:2, 10:3» como tabla nivel -> cantidad (lo que no se entiende se ignora). */
-const parseTable = (t: string): Record<number, number> => {
+export const parseTable = (t: string): Record<number, number> => {
   const out: Record<number, number> = {};
   for (const part of t.split(',')) { const m = /^\s*(\d{1,2})\s*[:=]\s*(\d{1,2})\s*$/.exec(part); if (m && +m[1] >= 1 && +m[1] <= 20) out[+m[1]] = +m[2]; }
   return out;
 };
-const fmtTable = (t: Record<number, number> | undefined) => Object.entries(t || {}).map(([l, n]) => l + ':' + n).join(', ');
+export const fmtTable = (t: Record<number, number> | undefined) => Object.entries(t || {}).map(([l, n]) => l + ':' + n).join(', ');
 const PROGRESSION: [CastingRule['progression'], string][] = [['third', 'Un tercio (como el Caballero arcano)'], ['half', 'La mitad (como el Paladín)'], ['full', 'Completo (como el Mago)']];
+
+/** Un rasgo escrito a mano: nombre, texto, usos, efecto con tirada y conjuros siempre preparados. Sirve a subclases y a clases. */
+export function FeatureFields({ f, i, setF, onRemove, scaleKey, tableTxt, onTable }: { f: Feature; i: number; setF: (patch: Partial<Feature>) => void; onRemove: () => void; scaleKey?: string; tableTxt?: string; onTable?: (t: string) => void }) {
+  return (
+    <div className="hb-feat">
+      <div className="field"><label htmlFor={'hb-fn' + i}>Rasgo</label>
+        <input id={'hb-fn' + i} className="input" value={f.n} placeholder="Nombre del rasgo" onChange={(e) => setF({ n: e.target.value })} /></div>
+      <div className="field"><label htmlFor={'hb-fd' + i}>Qué hace</label>
+        <textarea id={'hb-fd' + i} className="input" rows={3} value={f.d} onChange={(e) => setF({ d: e.target.value })} /></div>
+      {(() => {
+        const u = kindOf(f.u);
+        const per = f.u?.per || 'lr';
+        return (
+          <div className="hb-uses">
+            <div className="field"><label htmlFor={'hb-fu' + i}>Usos</label>
+              <select id={'hb-fu' + i} className="input" value={u.k} onChange={(e) => setF({ u: usesOf(e.target.value as UseKind, u.n, u.a, per, scaleKey) })}>
+                <option value="">Sin límite</option>
+                <option value="n">Un número fijo</option>
+                <option value="pb">Tu bono de competencia</option>
+                {scaleKey && <option value="tbl">Según tu nivel en la clase</option>}
+                <option value="mod">Tu modificador de…</option>
+              </select></div>
+            {u.k === 'n' && <div className="field"><label htmlFor={'hb-fun' + i}>Cuántos</label>
+              <input id={'hb-fun' + i} className="input" type="number" min={1} max={10} value={u.n} onChange={(e) => setF({ u: usesOf('n', parseInt(e.target.value, 10) || 1, u.a, per) })} /></div>}
+            {u.k === 'mod' && <div className="field"><label htmlFor={'hb-fua' + i}>Característica</label>
+              <select id={'hb-fua' + i} className="input" value={u.a} onChange={(e) => setF({ u: usesOf('mod', u.n, e.target.value as Abil, per) })}>
+                {ABILS.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+              </select></div>}
+            {u.k === 'tbl' && onTable && <div className="field"><label htmlFor={'hb-fut' + i}>Usos por nivel (nivel:cantidad)</label>
+              <input id={'hb-fut' + i} className="input" value={tableTxt || ''} placeholder="1:2, 5:3, 11:4" onChange={(e) => onTable(e.target.value)} /></div>}
+            {u.k && <div className="field"><label htmlFor={'hb-fup' + i}>Se recuperan</label>
+              <select id={'hb-fup' + i} className="input" value={per} onChange={(e) => setF({ u: usesOf(u.k, u.n, u.a, e.target.value, scaleKey) })}>
+                <option value="sr">En un descanso corto o largo</option>
+                <option value="lr">En un descanso largo</option>
+              </select></div>}
+            <button className="btn small ghost" onClick={() => onRemove()}>Quitar rasgo</button>
+          </div>
+        );
+      })()}
+      <FxEditor id={'hb' + i} fx={f.fx} set={(fx) => setF({ fx })} />
+      <SpellPick id={'hb' + i} ids={f.sp || []} set={(sp) => setF({ sp: sp.length ? sp : undefined })} />
+    </div>
+  );
+}
 
 /**
  * Mis creaciones: subclases propias (homebrew o de otros libros) escritas a mano, nivel a nivel. Se guardan en la
@@ -119,10 +165,13 @@ export default function HomebrewPanel() {
   const lib = useLibrary();
   const data = usePlayer((s) => s.data);
   const [draft, setDraft] = useState<LibSubclass | null>(null);
+  const [clsDraft, setClsDraft] = useState<LibClass | null>(null);
+  const [clsCast, setClsCast] = useState({ c: '', p: '' });
   const [confirmDel, setConfirmDel] = useState('');
   const [extraLv, setExtraLv] = useState(1);
   const [castTxt, setCastTxt] = useState({ c: '', p: '' }); // las tablas de lanzamiento como se escriben («3:2, 10:3»)
   const own = lib.subclasses.filter((s) => s.own && !s.guest);
+  const ownClasses = lib.classes.filter((s) => s.own && !s.guest);
   const classes = data?.classes || [];
   const clsName = (id: string) => classes.find((k) => k.id === id)?.n || id;
 
@@ -133,11 +182,38 @@ export default function HomebrewPanel() {
     setDraft(null);
   };
 
+  const saveClass = () => {
+    if (!clsDraft || !clsDraft.n.trim()) return;
+    const clean = cleanClass(clsDraft, clsCast);
+    void lib.save({ classes: [...lib.classes.filter((s) => s.id !== clean.id), clean] });
+    setClsDraft(null);
+  };
+
+  if (clsDraft) {
+    const taken = classes.some((k) => k.id !== clsDraft.id && norm(k.n) === norm(clsDraft.n));
+    return <HomebrewClass draft={clsDraft} setDraft={setClsDraft} castTxt={clsCast} setCastTxt={setClsCast} taken={taken} onSave={saveClass} onCancel={() => setClsDraft(null)} />;
+  }
+
   if (!draft) {
     return (
       <div className="panel" aria-label="Mis creaciones">
         <div className="panel-head"><h2>Mis creaciones</h2></div>
         <p className="muted small" style={{ margin: 0 }}>Subclases y conjuros propios, de tu mesa o de otros libros: escribe sus rasgos nivel a nivel o lo que hace el conjuro, y funcionarán en el personaje como los demás. Se guardan en este dispositivo y, si tienes cuenta, también en la nube para tenerlas en todos tus dispositivos. Van en «Exportar biblioteca» para pasárselas a tu grupo.</p>
+        <h3 className="eyebrow">Clases propias</h3>
+        {ownClasses.length > 0 && (
+          <ul className="hb-list">
+            {ownClasses.map((s) => (
+              <li key={s.id}>
+                <span><b>{s.n}</b> <span className="muted small">clase · d{s.hd} · {s.f.length} {s.f.length === 1 ? 'rasgo' : 'rasgos'}</span></span>
+                <span className="rollrow">
+                  <button className="btn small" onClick={() => { setClsDraft(s); setClsCast(castTextOf(s)); }}>Editar</button>
+                  <button className="btn small ghost danger" onClick={() => { if (confirmDel === s.id) { void lib.save({ classes: lib.classes.filter((x) => x.id !== s.id) }); setConfirmDel(''); } else setConfirmDel(s.id); }}>{confirmDel === s.id ? '¿Seguro? Borrar' : 'Borrar'}</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => { setClsDraft(blankClass('own-' + uid())); setClsCast({ c: '', p: '' }); }}>Crear clase</button>
         <h3 className="eyebrow">Subclases propias</h3>
         {own.length > 0 && (
           <ul className="hb-list">
@@ -227,41 +303,7 @@ export default function HomebrewPanel() {
         <fieldset key={lv} className="fs hb-level">
           <legend>Nivel {lv}</legend>
           {draft.f.map((f, i) => f.lv !== lv ? null : (
-            <div key={i} className="hb-feat">
-              <div className="field"><label htmlFor={'hb-fn' + i}>Rasgo</label>
-                <input id={'hb-fn' + i} className="input" value={f.n} placeholder="Nombre del rasgo" onChange={(e) => setF(i, { n: e.target.value })} /></div>
-              <div className="field"><label htmlFor={'hb-fd' + i}>Qué hace</label>
-                <textarea id={'hb-fd' + i} className="input" rows={3} value={f.d} onChange={(e) => setF(i, { d: e.target.value })} /></div>
-              {(() => {
-                const u = kindOf(f.u);
-                const per = f.u?.per || 'lr';
-                return (
-                  <div className="hb-uses">
-                    <div className="field"><label htmlFor={'hb-fu' + i}>Usos</label>
-                      <select id={'hb-fu' + i} className="input" value={u.k} onChange={(e) => setF(i, { u: usesOf(e.target.value as UseKind, u.n, u.a, per) })}>
-                        <option value="">Sin límite</option>
-                        <option value="n">Un número fijo</option>
-                        <option value="pb">Tu bono de competencia</option>
-                        <option value="mod">Tu modificador de…</option>
-                      </select></div>
-                    {u.k === 'n' && <div className="field"><label htmlFor={'hb-fun' + i}>Cuántos</label>
-                      <input id={'hb-fun' + i} className="input" type="number" min={1} max={10} value={u.n} onChange={(e) => setF(i, { u: usesOf('n', parseInt(e.target.value, 10) || 1, u.a, per) })} /></div>}
-                    {u.k === 'mod' && <div className="field"><label htmlFor={'hb-fua' + i}>Característica</label>
-                      <select id={'hb-fua' + i} className="input" value={u.a} onChange={(e) => setF(i, { u: usesOf('mod', u.n, e.target.value as Abil, per) })}>
-                        {ABILS.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
-                      </select></div>}
-                    {u.k && <div className="field"><label htmlFor={'hb-fup' + i}>Se recuperan</label>
-                      <select id={'hb-fup' + i} className="input" value={per} onChange={(e) => setF(i, { u: usesOf(u.k, u.n, u.a, e.target.value) })}>
-                        <option value="sr">En un descanso corto o largo</option>
-                        <option value="lr">En un descanso largo</option>
-                      </select></div>}
-                    <button className="btn small ghost" onClick={() => setDraft({ ...draft, f: draft.f.filter((_, j) => j !== i) })}>Quitar rasgo</button>
-                  </div>
-                );
-              })()}
-              <FxEditor id={'hb' + i} fx={f.fx} set={(fx) => setF(i, { fx })} />
-              <SpellPick id={'hb' + i} ids={f.sp || []} set={(sp) => setF(i, { sp: sp.length ? sp : undefined })} />
-            </div>
+            <FeatureFields key={i} f={f} i={i} setF={(patch) => setF(i, patch)} onRemove={() => setDraft({ ...draft, f: draft.f.filter((_, j) => j !== i) })} />
           ))}
           <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => add(lv)}>+ Rasgo de nivel {lv}</button>
         </fieldset>

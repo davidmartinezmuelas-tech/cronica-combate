@@ -2265,6 +2265,39 @@ test('subclase propia: se escribe en «Mis creaciones», se elige en el personaj
   await expect(page.locator('.lvl')).toContainText('Vista de halcón');
 });
 
+test('clase propia: se escribe en «Mis creaciones», se guarda con sus rasgos y tablas, se edita y se borra', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear clase' }).click();
+  await page.getByLabel('Nombre de la clase').fill('Chamán');
+  await page.getByLabel('Dado de golpe').selectOption('10');
+  await page.getByRole('group', { name: 'Salvaciones con competencia' }).getByRole('button', { name: 'Sabiduría' }).click();
+  await page.getByRole('group', { name: 'Armaduras' }).getByRole('button', { name: 'Media' }).click();
+  await page.getByLabel('Tipo de lanzador').selectOption({ label: 'La mitad (como el Paladín)' });
+  await page.getByLabel('Lista de conjuros de').selectOption({ label: 'Druida' });
+  await page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)').fill('1:2, 5:4');
+  await page.getByRole('button', { name: '+ Rasgo de nivel 1' }).click();
+  await page.getByLabel('Rasgo', { exact: true }).fill('Espíritus guía');
+  await page.getByLabel('Usos', { exact: true }).selectOption({ label: 'Según tu nivel en la clase' });
+  await page.getByLabel('Usos por nivel (nivel:cantidad)').fill('1:2, 5:3');
+  await page.getByRole('button', { name: 'Guardar clase' }).click();
+  await expect(page.getByText('clase · d10 · 1 rasgo')).toBeVisible();
+
+  // al editarla, todo sigue como se escribió
+  await page.getByRole('button', { name: 'Editar' }).first().click();
+  await expect(page.getByLabel('Nombre de la clase')).toHaveValue('Chamán');
+  await expect(page.getByLabel('Usos por nivel (nivel:cantidad)')).toHaveValue('1:2, 5:3');
+  await expect(page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)')).toHaveValue('1:2, 5:4');
+  // una clase con el nombre de una del manual no se deja guardar
+  await page.getByLabel('Nombre de la clase').fill('Mago');
+  await expect(page.getByText('Ya hay una clase con ese nombre.')).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar' }).first().click();
+
+  await page.getByRole('button', { name: 'Borrar' }).first().click();
+  await page.getByRole('button', { name: '¿Seguro? Borrar' }).click();
+  await expect(page.getByText('clase · d10')).toHaveCount(0);
+});
+
 test('subclase propia con efectos: ataque, salvación, curación, daño extra al golpear y bonificador fijo funcionan en la hoja', async ({ page }) => {
   await page.goto('/#/jugador');
   await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();

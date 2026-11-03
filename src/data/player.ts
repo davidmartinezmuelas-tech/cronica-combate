@@ -24,7 +24,7 @@ export interface ClassData {
   skills: { count: number; pool: string[] }; // pool ['*'] = cualquiera
   armor: string[]; // lgt, med, hvy, shl
   weapons: string[]; // sim, mar o armas concretas (baseItem)
-  caster: 'none' | 'full' | 'half' | 'pact';
+  caster: 'none' | 'full' | 'half' | 'third' | 'pact';
   spellAb: Abil | '';
   primary: Abil[];
   asi: number[];

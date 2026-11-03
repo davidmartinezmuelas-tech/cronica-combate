@@ -56,7 +56,12 @@ function save(c: Character) {
 let dataLoading: Promise<void> | null = null;
 
 /** Los datos del SRD con las clases de la biblioteca (las del SRD mandan si coincide el id). */
-const withClasses = (d: PlayerData, extra: ClassData[]): PlayerData => (extra.length ? { ...d, classes: [...d.classes, ...extra.filter((x) => !d.classes.some((c) => c.id === x.id))] } : d);
+const withClasses = (d: PlayerData, extra: (ClassData & { listFrom?: string })[]): PlayerData => {
+  if (!extra.length) return d;
+  // una clase que toma su lista de otra (la del SRD o una de las suyas) la copia aquí
+  const spellsOf = (x: ClassData & { listFrom?: string }) => (x.spells.length || !x.listFrom ? x.spells : [...d.classes, ...extra].find((c) => c.id === x.listFrom)?.spells || []);
+  return { ...d, classes: [...d.classes, ...extra.filter((x) => !d.classes.some((c) => c.id === x.id)).map((x) => ({ ...x, spells: spellsOf(x) }))] };
+};
 
 export const usePlayer = create<PlayerState>()((set, get) => ({
   data: null, srd: null, libClasses: [], dataError: '', loaded: false, characters: [], activeId: null, editing: false, creating: null,
