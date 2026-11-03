@@ -109,9 +109,9 @@ function Row({ c, prev, next }: { c: Combatant; prev?: string; next?: string }) 
       <button className={cls} title={c.name} onClick={() => { set({ selId: c.id, spellOpen: null }); showCard(); }} aria-pressed={isSel}>
         <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {/* una línea: iniciativa, nombre y marcas a la izquierda; CA y PG a la derecha (la fila ocupa la mitad que antes) */}
-          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 8, rowGap: 2 }}>
             <span className="init-badge" title="Arrastra el número para cambiar el orden" onPointerDown={(e) => startTouchDrag(e, c.id)} aria-label={'Iniciativa ' + (c.init ?? 'sin tirar')}>{c.init == null ? '—' : c.init}</span>
-            <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.2, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
+            <span style={{ fontWeight: 800, fontSize: 15, lineHeight: 1.2, flex: '1 1 7ch', minWidth: 0, overflowWrap: 'anywhere' }}>{c.name}</span>
             {c.kind === 'pc' && <span className="pc-flag">PJ</span>}
             {c.kind !== 'lair' && !!c.note?.trim() && (
               <span className="note-flag" role="img" aria-label={'Nota de ' + c.name + ': ' + c.note.trim()} title={c.note.trim()}
@@ -119,7 +119,7 @@ function Row({ c, prev, next }: { c: Combatant; prev?: string; next?: string }) 
             )}
             {isActive && <span className="turn-flag" title="En turno" aria-label="En turno">▶</span>}
             {c.kind !== 'lair' && (
-              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto', fontSize: 12, color: 'var(--text-2)' }}>CA {c.ac} · {c.hp}/{c.maxHp}{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
+              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, marginLeft: 'auto', fontSize: 12, color: 'var(--text-2)', flex: 'none' }}>CA {c.ac} · {c.hp}/{c.maxHp}{c.temp > 0 && <span style={{ color: '#9cc4e4' }}> +{c.temp}</span>}</span>
             )}
           </span>
           {c.kind !== 'lair' && <span className="hpbar"><span className={'hpfill ' + (pct <= 25 ? 'low' : pct <= 50 ? 'mid' : '')} style={{ width: pct + '%' }} /></span>}
