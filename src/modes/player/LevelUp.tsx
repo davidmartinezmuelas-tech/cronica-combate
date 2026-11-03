@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
 import { applyFeatAsi, featAsi, featAsiOptions } from '../../engine/featAsi';
 import { asClass, classEntries, derive, totalLevel, type Character, type ClassEntry } from '../../engine/character';
-import { activeChoices, choiceCount, spellSwapRules, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
+import { activeChoices, choiceCount, spellSwapRules, subLvOf, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { classAlwaysSpells } from '../../engine/spellPrep';
 import { grantedSpells } from '../../engine/grantedSpells';
 import { fmt } from '../../engine/dice';
@@ -60,7 +60,8 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const cls = data.classes.find((x) => x.id === classId);
   const cur: ClassEntry | undefined = classEntries(c).find((e) => e.classId === classId);
   const newLv = (cur?.level || 0) + 1;
-  const needSub = !!cls?.sub && newLv === cls.sub.lv && !cur?.subclass;
+  const subAt = subLvOf(cls);
+  const needSub = subAt != null && newLv === subAt && !cur?.subclass && (!!cls?.sub || lib.subclasses.some((x) => x.cls === classId));
   // con la subclase que se elige en esta subida (Caballero arcano y Embaucador arcano dan espacios y conjuros desde que se eligen)
   const next = (() => {
     const n = withLevel(c, classId);
@@ -136,7 +137,7 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
     .sort((a, b) => (a.l ? 1 : 0) - (b.l ? 1 : 0) || (b.l || 0) - (a.l || 0) || a.n.localeCompare(b.n, 'es'));
   const known = c.spells.map((id) => spellIdx.get(id)).filter((x): x is NonNullable<typeof x> => !!x && classSpells.has(x.id));
   // qué puede cambiar esta clase al subir (las que cambian tras un descanso largo lo hacen al descansar)
-  const rules = spellSwapRules(classId);
+  const rules = spellSwapRules(classId, cls?.caster);
   const swapPool = spellIdx.list.filter((x) => classSpells.has(x.id) && !c.spells.includes(x.id) && !picks.includes(x.id) && (x.l || 0) <= maxAfter).sort((a, b) => (a.l || 0) - (b.l || 0) || a.n.localeCompare(b.n, 'es'));
   const canCantrip = rules.cantrip === 'level';
   const canSpell = rules.spells?.when === 'level';

@@ -3,7 +3,8 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { PlayerData } from '../data/player';
 import { blankCharacter, derive, type Character } from '../engine/character';
-import { activeChoices, choiceCount, choiceOptions, CHOICES, optionItems, subclassSpellLevel, subclassSpells, subclassText } from '../engine/subclassChoices';
+import { activeChoices, choiceCount, choiceOptions, CHOICES, optionItems, spellSwapRules, subLvOf, subclassSpellLevel, subclassSpells, subclassText } from '../engine/subclassChoices';
+import { setOwnClasses } from '../engine/homebrew';
 
 const data = JSON.parse(readFileSync(resolve(process.cwd(), 'public/data/jugador_es.json'), 'utf8')) as PlayerData;
 const pj = (o: Partial<Character>): Character => ({ ...blankCharacter(), ...o });
@@ -188,5 +189,42 @@ describe('conjuros de subclase elegidos y lanzadores de un tercio', () => {
       expect([d.spell?.abil, d.slots]).toEqual(['wis', [4, 2]]);
     } finally { setCastingRules([]); }
     expect(subclassCaster({ classId: 'monk', subclass: 'Camino de las Estrellas', level: 6 })).toBeNull();
+  });
+});
+
+describe('clases propias', () => {
+  const cls = {
+    id: 'own-x', n: 'Chamán', en: 'Chamán', hd: 10, saves: ['wis'], skills: { count: 2, pool: ['*'] }, armor: [], weapons: ['sim'],
+    caster: 'half', spellAb: 'wis', primary: ['wis'], asi: [4], sc: {}, sub: null, d: '', spells: [], subLv: 3,
+    f: [{ lv: 1, n: 'Piel de roca', d: '', fx: { kind: 'bonus', ac: 1 } }, { lv: 5, n: 'Dones', d: '', sp: ['bless', 'shield-of-faith|9'] }],
+  } as unknown as PlayerData['classes'][number];
+
+  it('el nivel de subclase sale de la clase propia y el de la del SRD', () => {
+    expect(subLvOf(cls)).toBe(3);
+    expect(subLvOf(data.classes.find((k) => k.id === 'fighter'))).toBe(3);
+    expect(subLvOf(undefined)).toBeNull();
+  });
+
+  it('los conjuros siempre preparados de un rasgo de clase entran desde su nivel', () => {
+    const at = (level: number) => subclassSpells({ classId: 'own-x', subclass: '', level, choices: {} }, cls, null, []).map((x) => x.id);
+    expect(at(4)).toEqual([]);
+    expect(at(5)).toEqual(['bless']);
+    expect(at(9).sort()).toEqual(['bless', 'shield-of-faith']);
+  });
+
+  it('un rasgo de clase propia con bonificador suma a la CA', () => {
+    const withClass = { ...data, classes: [...data.classes, cls] };
+    const base = derive(pj({ classId: 'own-x', level: 5 }), withClass).ac;
+    setOwnClasses([{ id: 'own-x', n: 'Chamán', own: true, f: cls.f as never }]);
+    try {
+      expect(derive(pj({ classId: 'own-x', level: 5 }), withClass).ac).toBe(base + 1);
+      expect(derive(pj({ classId: 'own-x', level: 0 }), withClass).ac).toBe(base);
+    } finally { setOwnClasses([]); }
+  });
+
+  it('las reglas de cambio de conjuros: una clase propia que lanza cambia uno al subir de nivel', () => {
+    expect(spellSwapRules('own-x', 'half')).toEqual({ cantrip: 'level', spells: { when: 'level', all: false } });
+    expect(spellSwapRules('own-x', 'none')).toEqual({ cantrip: null, spells: null });
+    expect(spellSwapRules('paladin', 'half').spells?.when).toBe('rest');
   });
 });

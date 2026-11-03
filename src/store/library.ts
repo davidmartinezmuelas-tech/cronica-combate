@@ -2,7 +2,7 @@ import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-ke
 import { create } from 'zustand';
 import type { LibBackground, LibClass, LibFeat, LibSpell, LibSubclass } from '../engine/bookImport';
 import type { LibItem } from '../engine/magicItems';
-import { setCastingRules, setOwnSubclasses } from '../engine/homebrew';
+import { setCastingRules, setOwnClasses, setOwnSubclasses } from '../engine/homebrew';
 import { ownSelfFx, setOwnSpellFx } from '../engine/spellEffects';
 import { usePlayer } from './player';
 
@@ -121,7 +121,7 @@ const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: 
 useLibrary.subscribe((s, prev) => {
   if (s.subclasses !== prev.subclasses) { setOwnSubclasses(s.subclasses); setCastingRules(s.subclasses); }
   // las clases de la biblioteca se suman a las del SRD en los datos del jugador
-  if (s.classes !== prev.classes) usePlayer.getState().setLibClasses(s.classes);
+  if (s.classes !== prev.classes) { setOwnClasses(s.classes); usePlayer.getState().setLibClasses(s.classes); }
   // y los conjuros propios con efecto sobre quien lo recibe
   if (s.spells !== prev.spells) setOwnSpellFx(s.spells.filter((x) => x.own && x.self).map((x) => ({ id: x.id, n: x.n, fx: ownSelfFx(x.self!) })));
 });

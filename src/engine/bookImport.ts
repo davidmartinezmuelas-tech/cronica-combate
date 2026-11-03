@@ -22,13 +22,13 @@ export interface LibBackground { id: string; n: string; abil: Abil[]; skills: st
 export interface LibSpell { id: string; n: string; l: number; esc: string; classes: string[]; ct: string; r: string; cmp: string; du: string; c: number; rit: number; t: string; own?: boolean; sr?: SpellRoll; cond?: string; self?: OwnSelfFx; at?: number; guest?: boolean }
 /** `x`: apartados de opciones que van tras los rasgos («Opciones de maniobras»). */
 /** Rasgo de una clase de la biblioteca: como los del SRD, con efecto con tirada, conjuros siempre preparados y (en el editor) el texto de su tabla de usos. */
-export type LibClassFeature = ClassData['f'][number] & { fx?: HbFx; sp?: string[]; t?: string };
+export type LibClassFeature = ClassData['f'][number] & { t?: string };
 
 /**
  * Clase de la biblioteca: con la forma de las del SRD (dado, competencias, tablas por nivel, rasgos y conjuros); propia o
  * importada. `listFrom`: clase de cuya lista de conjuros toma la suya; `subLv`: nivel en que se elige la subclase.
  */
-export interface LibClass extends Omit<ClassData, 'f'> { f: LibClassFeature[]; listFrom?: string; subLv?: number; own?: boolean; at?: number; guest?: boolean }
+export interface LibClass extends Omit<ClassData, 'f'> { f: LibClassFeature[]; own?: boolean; at?: number; guest?: boolean }
 
 /** Subclase de la biblioteca: importada del libro del usuario o propia (own: escrita a mano en «Mis creaciones», con sus usos). */
 export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[] }[]; x?: { n: string; d: string }[]; own?: boolean; at?: number; guest?: boolean; casting?: CastingRule }

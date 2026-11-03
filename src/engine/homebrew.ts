@@ -37,10 +37,14 @@ export interface CastingRule {
 }
 
 interface OwnSub { cls: string; n: string; own?: boolean; f: { lv: number; n: string; fx?: HbFx }[] }
+interface OwnClass { id: string; n: string; own?: boolean; f: { lv: number; n: string; fx?: HbFx }[] }
 
 // las subclases propias de la biblioteca de este dispositivo (la biblioteca las registra al cargarse o cambiar)
 let own: OwnSub[] = [];
 export const setOwnSubclasses = (list: OwnSub[]) => { own = list.filter((s) => s.own); };
+// las clases propias: sus rasgos con efecto cuentan igual que los de una subclase
+let ownCls: OwnClass[] = [];
+export const setOwnClasses = (list: OwnClass[]) => { ownCls = list.filter((s) => s.own); };
 
 // las reglas de lanzamiento de las subclases de la biblioteca (propias o importadas), por clase y nombre
 let casting: { cls: string; n: string; rule: CastingRule }[] = [];
@@ -53,7 +57,11 @@ const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
 export function ownFeatures(entries: { classId: string; level: number; subclass: string }[]): { n: string; lv: number; fx: HbFx; sub: string }[] {
   return entries.flatMap((e) => {
     const s = own.find((x) => x.cls === e.classId && norm(x.n) === norm(e.subclass || ''));
-    return s ? s.f.filter((f) => f.fx && f.lv <= e.level).map((f) => ({ n: f.n, lv: f.lv, fx: f.fx!, sub: s.n })) : [];
+    const k = ownCls.find((x) => x.id === e.classId);
+    return [
+      ...(k ? k.f.filter((f) => f.fx && f.lv <= e.level).map((f) => ({ n: f.n, lv: f.lv, fx: f.fx!, sub: k.n })) : []),
+      ...(s ? s.f.filter((f) => f.fx && f.lv <= e.level).map((f) => ({ n: f.n, lv: f.lv, fx: f.fx!, sub: s.n })) : []),
+    ];
   });
 }
 

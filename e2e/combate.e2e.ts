@@ -3356,3 +3356,60 @@ test('subclase propia que lanza conjuros: su regla (avance, característica, lis
   await expect(sp).toBeVisible();
   await expect(sp.getByRole('group', { name: /^Espacios de nivel 1/ })).toBeVisible();
 });
+
+test('clase propia en el personaje: rasgos con usos por nivel, espacios de conjuro, subclase, descanso largo y subida de nivel', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear clase' }).click();
+  await page.getByLabel('Nombre de la clase').fill('Chamán');
+  await page.getByLabel('Dado de golpe').selectOption('10');
+  await page.getByLabel('Subclase desde el nivel').fill('3');
+  await page.getByRole('group', { name: 'Salvaciones con competencia' }).getByRole('button', { name: 'Sabiduría' }).click();
+  await page.getByLabel('Tipo de lanzador').selectOption({ label: 'La mitad (como el Paladín)' });
+  await page.getByLabel('Característica de lanzamiento').selectOption({ label: 'Sabiduría' });
+  await page.getByLabel('Lista de conjuros de').selectOption({ label: 'Druida' });
+  await page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)').fill('1:2, 5:4, 6:5');
+  await page.getByRole('button', { name: '+ Rasgo de nivel 1' }).click();
+  await page.getByLabel('Rasgo', { exact: true }).fill('Espíritus guía');
+  await page.getByLabel('Qué hace').fill('Invocas a un espíritu que te protege.');
+  await page.getByLabel('Usos', { exact: true }).selectOption({ label: 'Según tu nivel en la clase' });
+  await page.getByLabel('Usos por nivel (nivel:cantidad)').fill('1:2, 5:3');
+  await page.getByRole('button', { name: 'Guardar clase' }).click();
+  await expect(page.getByText('clase · d10 · 1 rasgo')).toBeVisible();
+  // una subclase para ella
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Chamán' });
+  await page.getByLabel('Nombre de la subclase').fill('Voz del trueno');
+  await page.getByRole('button', { name: '+ Rasgo de nivel 3' }).click();
+  await page.getByLabel('Rasgo', { exact: true }).fill('Trueno rodante');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+  await expect(page.getByText('subclase de Chamán')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Thrall');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Chamán' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Voz del trueno (propia)' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByText('Espíritus guía').first()).toBeVisible();
+  await expect(page.getByText('Trueno rodante').first()).toBeVisible();
+  const uses = page.getByRole('group', { name: /Espíritus guía: 3 de 3 disponibles/ });
+  await expect(uses).toBeVisible();
+  await expect(page.locator('section[aria-label="Conjuros"]').getByRole('group', { name: /^Espacios de nivel 1/ })).toBeVisible();
+  // gastar un uso y recuperarlo con el descanso largo
+  await uses.getByRole('button').first().click();
+  await expect(page.getByRole('group', { name: /Espíritus guía: 2 de 3 disponibles/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Descanso largo' }).click();
+  await page.getByRole('button', { name: '¿Seguro? Descanso largo' }).click();
+  const swap = page.getByRole('dialog').getByRole('button', { name: /Cerrar|Listo|Hecho/ }).first();
+  if (await swap.count()) await swap.click();
+  await expect(page.getByRole('group', { name: /Espíritus guía: 3 de 3 disponibles/ })).toBeVisible();
+
+  // subida de nivel: 6 con la clase propia
+  await page.getByRole('button', { name: 'Subir de nivel' }).click();
+  const dlg = page.getByRole('dialog', { name: 'Subir a nivel 6' });
+  await expect(dlg).toContainText('Chamán');
+  await dlg.getByRole('button', { name: 'Confirmar: subir a nivel 6' }).click();
+  await expect(page.locator('.pc-head')).toContainText('Chamán 6');
+});

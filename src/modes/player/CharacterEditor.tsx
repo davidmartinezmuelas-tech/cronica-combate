@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
 import { asClass, classEntries, derive, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
-import { choiceSkills, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
+import { choiceSkills, subLvOf, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
 import { norm, uid } from '../../engine/util';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
 import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
@@ -274,7 +274,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
           </div>
           {!c.classId && <div className="field"><label htmlFor="ce-clsn">Nombre de la clase</label><input id="ce-clsn" className="input" value={c.className} onChange={(e) => set({ className: e.target.value })} /></div>}
           <div className="row2">
-            <div className="field"><label htmlFor="ce-subsel">Subclase{cls?.sub ? ' (desde el nivel ' + cls.sub.lv + ')' : ''}</label>
+            <div className="field"><label htmlFor="ce-subsel">Subclase{subLvOf(cls) ? ' (desde el nivel ' + subLvOf(cls) + ')' : ''}</label>
               <select id="ce-subsel" className="input" value={subValue} onChange={(e) => { const v = e.target.value; set({ subclass: v === 'srd' ? cls?.sub?.n || '' : v === 'other' ? (subValue === 'other' ? c.subclass : 'Otra subclase') : v.startsWith('lib:') ? v.slice(4) : '' }); }}>
                 <option value="">Sin subclase</option>
                 {cls?.sub && <option value="srd">{cls.sub.n}</option>}

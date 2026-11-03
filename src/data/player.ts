@@ -1,3 +1,4 @@
+import type { HbFx } from '../engine/homebrew';
 /** Datos del jugador (public/data/jugador_es.json, generado por scripts/data/player.py desde el SRD 5.2.1). */
 
 export type Abil = 'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha';
@@ -13,6 +14,8 @@ export interface ClassFeature {
   n: string;
   d: string;
   u?: Uses;
+  fx?: HbFx; // clases propias: qué hace el rasgo en la hoja
+  sp?: string[]; // clases propias: conjuros que deja siempre preparados
 }
 
 export interface ClassData {
@@ -33,6 +36,8 @@ export interface ClassData {
   sub: { id: string; n: string; en: string; d: string; lv: number; f: ClassFeature[] } | null;
   d: string;
   spells: string[]; // ids de conjuro (reglas_es.json) de su lista de clase
+  subLv?: number; // clases propias: nivel en que se elige la subclase (las del SRD lo llevan en `sub`)
+  listFrom?: string; // clases propias: clase de cuya lista de conjuros toma la suya
 }
 
 export interface SpeciesData {

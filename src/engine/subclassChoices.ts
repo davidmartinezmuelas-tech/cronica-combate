@@ -73,6 +73,9 @@ export function activeChoices(c: Pick<Character, 'classId' | 'subclass' | 'level
   return CHOICES.filter((d) => d.cls === c.classId && (!d.subs.length || (sub && d.subs.some((s) => norm(s) === sub))) && choiceCount(d, c.level) > 0);
 }
 
+/** Nivel en que la clase pide elegir subclase: el de la del SRD o el que puso quien escribió la clase propia. */
+export const subLvOf = (cls: ClassData | undefined): number | null => cls?.sub?.lv ?? cls?.subLv ?? null;
+
 /** Rasgos y apartados de la subclase elegida: la del SRD o la de la biblioteca propia. */
 export interface SubclassText { f: { n: string; d: string }[]; x: { n: string; d: string }[] }
 export function subclassText(c: Pick<Character, 'classId' | 'subclass'>, cls: ClassData | undefined, libSubs: LibSubclass[]): SubclassText | null {
@@ -201,6 +204,12 @@ const words = (t: string) => ' ' + norm(t).replace(/[^a-z0-9]+/g, ' ').trim() + 
  * tierra solo cuenta la tabla del terreno elegido.
  */
 export function subclassSpells(c: Pick<Character, 'classId' | 'subclass' | 'level' | 'choices'>, cls: ClassData | undefined, src: SubclassText | null, spells: { id: string; n: string; l?: number }[]): { id: string; at: number }[] {
+  // clase propia: los conjuros que dejan preparados sus rasgos, desde su nivel
+  const fromClass = (cls?.f || []).filter((f) => f.sp?.length && f.lv <= c.level).flatMap((f) => (f.sp || []).map((x) => { const [id, at] = x.split('|'); return { id, at: at ? parseInt(at, 10) : f.lv }; })).filter((o) => o.at <= c.level);
+  return [...fromClass, ...subSpells(c, cls, src, spells)];
+}
+
+function subSpells(c: Pick<Character, 'classId' | 'subclass' | 'level' | 'choices'>, cls: ClassData | undefined, src: SubclassText | null, spells: { id: string; n: string; l?: number }[]): { id: string; at: number }[] {
   // subclase propia: los conjuros elegidos en cada rasgo, desde su nivel
   const picked = (src?.f || []) as { lv?: number; sp?: string[] }[];
   // («id|nivel»: con su nivel propio, como los que vienen ya calculados de la sala)
@@ -240,12 +249,16 @@ export function subclassSpells(c: Pick<Character, 'classId' | 'subclass' | 'leve
   return out.filter((o) => o.at <= c.level);
 }
 
+const SRD_CLASSES = ['barbarian', 'bard', 'cleric', 'druid', 'fighter', 'monk', 'paladin', 'ranger', 'rogue', 'sorcerer', 'warlock', 'wizard'];
+
 /**
  * Cuándo puede cambiar sus conjuros cada clase (texto del SRD 2024): trucos, uno al subir de nivel (o tras un descanso
  * largo el mago); conjuros, uno al subir de nivel (bardo, hechicero, brujo), todos tras un descanso largo (clérigo,
  * druida, mago) o uno tras un descanso largo (paladín, explorador).
  */
-export function spellSwapRules(classId: string): { cantrip: 'level' | 'rest' | null; spells: { when: 'level' | 'rest'; all: boolean } | null } {
+export function spellSwapRules(classId: string, caster?: ClassData['caster']): { cantrip: 'level' | 'rest' | null; spells: { when: 'level' | 'rest'; all: boolean } | null } {
+  // clase que no es del manual: cambia uno al subir de nivel si lanza conjuros
+  if (caster && caster !== 'none' && !SRD_CLASSES.includes(classId)) return { cantrip: 'level', spells: { when: 'level', all: false } };
   const cantrip = ['bard', 'cleric', 'druid', 'sorcerer', 'warlock'].includes(classId) ? 'level' : classId === 'wizard' ? 'rest' : null;
   const spells = ['bard', 'sorcerer', 'warlock'].includes(classId) ? { when: 'level' as const, all: false }
     : ['cleric', 'druid', 'wizard'].includes(classId) ? { when: 'rest' as const, all: true }

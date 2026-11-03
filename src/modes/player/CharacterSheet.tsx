@@ -66,7 +66,7 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
   const add = (f: ClassFeature, src: string, who: Character = c, cls?: ClassData) => {
     const u = f.u || (cls ? featureUses(f.n, f.d, who.level) : null) || undefined;
     const max = usesMax(u, who, cls);
-    rows.push({ key: f.n, n: f.n, d: f.d, src, max: max && max > 0 ? max : null, per: max ? u?.per || '' : '' });
+    rows.push({ key: f.n, n: f.n, d: f.d, src, max: max && max > 0 ? max : null, per: max ? u?.per || '' : '', ...(f.fx ? { fx: f.fx } : {}) });
   };
   // cada clase (multiclase: también las demás) con sus rasgos hasta su nivel y los de su subclase
   for (const e of classEntries(c)) {
@@ -127,6 +127,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // subclases escritas que no son del SRD, ni de la biblioteca de este dispositivo, ni de las que la app ya conoce
   const missingSubs = views.map(({ v }) => v.subclass).filter((n, i) => !!n && !subclassText(views[i].v, views[i].dv.cls, lib.subclasses)
     && !KITS.some((k) => k.subs.some((x) => norm(x) === norm(n))) && norm(n) !== 'otra subclase');
+  // clase propia que no está en la biblioteca de este dispositivo (la biblioteca no va a la mesa ni a quien no la tiene)
+  const missingClass = !!data && classEntries(c).some((e) => !!e.classId && !data.classes.some((x) => x.id === e.classId));
   // «Rasgos y dotes» agrupados por origen (cada clase, su subclase, la especie, las dotes); los que ya tienen panel arriba, sin contador
   const upKeys = (f: FeatureRow) => panelKeys.has(f.key) || panelKeys.has(f.n) || ['Furia', 'Castigo del paladín'].includes(f.key);
   const featGroups = (() => {
@@ -920,6 +922,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       <section className="panel" aria-label="Rasgos y dotes" data-tour="traits" data-sec="rasgos">
         <h3 className="eyebrow">Rasgos y dotes</h3>
         {/* subclase de la biblioteca que no está en este dispositivo (la biblioteca no va a la nube): sin ella no hay sus rasgos ni sus conjuros */}
+        {lib.loaded && missingClass && <p className="warn small" role="status" style={{ margin: 0 }}>La clase de este personaje no está en la biblioteca de este dispositivo, así que faltan sus rasgos y sus conjuros. Vuelve a cargar la biblioteca donde la creaste («Exportar biblioteca») o inicia sesión para traer tus creaciones.</p>}
         {lib.loaded && missingSubs.map((n) => <p key={n} className="warn small" role="status" style={{ margin: 0 }}>«{n}» no está en la biblioteca de este dispositivo: si la importaste de tu Manual del Jugador, vuelve a importarlo en «Biblioteca» (o carga una copia que incluya tu biblioteca) para tener sus rasgos y sus conjuros.</p>)}
         {views.map(({ v }, i) => <SubclassChoices key={i} c={v} data={data} lib={lib} set={set} restOnly />)}
         {!features.length && <p className="muted small" style={{ margin: 0 }}>Elige especie, clase y dotes en «Editar hoja» para ver aquí sus rasgos.</p>}
