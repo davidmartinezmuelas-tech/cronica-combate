@@ -114,7 +114,7 @@ export default function LibraryPanel() {
   const saveFound = () => {
     if (!found) return;
     const merge = <T extends { id: string }>(a: T[], b: T[]) => [...a.filter((x) => !b.some((y) => y.id === x.id)), ...b];
-    void lib.save({ source: 'Manual del Jugador 2024 (tu PDF)', feats: merge(lib.feats, found.feats), backgrounds: merge(lib.backgrounds, found.backgrounds), spells: merge(lib.spells, found.spells), subclasses: merge(lib.subclasses, found.subclasses), classes: merge(lib.classes, found.classes.map(({ problems: _p, ...k }) => k)) });
+    void lib.save({ source: 'Manual del Jugador 2024 (tu PDF)', feats: merge(lib.feats, found.feats), backgrounds: merge(lib.backgrounds, found.backgrounds), spells: merge(lib.spells, found.spells), subclasses: merge(lib.subclasses, found.subclasses), classes: merge(lib.classes, found.classes.map(({ problems: _p, subNames: _s, ...k }) => k)) });
     setMsg('Guardado en tu biblioteca: ' + (found.classes.length ? found.classes.length + ' clases (revísalas y completa sus tablas en «Mis creaciones»), ' : '') + found.subclasses.length + ' subclases, ' + found.feats.length + ' dotes, ' + found.backgrounds.length + ' trasfondos y ' + found.spells.length + ' conjuros. Ya aparecen al crear o editar un personaje.');
     setFound(null);
   };

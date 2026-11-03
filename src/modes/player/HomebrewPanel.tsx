@@ -114,7 +114,7 @@ export const fmtTable = (t: Record<number, number> | undefined) => Object.entrie
 const PROGRESSION: [CastingRule['progression'], string][] = [['third', 'Un tercio (como el Caballero arcano)'], ['half', 'La mitad (como el Paladín)'], ['full', 'Completo (como el Mago)']];
 
 /** Un rasgo escrito a mano: nombre, texto, usos, efecto con tirada y conjuros siempre preparados. Sirve a subclases y a clases. */
-export function FeatureFields({ f, i, setF, onRemove, scaleKey, tableTxt, onTable }: { f: Feature; i: number; setF: (patch: Partial<Feature>) => void; onRemove: () => void; scaleKey?: string; tableTxt?: string; onTable?: (t: string) => void }) {
+export function FeatureFields({ f, i, setF, onRemove, scaleKey, tableTxt, onTable, fromColumns }: { f: Feature; i: number; setF: (patch: Partial<Feature>) => void; onRemove: () => void; scaleKey?: string; tableTxt?: string; onTable?: (t: string) => void; fromColumns?: [string, string][] }) {
   return (
     <div className="hb-feat">
       <div className="field"><label htmlFor={'hb-fn' + i}>Rasgo</label>
@@ -139,6 +139,11 @@ export function FeatureFields({ f, i, setF, onRemove, scaleKey, tableTxt, onTabl
             {u.k === 'mod' && <div className="field"><label htmlFor={'hb-fua' + i}>Característica</label>
               <select id={'hb-fua' + i} className="input" value={u.a} onChange={(e) => setF({ u: usesOf('mod', u.n, e.target.value as Abil, per) })}>
                 {ABILS.map((a) => <option key={a} value={a}>{ABIL_N[a]}</option>)}
+              </select></div>}
+            {u.k === 'tbl' && onTable && !!fromColumns?.length && <div className="field"><label htmlFor={'hb-fuc' + i}>Copiar de una columna de la tabla del libro</label>
+              <select id={'hb-fuc' + i} className="input" value="" onChange={(e) => e.target.value && onTable(e.target.value)}>
+                <option value="">Elige una columna…</option>
+                {fromColumns.map(([n, t]) => <option key={n} value={t}>{n}</option>)}
               </select></div>}
             {u.k === 'tbl' && onTable && <div className="field"><label htmlFor={'hb-fut' + i}>Usos por nivel (nivel:cantidad)</label>
               <input id={'hb-fut' + i} className="input" value={tableTxt || ''} placeholder="1:2, 5:3, 11:4" onChange={(e) => onTable(e.target.value)} /></div>}

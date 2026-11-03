@@ -22,7 +22,7 @@ const scaleOf = (cls: LibClass, i: number) => cls.id + '.' + (slug(cls.f[i]?.n |
 /** Deja la clase lista para guardar: rasgos limpios, las tablas de usos pasadas a `sc` y las de conjuros en sus claves. */
 export function cleanClass(d: LibClass, castTxt: { c: string; p: string }): LibClass {
   const f = d.f.filter((x) => x.n.trim()).sort((a, b) => a.lv - b.lv);
-  const sc: LibClass['sc'] = {};
+  const sc: LibClass['sc'] = { ...d.sc }; // (las tablas leídas de un libro se conservan)
   const feats: LibClassFeature[] = f.map((x, i) => {
     if (!x.u?.max.startsWith('@scale.')) { const { t: _t, ...rest } = x; return rest; }
     const key = d.id + '.' + (slug(x.n) || 'rasgo-' + i);
@@ -54,6 +54,10 @@ export default function HomebrewClass({ draft, setDraft, castTxt, setCastTxt, ta
   const add = (lv: number) => setDraft({ ...draft, f: [...draft.f, { lv, n: '', d: '' }] });
   const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x !== v) : [...list, v]);
   const levels = [...new Set([1, 2, 3, ...draft.f.map((f) => f.lv)])].sort((a, b) => a - b);
+  // las tablas de cantidades que trajo el libro (se copian a la tabla de usos de un rasgo con un clic)
+  const columns: [string, string][] = Object.entries(draft.sc)
+    .filter(([k, v]) => !/\.(cantrips-known|max-prepared)$/.test(k) && Object.values(v).length > 0 && Object.values(v).every((x) => typeof x === 'number'))
+    .map(([k, v]) => [k.slice(draft.id.length + 1).replace(/-/g, ' '), fmtTable(v as Record<number, number>)]);
   const anySkill = draft.skills.pool.includes('*');
   const casts = draft.caster !== 'none';
   const valid = !!draft.n.trim() && !taken;
@@ -146,7 +150,7 @@ export default function HomebrewClass({ draft, setDraft, castTxt, setCastTxt, ta
         <fieldset key={lv} className="fs hb-level">
           <legend>Nivel {lv}</legend>
           {draft.f.map((f, i) => f.lv !== lv ? null : (
-            <FeatureFields key={i} f={f} i={i} scaleKey={scaleOf(draft, i)} tableTxt={f.t} onTable={(t) => setF(i, { t })}
+            <FeatureFields key={i} f={f} i={i} scaleKey={scaleOf(draft, i)} tableTxt={f.t} onTable={(t) => setF(i, { t })} fromColumns={columns}
               setF={(patch) => setF(i, patch)} onRemove={() => setDraft({ ...draft, f: draft.f.filter((_, j) => j !== i) })} />
           ))}
           <button className="btn small" style={{ alignSelf: 'flex-start' }} onClick={() => add(lv)}>+ Rasgo de nivel {lv}</button>

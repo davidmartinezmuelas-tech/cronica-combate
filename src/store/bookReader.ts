@@ -1,5 +1,5 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseClasses, parseFeats, parseSpells, parseSubclasses, type Line, type LibBackground, type LibClass, type LibFeat, type LibSpell, type LibSubclass, type TextItem } from '../engine/bookImport';
+import { attachTables, classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseClassTable, parseClasses, parseFeats, parseSpells, parseSubclasses, type Line, type LibBackground, type ParsedClass, type LibFeat, type LibSpell, type ClassTable, type LibSubclass, type TextItem } from '../engine/bookImport';
 import { parseItems, parseItemsEs } from '../engine/itemImport';
 import { norm } from '../engine/util';
 import type { LibItem } from '../engine/magicItems';
@@ -11,7 +11,7 @@ export interface BookResult {
   backgrounds: LibBackground[];
   spells: LibSpell[];
   subclasses: LibSubclass[];
-  classes: (LibClass & { problems: string[] })[];
+  classes: ParsedClass[];
   pages: number;
 }
 
@@ -57,15 +57,18 @@ async function readPages(file: Blob, onPage: (items: TextItem[], width: number, 
 export async function readBook(file: Blob, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<BookResult> {
   const L: Record<'feats' | 'backgrounds' | 'spells' | 'classes', Line[]> = { feats: [], backgrounds: [], spells: [], classes: [] };
   const pages: { kinds: ReturnType<typeof classifyPage>; lines: Line[] }[] = [];
+  const tables: ClassTable[] = [];
   const n = await readPages(file, (items, width) => {
+    const tb = parseClassTable(items);
+    if (tb) tables.push(tb);
     pages.push({ kinds: classifyPage(items.map((x) => x.str).join(' ')), lines: pageLines(items, width) });
   }, onProgress, signal);
   const kinds = fillClassGaps(pages.map((p) => p.kinds));
   pages.forEach((p, i) => { for (const k of kinds[i]) L[k].push(...p.lines); });
   // las clases que el libro trae (con ellas se reconocen también sus subclases)
-  const classes = parseClasses(L.classes);
+  const classes = attachTables(parseClasses(L.classes), tables);
   const extra = Object.fromEntries(classes.map((k) => [norm(k.n), k.id]));
-  return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells, pages.flatMap((p) => p.lines)), subclasses: parseSubclasses(L.classes, extra), classes, pages: n };
+  return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells, pages.flatMap((p) => p.lines)), subclasses: parseSubclasses(L.classes, extra, Object.fromEntries(classes.map((k) => [k.id, k.subNames]))), classes, pages: n };
 }
 
 /** Lee el PDF del Manual de Monstruos del usuario en su navegador y extrae las fichas de monstruo. */

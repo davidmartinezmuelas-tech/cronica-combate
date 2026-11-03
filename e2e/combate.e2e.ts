@@ -3415,7 +3415,7 @@ test('clase propia en el personaje: rasgos con usos por nivel, espacios de conju
 });
 
 test('clase de un libro cargada desde la biblioteca: sale como «del libro», se completa en «Mis creaciones» y se elige en el personaje', async ({ page }) => {
-  const cls = { id: 'lib-clase-chaman', n: 'Chamán', en: 'Chamán', hd: 8, saves: ['wis', 'con'], skills: { count: 2, pool: ['*'] }, armor: ['lgt'], weapons: ['sim'], caster: 'full', spellAb: 'wis', primary: ['wis'], asi: [4, 8, 12, 16, 19], sc: {}, sub: null, d: '', spells: [], subLv: 3,
+  const cls = { id: 'lib-clase-chaman', n: 'Chamán', en: 'Chamán', hd: 8, saves: ['wis', 'con'], skills: { count: 2, pool: ['*'] }, armor: ['lgt'], weapons: ['sim'], caster: 'full', spellAb: 'wis', primary: ['wis'], asi: [4, 8, 12, 16, 19], sc: { 'lib-clase-chaman.n-de-espiritus': { 1: 2, 5: 3 } }, sub: null, d: '', spells: [], subLv: 3,
     f: [{ lv: 1, n: 'Espíritus guía', d: 'Invocas a un espíritu.' }, { lv: 5, n: 'Piel de roca', d: 'Tu piel se endurece.' }] };
   const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [], subclasses: [], classes: [cls] };
   await page.goto('/#/jugador');
@@ -3426,8 +3426,14 @@ test('clase de un libro cargada desde la biblioteca: sale como «del libro», se
   // completar la tabla de preparados y guardar: sigue siendo «del libro»
   await page.getByRole('button', { name: 'Editar' }).first().click();
   await page.getByLabel('Conjuros preparados por nivel (nivel:cantidad)').fill('1:2, 5:4');
+  // una tabla de cantidades que trajo el libro se copia a los usos de un rasgo
+  await page.getByRole('button', { name: '+ Rasgo de nivel 1' }).click();
+  await page.getByLabel('Rasgo', { exact: true }).nth(1).fill('Tótem');
+  await page.getByLabel('Usos', { exact: true }).nth(1).selectOption({ label: 'Según tu nivel en la clase' });
+  await page.getByLabel('Copiar de una columna de la tabla del libro').selectOption({ label: 'n de espiritus' });
+  await expect(page.getByLabel('Usos por nivel (nivel:cantidad)')).toHaveValue('1:2, 5:3');
   await page.getByRole('button', { name: 'Guardar clase' }).click();
-  await expect(page.getByText('clase del libro · d8 · 2 rasgos')).toBeVisible();
+  await expect(page.getByText('clase del libro · d8 · 3 rasgos')).toBeVisible();
 
   await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();

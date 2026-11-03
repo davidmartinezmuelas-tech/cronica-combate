@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, parseClasses, parseFeats, parseSpells, parseSubclasses, type Line } from '../engine/bookImport';
+import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseSpells, parseSubclasses, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
@@ -283,5 +283,54 @@ describe('importar clases nuevas del libro', () => {
   it('las subclases de una clase nueva se reconocen con su id', () => {
     const sub = parseSubclasses(L('SUBCLASES DE CHAMÁN', 'NIVEL 3: VOZ DEL TRUENO', 'Truena.'), { chaman: 'lib-clase-chaman' });
     expect(sub[0].cls).toBe('lib-clase-chaman');
+  });
+});
+
+describe('tablas de rasgos de una clase (por posición)', () => {
+  // tabla inventada con la forma de la del libro: cabecera de dos líneas, niveles a la izquierda y columnas de cantidades
+  const cell = (str: string, x: number, y: number, w = 40) => ({ str, x, y, w });
+  const head = [cell('RASGOS DE CHAMÁN', 115, 1372, 190), cell('Bonificador por', 195, 1345, 100), cell('N. de', 752, 1345, 42), cell('Nivel', 133, 1326, 34), cell('competencia', 202, 1326, 80), cell('Rasgos de clase', 317, 1326, 100), cell('espíritus', 752, 1326, 60), cell('Trucos', 880, 1326, 50), cell('Conjuros preparados', 950, 1326, 90)];
+  const row = (lv: number, y: number, spirits: string, cant: string, prep: string) => [cell(String(lv), 145, y, 8), cell('+2', 239, y, 16), cell('Algo', 316, y, 60), cell(spirits, 770, y, 8), cell(cant, 890, y, 8), cell(prep, 985, y, 8)];
+  const items = [...head, ...Array.from({ length: 20 }, (_, k) => row(k + 1, 1299 - k * 27, k < 4 ? '2' : k < 10 ? '3' : '4', k < 3 ? '2' : '3', String(k < 8 ? 2 + k : 10 + (k - 8)))).flat()];
+
+  it('lee las columnas por su cabecera y las pasa a tablas por nivel', () => {
+    const t = parseClassTable(items)!;
+    expect(t.name).toBe('CHAMÁN');
+    expect(t.rows).toBe(20);
+    const col = (h: string) => levelTable(repairCounts(t.columns.find((c) => c.head.includes(h))!.values));
+    expect(col('espíritus')).toEqual({ 1: 2, 5: 3, 11: 4 });
+    expect(col('Trucos')).toEqual({ 1: 2, 4: 3 });
+  });
+
+  it('un valor suelto mal leído por el OCR se iguala al anterior', () => {
+    expect(repairCounts([2, 2, 3, 5, 3, 3, 4])).toEqual([2, 2, 3, 3, 3, 3, 4]);
+    expect(levelTable([null, 2, 2, 3, null])).toEqual({ 2: 2, 4: 3 });
+  });
+
+  it('las tablas de la clase salen de las columnas: trucos y preparados con los valores absurdos descartados, y las demás como tablas propias', () => {
+    const t = parseClassTable(items)!;
+    // un 22 de conjuros preparados en el nivel 1 no es posible: es un error del OCR
+    const bad = { ...t, columns: t.columns.map((c) => (c.head.includes('preparados') ? { ...c, values: c.values.map((v, i) => (i === 0 ? 22 : v)) } : c)) };
+    const base = { id: 'lib-clase-chaman', n: 'Chamán', en: 'Chamán', hd: 8, saves: [], skills: { count: 2, pool: ['*'] }, armor: [], weapons: [], caster: 'full', spellAb: 'wis', primary: [], asi: [], f: [], sc: {}, sub: null, d: '', spells: [], problems: [] } as unknown as Parameters<typeof attachTables>[0][number];
+    const [k] = attachTables([base], [bad]);
+    expect(k.sc['lib-clase-chaman.cantrips-known']).toEqual({ 1: 2, 4: 3 });
+    expect(k.sc['lib-clase-chaman.max-prepared']['1']).toBeUndefined();
+    expect(k.sc['lib-clase-chaman.n-de-espiritus']).toEqual({ 1: 2, 5: 3, 11: 4 });
+    expect(k.problems.join(' ')).toMatch(/Conjuros preparados: leídos 19 de 20/);
+  });
+});
+
+describe('subclases de una clase nueva', () => {
+  it('saca los nombres de las subclases del rasgo «Subclase de …»', () => {
+    expect(subclassNamesIn('Consigues una subclase de chamán de tu elección. Las subclases de la senda del trueno, la senda del fuego y la senda del agua se detallan tras la descripción de esta clase.'))
+      .toEqual(['senda del trueno', 'senda del fuego', 'senda del agua']);
+    expect(subclassNamesIn('Las subclases del colegio de la luna y colegio del sol se detallan después.')).toEqual(['colegio de la luna', 'colegio del sol']);
+    expect(subclassNamesIn('Sin lista.')).toEqual([]);
+  });
+
+  it('con esos nombres, los títulos de las subclases se reconocen aunque la clase no tenga prefijos conocidos', () => {
+    const sub = parseSubclasses(L('SUBCLASES DE CHAMÁN', 'SENDA DEL TRUENO', 'Truena.', 'NIVEL 3: VOZ DEL TRUENO', 'Hablas.', 'NIVEL 6: RAYO', 'Fulmina.', 'SENDA DEL FUEGO', 'Arde.', 'NIVEL 3: CHISPA', 'Chispea.'), { chaman: 'lib-clase-chaman' }, { 'lib-clase-chaman': ['senda del trueno', 'senda del fuego'] });
+    expect(sub.map((s) => s.n)).toEqual(['Senda del trueno', 'Senda del fuego']);
+    expect(sub.every((s) => s.cls === 'lib-clase-chaman')).toBe(true);
   });
 });

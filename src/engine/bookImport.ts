@@ -421,8 +421,10 @@ const SUB_PREFIX: Record<string, string[]> = {
 /** Nombre bien escrito de las subclases de nombre fijo (el OCR puede cambiar una letra: «ÁDIVINO»). */
 const SUB_NAMES = ['Acechador en la penumbra', 'Cazador', 'Errante feérico', 'Señor de las bestias', 'Caballero arcano', 'Campeón', 'Guerrero psiónico', 'Maestro del combate', 'Abjurador', 'Adivino', 'Evocador', 'Ilusionista', 'Asesino', 'Embaucador arcano', 'Ladrón', 'Rebanaalmas'];
 const canonSub = (name: string) => SUB_NAMES.find((x) => norm(x) === norm(name)) || SUB_NAMES.find((x) => norm(x).length > 5 && lev(norm(x), norm(name)) <= 1) || name;
-const isSubclassName = (cls: string, t: string) => {
+const isSubclassName = (cls: string, t: string, names?: string[]) => {
   const n = norm(t).replace(/^[^a-z]+/, '');
+  // clase nueva del libro: los nombres que enumera su rasgo «Subclase de …»
+  if (names) return names.some((x) => norm(x) === n);
   const pre = SUB_PREFIX[cls] || [];
   // con prefijo: «senda del …»; sin prefijo: el nombre exacto
   if (['ranger', 'fighter', 'wizard', 'rogue'].includes(cls)) return pre.includes(n);
@@ -461,7 +463,7 @@ const CLASS_IDS: Record<string, string> = {
  */
 interface SubDraft { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[] } | null; sec: { n: string; body: string[] } | null }
 
-export function parseSubclasses(lines: Line[], extraClasses: Record<string, string> = {}): LibSubclass[] {
+export function parseSubclasses(lines: Line[], extraClasses: Record<string, string> = {}, subNames: Record<string, string[]> = {}): LibSubclass[] {
   const classIds = { ...CLASS_IDS, ...extraClasses }; // (nombre sin acentos -> id) de las clases nuevas del libro
   // en 2024 todas las subclases empiezan en el nivel 3
   const START = 3;
@@ -527,7 +529,7 @@ export function parseSubclasses(lines: Line[], extraClasses: Record<string, stri
     }
     // «NIVEL 3: CONJUROS DEL» + «JURAMENTO DE ENTREGA»: un nombre que acaba en preposición sigue en la línea siguiente
     if (st.cur?.feat && !st.cur.feat.body.length && / (de|del|de la|de las|de los)$/i.test(st.cur.feat.n) && isCaps(t)) { st.cur.feat.n += ' ' + t.toLowerCase(); continue; }
-    if (isTitle(t) && isSubclassName(st.cls, t)) {
+    if (isTitle(t) && isSubclassName(st.cls, t, subNames[st.cls]?.length ? subNames[st.cls] : undefined)) {
       const name = canonSub(titleCase(t));
       // con la subclase abierta sin llegar a su último rasgo, un nombre es el pie de una ilustración (el texto que sigue es
       // del rasgo abierto): solo sirve de nombre a una subclase cuyo título no se leyó
@@ -611,8 +613,18 @@ function asiLevels(f: { lv: number; n: string; d: string }[]): number[] {
  * desordenadas del PDF y no se leen) y los rasgos nivel a nivel («NIVEL 3: …») hasta «SUBCLASES DE <CLASE>». Las tablas de
  * usos y de conjuros no se leen: la clase sale para revisar y completar en «Mis creaciones».
  */
-export function parseClasses(lines: Line[]): (LibClass & { problems: string[] })[] {
-  const out: (LibClass & { problems: string[] })[] = [];
+/** Una clase leída del libro, con lo que quedó por revisar y los nombres de sus subclases (para reconocerlas). */
+export type ParsedClass = LibClass & { problems: string[]; subNames: string[] };
+
+/** «Las subclases de la senda del berserker, la senda del fanático y … se detallan…» -> sus nombres. */
+export function subclassNamesIn(text: string): string[] {
+  const m = /.*subclases? (?:de |del )?(.+?)\s+se (?:detallan|describen|presentan|encuentran)/i.exec(text.replace(/\s+/g, ' '));
+  if (!m) return [];
+  return m[1].split(/,| y | e /).map((x) => x.trim().replace(/^(?:la|el|las|los)\s+/i, '')).filter((x) => x.split(' ').length >= 2 || x.length > 5);
+}
+
+export function parseClasses(lines: Line[]): ParsedClass[] {
+  const out: ParsedClass[] = [];
   let cur: { n: string; attrs: string[]; f: { lv: number; n: string; body: string[] }[] } | null = null;
   let mode: 'none' | 'attrs' | 'feat' | 'table' = 'none';
   let noise = false;
@@ -631,7 +643,7 @@ export function parseClasses(lines: Line[]): (LibClass & { problems: string[] })
     out.push({
       id: id('lib-clase', name), n: name, en: name, hd: a.hd, saves: a.saves, skills: a.skills, armor: a.armor, weapons: a.weapons,
       caster, spellAb, primary: a.primary, asi: asiLevels(f), f: f.filter((x) => x.lv > 0 && !/^(subclase de|mejora de caracteristica|don epico)/.test(norm(x.n))),
-      sc: {}, sub: null, d: '', spells: [], subLv: sub?.lv || 3, own: false, problems,
+      sc: {}, sub: null, d: '', spells: [], subLv: sub?.lv || 3, own: false, problems, subNames: subclassNamesIn(sub?.d || ''),
     });
     cur = null;
   };
@@ -656,4 +668,123 @@ export function parseClasses(lines: Line[]): (LibClass & { problems: string[] })
   }
   flush();
   return dedupe(out);
+}
+
+/** Una columna de la tabla «Rasgos de <clase>»: su cabecera y su valor en cada nivel (del 1 al 20; null si no se leyó). */
+export interface ClassTableColumn { head: string; values: (number | string | null)[] }
+export interface ClassTable { name: string; columns: ClassTableColumn[]; rows: number }
+
+/**
+ * La tabla «Rasgos de <clase>» de una página, leída por posición: en el texto corrido sus columnas salen mezcladas, pero cada
+ * celda tiene su x e y. Las filas se sacan de la columna de niveles y cada trozo de texto cae en la columna de cabecera más cercana.
+ */
+export function parseClassTable(items: TextItem[]): ClassTable | null {
+  const it = items.filter((x) => x.str.trim()).map((x) => ({ s: x.str.trim(), x: x.x, y: x.y, c: x.x + (x.w || 0) / 2 }));
+  const title = it.find((x) => /^RASGOS DE (?!CLASE|PERSONALIDAD)/i.test(x.s));
+  if (!title) return null;
+  const nivel = it.filter((x) => /^Nivel$/i.test(x.s) && x.y < title.y).sort((a, b) => b.y - a.y)[0];
+  if (!nivel) return null;
+  const lowest = it.filter((x) => Math.abs(x.y - nivel.y) <= 6 && x.s !== nivel.s);
+  const upper = it.filter((x) => x.y > nivel.y + 6 && x.y < title.y - 8);
+  // columnas: los textos de la última línea de la cabecera; los de las líneas de encima se suman a la columna más cercana
+  const cols = lowest.map((l) => ({ c: l.c, x: l.x, head: l.s, above: [] as string[] })).sort((a, b) => a.x - b.x);
+  for (const u of upper) {
+    const near = cols.reduce<(typeof cols)[number] | null>((b, k) => (Math.abs(k.x - u.x) < Math.abs((b?.x ?? 1e9) - u.x) ? k : b), null);
+    if (near && Math.abs(near.x - u.x) < 60) near.above.push(u.s);
+  }
+  // las filas: los números de la columna de niveles (textos cortos pegados a «Nivel»)
+  const left = it.filter((x) => x.s.length <= 3 && x.x >= nivel.x - 25 && x.x <= nivel.x + 60 && x.y < nivel.y - 12).sort((a, b) => b.y - a.y);
+  const rowsY: number[] = [];
+  for (const l of left) { if (!rowsY.length || rowsY[rowsY.length - 1] - l.y > 10) rowsY.push(l.y); }
+  if (rowsY.length < 15 || rowsY.length > 22) return null;
+  const rows = rowsY.slice(0, 20);
+  const bottom = rows[rows.length - 1] - 14;
+  const cell = rows.map(() => cols.map(() => [] as { s: string; x: number }[]));
+  for (const d of it) {
+    if (d.y >= nivel.y - 12 || d.y < bottom) continue;
+    const r = rows.reduce((b, y, i) => (Math.abs(y - d.y) < Math.abs(rows[b] - d.y) ? i : b), 0);
+    if (Math.abs(rows[r] - d.y) > 15) continue;
+    const k = cols.reduce((b, c, i) => (Math.abs(c.c - d.c) < Math.abs(cols[b].c - d.c) ? i : b), 0);
+    cell[r][k].push({ s: d.s, x: d.x });
+  }
+  const columns: ClassTableColumn[] = cols.map((c, k) => {
+    const raw = rows.map((_, r) => cell[r][k].sort((a, b) => a.x - b.x).map((p) => p.s).join(' '));
+    return { head: [...c.above, c.head].join(' ').replace(/\s+/g, ' ').trim(), values: raw.map(cellValue) };
+  });
+  return { name: title.s.replace(/^RASGOS DE /i, '').trim(), columns, rows: rows.length };
+}
+
+/** El valor de una celda: número («+2», «3»), dados («2d6») o texto corto («+10 pies»); lo ilegible, null. */
+function cellValue(raw: string): number | string | null {
+  const t = raw.replace(/[—–-]+/g, '').trim();
+  if (!t) return null;
+  const dice = /^\+?(\d*d\d+)$/i.exec(t.replace(/\s+/g, ''));
+  if (dice) return dice[1].toLowerCase().replace(/^d/, '1d');
+  const num = /^[+]?(\d{1,3})\b\)?\.?$/.exec(t);
+  if (num) return parseInt(num[1], 10);
+  const feet = /^\+?(\d+)\s*(pies|m)$/i.exec(t);
+  if (feet) return t;
+  return null;
+}
+
+/** Valores de una columna de cantidades que solo crecen: un valor suelto fuera de orden es un error del OCR y se iguala al anterior. */
+export function repairCounts(v: (number | string | null)[]): (number | string | null)[] {
+  const out = v.slice();
+  const num = (x: number | string | null): x is number => typeof x === 'number';
+  for (let i = 1; i < out.length - 1; i++) {
+    const p = out[i - 1], c = out[i], n = out[i + 1];
+    if (num(p) && num(c) && num(n) && c > n && p <= n) out[i] = p;
+    if (num(p) && num(c) && num(n) && c < p && n >= p) out[i] = p;
+  }
+  return out;
+}
+
+/** Tabla por niveles al estilo del SRD: solo los niveles donde cambia el valor. */
+export function levelTable(v: (number | string | null)[]): Record<string, number | string> {
+  const out: Record<string, number | string> = {};
+  let last: number | string | null = null;
+  v.forEach((x, i) => { if (x !== null && x !== last) { out[String(i + 1)] = x; last = x; } });
+  return out;
+}
+
+const SLOT_HEAD = /(?:^|\s)([1-9])\)?$/; // (columna de espacios de nivel N)
+const slug2 = (s: string) => norm(s).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+/** Cantidades plausibles de una tabla de lanzador: lo demás es un error del OCR (un 22 en el nivel 1). */
+const plausible = (kind: 'cantrips' | 'prepared', v: number | string | null, lv: number) => typeof v === 'number' && (kind === 'cantrips' ? v >= 1 && v <= 6 : v >= 1 && v <= lv + 5);
+
+/**
+ * Pasa a cada clase lo que se lee de su tabla de rasgos: trucos y conjuros preparados (con el hueco que deja el OCR a la vista),
+ * las demás columnas con cantidades por nivel (furias, dados, puntos…) como tablas de la clase.
+ */
+export function attachTables<T extends LibClass & { problems: string[] }>(classes: T[], tables: ClassTable[]): T[] {
+  return classes.map((k) => {
+    const t = tables.find((x) => norm(x.name) === norm(k.n));
+    if (!t) return k;
+    const sc: LibClass['sc'] = { ...k.sc };
+    const problems = k.problems.slice();
+    let caster = k.caster;
+    const got = (v: (number | string | null)[]) => v.filter((x) => x !== null).length;
+    const set = (key: string, kind: 'cantrips' | 'prepared' | null, c: ClassTableColumn, label: string) => {
+      const vals = repairCounts(kind ? c.values.map((v, i) => (plausible(kind, v, i + 1) ? v : null)) : c.values);
+      const n = got(vals);
+      if (n < (kind ? 3 : 6)) return false; // con muy pocas celdas leídas, la columna es ruido (o un título partido en dos)
+      sc[key] = levelTable(vals);
+      if (n < 20 && kind) problems.push(label + ': leídos ' + n + ' de 20 niveles; completa los que faltan.');
+      return true;
+    };
+    // (los espacios de conjuro salen del PDF demasiado sucios para deducir de ellos el tipo de lanzador: solo la magia de pacto se reconoce)
+    if (t.columns.some((c) => /nivel de los espacios|nivel de espacio/i.test(c.head))) caster = 'pact';
+    for (const c of t.columns) {
+      const h = norm(c.head);
+      if (/^trucos/.test(h)) set(k.id + '.cantrips-known', 'cantrips', c, 'Trucos');
+      else if (/preparados/.test(h)) set(k.id + '.max-prepared', 'prepared', c, 'Conjuros preparados');
+      else if (/^(bonificador|rasgos|\|)|espacios|nivel de|^\d|competencia/.test(h) || SLOT_HEAD.test(c.head) || h.length < 4) continue;
+      else if (c.values.some((v) => typeof v === 'number' || typeof v === 'string')) set(k.id + '.' + slug2(c.head), null, c, c.head);
+    }
+    const generic = Object.keys(sc).filter((key) => !k.sc[key] && !/\.(cantrips-known|max-prepared)$/.test(key));
+    if (generic.length) problems.push('Tablas leídas del PDF (revisa que sean correctas): ' + t.columns.filter((c) => generic.includes(k.id + '.' + slug2(c.head))).map((c) => c.head).join(', ') + '.');
+    const cleaned = caster === 'pact' ? problems.filter((p) => !/tipo de lanzador/.test(p)).concat(sc[k.id + '.cantrips-known'] && sc[k.id + '.max-prepared'] ? [] : ['Completa las tablas de trucos y de conjuros preparados.']) : problems;
+    return { ...k, sc, caster, problems: cleaned };
+  });
 }
