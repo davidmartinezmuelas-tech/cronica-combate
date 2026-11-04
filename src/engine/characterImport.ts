@@ -46,6 +46,21 @@ const ELEM: Record<string, string> = { rayo: 'relámpago', relampago: 'relámpag
 /** El tipo de daño (en español) que nombra un texto («rayo, dragón azul»), si lo hay. */
 const elementOf = (s: string) => norm(s).split(/[^a-z]+/).map((w) => ELEM[w]).find(Boolean) || '';
 const subBase = (raw: string) => raw.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
+// «Camino del Berserker» / «Path of the Berserker» / «Berserker»: lo que importa es el nombre propio
+const SUB_PREFIX = /^(?:(?:camino|circulo|colegio|dominio|juramento|escuela|via|senda|patron|tradicion|path|circle|college|domain|oath|school|way|patron|tradition|order|pact|bloodline|origin|archetype|arquetipo|orden|pacto|linaje|origen)\s+)?(?:(?:of|de|del|la|las|el|los|the|a|an)\s+)*/;
+const subKey = (s: string) => norm(subBase(s)).replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim().replace(SUB_PREFIX, '').trim();
+
+/** La subclase de la biblioteca que dice la hoja (de esa clase, o de cualquiera si la clase no se reconoce), ignorando prefijos como «Camino de» o «Path of the». */
+export function libSubclassOf(raw: string, classId: string, libSubs: { n: string; cls: string }[]): string {
+  const k = raw ? subKey(raw) : '';
+  if (k.length < 3) return '';
+  const pool = libSubs.filter((s) => !classId || s.cls === classId);
+  const hit = pool.find((s) => norm(s.n) === norm(raw)) || pool.find((s) => subKey(s.n) === k)
+    // una contiene a la otra por palabras completas («Fury Warrior» / «Fury»)
+    || pool.find((s) => { const o = subKey(s.n); return o.length >= 4 && (` ${k} `.includes(` ${o} `) || ` ${o} `.includes(` ${k} `)); });
+  return hit?.n || '';
+}
 const subParen = (raw: string) => /\(([^)]*)\)\s*$/.exec(raw)?.[1] || '';
 
 /** Conjuros escritos en la hoja que no están en el SRD ni en la biblioteca de este dispositivo (se avisa de ellos al importar). */
@@ -64,7 +79,7 @@ const tidy = (s: string) => norm(s.replace(/\bS\/P\b/gi, '').replace(/\(.*?\)\s*
  * las armas, la armadura, el escudo, los conjuros y las dotes del SRD. Lo que no reconoce va a las notas o como
  * dote propia.
  */
-export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: PlayerData, spells: SpellRef[], fileName = ''): Character {
+export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: PlayerData, spells: SpellRef[], fileName = '', libSubs: { n: string; cls: string }[] = []): Character {
   const extra = (label: string) => sheet.extras.find((e) => e.label === label)?.value || '';
   const same = (a: string, ...b: string[]) => b.some((x) => norm(x) === norm(a));
   // multiclase: la primera clase es la principal; las demás van a «multi»
@@ -74,17 +89,23 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   const level = Math.max(1, Math.min(20, mc ? mc[0].level : parseInt(sheet.level, 10) || 1));
   const total = mc ? Math.max(1, Math.min(20, mc.reduce((t, x) => t + x.level, 0))) : level;
   // la subclase puede traer una aclaración entre paréntesis («Hechicería Dracónica (rayo)»): se reconoce sin ella
-  const subName = (k: (typeof data.classes)[number] | undefined, raw: string, lv: number) => (k?.sub && raw && same(subBase(raw), k.sub.n, k.sub.en) ? k.sub.n : raw || (k?.sub && lv >= k.sub.lv ? k.sub.n : ''));
-  const multi = mc?.slice(1).map((x) => {
+  const subName = (k: (typeof data.classes)[number] | undefined, raw: string, lv: number) => (k?.sub && raw && same(subBase(raw), k.sub.n, k.sub.en) ? k.sub.n : (raw && libSubclassOf(raw, k?.id || '', libSubs)) || raw || (k?.sub && lv >= k.sub.lv ? k.sub.n : ''));
+  // multiclase: la casilla de subclase suele traer las de cada clase juntas («Ebon Blade / Campeón»): cada clase coge la suya
+  const subParts = mc ? extra('Subclase').split(/\s*[\/;,+&]\s*/).filter(Boolean) : [];
+  const pick = (k: (typeof data.classes)[number] | undefined, raw: string, idx: number) => {
+    if (raw || !subParts.length) return raw;
+    return subParts.find((q) => (k?.sub && same(subBase(q), k.sub.n, k.sub.en)) || libSubclassOf(q, k?.id || '', libSubs)) || (subParts.length === mc!.length ? subParts[idx] : '');
+  };
+  const multi = mc?.slice(1).map((x, i) => {
     const k = data.classes.find((y) => same(x.cls, y.n, y.en));
-    return { classId: k?.id || '', className: k ? '' : x.cls, level: x.level, subclass: subName(k, x.sub, x.level) };
+    return { classId: k?.id || '', className: k ? '' : x.cls, level: x.level, subclass: subName(k, pick(k, x.sub, i + 1), x.level) };
   });
   const species = data.species.find((s) => same(extra('Especie'), s.n, s.en)) || data.species.find((s) => norm(extra('Especie')).length > 2 && norm(s.n).startsWith(norm(extra('Especie'))))
     // «High Elf» / «Elfo alto» -> «Elfo, alto»: las mismas palabras en otro orden
     || data.species.find((s) => [s.n, s.en].some((x) => { const w = norm(x || '').split(/[^a-z]+/).filter(Boolean); const e = norm(extra('Especie')).split(/[^a-z]+/); return w.length > 1 && w.every((y) => e.includes(y)); }));
   const bg = data.backgrounds.find((b) => same(extra('Trasfondo'), b.n, b.en));
-  const subRaw = mc?.[0].sub || extra('Subclase');
-  const subclass = cls?.sub && subRaw && same(subBase(subRaw), cls.sub.n, cls.sub.en) ? cls.sub.n : subRaw || (cls?.sub && level >= cls.sub.lv ? cls.sub.n : '');
+  const subRaw = mc ? pick(cls, mc[0].sub, 0) : extra('Subclase');
+  const subclass = cls?.sub && subRaw && same(subBase(subRaw), cls.sub.n, cls.sub.en) ? cls.sub.n : (subRaw && libSubclassOf(subRaw, cls?.id || '', libSubs)) || subRaw || (cls?.sub && level >= cls.sub.lv ? cls.sub.n : '');
 
   const abil = Object.fromEntries(ABILS.map((a) => [a, sheet.abil[a] ?? 10])) as Record<Abil, number>;
   const pb = profBonus(total);

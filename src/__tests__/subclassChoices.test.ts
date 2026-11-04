@@ -57,6 +57,9 @@ describe('elecciones de subclase', () => {
     const src = { f: [{ n: 'Conjuros del patrón', d: 'Siempre tendrás preparados los conjuros. CONJUROS Nivel de brujo Conjuros E Luz, escudo 5 Luz del día También cuentas con una bendición.' }], x: [] };
     const warlock = data.classes.find((k) => k.id === 'warlock')!;
     const at = (level: number) => subclassSpells({ classId: 'warlock', subclass: 'x', level }, warlock, src, spells).map((s) => s.id).sort();
+    // la prosa que sigue a la tabla no aporta conjuros: «escudo» de «repara tu escudo» no es el conjuro Escudo
+    const prose = { f: [{ n: 'Conjuros del dominio', d: 'Siempre tendrás preparados los conjuros. CONJUROS Nivel de clérigo Conjuros 3 Bendición, Luz del día. Bendición de la forja. Al tocar una armadura o un escudo, gana un bonificador.' }], x: [] };
+    expect(subclassSpells({ classId: 'warlock', subclass: 'x', level: 5 }, warlock, prose, spells).map((s) => s.id).sort()).toEqual(['bend', 'luzdia']);
     expect(at(3)).toEqual(['escudo', 'luz']);
     expect(at(5)).toEqual(['escudo', 'luz', 'luzdia']);
     const land = { f: [{ n: 'Conjuros del círculo', d: 'Tendrás preparados los conjuros. TERRENO ÁRIDO Nivel de druida 3 Escudo 5 Bola de fuego TERRENO POLAR Nivel de druida 3 Luz' }], x: [] };

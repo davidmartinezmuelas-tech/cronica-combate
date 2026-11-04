@@ -58,7 +58,7 @@ export default function CharacterArea() {
     const srdEn = new Set(srd.map((x) => norm(x.en)));
     const spells: SpellRef[] = [...srd, ...useLibrary.getState().spells.filter((x) => !srdNames.has(norm(x.n))).map((x) => ({ id: x.id, n: x.n, en: libSpellEn(x.n, srdEn), classes: x.classes }))];
     const base = create();
-    const made = sheetToCharacter(fields, sheet, d, spells, f.name);
+    const made = sheetToCharacter(fields, sheet, d, spells, f.name, useLibrary.getState().subclasses);
     // los conjuros que no están en ningún sitio se anotan en la hoja para no perderlos
     const missing = unknownSpells(sheet, spells);
     const ch = { ...made, id: base.id, ...(missing.length ? { notes: made.notes + '\nConjuros de la hoja que no se encontraron: ' + missing.join(', ') + '.' } : {}) };

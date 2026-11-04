@@ -222,6 +222,9 @@ function subSpells(c: Pick<Character, 'classId' | 'subclass' | 'level' | 'choice
   let text = head >= 0 ? ft.d.slice(head) : ft.d;
   const prose = text.search(/ (También|Además) /);
   if (prose > 0) text = text.slice(0, prose);
+  // la tabla no lleva frases: donde empieza una («… Creación. Al llegar al nivel 6, repara tu escudo…») acaba, para que una
+  // palabra de la prosa («escudo», «luz») no cuente como conjuro de la subclase
+  if (head >= 0 && terrains.length <= 1) { const sentence = text.search(/[.!?]\s+\p{Lu}/u); if (sentence > 0) text = text.slice(0, sentence + 1); }
   if (terrains.length > 1) {
     const pick = norm(c.choices?.['land.terrain']?.[0] || '');
     const i = terrains.findIndex((m) => norm(m[1]) === pick);
