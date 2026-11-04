@@ -425,7 +425,7 @@ const ABIL_EN_TO_ES: Record<string, string> = { Strength: 'Fuerza', Dexterity: '
 function reqEs(t: string): string {
   return t.replace(/^Prerequisites?:?\s*/i, '').replace(/\bLevel (\d+)\+/gi, 'Nivel $1 o más').replace(/\b(\d+)\+/g, '$1 o más')
     .replace(/\b(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)\b/g, (a) => ABIL_EN_TO_ES[a]).replace(/\b(Fuerza|Destreza|Constitución|Inteligencia|Sabiduría) (and|or) (?=Fuerza|Destreza|Constitución|Inteligencia|Sabiduría|Carisma)/g, (_, a: string, c: string) => a + (c === 'and' ? ' y ' : ' o '))
-    .replace(/\bProficiency with\b/gi, 'Competencia con').replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
+    .replace(/\bProficiency with\b/gi, 'Competencia con').replace(/(\p{L}+) Species\b/gu, 'especie: $1').replace(/\bCampaign\b/g, 'campaña').replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
 }
 /** Una línea corta, con mayúscula y sin puntuación final: título de apartado o de entrada (el texto corrido ocupa todo el ancho). */
 const headingLike = (t: string) => t.length <= 44 && /^[A-ZÁÉÍÓÚÑ]/.test(t) && !/[.,:;)]$/.test(t) && t.split(' ').length <= 7;
@@ -468,8 +468,16 @@ const FEATURE_EN = /^Level (\d{1,2}):\s*(.+)$/;
 /** Subclases del libro en inglés: «Nombre (Paladin Subclass)», una introducción y rasgos «Level 3: Nombre». */
 export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
   const out: LibSubclass[] = [];
-  let cur: { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[] } | null } | null = null;
-  const closeFeat = () => { if (cur?.feat) { cur.s.f.push({ lv: cur.feat.lv, n: cur.feat.n, d: paragraphs(cur.feat.body) }); cur.feat = null; } };
+  let cur: { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[]; rows: string[]; multi: boolean } | null } | null = null;
+  const closeFeat = () => {
+    if (cur?.feat) {
+      const ft = cur.feat;
+      // tabla «Conjuros del …»: cada fila «nivel + conjuros» se guarda en bruto (con «~») hasta saber qué conjuros existen
+      const sp = ft.rows.map((r) => '~' + (ft.multi ? 1 : 0) + '|' + r);
+      cur.s.f.push({ lv: ft.lv, n: ft.n, d: paragraphs(ft.body), ...(sp.length ? { sp } : {}) });
+      cur.feat = null;
+    }
+  };
   const flush = () => { if (cur) { closeFeat(); cur.s.d = paragraphs(cur.intro); if (cur.s.f.length) out.push(cur.s); } cur = null; };
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i], t = l.t;
@@ -484,11 +492,54 @@ export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
     if (fm) {
       // un nivel menor que el del último rasgo: lo que sigue ya no es de esta subclase
       if (parseInt(fm[1], 10) < Math.max(0, ...cur.s.f.map((f) => f.lv), cur.feat?.lv || 0)) { flush(); continue; }
-      closeFeat(); cur.feat ={ lv: parseInt(fm[1], 10), n: fm[2].trim(), body: [] }; continue; }
-    if (cur.feat) cur.feat.body.push(t); else cur.intro.push(t);
+      closeFeat(); cur.feat = { lv: parseInt(fm[1], 10), n: fm[2].trim(), body: [], rows: [], multi: false }; continue;
+    }
+    if (cur.feat) {
+      cur.feat.body.push(t);
+      if (/Spells$/.test(cur.feat.n)) {
+        if (/Level.*\bSpells\b/.test(t) && (t.match(/Spells/g) || []).length > 1) cur.feat.multi = true;
+        else if (/^\d{1,2}\s+\p{L}/u.test(t)) cur.feat.rows.push(t);
+      }
+    } else cur.intro.push(t);
   }
   flush();
   return dedupe(out);
+}
+
+/**
+ * Pasa las filas en bruto de las tablas de conjuros de subclase a «id|nivel» de conjuros que existen (los del libro y los
+ * del SRD, por su nombre en inglés). En una tabla de varias columnas solo vale la primera («Spells (All)»: las demás
+ * dependen de una elección, como la runa). Lo que no se reconoce se descarta.
+ */
+export function resolveSubSpells<T extends { f: { sp?: string[] }[] }>(subs: T[], known: { id: string; n: string }[]): T[] {
+  const names = [...known].filter((k) => norm(k.n).length > 3).sort((a, b) => b.n.length - a.n.length);
+  const resolve = (raw: string): string[] => {
+    const m = /^~([01])\|(\d{1,2})\s+(.*)$/.exec(raw);
+    if (!m) return [];
+    let text = ' ' + norm(m[3]).replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+    const hits: { at: number; id: string }[] = [];
+    for (const k of names) {
+      const key = ' ' + norm(k.n).replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
+      const at = text.indexOf(key);
+      if (at < 0) continue;
+      hits.push({ at, id: k.id });
+      text = text.slice(0, at) + ' '.repeat(key.length) + text.slice(at + key.length);
+    }
+    hits.sort((a, b) => a.at - b.at);
+    // varias columnas: solo la primera, y solo si la fila empieza por un conjuro conocido (si no, el primero es uno que no tenemos)
+    const use = m[1] === '1' ? hits.filter((h, i) => i === 0 && h.at === 0) : hits;
+    return use.map((h) => h.id + '|' + m[2]);
+  };
+  return subs.map((s) => ({
+    ...s,
+    f: s.f.map((f) => {
+      if (!f.sp) return f;
+      const sp = [...new Set(f.sp.flatMap((r) => (r.startsWith('~') ? resolve(r) : [r])))];
+      const { sp: _drop, ...rest } = f;
+      void _drop;
+      return sp.length ? { ...rest, sp } : rest;
+    }),
+  }));
 }
 
 /** Páginas que interesan, según lo que contiene cada una (así no hace falta saber la paginación del libro). */

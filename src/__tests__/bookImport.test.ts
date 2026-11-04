@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpells, parseSubclasses, parseSubclassesEn, titleCaseEn, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
+import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpells, parseSubclasses, parseSubclassesEn, resolveSubSpells, titleCaseEn, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
@@ -347,5 +347,20 @@ describe('subclases de una clase nueva', () => {
     const sb = parseSubclassesEn(L('Oath of the Ebon Blade (Paladin Subclass)', 'Wield death', 'The Oath unites knights.', 'Level 1: Death Coil', 'Your type becomes Undead.', 'Level 3: Runeforging', 'You inscribe runes.', 'Level 20: Aspect', 'Final.', 'Level 3: Totems', 'Other thing.'));
     expect(sb).toHaveLength(1);
     expect([sb[0].n, sb[0].cls, sb[0].f.map((f) => f.lv + f.n).join()]).toEqual(['Oath of the Ebon Blade', 'paladin', '1Death Coil,3Runeforging,20Aspect']);
+  });
+  it('libros en inglés: la tabla de conjuros de una subclase pasa a conjuros siempre preparados', () => {
+    const subs = parseSubclassesEn(L(
+      'Oath of the Holy (Paladin Subclass)', 'Intro.', 'Level 3: Oath of the Holy Spells', 'Always prepared.', 'Oath of the Holy Spells', 'Paladin Level',
+      '3 Cure Wounds , Healing Word', '5 Lesser Restoration , Prayer of Healing', 'Level 3: Beacon', 'Text.',
+      'Oath of the Ebon Blade (Paladin Subclass)', 'Intro.', 'Level 3: Ebon Blade Spells', 'Oath Spells', 'Paladin Level Spells (All) Spells (Blood)', '3 Death Grip Vampiric Blood', '9 Summon Undead Leeching Strike',
+    ));
+    const known = [{ id: 'cure-wounds', n: 'Cure Wounds' }, { id: 'healing-word', n: 'Healing Word' }, { id: 'prayer-of-healing', n: 'Prayer of Healing' }, { id: 'death-grip', n: 'Death Grip' }, { id: 'leeching-strike', n: 'Leeching Strike' }];
+    const r = resolveSubSpells(subs, known);
+    // una sola columna: todos los de la fila; varias: el primero, y si no se conoce no se coge el segundo
+    expect(r[0].f[0].sp).toEqual(['cure-wounds|3', 'healing-word|3', 'prayer-of-healing|5']);
+    expect(r[1].f[0].sp).toEqual(['death-grip|3']);
+    expect(r[0].f[1].sp).toBeUndefined();
+    const f = parseFeatsEn(L('Arathi Heritage', 'Origin Feat (Prerequisite: World of Warcraft Campaign, Human Species)', 'Text.'));
+    expect(f[0].req).toBe('World of Warcraft campaña, especie: Human');
   });
 });

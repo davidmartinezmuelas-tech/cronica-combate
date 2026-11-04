@@ -60,9 +60,9 @@ export default function LibraryPanel() {
     setFound(null);
     cancel.current = { cancelled: false };
     try {
-      const r = await readBook(f, (p, t) => setProgress([p, t]), cancel.current);
+      const r = await readBook(f, (p, t) => setProgress([p, t]), cancel.current, (rules || []).filter((e) => e.cat === 'Conjuros').map((e) => ({ id: e.id, n: e.en })));
       const nothing = !r.feats.length && !r.backgrounds.length && !r.spells.length && !r.subclasses.length && !r.classes.length;
-      if (nothing) setMsg('No se ha encontrado ninguna dote, trasfondo ni conjuro. El importador está hecho para el Manual del Jugador 2024 en español con texto (no un PDF de imágenes).');
+      if (nothing) setMsg('No se ha encontrado ninguna dote, trasfondo ni conjuro. El importador lee libros en español (como el Manual del Jugador 2024) y en inglés, siempre con texto (no un PDF de imágenes).');
       else {
         const f = withoutSrd(r, srd);
         // los trasfondos por completar, arriba (una sola vez: no saltan de sitio al completarlos)
