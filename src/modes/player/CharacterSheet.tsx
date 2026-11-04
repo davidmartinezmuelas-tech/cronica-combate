@@ -49,7 +49,7 @@ import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './Sub
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
 
-interface FeatureRow { key: string; n: string; d: string; src: string; max: number | null; per: string; fx?: HbFx }
+export interface FeatureRow { key: string; n: string; d: string; src: string; max: number | null; per: string; fx?: HbFx }
 
 /** Trocea los grupos de más de `max` filas en trozos parecidos; los siguientes llevan «(cont.)» en el título. */
 function chunkGroups<G extends { title: string; list: unknown[] }>(groups: G[], max: number): (G & { key: string; first: boolean })[] {
@@ -61,7 +61,7 @@ function chunkGroups<G extends { title: string; list: unknown[] }>(groups: G[], 
 }
 
 /** Rasgos que tiene a su nivel: de clase, de subclase, de especie y dotes, con sus usos. */
-function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): FeatureRow[] {
+export function featureRows(c: Character, data: PlayerData | null, lib: LibraryData, levelOnly = false): FeatureRow[] {
   const sp = data?.species.find((x) => x.id === c.speciesId);
   const rows: FeatureRow[] = [];
   // sin el dato de usos, se deducen de su texto («una cantidad de veces igual a tu modificador por Carisma…»)
@@ -86,9 +86,10 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
       const max = usesMax(u, v, cls);
       rows.push({ key: libSub.id + f.lv + f.n, n: f.n, d: f.d, src: libSub.n + ' ' + f.lv, max: max && max > 0 ? max : null, per: max ? u?.per || '' : '', ...(f.fx ? { fx: f.fx } : {}) });
     });
-    choiceRows(resolveChoices(v, data, lib)).forEach((r) => rows.push({ ...r, max: null, per: '' }));
+    if (!levelOnly) choiceRows(resolveChoices(v, data, lib)).forEach((r) => rows.push({ ...r, max: null, per: '' }));
   }
   sp?.t.forEach((f) => add(f, sp.n));
+  if (levelOnly) return rows;
   const CAT: Record<string, string> = { origin: 'Dote de origen', general: 'Dote', 'fighting-style': 'Estilo de combate', 'epic-boon': 'Don épico', other: 'Rasgo propio' };
   c.feats.forEach((name) => {
     const ft = data?.feats.find((x) => x.n === name);

@@ -11,6 +11,7 @@ import { hasInvocation } from '../../engine/subclassChoices';
 import { InfoDialog } from '../../shared/Card';
 import Picker from '../../shared/Picker';
 import { useLibrary } from '../../store/library';
+import { featureRows } from './CharacterSheet';
 import { usePlayer } from '../../store/player';
 import { plainText, useSpells } from './spells';
 import SubclassChoices from './SubclassChoices';
@@ -354,6 +355,23 @@ export default function CharacterEditor({ c }: { c: Character }) {
             ))}
           </div>
         </fieldset>
+
+        {(() => {
+          const rows = featureRows(c, data, lib, true);
+          if (!rows.length) return null;
+          return (
+            <fieldset className="fs" data-wstep="s5">
+              <legend>Rasgos por nivel</legend>
+              <span className="muted small">Los rasgos de tu clase, subclase y especie a tu nivel. Los que tu subclase sustituye no salen. Se ganan solos al subir de nivel; aquí solo se leen.</span>
+              {rows.map((f) => (
+                <details key={f.key + f.src} className="ce-lvl">
+                  <summary><b>{f.n}</b> <span className="muted small">{f.src}</span></summary>
+                  <p className="small" style={{ whiteSpace: 'pre-wrap', margin: '4px 0 8px' }}>{f.d}</p>
+                </details>
+              ))}
+            </fieldset>
+          );
+        })()}
 
         <fieldset className="fs" data-wstep="s5">
           <legend>Dotes, estilos de combate y rasgos propios</legend>

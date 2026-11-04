@@ -1140,6 +1140,20 @@ test('subir de nivel en el editor sube también los PG actuales', async ({ page 
   await expect(hpMax).toHaveText('38');
 });
 
+test('el editor lista los rasgos de clase por nivel', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Nim');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Pícaro' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await page.getByRole('button', { name: 'Editar hoja' }).click();
+  await expect(page.getByText('Rasgos por nivel')).toBeVisible();
+  await expect(page.locator('.ce-lvl summary', { hasText: 'Ataque furtivo' })).toBeVisible();
+  await expect(page.locator('.ce-lvl summary', { hasText: 'Esquiva asombrosa' })).toBeVisible();
+});
+
 test('multiclase: añadir una clase en el editor y verla en la hoja', async ({ page }) => {
   await page.goto('/#/jugador');
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
