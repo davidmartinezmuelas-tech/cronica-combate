@@ -38,15 +38,18 @@ export default function ScriptPanel() {
     cancel.current = { cancelled: false };
     try {
       const st = useStore.getState();
-      const r = await readAdventure(f, [...st.custom, ...st.book, ...st.srd].map((m) => ({ id: m.id, n: m.n, en: m.en })), (p, t) => setProgress([p, t]), cancel.current);
+      const title = scriptTitleFromFile(f.name);
+      const r = await readAdventure(f, [...st.custom, ...st.book, ...st.srd].map((m) => ({ id: m.id, n: m.n, en: m.en, own: !st.srd.includes(m) })), st.spells, (p, t) => setProgress([p, t]), cancel.current, { taken: st.encounters.map((e) => e.name), suffix: title, title });
       if (r.text.length < 200) setMsg('No se ha encontrado texto que convertir en guion.');
       else if (new Blob([r.text]).size > MAX_SCRIPT_BYTES) setMsg('La aventura es demasiado larga para un guion (máximo 1 MB de texto).');
       else {
-        addScript(scriptTitleFromFile(f.name), r.text);
+        // las fichas de criatura de la propia aventura pasan al bestiario para que sus encuentros las encuentren
+        if (r.found.length) useStore.getState().setBook([...st.book, ...r.found]);
+        addScript(title, r.text);
         const now = useStore.getState();
         now.applyScriptBlocks(now.planScriptBlocks(r.text));
         setOk(true);
-        setMsg('Aventura importada (' + r.pages + ' páginas) con ' + r.encounters.length + ' encuentros.' + (r.unresolved.length ? ' Criaturas que no están en tu bestiario y quedan solo en el texto: ' + r.unresolved.join(', ') + '.' : ''));
+        setMsg('Aventura importada (' + r.pages + ' páginas) con ' + r.encounters.length + ' encuentros.' + (r.found.length ? ' Fichas de criatura de la aventura sumadas al bestiario: ' + r.found.length + '.' : '') + (r.unresolved.length ? ' Criaturas que no están en tu bestiario y quedan solo en el texto: ' + r.unresolved.join(', ') + '.' : ''));
       }
     } catch (e) {
       const m = (e as Error).message;

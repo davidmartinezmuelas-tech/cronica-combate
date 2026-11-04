@@ -55,6 +55,34 @@ describe('importar una aventura en PDF como guion', () => {
     expect(r.unresolved).toEqual(['Bandits']);
   });
 
+  it('reconoce criaturas propias sin marca y no suma la misma criatura repetida en una sala', () => {
+    const l = (): Line[] => {
+      y = 800;
+      return [
+        ln('The Crypt', 21, 30),
+        ln('Area 1: Hall', 14, 24),
+        ln('A Nerubian Crypt Fiend lurks here. Two Nerubian Crypt Fiends flank the door and a Nerubian Crypt Fiend', 6.5, 20),
+        ln('hangs from the ceiling.', 6.5),
+      ];
+    };
+    const own = { id: 'fiend', n: 'Necrófago nerubiano', en: 'Nerubian Crypt Fiend', own: true };
+    const r = adventureToMarkdown(l(), [own]);
+    expect(r.encounters).toEqual([{ name: 'Area 1: Hall', items: [{ n: 'Necrófago nerubiano', qty: 2 }] }]);
+    expect(adventureToMarkdown(l(), [{ ...own, own: false }]).encounters).toEqual([]);
+  });
+
+  it('no pisa un encuentro que ya existe: le pone el título de la aventura', () => {
+    const r = adventureToMarkdown(page(), monsters, 'Aventura', { taken: ['Area 3: Mast Room'], suffix: 'La Foundry' });
+    expect(r.encounters[0].name).toBe('Area 3: Mast Room (La Foundry)');
+    expect(r.text).toContain('nombre: Area 3: Mast Room (La Foundry)');
+  });
+
+  it('los apartados de resumen no son salas', () => {
+    y = 800;
+    const r = adventureToMarkdown([ln('The Foundry', 21, 30), ln('Area 3: Mast Room', 14, 24), ln('The hall is cold and silent, with old banners hanging from the rafters above the broken tables.', 6.5, 20), ln('Adventure Summary', 14, 24), ln('Four Bandits (B) wait here in the dark, watching the door with their weapons drawn and ready.', 6.5, 20)], monsters);
+    expect(r.encounters).toEqual([{ name: 'Area 3: Mast Room', items: [{ n: 'Bandido', qty: 4 }] }]);
+  });
+
   it('las tiradas de daño en inglés son botones de daño', () => {
     const d = findDice('Failure: 10 (3d6) Fire damage. Success: Half.').filter((x) => x.t === 'dice');
     expect(d).toHaveLength(1);

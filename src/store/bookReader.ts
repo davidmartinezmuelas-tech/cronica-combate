@@ -111,8 +111,16 @@ export async function readItemBook(file: Blob, onProgress: (page: number, total:
  * Lee el PDF de una aventura del usuario en su navegador (no se envía a ningún sitio) y lo convierte en un guion en
  * Markdown, con un bloque de encuentro en cada sala o escena que nombra criaturas del bestiario.
  */
-export async function readAdventure(file: Blob, monsters: AdvMonster[], onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<AdventureResult & { pages: number }> {
+export async function readAdventure(file: Blob, monsters: AdvMonster[], spells: Record<string, Spell>, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }, opts: { taken?: string[]; suffix?: string; title?: string } = {}): Promise<AdventureResult & { pages: number; found: Monster[] }> {
   const lines: Line[] = [];
-  const pages = await readPages(file, (items, width, p) => { lines.push(...pageLines(items, width, true).map((l) => ({ ...l, p }))); }, onProgress, signal);
-  return { ...adventureToMarkdown(lines, monsters), pages };
+  const wide: Line[] = []; // con la tabla de características junta, para leer las fichas de criatura de la propia aventura
+  const pages = await readPages(file, (items, width, p) => {
+    lines.push(...pageLines(items, width, true).map((l) => ({ ...l, p })));
+    wide.push(...pageLines(foldAbilityTable(items), width, true).map((l) => ({ ...l, p })));
+  }, onProgress, signal);
+  // las fichas que trae la aventura se suman a las criaturas conocidas (y se reconocen aunque no lleven marca en el mapa)
+  const found = parseMonstersEn(wide, spells);
+  const known = new Set(monsters.map((m) => m.id));
+  const mine: AdvMonster[] = found.filter((m) => !known.has(m.id)).map((m) => ({ id: m.id, n: m.n, en: m.en, own: true }));
+  return { ...adventureToMarkdown(lines, [...monsters, ...mine], opts.title, opts), pages, found: found.filter((m) => !known.has(m.id)) };
 }

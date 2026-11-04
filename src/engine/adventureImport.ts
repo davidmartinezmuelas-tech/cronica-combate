@@ -9,7 +9,8 @@ import { norm } from './util';
  * texto («3d6») se vuelven botones al leer el guion.
  */
 
-export interface AdvMonster { id: string; n: string; en?: string }
+/** `own`: criatura del libro del usuario o de la propia aventura; se reconoce también sin marca («a Nerubian Crypt Fiend»). */
+export interface AdvMonster { id: string; n: string; en?: string; own?: boolean }
 export interface AdventureResult {
   title: string;
   text: string;
@@ -30,7 +31,7 @@ export function tidy(t: string): string {
 export const unstar = (t: string) => t.replace(/\s*([,.;]?)\*(?=[\s,.;)]|$)/g, '$1');
 
 /** Títulos de apartado que no son una sala o escena (no dan nombre a un encuentro). */
-const GENERIC = /^(Development|Treasure|Tactics|Talking|Fighting|Rewards?|Conclusion|Concluding the Encounter|Time to Rest|Preparation|Ceilings|Doors|Lighting|Continuing the Adventure|Adventure Background|Beginning the Adventure|Introduction|Credits|Key Plot Points|Enemies)$|Overview$|\bFeatures$|\bover Time$/i;
+const GENERIC = /^(Development|Treasure|Tactics|Talking|Fighting|Rewards?|Conclusion|Concluding the Encounter|Time to Rest|Preparation|Ceilings|Doors|Lighting|Continuing the Adventure|Adventure Background|Beginning the Adventure|Introduction|Credits|Key Plot Points|Enemies)$|Overview$|Summary$|Schedule$|Synopsis$|Outline$|\bFeatures$|\bover Time$/i;
 
 const median = (v: number[]) => (v.length ? [...v].sort((a, b) => a - b)[Math.floor(v.length / 2)] : 0);
 
@@ -150,7 +151,7 @@ export const encounterBlockText = (name: string, items: { n: string; qty: number
   ['```encuentro', 'formato: ' + BLOCK_FORMAT, 'nombre: ' + name.trim(), 'guarida: no', ...items.map((r) => '- ' + r.qty + ' x ' + r.n), '```'].join('\n');
 
 /** Guion en Markdown de las líneas de una aventura (una columna, con el tamaño de letra de cada línea). */
-export function adventureToMarkdown(lines: Line[], monsters: AdvMonster[], fallbackTitle = 'Aventura'): AdventureResult {
+export function adventureToMarkdown(lines: Line[], monsters: AdvMonster[], fallbackTitle = 'Aventura', opts: { taken?: string[]; suffix?: string } = {}): AdventureResult {
   const items = structure(lines);
   const byName = new Map<string, AdvMonster>();
   for (const m of monsters) { byName.set(norm(m.n), m); if (m.en) byName.set(norm(m.en), m); }
@@ -164,6 +165,15 @@ export function adventureToMarkdown(lines: Line[], monsters: AdvMonster[], fallb
     }
     return undefined;
   };
+
+  // criaturas propias nombradas con artículo o cantidad y sin marca («a Nerubian Crypt Fiend», «three Skeletons»)
+  const reEsc = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const ownNames = [...new Set(monsters.filter((m) => m.own).flatMap((m) => [m.en, m.n]).filter((x): x is string => !!x && x.length > 3))].sort((a, b) => b.length - a.length);
+  const OWN = ownNames.length
+    ? new RegExp(/\b(a|an|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\s+(?:of the\s+)?(__N__)(?:s|es)?(?![\p{L}])/u.source.replace('__N__', () => ownNames.map(reEsc).join('|')), 'giu')
+    : null;
+  const namedIn = (text: string): { name: string; qty: number }[] =>
+    OWN ? [...text.matchAll(OWN)].map((m) => ({ name: m[2], qty: /^\d+$/.test(m[1]) ? parseInt(m[1], 10) : NUMBERS[m[1].toLowerCase()] || 1 })) : [];
 
   // la sala o escena a la que pertenece cada párrafo: el último título de nivel 1 o 2
   let room2 = '', room3 = '';
@@ -179,11 +189,11 @@ export function adventureToMarkdown(lines: Line[], monsters: AdvMonster[], fallb
     }
     const room = room3 || room2;
     if (it.boxed || !room) return;
-    for (const c of creaturesIn(it.text)) {
+    for (const c of [...creaturesIn(it.text), ...namedIn(it.text)]) {
       const m = find(c.name);
       if (!m) { if (!unresolved.some((u) => norm(u) === norm(c.name))) unresolved.push(c.name); continue; }
       const map = encs.get(room) || new Map();
-      map.set(m.id, { m, qty: (map.get(m.id)?.qty || 0) + c.qty });
+      map.set(m.id, { m, qty: Math.max(map.get(m.id)?.qty || 0, c.qty) });
       encs.set(room, map);
       if (!firstAt.has(room)) firstAt.set(room, i);
     }
@@ -193,8 +203,10 @@ export function adventureToMarkdown(lines: Line[], monsters: AdvMonster[], fallb
   const encounters: AdventureResult['encounters'] = [];
   const blockAfter = new Map<number, string>();
   for (const [name, map] of encs) {
-    let nm = name, k = 2;
-    while (used.has(norm(nm))) nm = name + ' (' + k++ + ')';
+    // un encuentro que ya existe con ese nombre (de otra aventura) no se pisa: lleva el título de esta detrás
+    const clash = (opts.taken || []).some((t) => norm(t) === norm(name));
+    let nm = clash && opts.suffix ? name + ' (' + opts.suffix + ')' : name, k = 2;
+    while (used.has(norm(nm)) || (clash && !opts.suffix && (opts.taken || []).some((t) => norm(t) === norm(nm)))) nm = name + ' (' + (opts.suffix ? opts.suffix + ' ' : '') + k++ + ')';
     used.add(norm(nm));
     const rows = [...map.values()].map((v) => ({ n: v.m.n, qty: v.qty }));
     encounters.push({ name: nm, items: rows });
