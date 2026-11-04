@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Character, Derived } from '../../engine/character';
 import { fmt } from '../../engine/dice';
 import { norm } from '../../engine/util';
-import Card from '../../shared/Card';
+import Card, { InfoDialog } from '../../shared/Card';
 import Pips from '../../shared/Pips';
 import { useStore } from '../../store/useStore';
 
@@ -128,5 +128,50 @@ export default function DeathKnightPanel({ c, d, set }: { c: Character; d: Deriv
         )}
       </ul>
     </section>
+  );
+}
+
+/** ¿Se puede usar Runic Power ahora? Runa elegida, nivel 3 y algún uso de Canalización divina. */
+export function runicPowerReady(c: Character): boolean {
+  if (!isEbonBlade(c) || c.level < 3 || !c.choices?.[RUNE_KEY]?.[0]) return false;
+  const max = c.level >= 11 ? 3 : 2;
+  return (c.uses[CHANNEL] || 0) < max;
+}
+
+/** Ventana que sale justo tras lanzar Rune Strike: gasta un uso de Canalización divina para el efecto de la runa, o no. */
+export function RunicPowerDialog({ c, d, set, onClose }: { c: Character; d: Derived; set: (patch: Partial<Character>) => void; onClose: () => void }) {
+  const { roll } = useStore.getState();
+  const [dealt, setDealt] = useState('');
+  const rune = c.choices?.[RUNE_KEY]?.[0] || '';
+  const max = c.level >= 11 ? 3 : 2;
+  const left = max - Math.min(max, c.uses[CHANNEL] || 0);
+  const hit = parseInt(dealt, 10) || 0;
+  const done = (patch: Partial<Character> = {}) => { set({ uses: { ...c.uses, [CHANNEL]: (c.uses[CHANNEL] || 0) + 1, [STRIKE]: 0 }, ...patch }); onClose(); };
+  return (
+    <InfoDialog title="Runic Power" onClose={onClose}>
+      <p className="muted small" style={{ margin: 0 }}>Rune Strike lanzado. Runa {RUNE_ES[rune] || rune}. ¿Gastas un uso de Canalización divina? Te quedan {left} de {max}.</p>
+      <div className="rollrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6, marginTop: 8 }}>
+        {rune === 'Frost' && (
+          <>
+            <p className="pc-text">El objetivo de Rune Strike y cada enemigo en una emanación de 10 pies a su alrededor sufren 2d6 de frío.</p>
+            <button className="btn gold" onClick={() => { roll({ label: (c.name || 'Personaje') + ' · Runic Power (Escarcha)', kind: 'damage', who: c.name || 'Personaje', by: null, parts: [{ expr: '2d6', type: 'frío' }] }); done(); }}>Escarcha: 2d6 de frío</button>
+          </>
+        )}
+        {rune === 'Blood' && (
+          <>
+            <p className="pc-text">Recuperas PG iguales al daño necrótico que hizo tu Rune Strike.</p>
+            <input className="input" type="number" min={0} inputMode="numeric" aria-label="Daño necrótico de Rune Strike" placeholder="Daño necrótico del Rune Strike" value={dealt} onChange={(e) => setDealt(e.target.value)} />
+            <button className="btn gold" disabled={hit < 1} onClick={() => done({ hp: Math.min(d.hpMax, c.hp + hit) })}>Sangre: curarme {hit || ''}</button>
+          </>
+        )}
+        {rune === 'Unholy' && (
+          <>
+            <p className="pc-text">El objetivo queda maldito hasta el final de tu próximo turno: en su siguiente salvación resta 1d6 a la tirada y la maldición termina.</p>
+            <button className="btn gold" onClick={() => done()}>Profana: maldecir al objetivo</button>
+          </>
+        )}
+        <button className="btn" onClick={onClose}>No usarlo</button>
+      </div>
+    </InfoDialog>
   );
 }

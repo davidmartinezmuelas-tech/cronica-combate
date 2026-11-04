@@ -45,7 +45,7 @@ import SpellRolls, { spellCastFor } from './SpellRolls';
 import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
-import DeathKnightPanel, { isEbonBlade, RUNE_STRIKE, dkPassives } from './DeathKnightPanel';
+import DeathKnightPanel, { isEbonBlade, RUNE_STRIKE, dkPassives, runicPowerReady, RunicPowerDialog } from './DeathKnightPanel';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -165,6 +165,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // castigos en el golpe del arma (su daño va en la misma tirada: en un crítico también se doblan sus dados)
   const [smitePick, setSmitePick] = useState('');
   // castigos preparados en cada arma (como Marca del cazador): se suman al siguiente daño cuerpo a cuerpo de esa arma y se gastan ahí
+  const [runicAsk, setRunicAsk] = useState(false);
   const [smitePending, setSmitePending] = useState<{ label: string; parts: RollPart[]; hit: Hit; armKey: string } | null>(null);
   const [eldPick, setEldPick] = useState(false);
   // Marca del cazador y Maleficio duran: mientras estén activos, su daño va en cada tirada de daño con arma
@@ -445,6 +446,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     if ((dkP && Object.keys(dkP.uses).length) || rs) {
       const cur2 = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
       update(c.id, { uses: { ...cur2.uses, ...(dkP?.uses || {}), ...(rs ? { 'dk.strike': 1 } : {}) } });
+      if (rs && runicPowerReady({ ...c, uses: { ...cur2.uses } })) setRunicAsk(true);
     }
     if (useSmite || useEld) {
       const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
@@ -865,6 +867,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               </div>
             </InfoDialog>
           )}
+          {runicAsk && runicPowerReady(c) && <RunicPowerDialog c={c} d={d} set={set} onClose={() => setRunicAsk(false)} />}
           {spTextOf && (
             <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
               <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>

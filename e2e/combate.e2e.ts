@@ -1166,6 +1166,9 @@ test('Caballero de la Muerte: Rune Strike hace de Castigo divino, desbloquea Run
   await expect(dlg.getByRole('button', { name: /^Rune Strike · / })).toHaveText(['Rune Strike · Gratis · 2d8 necrótico', 'Rune Strike · Nivel 1 · 2d8 necrótico', 'Rune Strike · Nivel 2 · 3d8 necrótico']);
   await dlg.getByRole('button', { name: /· Gratis ·/ }).click();
   await expect(page.locator('.plaque-rows')).toContainText('Rune Strike');
+  // justo después sale la ventana de Runic Power con el efecto de la runa
+  await expect(dlg.getByRole('button', { name: /Escarcha: 2d6/ })).toBeVisible();
+  await dlg.getByRole('button', { name: 'No usarlo' }).click();
   await expect(sec.getByRole('button', { name: 'Escarcha 2d6' })).toBeEnabled();
   // el gratis se gastó
   await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
