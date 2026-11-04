@@ -1,3 +1,4 @@
+import { replacedFeatures } from './featureNames';
 import type { Abil } from '../data/player';
 
 /**
@@ -50,6 +51,12 @@ export const setOwnClasses = (list: OwnClass[]) => { ownCls = list.filter((s) =>
 let casting: { cls: string; n: string; rule: CastingRule }[] = [];
 export const setCastingRules = (list: { cls: string; n: string; casting?: CastingRule }[]) => { casting = list.filter((s) => s.casting).map((s) => ({ cls: s.cls, n: s.n, rule: s.casting! })); };
 export const libCastingRule = (cls: string, sub: string): CastingRule | undefined => casting.find((x) => x.cls === cls && norm(x.n) === norm(sub))?.rule;
+
+// los rasgos de clase que sustituyen las subclases de la biblioteca («This feature replaces…»), para los cálculos de la hoja
+let replaces: Parameters<typeof replacedFeatures>[1] = [];
+export const setReplaceRules = (list: Parameters<typeof replacedFeatures>[1]) => { replaces = list.filter((s) => s.f.some((f) => f.rep)); };
+/** ¿Alguna de sus clases tiene este rasgo de clase sustituido por su subclase? */
+export const libReplaces = (entries: { classId: string; level: number; subclass?: string }[], feature: string): boolean => replacedFeatures(entries, replaces).some((g) => norm(g.feature) === norm(feature));
 
 const norm = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 

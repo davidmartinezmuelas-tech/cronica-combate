@@ -391,3 +391,35 @@ describe('especies de un libro en inglés', () => {
     expect(sp[0].t.map((x) => x.n)).toEqual(['Darkflight']);
   });
 });
+
+import { isReplaced, replacedFeatures, replacedName } from '../engine/featureNames';
+import { classAlwaysSpells } from '../engine/spellPrep';
+import { blankCharacter } from '../engine/character';
+
+describe('rasgos que una subclase del libro sustituye', () => {
+  const L = (...t: string[]) => t.map((s, i) => ({ t: s, col: 0, y: 800 - i * 12, p: 1 }));
+  const subs = parseSubclassesEn(L(
+    'Oath of the Ebon Blade (Paladin Subclass)', 'Intro.',
+    'Level 1: Death Coil', 'This feature replaces the Lay On Hands feature of the Paladin class.', 'Your creature type becomes Undead.',
+    'Level 2: Runic Smite', 'This feature replaces the Paladin’s Smite feature of the Paladin class.', 'You always have Rune Strike prepared.',
+    'Level 3: Runeforging', 'When you finish a Long Rest, you can inscribe a rune.',
+  ));
+  it('lee «This feature replaces…» y guarda el nombre del rasgo', () => {
+    expect(subs[0].f.map((f) => f.rep)).toEqual(['Lay On Hands', 'Paladin’s Smite', undefined]);
+  });
+  it('pasa el nombre al español y solo cuenta con el nivel del rasgo', () => {
+    expect(replacedName('Paladin’s Smite')).toBe('Castigo del paladín');
+    expect(isReplaced('Imposición de manos', ['Lay On Hands'])).toBe(true);
+    const lib = subs.map((s) => ({ cls: s.cls, n: s.n, f: s.f }));
+    expect(replacedFeatures([{ classId: 'paladin', level: 1, subclass: 'Oath of the Ebon Blade' }], lib).map((g) => g.feature)).toEqual(['Imposición de manos']);
+    expect(replacedFeatures([{ classId: 'paladin', level: 6, subclass: 'Oath of the Ebon Blade' }], lib).map((g) => g.feature)).toEqual(['Imposición de manos', 'Castigo del paladín']);
+    expect(replacedFeatures([{ classId: 'paladin', level: 6, subclass: 'Otra' }], lib)).toEqual([]);
+  });
+  it('el conjuro Castigo Divino siempre preparado deja de serlo si la subclase sustituye el Castigo del paladín', () => {
+    const c = { ...blankCharacter(), classId: 'paladin', level: 6, subclass: 'Oath of the Ebon Blade' };
+    const list = [{ id: 'divine-smite', en: 'Divine Smite' }];
+    const lib = subs.map((s) => ({ cls: s.cls, n: s.n, f: s.f }));
+    expect(classAlwaysSpells(c, list).map((x) => x.id)).toEqual(['divine-smite']);
+    expect(classAlwaysSpells(c, list, lib)).toEqual([]);
+  });
+});

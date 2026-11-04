@@ -1,6 +1,8 @@
 import type { PlayerData } from '../data/player';
 import { classEntries, pactSlots, type Character } from './character';
 import { subclassCaster } from './subclassChoices';
+import { replacedFeatures } from './featureNames';
+import { norm } from './util';
 
 /**
  * Conjuros que prepara cada clase lanzadora del personaje (reglas 2024: en multiclase cada clase prepara los suyos,
@@ -56,16 +58,19 @@ export function casterPreps(c: Character, data: PlayerData, spells: SpellLite[])
 }
 
 /** Conjuros que una clase tiene siempre preparados (reglas 2024): no cuentan en sus preparados y se añaden solos. */
-export const CLASS_ALWAYS: { cls: string; lv: number; en: string; n: string }[] = [
-  { cls: 'paladin', lv: 2, en: 'Divine Smite', n: 'Paladín' }, // Castigo del paladín
-  { cls: 'paladin', lv: 5, en: 'Find Steed', n: 'Paladín' }, // Corcel fiel
-  { cls: 'ranger', lv: 1, en: "Hunter's Mark", n: 'Explorador' }, // Enemigo predilecto
-  { cls: 'druid', lv: 1, en: 'Speak with Animals', n: 'Druida' }, // Druídico
+export const CLASS_ALWAYS: { cls: string; lv: number; en: string; n: string; feature: string }[] = [
+  { cls: 'paladin', lv: 2, en: 'Divine Smite', n: 'Paladín', feature: 'Castigo del paladín' }, // Castigo del paladín
+  { cls: 'paladin', lv: 5, en: 'Find Steed', n: 'Paladín', feature: 'Corcel fiel' }, // Corcel fiel
+  { cls: 'ranger', lv: 1, en: "Hunter's Mark", n: 'Explorador', feature: 'Enemigo predilecto' }, // Enemigo predilecto
+  { cls: 'druid', lv: 1, en: 'Speak with Animals', n: 'Druida', feature: 'Druídico' }, // Druídico
 ];
 
 /** Los de CLASS_ALWAYS que el personaje tiene por el nivel de sus clases (con el id del conjuro en la lista). */
-export function classAlwaysSpells(c: Character, list: { id: string; en?: string }[]): ((typeof CLASS_ALWAYS)[number] & { id: string })[] {
+export function classAlwaysSpells(c: Character, list: { id: string; en?: string }[], libSubs: Parameters<typeof replacedFeatures>[1] = []): ((typeof CLASS_ALWAYS)[number] & { id: string })[] {
+  // los que una subclase de la biblioteca sustituye (Runic Smite por el Castigo del paladín) no se tienen
+  const gone = replacedFeatures(classEntries(c), libSubs);
   return CLASS_ALWAYS
+    .filter((a) => !gone.some((g) => g.cls === a.cls && norm(g.feature) === norm(a.feature)))
     .filter((a) => classEntries(c).some((e) => e.classId === a.cls && e.level >= a.lv))
     .flatMap((a) => { const sp = list.find((x) => x.en === a.en); return sp ? [{ ...a, id: sp.id }] : []; });
 }

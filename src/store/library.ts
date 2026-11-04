@@ -2,7 +2,7 @@ import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-ke
 import { create } from 'zustand';
 import type { LibBackground, LibClass, LibFeat, LibSpecies, LibSpell, LibSubclass } from '../engine/bookImport';
 import type { LibItem } from '../engine/magicItems';
-import { setCastingRules, setOwnClasses, setOwnSubclasses } from '../engine/homebrew';
+import { setCastingRules, setOwnClasses, setOwnSubclasses, setReplaceRules } from '../engine/homebrew';
 import { ownSelfFx, setOwnSpellFx } from '../engine/spellEffects';
 import { usePlayer } from './player';
 
@@ -121,7 +121,7 @@ const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: 
 
 // los rasgos propios con bonificadores fijos entran en el cálculo de la hoja
 useLibrary.subscribe((s, prev) => {
-  if (s.subclasses !== prev.subclasses) { setOwnSubclasses(s.subclasses); setCastingRules(s.subclasses); }
+  if (s.subclasses !== prev.subclasses) { setOwnSubclasses(s.subclasses); setCastingRules(s.subclasses); setReplaceRules(s.subclasses); }
   // las clases de la biblioteca se suman a las del SRD en los datos del jugador
   if (s.species !== prev.species) usePlayer.getState().setLibSpecies(s.species || []);
   if (s.classes !== prev.classes) { setOwnClasses(s.classes); usePlayer.getState().setLibClasses(s.classes); }

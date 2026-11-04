@@ -4,7 +4,7 @@ import { classEffects, speciesResist, type ClassFx } from './classEffects';
 import { featEffects, mergeEffects, type FeatEffect } from './featEffects';
 import { featCatOf, splitFeatText } from './featText';
 import { choiceSkills, subclassCaster } from './subclassChoices';
-import { ownFeatures, type HbFx } from './homebrew';
+import { libReplaces, ownFeatures, type HbFx } from './homebrew';
 import { itemAbilities, itemEffects, type MagicItem } from './magicItems';
 import { norm, uid } from './util';
 
@@ -362,7 +362,7 @@ export function derive(c: Character, data: PlayerData | null): Derived {
   const casterLevel = slotCasters.reduce((t, { e, kind }) => t + (kind === 'full' ? e.level : kind === 'half' ? Math.ceil(e.level / 2) : kind === 'third' ? Math.floor(e.level / 3) : 0), 0);
   const slots = slotCasters.length > 1 ? (casterLevel > 0 ? FULL_SLOTS[Math.min(20, casterLevel) - 1].slice() : []) : slotCasters.length === 1 ? spellSlots(slotCasters[0].kind as ClassData['caster'] | 'third', slotCasters[0].e.level) : [];
 
-  const radiant = lvOf('paladin') >= 11;
+  const radiant = lvOf('paladin') >= 11 && !libReplaces(entries, 'Golpes radiantes');
   const attacks = c.weapons.map((w) => {
     const ab = weaponAbil(w, mods);
     const props = w.props || [];

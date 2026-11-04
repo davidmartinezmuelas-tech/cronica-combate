@@ -117,14 +117,14 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   // conjuros que dan los rasgos al llegar a este nivel: de la clase (Hallar corcel…), de la subclase y de la especie
   const subNow = subName ? asClass({ ...next, choices }, { classId, className: cur?.className || '', level: newLv, subclass: subName }) : null;
   const subGain = subNow ? subclassSpells(subNow, cls, subclassText(subNow, cls, lib.subclasses), spellIdx.list).filter((x) => x.at === newLv).map((x) => ({ id: x.id, why: subName + ' · siempre preparado' })) : [];
-  const alwaysBefore = new Set(classAlwaysSpells(c, spellIdx.list).map((x) => x.id));
-  const classGain = classAlwaysSpells(next, spellIdx.list).filter((x) => !alwaysBefore.has(x.id)).map((x) => ({ id: x.id, why: x.n + ' · siempre preparado' }));
+  const alwaysBefore = new Set(classAlwaysSpells(c, spellIdx.list, lib.subclasses).map((x) => x.id));
+  const classGain = classAlwaysSpells(next, spellIdx.list, lib.subclasses).filter((x) => !alwaysBefore.has(x.id)).map((x) => ({ id: x.id, why: x.n + ' · siempre preparado' }));
   const grantsBefore = new Set(grantedSpells(c, spellIdx.list, before.mods).map((g) => g.id));
   const grantGain = grantedSpells(next, spellIdx.list, after.mods).filter((g) => !grantsBefore.has(g.id)).map((g) => ({ id: g.id, why: g.src + (g.how === 'lr' ? ' · 1 vez por descanso largo sin espacio' : g.how === 'will' ? ' · a voluntad' : '') }));
   const gainedSpells = [...classGain, ...subGain, ...grantGain].filter((x, i, a) => a.findIndex((y) => y.id === x.id) === i);
   // límites de los conjuros nuevos: los que se ganan (no más)
   // los que ya se tienen siempre preparados (de la clase o de la subclase) no se eligen
-  const alwaysHave = new Set([...gainedSpells.map((g) => g.id), ...classAlwaysSpells(next, spellIdx.list).map((x) => x.id),
+  const alwaysHave = new Set([...gainedSpells.map((g) => g.id), ...classAlwaysSpells(next, spellIdx.list, lib.subclasses).map((x) => x.id),
     ...(subNow ? subclassSpells(subNow, cls, subclassText(subNow, cls, lib.subclasses), spellIdx.list).map((x) => x.id) : [])]);
   const capCantrips = newCantrips;
   const capSpells = newPrepared;

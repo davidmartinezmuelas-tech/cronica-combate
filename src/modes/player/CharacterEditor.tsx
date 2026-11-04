@@ -150,7 +150,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
   // los que se tienen preparados sin contar: los de la subclase y los de la clase (Castigo divino, Marca del cazador…)
   const always = new Set([
     ...classEntries(c).flatMap((e) => { const v = asClass(c, e); const k = data.classes.find((x) => x.id === e.classId); return subclassSpells(v, k, subclassText(v, k, lib.subclasses), spellIdx.list).map((x) => x.id); }),
-    ...classAlwaysSpells(c, spellIdx.list).map((a) => a.id),
+    ...classAlwaysSpells(c, spellIdx.list, lib.subclasses).map((a) => a.id),
   ]);
   const assigned = assignSpells(c.spells, preps, lvOf, always);
   const useClassList = !allSpells && preps.length > 0;

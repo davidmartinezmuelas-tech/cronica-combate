@@ -1,5 +1,7 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { masteryText, weaponPropText } from '../../engine/weaponRules';
+import { replacedFeatures } from '../../engine/featureNames';
+import { libReplaces } from '../../engine/homebrew';
 import InfoPop from '../../shared/InfoPop';
 import { CONDITIONS, DMG_TYPES, XP_LEVELS } from '../../data/constants';
 import { ABILS, type Abil, type ClassData, type ClassFeature, type PlayerData } from '../../data/player';
@@ -72,7 +74,9 @@ function featureRows(c: Character, data: PlayerData | null, lib: LibraryData): F
   for (const e of classEntries(c)) {
     const v = asClass(c, e);
     const cls = data?.classes.find((x) => x.id === e.classId);
-    cls?.f.filter((f) => f.lv <= e.level).forEach((f) => add(f, cls.n + ' ' + f.lv, v, cls));
+    // los rasgos de clase que una subclase de la biblioteca sustituye («This feature replaces…») no se tienen
+    const gone = replacedFeatures([e], lib.subclasses).map((g) => norm(g.feature));
+    cls?.f.filter((f) => f.lv <= e.level && !gone.includes(norm(f.n))).forEach((f) => add(f, cls.n + ' ' + f.lv, v, cls));
     // los rasgos de la subclase del SRD solo si es la elegida
     if (cls?.sub && e.level >= cls.sub.lv && norm(e.subclass) === norm(cls.sub.n)) cls.sub.f.filter((f) => f.lv <= e.level).forEach((f) => add(f, cls.sub!.n + ' ' + f.lv, v, cls));
     // subclase de la biblioteca propia (si es la elegida y no es la misma del SRD: el manual repite sus nombres)
@@ -522,7 +526,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const picked = views.flatMap(({ v }) => choiceSpells(v).map((x) => ({ ...x, cls: v.classId }))).filter((x) => !c.spells.includes(x.id) && !subSpells.some((y) => y.id === x.id));
   // los que da la clase siempre preparados (Castigo divino y Hallar corcel del paladín, Marca del cazador del explorador,
   // Hablar con los animales del druida): aunque no se hayan elegido
-  const classAlways = classAlwaysSpells(c, spellIdx.list);
+  const classAlways = classAlwaysSpells(c, spellIdx.list, lib.subclasses);
   const alwaysOf = (id: string) => classAlways.find((a) => a.id === id);
   const classSpells = classAlways.filter((a) => !c.spells.includes(a.id) && !subSpells.some((y) => y.id === a.id)).map((a) => ({ k: a.id, s: spellIdx.get(a.id), sub: a.n + ' · siempre preparado', cls: [a.cls] }));
   // clases a las que pertenece cada conjuro elegido (para las pestañas por clase): las que lo tienen en su lista
@@ -1299,7 +1303,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       {views.map(({ v, dv }, i) => (
         <Fragment key={i}>
           <SubclassActions c={v} d={dv} data={data} lib={lib} set={set} />
-          <ClassPanel c={v} d={dv} data={data} set={set} lay={!quick.some((r) => r.n === 'Imposición de manos' && classLevel(c, 'paladin') > 0)} />
+          <ClassPanel c={v} d={dv} data={data} set={set} lay={!quick.some((r) => r.n === 'Imposición de manos' && classLevel(c, 'paladin') > 0) && !libReplaces(classEntries(c), 'Imposición de manos')} />
         </Fragment>
       ))}
       <FeatPanel c={c} d={d} set={set} />

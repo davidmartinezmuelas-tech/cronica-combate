@@ -33,7 +33,7 @@ export type LibClassFeature = ClassData['f'][number] & { t?: string };
 export interface LibClass extends Omit<ClassData, 'f'> { f: LibClassFeature[]; own?: boolean; at?: number; guest?: boolean }
 
 /** Subclase de la biblioteca: importada del libro del usuario o propia (own: escrita a mano en «Mis creaciones», con sus usos). */
-export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[] }[]; x?: { n: string; d: string }[]; own?: boolean; at?: number; guest?: boolean; casting?: CastingRule }
+export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[]; rep?: string }[]; x?: { n: string; d: string }[]; own?: boolean; at?: number; guest?: boolean; casting?: CastingRule }
 
 /** Líneas de una página en orden de lectura: primero la columna izquierda de arriba abajo, luego la derecha. */
 /** `single`: una sola columna (las fichas de monstruo en inglés ocupan todo el ancho; partir por la mitad separaba el final de las líneas largas). */
@@ -539,7 +539,10 @@ export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
       const ft = cur.feat;
       // tabla «Conjuros del …»: cada fila «nivel + conjuros» se guarda en bruto (con «~») hasta saber qué conjuros existen
       const sp = ft.rows.map((r) => '~' + (ft.multi ? 1 : 0) + '|' + r);
-      cur.s.f.push({ lv: ft.lv, n: ft.n, d: paragraphs(ft.body), ...(sp.length ? { sp } : {}) });
+      const d = paragraphs(ft.body);
+      // «This feature replaces the Paladin’s Smite feature of the Paladin class.»: el rasgo de clase que deja de tener
+      const rep = /^This feature replaces the (.+?) feature/i.exec(d)?.[1];
+      cur.s.f.push({ lv: ft.lv, n: ft.n, d, ...(sp.length ? { sp } : {}), ...(rep ? { rep: rep.trim() } : {}) });
       cur.feat = null;
     }
   };
