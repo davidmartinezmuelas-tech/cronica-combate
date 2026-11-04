@@ -1,5 +1,5 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { attachTables, classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseClassTable, parseClasses, parseFeats, parseSpells, parseSubclasses, type Line, type LibBackground, type ParsedClass, type LibFeat, type LibSpell, type ClassTable, type LibSubclass, type TextItem } from '../engine/bookImport';
+import { attachTables, classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpells, parseSubclasses, parseSubclassesEn, type Line, type LibBackground, type ParsedClass, type LibFeat, type LibSpell, type ClassTable, type LibSubclass, type TextItem } from '../engine/bookImport';
 import { parseItems, parseItemsEs } from '../engine/itemImport';
 import { norm } from '../engine/util';
 import type { LibItem } from '../engine/magicItems';
@@ -68,7 +68,9 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
   // las clases que el libro trae (con ellas se reconocen también sus subclases)
   const classes = attachTables(parseClasses(L.classes), tables);
   const extra = Object.fromEntries(classes.map((k) => [norm(k.n), k.id]));
-  return { feats: parseFeats(L.feats), backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells, pages.flatMap((p) => p.lines)), subclasses: parseSubclasses(L.classes, extra, Object.fromEntries(classes.map((k) => [k.id, k.subNames]))), classes, pages: n };
+  // libros en inglés: las dotes y subclases se buscan en todo el libro (sus títulos no llevan marcas de capítulo)
+  const all = pages.flatMap((p) => p.lines);
+  return { feats: [...parseFeats(L.feats), ...parseFeatsEn(all)], backgrounds: parseBackgrounds(L.backgrounds), spells: parseSpells(L.spells, all), subclasses: [...parseSubclassesEn(all), ...parseSubclasses(L.classes, extra, Object.fromEntries(classes.map((k) => [k.id, k.subNames])))], classes, pages: n };
 }
 
 /** Lee el PDF del Manual de Monstruos del usuario en su navegador y extrae las fichas de monstruo. */

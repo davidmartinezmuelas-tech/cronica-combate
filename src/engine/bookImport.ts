@@ -294,11 +294,11 @@ const schoolOf = (raw: string): string => {
   const best = all.map((s) => ({ s, d: lev(norm(s), n) })).sort((a, b) => a.d - b.d)[0];
   return best && best.d <= 2 ? SCHOOLS_EN[norm(best.s)] || best.s : '';
 };
-function spellHead(t: string): { school: string; level: number; classes: string } | null {
+function spellHead(t: string): { school: string; level: number; classes: string; en?: boolean } | null {
   const es = SPELL_HEAD_ES.exec(t);
   if (es) { const school = schoolOf(es[2] || es[3]); return school ? { school, level: es[1] ? 0 : parseInt(es[4], 10), classes: es[5] || '' } : null; }
   const en = SPELL_HEAD_EN.exec(t);
-  if (en) { const school = schoolOf(en[2] || en[3]); return school ? { school, level: en[1] ? parseInt(en[1], 10) : 0, classes: en[5] || '' } : null; }
+  if (en) { const school = schoolOf(en[2] || en[3]); return school ? { school, level: en[1] ? parseInt(en[1], 10) : 0, classes: en[5] || '', en: true } : null; }
   return null;
 }
 /** Nombres de conjuro de las listas por clase del libro («Bola de fuego  Evocación  C, M»): sirven para corregir un título mal leído. */
@@ -332,16 +332,18 @@ const STARTS_WRAP = /^(de|del|de la|de las|de los|y|o|con|contra|para|por|en)\s/
 export function parseSpells(lines: Line[], book: Line[] = lines): LibSpell[] {
   const out: LibSpell[] = [];
   const listed = listedSpellNames(book);
-  let cur: { s: LibSpell; meta: string; body: string[] } | null = null;
+  let cur: { s: LibSpell; meta: string; body: string[]; en?: boolean } | null = null;
   const flush = () => {
     if (cur) {
       const m = cur.meta;
       const get = (k: RegExp) => (k.exec(m)?.[1] || '').trim();
-      cur.s.ct = get(LBL.ct);
-      cur.s.r = get(LBL.r);
+      // libro en inglés: los campos se guardan en español, como los del resto de la biblioteca
+      const tr = (f: (x: string) => string, x: string) => (cur!.en ? f(x) : x);
+      cur.s.ct = tr(timeEs, get(LBL.ct));
+      cur.s.r = tr(rangeEs, get(LBL.r));
       cur.s.cmp = get(LBL.cmp);
-      cur.s.du = get(LBL.du);
-      cur.s.c = /concentraci[oó]n|concentration/i.test(cur.s.du) ? 1 : 0;
+      cur.s.du = tr(durationEs, get(LBL.du));
+      cur.s.c = /concentraci[oó]n/i.test(cur.s.du) ? 1 : 0;
       cur.s.rit = /ritual/i.test(cur.s.ct) ? 1 : 0;
       // un pie de ilustración mal leído («Esuocano conil») antes de la descripción: una línea corta sin punto y otra que empieza una frase
       const [first, next] = cur.body;
@@ -363,8 +365,8 @@ export function parseSpells(lines: Line[], book: Line[] = lines): LibSpell[] {
       // un título largo se parte en dos líneas («SANTUARIO PRIVADO» + «DE MORDENKAINEN»): la segunda empieza por un conector
       const prev = lines[i - 1]?.t || '';
       const title = STARTS_WRAP.test(t) && isCaps(prev) && prev.length <= 36 && !/[.,:;]$/.test(prev) ? prev + ' ' + t : t;
-      const name = fixName(titleCase(title), listed);
-      cur = { s: { id: id('lib-conjuro', name), n: name, l: head.level, esc: head.school, classes, ct: '', r: '', cmp: '', du: '', c: 0, rit: 0, t: '' }, meta: '', body: [] };
+      const name = head.en ? titleCaseEn(title) : fixName(titleCase(title), listed);
+      cur = { s: { id: id('lib-conjuro', name), n: name, l: head.level, esc: head.school, classes, ct: '', r: '', cmp: '', du: '', c: 0, rit: 0, t: '' }, meta: '', body: [], en: head.en };
       i = j;
       continue;
     }
@@ -380,6 +382,113 @@ export function parseSpells(lines: Line[], book: Line[] = lines): LibSpell[] {
 function dedupe<T extends { id: string }>(arr: T[]): T[] {
   const seen = new Set<string>();
   return arr.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true)));
+}
+
+// ---- libros en inglés (la biblioteca guarda los campos en español; los nombres y el texto se quedan como vienen) ----
+
+const SMALL_EN = new Set(['of', 'the', 'and', 'in', 'to', 'a', 'an', 'for', 'on', 'at', 'by', 'or', 'with', 'from']);
+/** «CHAINS OF ICE» -> «Chains of Ice». */
+export function titleCaseEn(t: string): string {
+  const words = t.toLowerCase().replace(/["“”]/g, '').replace(/\s+/g, ' ').trim().split(' ');
+  return words.map((w, i) => (i > 0 && SMALL_EN.has(w) ? w : w.replace(/(^|[-’'(])(\p{L})/gu, (_, a: string, b: string) => a + b.toUpperCase()))).join(' ');
+}
+const feetToM = (n: number) => String(Math.round(n * 3) / 10).replace('.', ',');
+const UNIT_ES: Record<string, string> = { round: 'asalto', minute: 'minuto', hour: 'hora', day: 'día' };
+const unitEs = (n: string, u: string) => (UNIT_ES[u] || u) + (n === '1' ? '' : 's');
+/** «Bonus Action» -> «Acción adicional»; «1 minute» -> «1 minuto». */
+export function timeEs(t: string): string {
+  return t
+    .replace(/\bBonus Action\b/gi, 'Acción adicional').replace(/\bReaction\b/gi, 'Reacción').replace(/\bAction\b/gi, 'Acción')
+    .replace(/\b(\d+) (round|minute|hour|day)s?\b/gi, (_, n: string, u: string) => n + ' ' + unitEs(n, u.toLowerCase()));
+}
+/** «30 feet» -> «9 m»; «Self (10-foot Emanation)» -> «Personal (Emanación de 3 m)». */
+export function rangeEs(t: string): string {
+  return t
+    .replace(/\bSelf\b/g, 'Personal').replace(/\bTouch\b/g, 'Toque').replace(/\bSight\b/g, 'Visión').replace(/\bUnlimited\b/g, 'Ilimitado')
+    .replace(/(\d+)-foot (Emanation|Cone|Line|Cube|Sphere|Cylinder|Radius)/gi, (_, n: string, k: string) => ({ emanation: 'Emanación', cone: 'Cono', line: 'Línea', cube: 'Cubo', sphere: 'Esfera', cylinder: 'Cilindro', radius: 'Radio' })[k.toLowerCase()] + ' de ' + feetToM(+n) + ' m')
+    .replace(/(\d+) feet\b/gi, (_, n: string) => feetToM(+n) + ' m')
+    .replace(/(\d+) miles?\b/gi, (_, n: string) => String(Math.round(+n * 15) / 10).replace('.', ',') + ' km');
+}
+/** «Concentration, up to 1 minute» -> «Concentración, hasta 1 minuto». */
+export function durationEs(t: string): string {
+  return t
+    .replace(/\bInstantaneous\b/gi, 'Instantánea').replace(/\bUntil dispelled\b/gi, 'Hasta ser disipado').replace(/\bSpecial\b/g, 'Especial')
+    .replace(/\bConcentration\b/gi, 'Concentración').replace(/\bup to\b/gi, 'hasta')
+    .replace(/\b(\d+) (round|minute|hour|day)s?\b/gi, (_, n: string, u: string) => n + ' ' + unitEs(n, u.toLowerCase()));
+}
+
+const FEAT_CAT_EN: [RegExp, LibFeat['cat']][] = [
+  [/^Origin Feat\b/i, 'origin'], [/^General Feat\b/i, 'general'], [/^Fighting Style Feat\b/i, 'fighting-style'], [/^Epic Boon Feat\b/i, 'epic-boon'],
+];
+const ABIL_EN_TO_ES: Record<string, string> = { Strength: 'Fuerza', Dexterity: 'Destreza', Constitution: 'Constitución', Intelligence: 'Inteligencia', Wisdom: 'Sabiduría', Charisma: 'Carisma' };
+/** «Level 4+, Dexterity and Wisdom 13+» -> «Nivel 4 o más, Destreza y Sabiduría 13 o más». */
+function reqEs(t: string): string {
+  return t.replace(/^Prerequisites?:?\s*/i, '').replace(/\bLevel (\d+)\+/gi, 'Nivel $1 o más').replace(/\b(\d+)\+/g, '$1 o más')
+    .replace(/\b(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)\b/g, (a) => ABIL_EN_TO_ES[a]).replace(/\b(Fuerza|Destreza|Constitución|Inteligencia|Sabiduría) (and|or) (?=Fuerza|Destreza|Constitución|Inteligencia|Sabiduría|Carisma)/g, (_, a: string, c: string) => a + (c === 'and' ? ' y ' : ' o '))
+    .replace(/\bProficiency with\b/gi, 'Competencia con').replace(/\s+/g, ' ').replace(/\s+,/g, ',').trim();
+}
+/** Una línea corta, con mayúscula y sin puntuación final: título de apartado o de entrada (el texto corrido ocupa todo el ancho). */
+const headingLike = (t: string) => t.length <= 44 && /^[A-ZÁÉÍÓÚÑ]/.test(t) && !/[.,:;)]$/.test(t) && t.split(' ').length <= 7;
+/** Recuadros de la mitad de la página (restos de pies de ilustración y columnas laterales) que no son texto de la entrada. */
+const sideNoise = (l: Line) => l.col === 1 && /^[^A-Z0-9]/.test(l.t);
+
+/** Dotes del libro en inglés: «Nombre» + «General Feat (Prerequisite: Level 4+)» y el texto, hasta el siguiente título. */
+export function parseFeatsEn(lines: Line[]): LibFeat[] {
+  const out: LibFeat[] = [];
+  let cur: { f: LibFeat; body: string[] } | null = null;
+  const flush = () => { if (cur) { cur.f.d = paragraphs(cur.body); out.push(cur.f); } cur = null; };
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].t;
+    const next = lines[i + 1]?.t || '';
+    const cat = FEAT_CAT_EN.find(([re]) => re.test(next));
+    if (cat && headingLike(t)) {
+      flush();
+      let reqText = next;
+      let j = i + 1;
+      // los requisitos largos siguen en la línea siguiente solo si esta cierra el paréntesis enseguida
+      if (!reqText.includes(')') && /^[^.]{0,60}\)/.test(lines[i + 2]?.t || '')) { j++; reqText += ' ' + lines[j].t; }
+      const req = reqEs((/\(([^)]*)\)?/.exec(reqText)?.[1] || '').replace(/[\s,]*\b(or|and)\s*$/i, ''));
+      const name = titleCaseEn(t);
+      cur = { f: { id: id('lib-dote', name), n: name, cat: cat[1], req, d: '' }, body: [] };
+      i = j;
+      continue;
+    }
+    if (!cur || sideNoise(lines[i])) continue;
+    // un título de apartado («Mage Feats») o de otra entrada cierra la dote
+    if (headingLike(t) && cur.body.length) { flush(); continue; }
+    cur.body.push(t);
+  }
+  flush();
+  return dedupe(out);
+}
+
+const CLASS_EN: Record<string, string> = { barbarian: 'barbarian', bard: 'bard', cleric: 'cleric', druid: 'druid', fighter: 'fighter', monk: 'monk', paladin: 'paladin', ranger: 'ranger', rogue: 'rogue', sorcerer: 'sorcerer', warlock: 'warlock', wizard: 'wizard' };
+const SUB_HEAD_EN = /^(.{3,60}?)\s*\((\p{L}+) Subclass\)\s*$/u;
+const FEATURE_EN = /^Level (\d{1,2}):\s*(.+)$/;
+/** Subclases del libro en inglés: «Nombre (Paladin Subclass)», una introducción y rasgos «Level 3: Nombre». */
+export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
+  const out: LibSubclass[] = [];
+  let cur: { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[] } | null } | null = null;
+  const closeFeat = () => { if (cur?.feat) { cur.s.f.push({ lv: cur.feat.lv, n: cur.feat.n, d: paragraphs(cur.feat.body) }); cur.feat = null; } };
+  const flush = () => { if (cur) { closeFeat(); cur.s.d = paragraphs(cur.intro); if (cur.s.f.length) out.push(cur.s); } cur = null; };
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i], t = l.t;
+    const sh = SUB_HEAD_EN.exec(t);
+    const cls = sh ? CLASS_EN[norm(sh[2])] : '';
+    if (sh && cls) { flush(); const name = sh[1].trim(); cur = { s: { id: id('lib-subclase-' + cls, name), n: name, cls, d: '', f: [] }, intro: [], feat: null }; continue; }
+    if (!cur || sideNoise(l)) continue;
+    // lo que sigue a las subclases: apartados de dotes, de conjuros o de elección de nivel («Feats. Consider…»)
+    const after = lines[i + 1]?.t || '';
+    if (/ (Feats|Specialization)$/.test(t) || /^(Level \d+|Spells|Feats)\.\s/.test(t) || (headingLike(t) && (spellHead(after) || FEAT_CAT_EN.some(([re]) => re.test(after))))) { flush(); continue; }
+    const fm = FEATURE_EN.exec(t);
+    if (fm) {
+      // un nivel menor que el del último rasgo: lo que sigue ya no es de esta subclase
+      if (parseInt(fm[1], 10) < Math.max(0, ...cur.s.f.map((f) => f.lv), cur.feat?.lv || 0)) { flush(); continue; }
+      closeFeat(); cur.feat ={ lv: parseInt(fm[1], 10), n: fm[2].trim(), body: [] }; continue; }
+    if (cur.feat) cur.feat.body.push(t); else cur.intro.push(t);
+  }
+  flush();
+  return dedupe(out);
 }
 
 /** Páginas que interesan, según lo que contiene cada una (así no hace falta saber la paginación del libro). */

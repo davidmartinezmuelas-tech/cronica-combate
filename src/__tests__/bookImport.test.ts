@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseSpells, parseSubclasses, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
+import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpells, parseSubclasses, parseSubclassesEn, titleCaseEn, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
@@ -192,8 +192,8 @@ describe('conjuros con errores de OCR y en inglés', () => {
   });
   it('lee la cabecera en inglés y guarda la escuela en español', () => {
     const s = parseSpells(L('FIREBALL', 'Level 3 Evocation (Sorcerer, Wizard)', 'Casting Time: Action', 'Range: 150 feet', 'Components: V, S, M (a ball of bat guano)', 'Duration: Instantaneous', 'A bright streak flashes.', 'SHOCKING GRASP', 'Evocation Cantrip (Sorcerer, Wizard)', 'Casting Time: Action', 'Range: Touch', 'Components: V, S', 'Duration: Instantaneous', 'Lightning springs from your hand.'));
-    expect(s.map((x) => [x.n, x.l, x.esc, x.classes.join(',')])).toEqual([['Fireball', 3, 'Evocación', 'sorcerer,wizard'], ['Shocking grasp', 0, 'Evocación', 'sorcerer,wizard']]);
-    expect(s[0].r).toBe('150 feet');
+    expect(s.map((x) => [x.n, x.l, x.esc, x.classes.join(',')])).toEqual([['Fireball', 3, 'Evocación', 'sorcerer,wizard'], ['Shocking Grasp', 0, 'Evocación', 'sorcerer,wizard']]);
+    expect(s[0].r).toBe('45 m');
   });
   it('las subclases de nombre fijo se escriben bien aunque el OCR cambie una letra', async () => {
     const { parseSubclasses } = await import('../engine/bookImport');
@@ -332,5 +332,20 @@ describe('subclases de una clase nueva', () => {
     const sub = parseSubclasses(L('SUBCLASES DE CHAMÁN', 'SENDA DEL TRUENO', 'Truena.', 'NIVEL 3: VOZ DEL TRUENO', 'Hablas.', 'NIVEL 6: RAYO', 'Fulmina.', 'SENDA DEL FUEGO', 'Arde.', 'NIVEL 3: CHISPA', 'Chispea.'), { chaman: 'lib-clase-chaman' }, { 'lib-clase-chaman': ['senda del trueno', 'senda del fuego'] });
     expect(sub.map((s) => s.n)).toEqual(['Senda del trueno', 'Senda del fuego']);
     expect(sub.every((s) => s.cls === 'lib-clase-chaman')).toBe(true);
+  });
+  it('libros en inglés: conjuros (campos pasados al español), dotes y subclases', () => {
+    const sp = parseSpells(L('CHAINS OF ICE', 'Level 1 Evocation (Paladin [Death Knight])', 'Casting Time: Bonus Action', 'Range: 30 feet', 'Components: V, S', 'Duration: Concentration, up to 1 minute', 'You create chains of ice.', 'BONESTORM', 'Level 5 Abjuration (Paladin)', 'Casting Time: Action', 'Range: Self (10-foot Emanation)', 'Components: V', 'Duration: Instantaneous', 'Bones swirl.'));
+    expect(sp.map((x) => [x.n, x.l, x.esc, x.classes.join(), x.ct, x.r, x.du, x.c])).toEqual([
+      ['Chains of Ice', 1, 'Evocación', 'paladin', 'Acción adicional', '9 m', 'Concentración, hasta 1 minuto', 1],
+      ['Bonestorm', 5, 'Abjuración', 'paladin', 'Acción', 'Personal (Emanación de 3 m)', 'Instantánea', 0],
+    ]);
+    expect(titleCaseEn('HAND OF GUL’DAN')).toBe('Hand of Gul’Dan');
+    const ft = parseFeatsEn(L('Clearcasting', 'General Feat (Prerequisite: Level 4+, Dexterity and Wisdom 13+)', 'You gain the following benefits.', 'Ability Score Increase. Increase your Intelligence score by 1.', 'Mage Feats', 'Text after the section.'));
+    expect(ft).toHaveLength(1);
+    expect([ft[0].n, ft[0].cat, ft[0].req]).toEqual(['Clearcasting', 'general', 'Nivel 4 o más, Destreza y Sabiduría 13 o más']);
+    expect(ft[0].d).toContain('Ability Score Increase');
+    const sb = parseSubclassesEn(L('Oath of the Ebon Blade (Paladin Subclass)', 'Wield death', 'The Oath unites knights.', 'Level 1: Death Coil', 'Your type becomes Undead.', 'Level 3: Runeforging', 'You inscribe runes.', 'Level 20: Aspect', 'Final.', 'Level 3: Totems', 'Other thing.'));
+    expect(sb).toHaveLength(1);
+    expect([sb[0].n, sb[0].cls, sb[0].f.map((f) => f.lv + f.n).join()]).toEqual(['Oath of the Ebon Blade', 'paladin', '1Death Coil,3Runeforging,20Aspect']);
   });
 });
