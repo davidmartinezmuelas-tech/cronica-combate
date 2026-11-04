@@ -41,6 +41,9 @@ export default function LibraryPanel() {
   const [renaming, setRenaming] = useState<number | null>(null);
   const cancel = useRef({ cancelled: false });
 
+  const foundRef = useRef<HTMLDivElement>(null);
+  // al terminar de leer un libro, la revisión se pone a la vista
+  useEffect(() => { if (found) foundRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' }); }, [!!found]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { void lib.init(); void usePlayer.getState().loadData(); void useStore.getState().loadRules(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const srd = {
@@ -176,10 +179,9 @@ export default function LibraryPanel() {
         {msg && <p className="warn" role="status" style={{ margin: 0 }}>{msg}</p>}
       </div>
 
-      <HomebrewPanel />
-
+      {/* lo encontrado va justo bajo los botones de importar (no al final de la página, donde no se ve) */}
       {found && (
-        <div className="panel">
+        <div className="panel" ref={foundRef}>
           <div className="panel-head"><h2>Revisa lo encontrado</h2>
             <span className="rollrow"><button className="btn small primary" onClick={saveFound}>Guardar en mi biblioteca</button><button className="btn small ghost" onClick={() => setFound(null)}>Descartar</button></span>
           </div>
@@ -239,6 +241,8 @@ export default function LibraryPanel() {
           </Picker>
         </div>
       )}
+
+      <HomebrewPanel />
     </div>
   );
 }
