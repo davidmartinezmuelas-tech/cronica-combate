@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpells, parseSubclasses, parseSubclassesEn, resolveSubSpells, titleCaseEn, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
+import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpeciesEn, parseSpells, parseSubclasses, parseSubclassesEn, resolveSubSpells, titleCaseEn, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
@@ -362,5 +362,32 @@ describe('subclases de una clase nueva', () => {
     expect(r[0].f[1].sp).toBeUndefined();
     const f = parseFeatsEn(L('Arathi Heritage', 'Origin Feat (Prerequisite: World of Warcraft Campaign, Human Species)', 'Text.'));
     expect(f[0].req).toBe('World of Warcraft campaña, especie: Human');
+  });
+});
+
+describe('especies de un libro en inglés', () => {
+  const L = (...t: string[]) => t.map((s, i) => ({ t: s, col: 0, y: 800 - i * 12, p: 1 }));
+  it('lee tipo, tamaño, velocidad, vista en la oscuridad, resistencias y rasgos con usos', () => {
+    const sp = parseSpeciesEn(L(
+      'Forsaken Renown', 'Your Renown Score begins at 3.', 'Forsaken Traits', 'Creature Type: Undead', 'Size: Medium (about 4–7 feet tall) or Small (about 2–4 feet tall)', 'Speed: 30 feet',
+      'As a Forsaken, you have these special traits.',
+      'Darkvision. You have Darkvision with a range of 60 feet.',
+      'Deathly Endurance. You have Resistance to Necrotic damage.',
+      'Touch of the Grave. You can use this trait a number of times equal to your Proficiency Bonus, and you regain all', 'expended uses when you finish a Long Rest.',
+      'Gnome',
+    ));
+    expect(sp).toHaveLength(1);
+    expect(sp[0]).toMatchObject({ id: 'lib-especie-forsaken', n: 'Forsaken', type: 'No muerto', size: ['Mediano', 'Pequeño'], speed: 30, dv: 60, res: ['necrótico'] });
+    expect(sp[0].t.map((x) => x.n)).toEqual(['Darkvision', 'Deathly Endurance', 'Touch of the Grave']);
+    expect(sp[0].t[2].u).toEqual({ max: '@prof', per: 'lr' });
+  });
+  it('una línea que empieza como un rasgo pero continúa la frase anterior no es un rasgo, y las especies que remiten a otro libro no salen', () => {
+    const sp = parseSpeciesEn(L(
+      'Worgen Traits', 'Creature Type: Humanoid', 'Size: Medium', 'Speed: 30 feet', 'As a Worgen, you have these special traits.',
+      'Darkflight. As a Bonus Action, you can shape-shift. You can do so only once per turn, using a Bonus', 'Action. When you enter your bestial form, you gain Temporary Hit Points.',
+      'Orc Traits', 'You have the Orc species traits from the Player’s Handbook .',
+    ));
+    expect(sp.map((x) => x.n)).toEqual(['Worgen']);
+    expect(sp[0].t.map((x) => x.n)).toEqual(['Darkflight']);
   });
 });

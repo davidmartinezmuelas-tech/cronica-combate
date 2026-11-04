@@ -48,7 +48,7 @@ export default function CharacterArea() {
     const sheet = readSheet(fields);
     if (file.current) file.current.value = '';
     if (!sheet) { setMsg('Ese PDF no tiene campos rellenables que la app sepa leer. Crea el personaje a mano.'); return; }
-    await Promise.all([loadData(), useStore.getState().loadRules()]);
+    await Promise.all([loadData(), useStore.getState().loadRules(), useLibrary.getState().init()]);
     const d = usePlayer.getState().data;
     if (!d) { setMsg('No se pudieron cargar las clases y especies.'); return; }
     // los del SRD y los de tu biblioteca (los que no repiten un conjuro del SRD)

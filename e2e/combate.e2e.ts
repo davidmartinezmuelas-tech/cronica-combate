@@ -3543,3 +3543,20 @@ test('guion: «Importar aventura (PDF)» crea el guion con títulos, texto para 
   await page.locator('.script-combat-btn', { hasText: 'Area 3: Mast Room' }).click();
   await expect(page.locator('.init-row')).toHaveCount(12); // 8 esbirros goblin + 4 bandidos
 });
+
+test('especie de un libro cargada desde la biblioteca: sale en el desplegable y sus rasgos en la hoja', async ({ page }) => {
+  const sp = { id: 'lib-especie-forsaken', n: 'Forsaken', en: 'Forsaken', size: ['Mediano', 'Pequeño'], speed: 30, dv: 60, res: ['necrótico'], type: 'No muerto',
+    t: [{ lv: 0, n: 'Deathly Endurance', d: 'You have Resistance to Necrotic damage.' }, { lv: 0, n: 'Everlasting', d: 'You do not need to sleep.' }] };
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [], subclasses: [], classes: [], species: [sp] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: '1 especies' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Sylvana');
+  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Forsaken' });
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Pícaro' });
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  await expect(page.getByText('Deathly Endurance').first()).toBeVisible();
+});

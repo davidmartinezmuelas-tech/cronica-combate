@@ -1,4 +1,4 @@
-import type { Abil, ClassData, Uses } from '../data/player';
+import type { Abil, ClassData, SpeciesData, Uses } from '../data/player';
 import type { CastingRule, HbFx } from './homebrew';
 import type { SpellRoll } from './spellRoll';
 import type { OwnSelfFx } from './spellEffects';
@@ -463,6 +463,67 @@ export function parseFeatsEn(lines: Line[]): LibFeat[] {
     cur.body.push(t);
   }
   flush();
+  return dedupe(out);
+}
+
+/** Una especie del libro del usuario: como las del SRD (tamaños, velocidad, vista en la oscuridad, resistencias y rasgos) y marcada como de la biblioteca. */
+export interface LibSpecies extends SpeciesData { type?: string; own?: boolean; guest?: boolean }
+
+const SIZE_EN: Record<string, string> = { tiny: 'Diminuto', small: 'Pequeño', medium: 'Mediano', large: 'Grande', huge: 'Enorme' };
+const DMG_EN: Record<string, string> = { acid: 'ácido', bludgeoning: 'contundente', slashing: 'cortante', cold: 'frío', fire: 'fuego', force: 'fuerza', necrotic: 'necrótico', piercing: 'perforante', psychic: 'psíquico', radiant: 'radiante', lightning: 'relámpago', thunder: 'trueno', poison: 'veneno' };
+const TYPE_EN: Record<string, string> = { humanoid: 'Humanoide', undead: 'No muerto', construct: 'Autómata', dragon: 'Dragón', fey: 'Feérico', fiend: 'Infernal', celestial: 'Celestial', elemental: 'Elemental', aberration: 'Aberración', beast: 'Bestia', monstrosity: 'Monstruosidad', giant: 'Gigante', plant: 'Planta', ooze: 'Cieno' };
+const TRAIT_START = /^([A-Z][\p{L}’'-]*(?: (?:of|the|and|to|for|[A-Z][\p{L}’'-]*|\p{Ll}[\p{L}’'-]*)){0,4})\.\s+(\S.*)$/u;
+/** Usos de un rasgo por su texto: «a number of times equal to your Proficiency Bonus… Long Rest». */
+function usesEn(text: string): Uses | undefined {
+  const per = /Short or Long Rest/i.test(text) ? 'sr' : /Long Rest/i.test(text) ? 'lr' : /Short Rest/i.test(text) ? 'sr' : '';
+  if (/number of times equal to your Proficiency Bonus/i.test(text) && per) return { max: '@prof', per };
+  if (/can’t use (?:it|this trait) again until you finish/i.test(text) && per) return { max: '1', per };
+  return undefined;
+}
+
+/**
+ * Especies del libro en inglés: «Nombre Traits» seguido de «Creature Type:», «Size:» y «Speed:», y los rasgos «Nombre. Texto».
+ * Las que solo remiten a otro libro («You have the Dwarf species traits from the Player’s Handbook») no traen datos y no salen.
+ */
+export function parseSpeciesEn(lines: Line[]): LibSpecies[] {
+  const out: LibSpecies[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const head = /^(.{2,40}?) Traits$/.exec(lines[i].t);
+    if (!head || !/^Creature Type:/i.test(lines[i + 1]?.t || '')) continue;
+    const name = head[1].trim();
+    const type = TYPE_EN[(/^Creature Type:\s*(\p{L}+)/iu.exec(lines[i + 1].t)?.[1] || '').toLowerCase()] || '';
+    let size: string[] = [], speed = 30, j = i + 2;
+    for (; j < lines.length && /^(Size|Speed):/i.test(lines[j].t); j++) {
+      const t = lines[j].t;
+      if (/^Size:/i.test(t)) size = [...new Set([...t.matchAll(/\b(Tiny|Small|Medium|Large|Huge)\b/g)].map((m) => SIZE_EN[m[1].toLowerCase()]))];
+      else speed = parseInt(/(\d+)/.exec(t)?.[1] || '30', 10);
+    }
+    // «As a Forsaken, you have these special traits.»
+    if (/^As an? .*special traits\.?$/i.test(lines[j]?.t || '')) j++;
+    const traits: { n: string; body: string[] }[] = [];
+    for (; j < lines.length; j++) {
+      const l = lines[j];
+      if (sideNoise(l)) continue;
+      const m = TRAIT_START.exec(l.t);
+      // «…as a Bonus» / «Action. When you…»: si la línea anterior no acabó la frase, es la misma frase
+      const open = traits.length > 0 && !/[.!?:)”"]$/.test(traits[traits.length - 1].body.at(-1) || '');
+      if (m && !open) { traits.push({ n: m[1], body: [m[2]] }); continue; }
+      // el título de otra especie o de otro apartado cierra la lista; el resto sigue al rasgo anterior
+      if (!traits.length || headingLike(l.t) || / Traits$/.test(l.t)) break;
+      traits[traits.length - 1].body.push(l.t);
+    }
+    if (!traits.length) continue;
+    const all = traits.map((t) => t.body.join(' ')).join(' ');
+    const dv = parseInt(/Darkvision[^.]*?range of (\d+) feet/i.exec(all)?.[1] || '0', 10);
+    // las resistencias que dan los rasgos sueltos; las de las opciones que siguen a un «elige una:» (linajes, formas) no valen para todos
+    const cut = traits.findIndex((t) => /:$/.test(t.body.at(-1) || ''));
+    const flat = traits.slice(0, cut < 0 ? undefined : cut + 1).map((t) => t.body.join(' ')).join(' ');
+    const res = [...new Set([...flat.matchAll(/Resistance to ([A-Za-z, ]+?) damage(?! from)/g)].flatMap((m) => m[1].toLowerCase().split(/,\s*|\s+and\s+/)).map((x) => DMG_EN[x.trim()]).filter(Boolean))];
+    out.push({
+      id: id('lib-especie', name), n: name, en: name, size: size.length ? size : ['Mediano'], speed, dv, res, type,
+      t: traits.map((t) => { const d = paragraphs(t.body); const u = usesEn(d); return { lv: parseInt(/reach character level (\d+)/.exec(d)?.[1] || '0', 10), n: t.n, d, ...(u ? { u } : {}) }; }),
+    });
+  }
   return dedupe(out);
 }
 

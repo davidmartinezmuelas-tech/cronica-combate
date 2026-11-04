@@ -1,5 +1,5 @@
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { attachTables, classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpells, parseSubclasses, parseSubclassesEn, resolveSubSpells, type Line, type LibBackground, type ParsedClass, type LibFeat, type LibSpell, type ClassTable, type LibSubclass, type TextItem } from '../engine/bookImport';
+import { attachTables, classifyPage, fillClassGaps, pageLines, parseBackgrounds, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpeciesEn, parseSpells, parseSubclasses, parseSubclassesEn, resolveSubSpells, type LibSpecies, type Line, type LibBackground, type ParsedClass, type LibFeat, type LibSpell, type ClassTable, type LibSubclass, type TextItem } from '../engine/bookImport';
 import { parseItems, parseItemsEs } from '../engine/itemImport';
 import { norm } from '../engine/util';
 import type { LibItem } from '../engine/magicItems';
@@ -13,6 +13,7 @@ export interface BookResult {
   backgrounds: LibBackground[];
   spells: LibSpell[];
   subclasses: LibSubclass[];
+  species: LibSpecies[];
   classes: ParsedClass[];
   pages: number;
 }
@@ -60,7 +61,9 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
   const L: Record<'feats' | 'backgrounds' | 'spells' | 'classes', Line[]> = { feats: [], backgrounds: [], spells: [], classes: [] };
   const pages: { kinds: ReturnType<typeof classifyPage>; lines: Line[] }[] = [];
   const tables: ClassTable[] = [];
+  const wide: Line[] = []; // una columna: los rasgos de especie ocupan todo el ancho y partirlos por la mitad corta las líneas
   const n = await readPages(file, (items, width) => {
+    wide.push(...pageLines(items, width, true));
     const tb = parseClassTable(items);
     if (tb) tables.push(tb);
     pages.push({ kinds: classifyPage(items.map((x) => x.str).join(' ')), lines: pageLines(items, width) });
@@ -75,7 +78,7 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
   const spells = parseSpells(L.spells, all);
   // las tablas de conjuros de las subclases en inglés se pasan a ids de conjuros del libro o del SRD (por su nombre en inglés)
   const known = [...spells.map((x) => ({ id: x.id, n: x.n })), ...srdSpells];
-  return { feats: [...parseFeats(L.feats), ...parseFeatsEn(all)], backgrounds: parseBackgrounds(L.backgrounds), spells, subclasses: [...resolveSubSpells(parseSubclassesEn(all), known), ...parseSubclasses(L.classes, extra, Object.fromEntries(classes.map((k) => [k.id, k.subNames])))], classes, pages: n };
+  return { feats: [...parseFeats(L.feats), ...parseFeatsEn(all)], backgrounds: parseBackgrounds(L.backgrounds), spells, species: parseSpeciesEn(wide), subclasses: [...resolveSubSpells(parseSubclassesEn(all), known), ...parseSubclasses(L.classes, extra, Object.fromEntries(classes.map((k) => [k.id, k.subNames])))], classes, pages: n };
 }
 
 /** Lee el PDF del Manual de Monstruos del usuario en su navegador y extrae las fichas de monstruo. */

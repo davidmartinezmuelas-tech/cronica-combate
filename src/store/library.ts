@@ -1,6 +1,6 @@
 import { createStore, get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 import { create } from 'zustand';
-import type { LibBackground, LibClass, LibFeat, LibSpell, LibSubclass } from '../engine/bookImport';
+import type { LibBackground, LibClass, LibFeat, LibSpecies, LibSpell, LibSubclass } from '../engine/bookImport';
 import type { LibItem } from '../engine/magicItems';
 import { setCastingRules, setOwnClasses, setOwnSubclasses } from '../engine/homebrew';
 import { ownSelfFx, setOwnSpellFx } from '../engine/spellEffects';
@@ -22,6 +22,7 @@ export interface LibraryData {
   spells: LibSpell[];
   subclasses: LibSubclass[];
   classes: LibClass[]; // clases nuevas (de otro libro o propias): se suman a las del SRD
+  species?: LibSpecies[]; // especies de otro libro: se suman a las del SRD (bibliotecas antiguas no lo tienen)
   items: LibItem[]; // objetos mágicos de la Guía del Dungeon Master del usuario
 }
 
@@ -50,7 +51,7 @@ function withGuests(d: LibraryData): LibraryData {
 // lectura inicial única: guardar o importar la esperan, para no pisar lo que ya había en el dispositivo
 let loading: Promise<void> | null = null;
 
-const empty = (): LibraryData => ({ v: 1, source: '', feats: [], backgrounds: [], spells: [], subclasses: [], classes: [], items: [] });
+const empty = (): LibraryData => ({ v: 1, source: '', feats: [], backgrounds: [], spells: [], subclasses: [], classes: [], species: [], items: [] });
 
 function persist(d: LibraryData) {
   void idbSet(KEY, d, store()).catch(() => { /* sin IndexedDB: dura esta visita */ });
@@ -109,18 +110,20 @@ export const useLibrary = create<LibraryState>()((set, get) => ({
     const subs = Array.isArray(d.subclasses) ? d.subclasses : [];
     const items = Array.isArray(d.items) ? d.items : [];
     const classes = Array.isArray(d.classes) ? d.classes : [];
-    await get().save({ source: d.source || cur.source, feats: merge(cur.feats, d.feats), backgrounds: merge(cur.backgrounds, d.backgrounds), spells: merge(cur.spells, d.spells), subclasses: merge(cur.subclasses, subs), classes: merge(cur.classes, classes), items: merge(cur.items, items) });
-    return 'Biblioteca cargada: ' + (items.length ? items.length + ' objetos, ' : '') + (classes.length ? classes.length + ' clases, ' : '') + subs.length + ' subclases, ' + d.feats.length + ' dotes, ' + d.backgrounds.length + ' trasfondos y ' + d.spells.length + ' conjuros.';
+    const species = Array.isArray(d.species) ? d.species : [];
+    await get().save({ source: d.source || cur.source, feats: merge(cur.feats, d.feats), backgrounds: merge(cur.backgrounds, d.backgrounds), spells: merge(cur.spells, d.spells), subclasses: merge(cur.subclasses, subs), classes: merge(cur.classes, classes), species: merge(cur.species || [], species), items: merge(cur.items, items) });
+    return 'Biblioteca cargada: ' + (items.length ? items.length + ' objetos, ' : '') + (classes.length ? classes.length + ' clases, ' : '') + (species.length ? species.length + ' especies, ' : '') + subs.length + ' subclases, ' + d.feats.length + ' dotes, ' + d.backgrounds.length + ' trasfondos y ' + d.spells.length + ' conjuros.';
   },
 }));
 
 // lo propio del dispositivo (sin lo que llega de paso de la sala)
-const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats.filter((x) => !x.guest), backgrounds: s.backgrounds.filter((x) => !x.guest), spells: s.spells.filter((x) => !x.guest), subclasses: (s.subclasses || []).filter((x) => !x.guest), classes: (s.classes || []).filter((x) => !x.guest), items: s.items || [] });
+const pick = (s: LibraryData): LibraryData => ({ v: 1, source: s.source, feats: s.feats.filter((x) => !x.guest), backgrounds: s.backgrounds.filter((x) => !x.guest), spells: s.spells.filter((x) => !x.guest), subclasses: (s.subclasses || []).filter((x) => !x.guest), classes: (s.classes || []).filter((x) => !x.guest), species: s.species || [], items: s.items || [] });
 
 // los rasgos propios con bonificadores fijos entran en el cálculo de la hoja
 useLibrary.subscribe((s, prev) => {
   if (s.subclasses !== prev.subclasses) { setOwnSubclasses(s.subclasses); setCastingRules(s.subclasses); }
   // las clases de la biblioteca se suman a las del SRD en los datos del jugador
+  if (s.species !== prev.species) usePlayer.getState().setLibSpecies(s.species || []);
   if (s.classes !== prev.classes) { setOwnClasses(s.classes); usePlayer.getState().setLibClasses(s.classes); }
   // y los conjuros propios con efecto sobre quien lo recibe
   if (s.spells !== prev.spells) setOwnSpellFx(s.spells.filter((x) => x.own && x.self).map((x) => ({ id: x.id, n: x.n, fx: ownSelfFx(x.self!) })));

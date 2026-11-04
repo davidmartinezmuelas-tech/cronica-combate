@@ -1,7 +1,7 @@
 import { createStore, del, entries, set as idbSet } from 'idb-keyval';
 import { wizardPref } from '../shared/prefs';
 import { create } from 'zustand';
-import type { ClassData, PlayerData } from '../data/player';
+import type { ClassData, PlayerData, SpeciesData } from '../data/player';
 import { blankCharacter, type Character } from '../engine/character';
 
 /**
@@ -17,6 +17,8 @@ export interface PlayerState {
   srd: PlayerData | null; // solo lo del SRD
   libClasses: ClassData[];
   setLibClasses: (list: ClassData[]) => void;
+  libSpecies: SpeciesData[];
+  setLibSpecies: (list: SpeciesData[]) => void;
   dataError: string;
   loaded: boolean;
   characters: Character[];
@@ -56,7 +58,9 @@ function save(c: Character) {
 let dataLoading: Promise<void> | null = null;
 
 /** Los datos del SRD con las clases de la biblioteca (las del SRD mandan si coincide el id). */
-const withClasses = (d: PlayerData, extra: (ClassData & { listFrom?: string })[]): PlayerData => {
+const withClasses = (d: PlayerData, extra: (ClassData & { listFrom?: string })[], species: SpeciesData[] = []): PlayerData => {
+  // las especies de la biblioteca se suman a las del SRD (las del SRD mandan si coincide el id)
+  if (species.length) d = { ...d, species: [...d.species, ...species.filter((x) => !d.species.some((y) => y.id === x.id))] };
   if (!extra.length) return d;
   // una clase que toma su lista de otra (la del SRD o una de las suyas) la copia aquí
   const spellsOf = (x: ClassData & { listFrom?: string }) => (x.spells.length || !x.listFrom ? x.spells : [...d.classes, ...extra].find((c) => c.id === x.listFrom)?.spells || []);
@@ -64,7 +68,7 @@ const withClasses = (d: PlayerData, extra: (ClassData & { listFrom?: string })[]
 };
 
 export const usePlayer = create<PlayerState>()((set, get) => ({
-  data: null, srd: null, libClasses: [], dataError: '', loaded: false, characters: [], activeId: null, editing: false, creating: null,
+  data: null, srd: null, libClasses: [], libSpecies: [], dataError: '', loaded: false, characters: [], activeId: null, editing: false, creating: null,
 
   async init() {
     if (get().loaded) return;
@@ -83,14 +87,19 @@ export const usePlayer = create<PlayerState>()((set, get) => ({
     if (get().data) return Promise.resolve();
     dataLoading ??= fetch(import.meta.env.BASE_URL + 'data/jugador_es.json')
       .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json() as Promise<PlayerData>; })
-      .then((d) => set({ srd: d, data: withClasses(d, get().libClasses), dataError: '' }))
+      .then((d) => set({ srd: d, data: withClasses(d, get().libClasses, get().libSpecies), dataError: '' }))
       .catch((e: Error) => { dataLoading = null; set({ dataError: 'No se pudieron cargar las clases y especies (' + e.message + ').' }); });
     return dataLoading;
   },
 
   setLibClasses(list) {
     const srd = get().srd;
-    set({ libClasses: list, ...(srd ? { data: withClasses(srd, list) } : {}) });
+    set({ libClasses: list, ...(srd ? { data: withClasses(srd, list, get().libSpecies) } : {}) });
+  },
+
+  setLibSpecies(list) {
+    const srd = get().srd;
+    set({ libSpecies: list, ...(srd ? { data: withClasses(srd, get().libClasses, list) } : {}) });
   },
 
   select(id) {
