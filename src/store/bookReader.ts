@@ -5,6 +5,7 @@ import { norm } from '../engine/util';
 import type { LibItem } from '../engine/magicItems';
 import { parseMonsters } from '../engine/monsterImport';
 import { foldAbilityTable, parseMonstersEn } from '../engine/monsterImportEn';
+import { adventureToMarkdown, type AdvMonster, type AdventureResult } from '../engine/adventureImport';
 import type { Monster, Spell } from '../data/types';
 
 export interface BookResult {
@@ -38,7 +39,7 @@ async function readPages(file: Blob, onPage: (items: TextItem[], width: number, 
       const tc = await page.getTextContent();
       const items = (tc.items as { str?: string; transform?: number[] }[])
         .filter((it) => typeof it.str === 'string' && it.transform)
-        .map((it) => ({ str: it.str as string, x: it.transform![4], y: it.transform![5], w: (it as { width?: number }).width }));
+        .map((it) => ({ str: it.str as string, x: it.transform![4], y: it.transform![5], w: (it as { width?: number }).width, h: (it as { height?: number }).height }));
       chars += items.reduce((a, it) => a + it.str.trim().length, 0);
       // un libro con texto tiene miles de letras en sus primeras páginas; uno escaneado, ninguna
       if (i === Math.min(12, doc.numPages) && chars < 200) throw new Error(NO_TEXT);
@@ -104,4 +105,14 @@ export async function readItemBook(file: Blob, onProgress: (page: number, total:
   let end = pages.findIndex((p, i) => i > start && /Random Magic Items/.test(p.text) && /Use the tables in this section/.test(p.text));
   if (end < 0) end = Math.min(pages.length, start + 140);
   return { items: parseItems(pages.slice(start, end).flatMap((p) => p.lines)), pages: n };
+}
+
+/**
+ * Lee el PDF de una aventura del usuario en su navegador (no se envía a ningún sitio) y lo convierte en un guion en
+ * Markdown, con un bloque de encuentro en cada sala o escena que nombra criaturas del bestiario.
+ */
+export async function readAdventure(file: Blob, monsters: AdvMonster[], onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<AdventureResult & { pages: number }> {
+  const lines: Line[] = [];
+  const pages = await readPages(file, (items, width, p) => { lines.push(...pageLines(items, width, true).map((l) => ({ ...l, p }))); }, onProgress, signal);
+  return { ...adventureToMarkdown(lines, monsters), pages };
 }

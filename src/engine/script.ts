@@ -123,6 +123,10 @@ const TYPES = [...DMG_TYPES].sort((a, b) => b.length - a.length);
 // «2d10 de fuego», «2d10 fuego», «2d10 de daño de fuego», «2d10 de daño»
 const AFTER = new RegExp('^(\\s+(?:de\\s+)?(?:daño(?:\\s+de)?\\s+)?(' + TYPES.join('|') + ')(?![\\p{L}]))|^(\\s+(?:de\\s+)?daño(?![\\p{L}]))', 'iu');
 
+// el daño de un libro en inglés: «10 (3d6) Fire damage» -> daño de fuego
+const EN_DMG: Record<string, string> = { acid: 'ácido', bludgeoning: 'contundente', slashing: 'cortante', cold: 'frío', fire: 'fuego', force: 'fuerza', necrotic: 'necrótico', piercing: 'perforante', psychic: 'psíquico', radiant: 'radiante', lightning: 'relámpago', thunder: 'trueno', poison: 'veneno' };
+const AFTER_EN = new RegExp(/^\)?\s+(?:extra\s+)?(__T__)\s+damage/.source.replace('__T__', Object.keys(EN_DMG).join('|')), 'i');
+
 /**
  * Busca tiradas en un texto. Con un tipo de daño detrás («2d10 fuego») o «daño», se tira como daño (para aplicarlo a los
  * combatientes); un solo d20 es una prueba; el resto, una tirada libre («1d6 goblins»).
@@ -134,8 +138,9 @@ export function findDice(text: string): DicePart[] {
     const expr = m[1].replace(/\s+/g, '').replace(/−/g, '-').toLowerCase();
     const end = m.index! + m[0].length;
     const after = AFTER.exec(text.slice(end));
-    const type = after?.[2]?.toLowerCase();
-    const isDmg = !!after;
+    const en = after ? null : AFTER_EN.exec(text.slice(end));
+    const type = after?.[2]?.toLowerCase() || (en ? EN_DMG[en[1].toLowerCase()] : undefined);
+    const isDmg = !!after || !!en;
     const kind: DiceKind = isDmg ? 'damage' : /^1?d20(?![0-9])/.test(expr) ? 'check' : 'free';
     if (m.index! > last) out.push({ t: 'text', text: text.slice(last, m.index) });
     const len = end + (after ? after[0].length : 0);

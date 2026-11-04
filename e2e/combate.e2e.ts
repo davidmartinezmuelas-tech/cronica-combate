@@ -3513,3 +3513,33 @@ test('clase propia: al subir de nivel pide los conjuros y trucos que dicen sus t
   dlg = page.getByRole('dialog', { name: 'Subir a nivel 5' });
   await expect(dlg).toContainText('2 conjuros preparados más');
 });
+
+/** PDF inventado de una aventura: cada línea con su tamaño de letra (título 21, sala 14, texto 6.5, texto en voz alta 7). */
+function adventurePdf(): string {
+  const rows: [string, number][] = [
+    ['The Foundry', 21], ['Area 3: Mast Room', 14],
+    ['When the characters enter, read or paraphrase the following:', 6.5],
+    ['The ceiling of this chamber rises thirty feet and the air is thick with smoke and the smell of hot iron.', 7],
+    ['The Goblin Boss Sneed operates his invention. Eight Goblin Minions (G on the map) are on the ceiling mast, and four Bandits (B) watch the door.', 6.5],
+    ['Throw Bomb. Dexterity Saving Throw: DC 12. Failure: 10 (3d6) Fire damage. Success: Half damage only.', 6.5],
+  ];
+  let y = 740;
+  const content = rows.map(([t, sz]) => { y -= sz * 2.4; return 'BT /F1 ' + sz + ' Tf 20 ' + Math.round(y) + ' Td (' + t.replace(/[()]/g, (c) => String.fromCharCode(92) + c) + ') Tj ET'; }).join('\n');
+  return '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 800 800]/Contents 4 0 R/Resources<</Font<</F1 5 0 R>>>>>>endobj\n' +
+    '4 0 obj<</Length ' + content.length + '>>stream\n' + content + '\nendstream\nendobj\n5 0 obj<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n';
+}
+
+test('guion: «Importar aventura (PDF)» crea el guion con títulos, texto para leer, tiradas y el encuentro de la sala', async ({ page }) => {
+  await open(page);
+  await page.getByRole('button', { name: 'Guion', exact: true }).click();
+  await page.getByLabel('PDF de la aventura').setInputFiles({ name: 'La Fundicion.pdf', mimeType: 'application/pdf', buffer: Buffer.from(adventurePdf(), 'latin1') });
+  await expect(page.getByText(/Aventura importada .* con 1 encuentros/)).toBeVisible({ timeout: 20000 });
+  await expect(page.getByRole('button', { name: 'La Fundicion' })).toBeVisible();
+  const art = page.locator('.script-text');
+  await expect(art.getByRole('heading', { name: 'Area 3: Mast Room' })).toBeVisible();
+  await expect(art.locator('blockquote')).toContainText('The ceiling of this chamber');
+  // la tirada del texto es un botón y el encuentro de la sala está cargado con las criaturas del texto
+  await expect(art.locator('.script-roll', { hasText: '3d6' })).toBeVisible();
+  await page.locator('.script-combat-btn', { hasText: 'Area 3: Mast Room' }).click();
+  await expect(page.locator('.init-row')).toHaveCount(12); // 8 esbirros goblin + 4 bandidos
+});

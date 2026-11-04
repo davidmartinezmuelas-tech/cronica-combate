@@ -12,9 +12,11 @@ import { norm } from './util';
  * «Evocación de nivel 3 (hechicero, mago)», «Puntuaciones de característica: …»).
  */
 
-export interface TextItem { str: string; x: number; y: number; w?: number }
+/** `h`: alto de la letra (para distinguir títulos del texto corrido). */
+export interface TextItem { str: string; x: number; y: number; w?: number; h?: number }
 /** `p`: página del libro (1, 2…), cuando se sabe. */
-export interface Line { t: string; col: number; y: number; p?: number }
+/** `sz`: tamaño de letra más grande de la línea, si se conoce. */
+export interface Line { t: string; col: number; y: number; p?: number; sz?: number }
 
 export interface LibFeat { id: string; n: string; cat: 'origin' | 'general' | 'fighting-style' | 'epic-boon'; req: string; d: string; guest?: boolean }
 export interface LibBackground { id: string; n: string; abil: Abil[]; skills: string[]; tool: string; feat: string; equip: string; d: string; guest?: boolean }
@@ -36,7 +38,7 @@ export interface LibSubclass { id: string; n: string; cls: string; d: string; f:
 /** Líneas de una página en orden de lectura: primero la columna izquierda de arriba abajo, luego la derecha. */
 /** `single`: una sola columna (las fichas de monstruo en inglés ocupan todo el ancho; partir por la mitad separaba el final de las líneas largas). */
 export function pageLines(items: TextItem[], width: number, single = false): Line[] {
-  const rows: { col: number; y: number; parts: { x: number; s: string }[] }[] = [];
+  const rows: { col: number; y: number; sz: number; parts: { x: number; s: string }[] }[] = [];
   // dónde empieza la columna derecha en esta página: la posición en la que arrancan más líneas pasada la mitad
   // (varía entre páginas pares e impares, y las líneas largas de la izquierda pueden cruzar la mitad)
   const starts = new Map<number, number>();
@@ -52,11 +54,12 @@ export function pageLines(items: TextItem[], width: number, single = false): Lin
     const glued = it.x >= rightStart && items.some((o) => o !== it && o.x < rightStart && Math.abs(o.y - it.y) <= 5 && o.w != null && o.str.trim() !== '' && o.x + o.w >= it.x - 10);
     const col = it.x < rightStart || glued ? 0 : 1;
     let row = rows.find((r) => r.col === col && Math.abs(r.y - it.y) <= 5);
-    if (!row) { row = { col, y: it.y, parts: [] }; rows.push(row); }
+    if (!row) { row = { col, y: it.y, sz: 0, parts: [] }; rows.push(row); }
     row.parts.push({ x: it.x, s });
+    if (it.h) row.sz = Math.max(row.sz, it.h);
   }
   return rows
-    .map((r) => ({ col: r.col, y: r.y, t: r.parts.sort((a, b) => a.x - b.x).map((p) => p.s.trim()).join(' ').replace(/\s+/g, ' ').trim() }))
+    .map((r) => ({ col: r.col, y: r.y, ...(r.sz ? { sz: r.sz } : {}), t: r.parts.sort((a, b) => a.x - b.x).map((p) => p.s.trim()).join(' ').replace(/\s+/g, ' ').trim() }))
     // fuera números de página, cabeceras de capítulo y letras sueltas del OCR
     .filter((l) => l.t.replace(/[^\p{L}\d]/gu, '').length > 2 && !/^\d{1,3}$/.test(l.t) && !/CAP[IÍ]TULO\s*\d+\s*\|/i.test(l.t) && !/^CAP[IÍ]TULO\b/.test(l.t))
     .sort((a, b) => a.col - b.col || b.y - a.y);
