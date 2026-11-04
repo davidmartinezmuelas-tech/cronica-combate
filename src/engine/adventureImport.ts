@@ -183,6 +183,8 @@ export function adventureToMarkdown(lines: Line[], monsters: AdvMonster[], fallb
   items.forEach((it, i) => {
     if (it.k === 'h') {
       if (GENERIC.test(it.text)) return;
+      // un capítulo, un listado de lugares o la ficha de una criatura (su título es su nombre) no son una sala: lo que sigue no es un encuentro
+      if (it.level <= 2 && (/^Chapter \d+|\bLocations$/i.test(it.text) || find(it.text))) { room2 = ''; room3 = ''; return; }
       // una sala con clave («L3: The Spire», «Area 2: …») gana a un apartado menor; un título mayor reinicia
       if (it.level <= 2) { room2 = it.text; room3 = ''; } else if (it.level === 3 && /^(?:[A-Z]{1,3}\d{0,2}|Area \d+)\s*:/.test(it.text)) room3 = it.text;
       return;
