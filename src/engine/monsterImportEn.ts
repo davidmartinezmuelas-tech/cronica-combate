@@ -32,6 +32,15 @@ const SKILL: Record<string, string> = {
 const MOVE: Record<string, string> = { walk: '', burrow: 'excavar', climb: 'trepar', fly: 'volar', swim: 'nadar' };
 const SENSE: Record<string, string> = { darkvision: 'visión en la oscuridad', blindsight: 'vista ciega', tremorsense: 'sentido de la vibración', truesight: 'visión verdadera' };
 
+/** Etiquetas de tipo que aparecen entre paréntesis («Elf, Vampire»); las que no se conocen se dejan como vienen. */
+const TAG: Record<string, string> = {
+  elf: 'elfo', human: 'humano', dwarf: 'enano', gnome: 'gnomo', halfling: 'mediano', orc: 'orco', goblin: 'goblin', goblinoid: 'goblinoide', kobold: 'kobold', gnoll: 'gnoll',
+  lizardfolk: 'hombre lagarto', merfolk: 'tritón', troll: 'trol', ogre: 'ogro', titan: 'titán', demon: 'demonio', devil: 'diablo', vampire: 'vampiro', lich: 'liche', angel: 'ángel',
+  shapechanger: 'cambiaformas', wizard: 'mago', cleric: 'clérigo', warlock: 'brujo', paladin: 'paladín', rogue: 'pícaro', fighter: 'guerrero', warrior: 'guerrero', ranger: 'explorador',
+  druid: 'druida', monk: 'monje', bard: 'bardo', sorcerer: 'hechicero', barbarian: 'bárbaro', priest: 'sacerdote', mage: 'mago', 'death knight': 'caballero de la muerte', 'demon hunter': 'cazador de demonios',
+  nerubian: 'nerubiano', 'any race': 'cualquier raza', yuanti: 'yuan-ti', 'yuan-ti': 'yuan-ti', sahuagin: 'sahuagin', grimlock: 'grimlock', naga: 'naga', murloc: 'múrloc', satyr: 'sátiro', centaur: 'centauro', dragon: 'dragón', ghoul: 'necrófago',
+};
+const tagEs = (t: string) => t.split(',').map((x) => x.trim()).filter(Boolean).map((x) => TAG[x.toLowerCase()] || x).join(', ');
 const ABIL_EN = ['Str', 'Dex', 'Con', 'Int', 'Wis', 'Cha'];
 const num = (s: string) => parseInt(s.replace(/[−–—]/g, '-').replace(/,/g, ''), 10);
 
@@ -78,7 +87,7 @@ export function parseTypeLineEn(t: string): { t: string; sz: string; al: string 
   const sz = SIZE[size] + (m[2] ? ' o ' + SIZE[m[2].toLowerCase()] : '');
   const alRaw = m[5].trim().toLowerCase();
   const al = alRaw === 'unaligned' ? 'sin alineamiento' : /^any/.test(alRaw) ? 'cualquier alineamiento' : alRaw.split(/\s+/).map((w) => ALIGN_WORD[w] || w).join(' ');
-  return { t: type + (m[4] && !swarm ? ' (' + m[4].trim() + ')' : ''), sz, al };
+  return { t: type + (m[4] && !swarm ? ' (' + tagEs(m[4]) + ')' : ''), sz, al };
 }
 
 const LABELS = /^(HP|Speed|Skills|Saving Throws?|Resistances|Vulnerabilities|Immunities|Gear|Senses|Languages|CR)\b\s*(.*)$/;
@@ -88,7 +97,7 @@ const splitList = (s: string) => s.split(/[;,]/).map((x) => x.replace(/[.]$/, ''
 const dmgList = (s: string) => splitList(s).flatMap((w) => w.toLowerCase().split(/\s+/).map((x) => DMG[x]).filter(Boolean)).filter((v, i, a) => a.indexOf(v) === i);
 
 function speedEs(s: string): string {
-  return splitList(s.replace(/\s+hover\b/i, ' (flotar)'))
+  return splitList(s.replace(/\s+hover\b/i, ' (flotar)').replace(/\s+see ([^,;]+)/i, ' (ver $1)'))
     .map((p) => {
       const m = /^(Walk|Burrow|Climb|Fly|Swim)?\s*(\d+)\s*ft\.?(.*)$/i.exec(p);
       if (!m) return p;

@@ -6,7 +6,7 @@ const L = (...t: string[]): Line[] => t.map((s, i) => ({ t: s, col: 0, y: 1000 -
 
 describe('fichas de monstruo en inglés', () => {
   it('traduce tipo, tamaño y alineamiento', () => {
-    expect(parseTypeLineEn('Large Undead (Elf, Vampire), Lawful Evil')).toEqual({ t: 'muerto viviente (Elf, Vampire)', sz: 'Grande', al: 'legal malvado' });
+    expect(parseTypeLineEn('Large Undead (Elf, Vampire), Lawful Evil')).toEqual({ t: 'muerto viviente (elfo, vampiro)', sz: 'Grande', al: 'legal malvado' });
     expect(parseTypeLineEn('Gargantuan Or Huge Dragon, Neutral Evil')?.sz).toBe('Gargantuesco o Enorme');
     expect(parseTypeLineEn('Medium Swarm of Tiny Beasts, Unaligned')).toEqual({ t: 'enjambre de bestias diminutas', sz: 'Mediano', al: 'sin alineamiento' });
     expect(parseTypeLineEn('Some random sentence, with a comma')).toBeNull();
@@ -50,7 +50,7 @@ describe('fichas de monstruo en inglés', () => {
     ));
     expect(ms).toHaveLength(1);
     const m = ms[0];
-    expect([m.n, m.sz, m.t, m.al, m.ac, m.hp, m.hd, m.ini, m.cr, m.xp, m.pb, m.lair, m.xpl]).toEqual(['Blood-Queen Lana’thel', 'Grande', 'muerto viviente (Elf, Vampire)', 'legal malvado', 16, 315, '30d10+150', 18, '23', 50000, 7, 1, 62000]);
+    expect([m.n, m.sz, m.t, m.al, m.ac, m.hp, m.hd, m.ini, m.cr, m.xp, m.pb, m.lair, m.xpl]).toEqual(['Blood-Queen Lana’thel', 'Grande', 'muerto viviente (elfo, vampiro)', 'legal malvado', 16, 315, '30d10+150', 18, '23', 50000, 7, 1, 62000]);
     expect(m.spd).toBe('40 pies, trepar 40 pies, volar 40 pies (flotar)');
     expect(m.ab).toEqual([22, 18, 20, 19, 16, 23]);
     expect(m.sv).toEqual([13, 4, 5, 4, 10, 13]);
