@@ -45,6 +45,7 @@ import SpellRolls, { spellCastFor } from './SpellRolls';
 import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
+import DeathKnightPanel from './DeathKnightPanel';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -1304,6 +1305,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       {views.map(({ v, dv }, i) => (
         <Fragment key={i}>
           <SubclassActions c={v} d={dv} data={data} lib={lib} set={set} />
+          <DeathKnightPanel c={v} d={dv} set={set} />
           <ClassPanel c={v} d={dv} data={data} set={set} lay={!quick.some((r) => r.n === 'Imposición de manos' && classLevel(c, 'paladin') > 0) && !libReplaces(classEntries(c), 'Imposición de manos')} />
         </Fragment>
       ))}

@@ -1140,6 +1140,31 @@ test('subir de nivel en el editor sube también los PG actuales', async ({ page 
   await expect(hpMax).toHaveText('38');
 });
 
+test('Caballero de la Muerte: reserva de Death Coil, runa del arma y Runic Power gastan Canalización divina', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nombre de la subclase').fill('Oath of the Ebon Blade');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Arthas');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.locator('#ce-subsel').selectOption({ label: 'Oath of the Ebon Blade (propia)' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sec = page.locator('section[aria-label="Caballero de la Muerte"]');
+  await expect(sec).toBeVisible();
+  await expect(sec.getByText(/de \d+ d8/)).toBeVisible();
+  await sec.getByLabel('Dados de Death Coil').fill('1');
+  await sec.getByRole('button', { name: /Dañar 1d8/ }).click();
+  await expect(sec.getByText(/\d+ de \d+ d8/)).toBeVisible();
+  await sec.getByRole('button', { name: 'Escarcha' }).click();
+  await expect(sec.getByRole('button', { name: 'Escarcha 2d6' })).toBeEnabled();
+});
+
 test('el editor lista los rasgos de clase por nivel', async ({ page }) => {
   await page.goto('/#/jugador');
   await page.getByRole('button', { name: 'Nuevo personaje' }).click();
