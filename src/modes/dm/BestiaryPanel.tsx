@@ -72,12 +72,13 @@ function BookImport() {
     try {
       const st = useStore.getState();
       const r = await readMonsterBook(f, st.spells, (p, t) => setProgress([p, t]), cancel.current);
-      if (!r.monsters.length) setMsg({ t: 'No se ha encontrado ninguna ficha de monstruo. El importador está hecho para el Manual de Monstruos 2024 en español.' });
+      if (!r.monsters.length) setMsg({ t: 'No se ha encontrado ninguna ficha de monstruo. El importador lee bestiarios 2024 en español (como el Manual de Monstruos) y en inglés, siempre con texto (no un PDF de imágenes).' });
       else {
         // lo que el OCR no pudo leer se completa con el SRD si la criatura está en él
         const fixed = completeFromSrd(r.monsters, st.srd);
         const left = r.monsters.filter((m) => m.chk?.length).length;
-        st.setBook(r.monsters);
+        // un libro en inglés (de una campaña o aventura) se suma a las criaturas que ya hay; el Manual en español las sustituye
+        st.setBook(r.english ? [...st.book.filter((b) => !r.monsters.some((m) => m.id === b.id)), ...r.monsters] : r.monsters);
         setBookFile(f);
         setMsg({ ok: true, t: r.monsters.length + ' criaturas añadidas al bestiario.' + (fixed ? ' A ' + fixed + ' les faltaba algún dato y se ha completado con el SRD.' : '') + (left ? ' ' + left + ' tienen datos que no se pudieron leer: revísalas con la página delante.' : '') });
       }
@@ -95,7 +96,7 @@ function BookImport() {
         <span className="eyebrow">Manual de Monstruos 2024</span>
         <span className="muted small">{count ? count + ' criaturas importadas' : 'importa tu PDF'}</span>
       </summary>
-      <p className="muted small" style={{ margin: 0 }}>Si tienes el Manual de Monstruos 2024 en español en PDF, impórtalo para tener todas sus criaturas. Se lee en este navegador y se guarda solo en este dispositivo: no se sube a ningún sitio ni a tu cuenta.</p>
+      <p className="muted small" style={{ margin: 0 }}>Si tienes el Manual de Monstruos 2024 en español en PDF (o un libro con fichas en inglés, como el de World of Warcraft), impórtalo para tener todas sus criaturas. Se lee en este navegador y se guarda solo en este dispositivo: no se sube a ningún sitio ni a tu cuenta.</p>
       <div className="rollrow">
         <button className="btn small primary" disabled={!!progress} onClick={() => fileRef.current?.click()}>{count ? 'Volver a importar (PDF)' : 'Importar mi Manual de Monstruos (PDF)'}</button>
         {pending > 0 && <button className="btn small" disabled={!!progress} onClick={() => setReview(true)}>Revisar {pending === 1 ? '1 ficha' : pending + ' fichas'}</button>}

@@ -4,6 +4,7 @@ import { parseItems, parseItemsEs } from '../engine/itemImport';
 import { norm } from '../engine/util';
 import type { LibItem } from '../engine/magicItems';
 import { parseMonsters } from '../engine/monsterImport';
+import { foldAbilityTable, parseMonstersEn } from '../engine/monsterImportEn';
 import type { Monster, Spell } from '../data/types';
 
 export interface BookResult {
@@ -77,10 +78,17 @@ export async function readBook(file: Blob, onProgress: (page: number, total: num
 }
 
 /** Lee el PDF del Manual de Monstruos del usuario en su navegador y extrae las fichas de monstruo. */
-export async function readMonsterBook(file: Blob, spells: Record<string, Spell>, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<{ monsters: Monster[]; pages: number }> {
+export async function readMonsterBook(file: Blob, spells: Record<string, Spell>, onProgress: (page: number, total: number) => void, signal?: { cancelled: boolean }): Promise<{ monsters: Monster[]; pages: number; english: boolean }> {
   const lines: Line[] = [];
-  const n = await readPages(file, (items, width, p) => { lines.push(...pageLines(items, width).map((l) => ({ ...l, p }))); }, onProgress, signal);
-  return { monsters: parseMonsters(lines, spells), pages: n };
+  const wide: Line[] = []; // para los libros en inglés: una columna y con la tabla de características junta
+  const n = await readPages(file, (items, width, p) => {
+    lines.push(...pageLines(items, width).map((l) => ({ ...l, p })));
+    wide.push(...pageLines(foldAbilityTable(items), width, true).map((l) => ({ ...l, p })));
+  }, onProgress, signal);
+  // libros en inglés: otro formato de ficha (si el libro es español, este lector no encuentra nada)
+  const es = parseMonsters(lines, spells);
+  const en = parseMonstersEn(wide, spells);
+  return { monsters: [...es, ...en], pages: n, english: !es.length && en.length > 0 };
 }
 
 /**

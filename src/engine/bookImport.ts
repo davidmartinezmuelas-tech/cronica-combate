@@ -34,7 +34,8 @@ export interface LibClass extends Omit<ClassData, 'f'> { f: LibClassFeature[]; o
 export interface LibSubclass { id: string; n: string; cls: string; d: string; f: { lv: number; n: string; d: string; u?: Uses; fx?: HbFx; sp?: string[] }[]; x?: { n: string; d: string }[]; own?: boolean; at?: number; guest?: boolean; casting?: CastingRule }
 
 /** Líneas de una página en orden de lectura: primero la columna izquierda de arriba abajo, luego la derecha. */
-export function pageLines(items: TextItem[], width: number): Line[] {
+/** `single`: una sola columna (las fichas de monstruo en inglés ocupan todo el ancho; partir por la mitad separaba el final de las líneas largas). */
+export function pageLines(items: TextItem[], width: number, single = false): Line[] {
   const rows: { col: number; y: number; parts: { x: number; s: string }[] }[] = [];
   // dónde empieza la columna derecha en esta página: la posición en la que arrancan más líneas pasada la mitad
   // (varía entre páginas pares e impares, y las líneas largas de la izquierda pueden cruzar la mitad)
@@ -42,7 +43,7 @@ export function pageLines(items: TextItem[], width: number): Line[] {
   for (const it of items) if (it.str.trim() && it.x > width * 0.45) { const b = Math.round(it.x / 6) * 6; starts.set(b, (starts.get(b) || 0) + 1); }
   // la más a la izquierda de las posiciones frecuentes (las sangrías de párrafo quedan algo más a la derecha)
   const best = [...starts].filter(([, n]) => n >= 3).sort((a, b) => a[0] - b[0])[0];
-  const rightStart = best ? best[0] - 8 : width * 0.47;
+  const rightStart = single ? Infinity : best ? best[0] - 8 : width * 0.47;
   for (const it of items) {
     const s = it.str.replace(/\s+/g, ' ');
     // restos del escaneo en el margen («|», «•»): no son texto
