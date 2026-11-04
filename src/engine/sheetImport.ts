@@ -68,7 +68,7 @@ const SKILL_SYN: Record<string, string[]> = {
  */
 const OFICIAL_2024: Record<string, string> = {
   name: 'Text1', background: 'Text6', cls: 'Text7', species: 'Text8', subclass: 'Text9', level: 'Text11', ac: 'Text13',
-  hp: 'Text16', init: 'Text26', speed: 'Text27', size: 'Text28', pp: 'Text29', languages: 'Text98',
+  hp: 'Text16', init: 'Text26', speed: 'Text27', size: 'Text28', pp: 'Text29', languages: 'Text98', equipment: 'Text99', armorProf: 'Text59', toolProf: 'Text60',
 };
 const OFICIAL_2024_TRAITS = ['Text54', 'Text55', 'Text57', 'Text58'];
 
@@ -89,7 +89,7 @@ const SYNONYMS: Record<string, string[]> = {
   size: ['size', 'tamano'],
   darkvision: ['darkvision', 'visionenlaoscuridad'],
   senses: ['senses', 'sentidos'],
-  languages: ['languages', 'idiomas', 'proficiencieslang', 'languagesandproficiencies', 'lingue0'],
+  languages: ['languages', 'idiomas', 'proficiencieslang', 'languagesandproficiencies', 'lingue0'], equipment: ['equipment', 'equipo', 'inventory', 'inventario', 'gear'],
 };
 /** Hoja exportada de D&D Beyond («details_str_score», «details_acrobatics_total»…). */
 const DDB_SYN: Record<string, string[]> = {
@@ -237,7 +237,7 @@ export function readSheet(fields: SheetField[]): SheetData | null {
   const speed = get('speed');
   const extras = [
     ['Especie', get('species') || speciesHint], ['Subclase', get('subclass') || subHint], ['Trasfondo', get('background')],
-    ['Velocidad', /^\d+$/.test(speed) ? speed + ' pies' : speed], ['Tamaño', get('size')], ['Visión en la oscuridad', get('darkvision')], ['Sentidos', get('senses')], ['Idiomas', get('languages')],
+    ['Velocidad', /^\d+$/.test(speed) ? speed + ' pies' : speed], ['Tamaño', get('size')], ['Visión en la oscuridad', get('darkvision')], ['Sentidos', get('senses')], ['Idiomas', get('languages')], ['Equipo', get('equipment')], ['Competencias', [get('armorProf'), get('toolProf')].filter(Boolean).join(' · ')],
   ].filter(([, v]) => v).map(([label, value]) => ({ label, value }));
 
   const pick = (official_: string | undefined, syn: string[]) => {

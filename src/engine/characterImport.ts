@@ -128,9 +128,11 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   const lines = sheetLines(fields, sheet);
   const tidyLines = [...new Set(lines.map(tidy))].filter((l) => l.length > 1);
 
+  // nombres que las traducciones antiguas daban a armas del SRD («Sable corto» es la Espada corta)
+  const WEAPON_ALIASES: Record<string, string[]> = { shortsword: ['sable corto', 'sable'], greatsword: ['mandoble', 'espada a dos manos'], battleaxe: ['hacha de guerra'], quarterstaff: ['baston', 'bordon'], mace: ['porra'], 'light hammer': ['martillo liviano'] };
   // también en plural («Jabalinas (3)», «Javelins»)
   const hasName = (n: string) => !!n && [n, n + 's', n + 'es'].some((x) => tidyLines.includes(x));
-  const weapons = data.weapons.filter((w) => hasName(norm(w.n)) || hasName(norm(w.en))).map((w) => weaponFromData(w, cls));
+  const weapons = data.weapons.filter((w) => hasName(norm(w.n)) || hasName(norm(w.en)) || (WEAPON_ALIASES[norm(w.en)] || []).some(hasName)).map((w) => weaponFromData(w, cls));
   // armadura: por su nombre en cualquier línea o, si no, por un campo de armadura equipada («Leather» -> Armadura de cuero)
   const armorHint = fields.filter((f) => /armor|armadura/i.test(f.name) && /equip|worn|puesta/i.test(f.name) && norm(f.value).length >= 4).map((f) => norm(f.value));
   const armor = data.armor.find((a) => a.type !== 'shl' && (tidyLines.includes(norm(a.n)) || tidyLines.includes(norm(a.en))))
@@ -193,7 +195,8 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
     ...blankCharacter(), choices: { ...choices, [SHEET_IMPORT_KEY]: ['1'] }, name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName, level, subclass, ...(multi?.length ? { multi } : {}),
     speciesId: species?.id || '', speciesName: species ? '' : extra('Especie'), backgroundId: bg?.id || '', backgroundName: bg ? '' : extra('Trasfondo'),
     abil, skills, expertise, saveExtra, weapons, armorId: armor?.id || '', shield, spells: spellIds, feats, customFeats, langs: extra('Idiomas'),
-    notes: (fileName ? 'Importado de ' + fileName + '. ' : '') + 'Revisa la hoja: lo que no se ha podido reconocer está en el PDF original.',
+    notes: (fileName ? 'Importado de ' + fileName + '. ' : '') + 'Revisa la hoja: lo que no se ha podido reconocer está en el PDF original.'
+      + ['Equipo', 'Competencias'].map((l) => (extra(l) ? '\n' + l + ' de la hoja: ' + extra(l).replace(/\s*\n\s*/g, ' / ') : '')).join(''),
   };
   // CA y PG: si lo calculado no coincide con lo escrito en la hoja, se respeta la hoja (objetos mágicos, rasgos…)
   const d = derive(c, data);
