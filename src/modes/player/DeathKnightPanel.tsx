@@ -13,6 +13,27 @@ const COIL = 'Death Coil';
 const MASTERY = 'Runic Mastery';
 const CHANNEL = 'Canalización divina';
 const RUNE_KEY = 'dk.rune';
+const STRIKE = 'dk.strike'; // Rune Strike lanzado: habilita Runic Power
+const TURN = 'dk.turn'; // el primer golpe del turno con arma Pesada (runa Profana) ya se ha hecho
+const LIGHT = 'dk.light'; // el próximo golpe es el ataque extra de la propiedad Ligera (runa de Escarcha)
+
+/** Rune Strike como conjuro de castigo (acción adicional tras impactar): 2d8 necróticos, +1d8 por nivel de espacio sobre 1. Sale siempre preparado. */
+export const RUNE_STRIKE = {
+  id: 'dk-rune-strike', en: 'Rune Strike', n: 'Rune Strike', l: 1, c: 0, rit: 0, ct: 'Acción adicional (tras impactar con un arma cuerpo a cuerpo o un ataque sin armas)', r: 'Personal', cmp: 'V', du: 'Instantánea',
+  t: 'El objetivo sufre 2d8 de daño necrótico adicional (1d8 más si es un Celestial). El daño aumenta en 1d8 por cada nivel de espacio de conjuro por encima de 1.',
+};
+
+/** Efectos pasivos del Caballero de la Muerte en un golpe con arma cuerpo a cuerpo: Golpes rúnicos (nivel 11) y la runa del arma. */
+export function dkPassives(c: Character, d: Derived, props: string[]): { parts: { expr: string; type: string; src: string }[]; uses: Record<string, number> } | null {
+  if (!isEbonBlade(c)) return null;
+  const rune = c.choices?.[RUNE_KEY]?.[0] || '';
+  const parts: { expr: string; type: string; src: string }[] = [];
+  const uses: Record<string, number> = {};
+  if (c.level >= 11) parts.push({ expr: '1d8', type: 'necrótico', src: 'Golpes rúnicos' });
+  if (rune === 'Unholy' && !c.uses[TURN] && props.some((x) => norm(x) === 'pesada')) { parts.push({ expr: String(Math.max(1, d.mods.cha)), type: 'necrótico', src: 'Runa profana' }); uses[TURN] = 1; }
+  if (rune === 'Frost' && c.uses[LIGHT]) { parts.push({ expr: '1d4', type: 'frío', src: 'Runa de escarcha' }); uses[LIGHT] = 0; }
+  return { parts, uses };
+}
 const RUNES = ['Blood', 'Frost', 'Unholy'] as const;
 const RUNE_ES: Record<string, string> = { Blood: 'Sangre', Frost: 'Escarcha', Unholy: 'Profana' };
 
@@ -31,9 +52,11 @@ export default function DeathKnightPanel({ c, d, set }: { c: Character; d: Deriv
   const n = Math.max(0, Math.min(left, perCast, parseInt(dice, 10) || 0));
   const dc = 8 + d.pb + cha;
   const rune = c.choices?.[RUNE_KEY]?.[0] || '';
+  const power = (k: string = CHANNEL) => set({ uses: { ...c.uses, [CHANNEL]: (c.uses[CHANNEL] || 0) + (k === CHANNEL ? 1 : 0), [STRIKE]: 0 } });
   const spend = (k: string, by = 1) => set({ uses: { ...c.uses, [k]: (c.uses[k] || 0) + by } });
   const channelMax = c.level >= 11 ? 3 : 2;
   const channelLeft = channelMax - Math.min(channelMax, c.uses[CHANNEL] || 0);
+  const struck = !!c.uses[STRIKE];
   const masteryUsed = !!c.uses[MASTERY];
   const pal = c.level;
   const hit = parseInt(dealt, 10) || 0;
@@ -61,6 +84,8 @@ export default function DeathKnightPanel({ c, d, set }: { c: Character; d: Deriv
               <span className="muted small">una runa en tu arma cuerpo a cuerpo · se cambia en descanso largo o al subir de nivel</span>
               <div className="rollrow">
                 {RUNES.map((r) => <button key={r} className={rune === r ? 'chip on' : 'chip'} aria-pressed={rune === r} onClick={() => set({ choices: { ...(c.choices || {}), [RUNE_KEY]: [rune === r ? '' : r] } })}>{RUNE_ES[r]}</button>)}
+                {rune === 'Frost' && <button className="chip" aria-pressed={!!c.uses[LIGHT]} title="El siguiente golpe es el ataque extra de la propiedad Ligera: suma 1d4 de frío" onClick={() => set({ uses: { ...c.uses, [LIGHT]: c.uses[LIGHT] ? 0 : 1 } })}>Ataque extra Ligera +1d4</button>}
+                {rune === 'Unholy' && <button className="chip" aria-pressed={!c.uses[TURN]} title="La primera criatura que golpeas cada turno con un arma Pesada recibe necrótico extra. Pulsa para empezar un turno nuevo" onClick={() => set({ uses: { ...c.uses, [TURN]: 0 } })}>{c.uses[TURN] ? 'Nuevo turno' : 'Primer golpe pesado listo'}</button>}
                 {rune === 'Blood' && <button className="btn small" onClick={() => set({ temp: Math.max(c.temp, pgTemp) })}>PG temporales {fmt(pgTemp)}</button>}
               </div>
             </>}>
@@ -74,14 +99,14 @@ export default function DeathKnightPanel({ c, d, set }: { c: Character; d: Deriv
         {c.level >= 3 && rune && (
           <li>
             <Card name="Runic Power" head={<>
-              <span className="chip-tag">{channelLeft} de {channelMax} Canalización divina</span><span className="muted small">justo tras lanzar Rune Strike</span>
+              <span className="chip-tag">{channelLeft} de {channelMax} Canalización divina</span><span className="muted small">{struck ? 'Rune Strike lanzado: elige' : 'se desbloquea al lanzar Rune Strike'}</span><button className="chip" aria-pressed={struck} title="Marcar a mano que acabas de lanzar Rune Strike" onClick={() => set({ uses: { ...c.uses, [STRIKE]: struck ? 0 : 1 } })}>Rune Strike lanzado</button>
               <div className="rollrow">
-                {rune === 'Frost' && <button className="rollbtn dmg" disabled={channelLeft < 1} onClick={() => { spend(CHANNEL); cold('2d6', 'Runic Power (Escarcha): objetivo y enemigos a 10 pies'); }}>Escarcha 2d6</button>}
+                {rune === 'Frost' && <button className="rollbtn dmg" disabled={channelLeft < 1 || !struck} onClick={() => { power(); cold('2d6', 'Runic Power (Escarcha): objetivo y enemigos a 10 pies'); }}>Escarcha 2d6</button>}
                 {rune === 'Blood' && <>
                   <input className="input" style={{ width: 80 }} type="number" min={0} inputMode="numeric" aria-label="Daño necrótico de Rune Strike" placeholder="Daño" value={dealt} onChange={(e) => setDealt(e.target.value)} />
-                  <button className="btn small" disabled={channelLeft < 1 || hit < 1} onClick={() => { spend(CHANNEL); set({ hp: Math.min(d.hpMax, c.hp + hit) }); setDealt(''); }}>Curarme {hit || ''}</button>
+                  <button className="btn small" disabled={channelLeft < 1 || !struck || hit < 1} onClick={() => { set({ hp: Math.min(d.hpMax, c.hp + hit), uses: { ...c.uses, [CHANNEL]: (c.uses[CHANNEL] || 0) + 1, [STRIKE]: 0 } }); setDealt(''); }}>Curarme {hit || ''}</button>
                 </>}
-                {rune === 'Unholy' && <button className="btn small" disabled={channelLeft < 1} onClick={() => spend(CHANNEL)}>Maldecir al objetivo</button>}
+                {rune === 'Unholy' && <button className="btn small" disabled={channelLeft < 1 || !struck} onClick={() => power()}>Maldecir al objetivo</button>}
               </div>
             </>}>
               <p className="pc-text">{rune === 'Blood' ? 'Recuperas PG iguales al daño necrótico que hizo tu Rune Strike.' : rune === 'Frost' ? 'El objetivo de Rune Strike y cada enemigo en una emanación de 10 pies a su alrededor sufren 2d6 de frío.' : 'El objetivo queda maldito hasta el final de tu próximo turno: en su siguiente salvación resta 1d6 a la tirada y la maldición termina.'}</p>

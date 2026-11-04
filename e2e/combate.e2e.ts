@@ -1140,6 +1140,44 @@ test('subir de nivel en el editor sube también los PG actuales', async ({ page 
   await expect(hpMax).toHaveText('38');
 });
 
+test('Caballero de la Muerte: Rune Strike hace de Castigo divino, desbloquea Runic Power y suma los pasivos de la runa', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nombre de la subclase').fill('Oath of the Ebon Blade');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Arthas');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Paladín' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.locator('#ce-subsel').selectOption({ label: 'Oath of the Ebon Blade (propia)' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sec = page.locator('section[aria-label="Caballero de la Muerte"]');
+  await sec.getByRole('button', { name: 'Escarcha', exact: true }).click();
+  // Runic Power bloqueado hasta lanzar Rune Strike
+  await expect(sec.getByRole('button', { name: 'Escarcha 2d6' })).toBeDisabled();
+  const dlg = page.getByRole('dialog');
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
+  await expect(dlg.getByRole('button', { name: /^Rune Strike · / })).toHaveText(['Rune Strike · Gratis · 2d8 necrótico', 'Rune Strike · Nivel 1 · 2d8 necrótico', 'Rune Strike · Nivel 2 · 3d8 necrótico']);
+  await dlg.getByRole('button', { name: /· Gratis ·/ }).click();
+  await expect(page.locator('.plaque-rows')).toContainText('Rune Strike');
+  await expect(sec.getByRole('button', { name: 'Escarcha 2d6' })).toBeEnabled();
+  // el gratis se gastó
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
+  await expect(dlg.getByRole('button', { name: /^Rune Strike · / })).toHaveText(['Rune Strike · Nivel 1 · 2d8 necrótico', 'Rune Strike · Nivel 2 · 3d8 necrótico']);
+  await dlg.getByRole('button', { name: 'Solo el arma' }).click();
+  // pasivo de Escarcha: el ataque extra de Ligera suma 1d4 de frío
+  await sec.getByRole('button', { name: /Ataque extra Ligera/ }).click();
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
+  await dlg.getByRole('button', { name: 'Solo el arma' }).click();
+  await expect(page.locator('.plaque-rows')).toContainText('Runa de escarcha');
+});
+
 test('Caballero de la Muerte: reserva de Death Coil, runa del arma y Runic Power gastan Canalización divina', async ({ page }) => {
   await page.goto('/#/jugador');
   await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
@@ -1162,6 +1200,7 @@ test('Caballero de la Muerte: reserva de Death Coil, runa del arma y Runic Power
   await sec.getByRole('button', { name: /Dañar 1d8/ }).click();
   await expect(sec.getByText(/\d+ de \d+ d8/)).toBeVisible();
   await sec.getByRole('button', { name: 'Escarcha' }).click();
+  await sec.getByRole('button', { name: 'Rune Strike lanzado' }).click();
   await expect(sec.getByRole('button', { name: 'Escarcha 2d6' })).toBeEnabled();
 });
 

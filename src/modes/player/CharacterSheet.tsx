@@ -45,7 +45,7 @@ import SpellRolls, { spellCastFor } from './SpellRolls';
 import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
-import DeathKnightPanel from './DeathKnightPanel';
+import DeathKnightPanel, { isEbonBlade, RUNE_STRIKE, dkPassives } from './DeathKnightPanel';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -424,6 +424,9 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     const useSmite = !!with_.smite && smiteMelee && !!smOpt;
     const useEld = !!with_.eld && smiteMelee && !!eldDice;
     if (useSmite) ps.push({ expr: smOpt!.dice, type: smOpt!.type, src: smiteSpell!.n });
+    // Caballero de la Muerte: efectos pasivos de Golpes rúnicos y de la runa del arma
+    const dkP = smiteMelee ? dkPassives(c, d, d.attacks.find((a) => a.w.name === weapon)?.w.props || []) : null;
+    if (dkP) ps.push(...dkP.parts);
     if (useEld) ps.push({ expr: eldDice, type: 'fuerza', src: 'Castigo arcano' });
     // los extras, como etiquetas del resultado
     const tags = [savage ? 'Atacante salvaje' : '', charge && melee ? 'Carga' : '', pierce && piercing ? 'Perforador' : '',
@@ -437,12 +440,18 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     if (brutal && hit.str) setBrutal(false);
     if (sneak && hit.finesse) setSneak(false);
     if (strike) setStrike(false);
+    // gastos de los efectos pasivos y, tras Rune Strike, la marca para usar Runic Power
+    const rs = useSmite && smiteSpell!.en === 'Rune Strike';
+    if ((dkP && Object.keys(dkP.uses).length) || rs) {
+      const cur2 = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+      update(c.id, { uses: { ...cur2.uses, ...(dkP?.uses || {}), ...(rs ? { 'dk.strike': 1 } : {}) } });
+    }
     if (useSmite || useEld) {
       const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
       const patch: Partial<Character> = {};
       let pact = cur.pactUsed;
       if (useSmite) {
-        if (smOpt!.key === 'free') patch.uses = { ...cur.uses, 'Castigo del paladín': (cur.uses['Castigo del paladín'] || 0) + 1 };
+        if (smOpt!.key === 'free') { const fk = smiteSpell!.en === 'Rune Strike' ? 'Runic Smite' : 'Castigo del paladín'; patch.uses = { ...cur.uses, [fk]: (cur.uses[fk] || 0) + 1 }; }
         else if (smOpt!.key === 'p') pact += 1;
         else { const u = cur.slotsUsed.slice(); u[smOpt!.lv - 1] = (u[smOpt!.lv - 1] || 0) + 1; patch.slotsUsed = u; }
       }
@@ -658,8 +667,10 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const buffAtk = hitBuffs.filter((b) => buffs.includes(b.key)).reduce((a, b) => a + b.atk, 0);
   // castigos: se lanzan al acertar y su daño va en la misma tirada que el arma (Castigo divino, abrasador, brillante…)
   const SMITES = ['Divine Smite', 'Searing Smite', 'Shining Smite', 'Thunderous Smite', 'Wrathful Smite', 'Blinding Smite', 'Staggering Smite', 'Banishing Smite'];
-  const smiteSpells = spellList.filter((x) => (SMITES.includes(x.s!.en || '') || /^castigo (divino|abrasador|brillante|atronador|colerico|furioso|cegador|asombroso|desterrador|aturdidor)$/.test(norm(x.s!.n))) && spellRoll(x.s!.t)?.damage).map((x) => x.s!);
-  const smiteSpell = smiteSpells.find((x) => x.id === smiteSel) || smiteSpells.find((x) => x.en === 'Divine Smite') || smiteSpells[0];
+  const smiteSpells1 = spellList.filter((x) => (SMITES.includes(x.s!.en || '') || /^castigo (divino|abrasador|brillante|atronador|colerico|furioso|cegador|asombroso|desterrador|aturdidor)$/.test(norm(x.s!.n))) && spellRoll(x.s!.t)?.damage).map((x) => x.s!);
+  // Caballero de la Muerte: Rune Strike hace de Castigo divino (siempre preparado, uno gratis por descanso largo)
+  const smiteSpells = isEbonBlade(c) ? [RUNE_STRIKE as unknown as (typeof smiteSpells1)[number], ...smiteSpells1] : smiteSpells1;
+  const smiteSpell = smiteSpells.find((x) => x.id === smiteSel) || (isEbonBlade(c) ? smiteSpells[0] : smiteSpells.find((x) => x.en === 'Divine Smite')) || smiteSpells[0];
   const hasSmite = !!smiteSpell;
   const pactLeft = d.pact ? d.pact.n - Math.min(d.pact.n, c.pactUsed) : 0;
   const smiteBase = smiteSpell?.l || 1;
@@ -667,6 +678,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // espacios: gratis (Castigo del paladín, solo el divino), normales desde su nivel o de pacto
   const smiteOpts = !smiteSpell || !smiteRoll ? [] : [
     ...(smiteSpell.en === 'Divine Smite' && freeSmite && (c.uses[freeSmite.key] || 0) < freeSmite.max! ? [{ key: 'free', lv: 1, label: 'Gratis' }] : []),
+    ...(smiteSpell.en === 'Rune Strike' && !c.uses['Runic Smite'] ? [{ key: 'free', lv: 1, label: 'Gratis' }] : []),
     ...d.slots.map((n, i) => ({ key: String(i + 1), lv: i + 1, label: 'Nivel ' + (i + 1), left: n - (c.slotsUsed[i] || 0) })).filter((o) => o.left > 0 && o.lv >= smiteBase),
     ...(d.pact && pactLeft > 0 && d.pact.lv >= smiteBase ? [{ key: 'p', lv: d.pact.lv, label: 'Pacto' }] : []),
   ].map((o) => { const dm = spellCast(smiteRoll, smiteBase, o.lv, d.level, 0, false).dmg; return { ...o, dice: dm?.expr || '', type: dm?.type || 'radiante' }; });
