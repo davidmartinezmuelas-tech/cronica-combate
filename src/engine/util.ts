@@ -26,3 +26,7 @@ export const num = (v: unknown, d: number) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : d;
 };
+
+/** Clave de un nombre de dote que no distingue plurales: «Combate con armas a dos manos» y «Combate con arma a dos manos» son la misma. */
+const featKey = (n: string) => norm(n).split(/\s+/).map((w) => (w.length > 3 ? w.replace(/s$/, '') : w)).join(' ');
+export const sameFeat = (a: string, b: string) => featKey(a) === featKey(b);

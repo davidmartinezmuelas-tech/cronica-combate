@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
 import { asClass, classEntries, derive, totalLevel, weaponFromData, type Character, type ClassEntry, type CharWeapon, type CustomFeat, type FeatCat } from '../../engine/character';
 import { choiceSkills, subLvOf, subclassCaster, subclassSpells, subclassText } from '../../engine/subclassChoices';
-import { norm, uid } from '../../engine/util';
+import { norm, sameFeat, uid } from '../../engine/util';
+import { SHEET_IMPORT_KEY } from '../../engine/characterImport';
 import { DRACONIC_ANCESTRY } from '../../engine/classEffects';
 import { assignSpells, casterPreps, classAlwaysSpells } from '../../engine/spellPrep';
 import { featGrantsOf, hasMagicInitiate, MI_FROM_BACKGROUND, MI_KEY, SPECIES_ABIL_KEY, speciesHasSpells, TOME_KEY } from '../../engine/grantedSpells';
@@ -72,7 +73,7 @@ export default function CharacterEditor({ c }: { c: Character }) {
   const allBgs = [...(data?.backgrounds || []).map((b) => ({ id: b.id, n: b.n, abil: b.abil, skills: b.skills, feat: b.feat })), ...libBgs.map((b) => ({ id: b.id, n: b.n, abil: b.abil, skills: b.skills, feat: b.feat }))];
   const bg = allBgs.find((x) => x.id === c.backgroundId);
   // dotes: las del SRD y las de la biblioteca (sin duplicar)
-  const allFeats: { id: string; n: string; cat: string }[] = [...(data?.feats || []), ...lib.feats.filter((f) => !data?.feats.some((x) => norm(x.n) === norm(f.n)))];
+  const allFeats: { id: string; n: string; cat: string }[] = [...(data?.feats || []), ...lib.feats.filter((f) => !data?.feats.some((x) => sameFeat(x.n, f.n)))];
 
   if (!data) return <div className="panel"><p className="muted" style={{ margin: 0 }}>Cargando clases, especies y equipo…</p></div>;
 
@@ -100,6 +101,8 @@ export default function CharacterEditor({ c }: { c: Character }) {
     set({ classId: id, className: '', subclass: k?.sub && c.level >= k.sub.lv ? k.sub.n : '', skills: keep });
   };
   const chooseBackground = (id: string) => {
+    // una hoja importada ya trae sus características, habilidades y dotes: elegir el trasfondo solo lo anota, sin pedir ni quitar nada
+    if (c.choices?.[SHEET_IMPORT_KEY]) { set({ backgroundId: id, backgroundName: '' }); return; }
     const b = allBgs.find((x) => x.id === id);
     const old = allBgs.find((x) => x.id === c.backgroundId);
     const skills = c.skills.filter((s) => !old?.skills.includes(s)).concat(b?.skills || []).filter((s, i, a) => a.indexOf(s) === i);

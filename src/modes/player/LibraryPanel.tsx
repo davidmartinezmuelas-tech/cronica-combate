@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ABILS, type Abil } from '../../data/player';
 import type { LibBackground } from '../../engine/bookImport';
 import { isSrdTwin } from '../../engine/spellNames';
-import { norm } from '../../engine/util';
+import { norm, sameFeat } from '../../engine/util';
 import Picker from '../../shared/Picker';
 import HomebrewPanel from './HomebrewPanel';
 import { NO_TEXT, NO_TEXT_HELP, readBook, readItemBook, type BookResult } from '../../store/bookReader';
@@ -18,7 +18,7 @@ const CAT_N: Record<string, string> = { origin: 'origen', general: 'general', 'f
 function withoutSrd(r: BookResult, srd: { feats: string[]; backgrounds: string[]; spells: string[]; spellsEn: string[]; subclasses: string[]; classes: string[]; species: string[] }): BookResult {
   const srdEn = new Set(srd.spellsEn.map(norm));
   const has = (list: string[], n: string) => list.some((x) => norm(x) === norm(n));
-  return { ...r, feats: r.feats.filter((f) => !has(srd.feats, f.n)), backgrounds: r.backgrounds.filter((b) => !has(srd.backgrounds, b.n)), spells: r.spells.filter((s) => !has(srd.spells, s.n) && !isSrdTwin(s.n, srdEn)), subclasses: r.subclasses.filter((s) => !has(srd.subclasses, s.n)), classes: r.classes.filter((k) => !has(srd.classes, k.n)), species: r.species.filter((x) => !has(srd.species, x.n) && !has(srd.species, x.en)) };
+  return { ...r, feats: r.feats.filter((f) => !srd.feats.some((x) => sameFeat(x, f.n))), backgrounds: r.backgrounds.filter((b) => !has(srd.backgrounds, b.n)), spells: r.spells.filter((s) => !has(srd.spells, s.n) && !isSrdTwin(s.n, srdEn)), subclasses: r.subclasses.filter((s) => !has(srd.subclasses, s.n)), classes: r.classes.filter((k) => !has(srd.classes, k.n)), species: r.species.filter((x) => !has(srd.species, x.n) && !has(srd.species, x.en)) };
 }
 const CLASS_N: Record<string, string> = { barbarian: 'Bárbaro', bard: 'Bardo', cleric: 'Clérigo', druid: 'Druida', fighter: 'Guerrero', monk: 'Monje', paladin: 'Paladín', ranger: 'Explorador', rogue: 'Pícaro', sorcerer: 'Hechicero', warlock: 'Brujo', wizard: 'Mago' };
 const incomplete = (b: LibBackground) => b.abil.length !== 3 || b.skills.length !== 2 || !b.feat;

@@ -5,6 +5,9 @@ import { featCatOf, splitFeatText } from './featText';
 import { ELEMENTAL_KEY } from './metamagic';
 import { norm, uid } from './util';
 
+/** Marca en `choices` de un personaje que viene de una hoja PDF: sus números ya son los finales (el trasfondo no pide ni suma nada). */
+export const SHEET_IMPORT_KEY = 'sheet.import';
+
 export interface SpellRef {
   id: string;
   n: string;
@@ -187,7 +190,7 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   if (cls?.id === 'sorcerer' && same(subBase(subRaw), 'Hechicería dracónica', 'Draconic Sorcery') && elementOf(subParen(subRaw))) choices['draconic.affinity'] = [elementOf(subParen(subRaw))];
 
   const c: Character = {
-    ...blankCharacter(), choices, name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName, level, subclass, ...(multi?.length ? { multi } : {}),
+    ...blankCharacter(), choices: { ...choices, [SHEET_IMPORT_KEY]: ['1'] }, name: sheet.name, classId: cls?.id || '', className: cls ? '' : clsName, level, subclass, ...(multi?.length ? { multi } : {}),
     speciesId: species?.id || '', speciesName: species ? '' : extra('Especie'), backgroundId: bg?.id || '', backgroundName: bg ? '' : extra('Trasfondo'),
     abil, skills, expertise, saveExtra, weapons, armorId: armor?.id || '', shield, spells: spellIds, feats, customFeats, langs: extra('Idiomas'),
     notes: (fileName ? 'Importado de ' + fileName + '. ' : '') + 'Revisa la hoja: lo que no se ha podido reconocer está en el PDF original.',

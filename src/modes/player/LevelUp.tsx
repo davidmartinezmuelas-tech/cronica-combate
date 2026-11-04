@@ -6,7 +6,7 @@ import { activeChoices, choiceCount, spellSwapRules, subLvOf, subclassCaster, su
 import { classAlwaysSpells } from '../../engine/spellPrep';
 import { grantedSpells } from '../../engine/grantedSpells';
 import { fmt } from '../../engine/dice';
-import { norm } from '../../engine/util';
+import { norm, sameFeat } from '../../engine/util';
 import { InfoDialog } from '../../shared/Card';
 import type { LibraryData } from '../../store/library';
 import { usePlayer } from '../../store/player';
@@ -102,14 +102,14 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const growing = activeChoices(view).filter((d) => choiceCount(d, newLv) > choiceCount(d, newLv - 1));
   const modOf = (v: number) => Math.floor((v - 10) / 2);
   // dones épicos (nivel 19) junto a las dotes generales
-  const epic = total + 1 >= 19 ? [...data.feats.filter((f) => f.cat === 'epic-boon'), ...lib.feats.filter((f) => f.cat === 'epic-boon' && !data.feats.some((x) => norm(x.n) === norm(f.n)))] : [];
+  const epic = total + 1 >= 19 ? [...data.feats.filter((f) => f.cat === 'epic-boon'), ...lib.feats.filter((f) => f.cat === 'epic-boon' && !data.feats.some((x) => sameFeat(x.n, f.n)))] : [];
   const featText = (n: string) => data.feats.find((f) => f.n === n)?.d || lib.feats.find((f) => f.n === n)?.d || '';
   // la mejora de característica de la dote elegida (Atleta: Fuerza o Destreza; Resiliente: una sin competencia en su salvación…)
   const featFa = asi.feat ? featAsi(featText(asi.feat)) : null;
   const faOpts = featFa ? featAsiOptions(featFa, c, data) : [];
   const faPick = (faOpts.includes(featAbil as Abil) ? featAbil : faOpts[0]) as Abil | undefined;
   // Estilo de combate (guerrero 1, paladín 2, explorador 2) y Pericia (bardo 2 y 9, pícaro 1 y 6, explorador 9)
-  const styles = [...data.feats.filter((f) => f.cat === 'fighting-style'), ...lib.feats.filter((f) => f.cat === 'fighting-style' && !data.feats.some((x) => norm(x.n) === norm(f.n)))];
+  const styles = [...data.feats.filter((f) => f.cat === 'fighting-style'), ...lib.feats.filter((f) => f.cat === 'fighting-style' && !data.feats.some((x) => sameFeat(x.n, f.n)))];
   const needStyle = newFeatures.some((f) => norm(f.n) === 'estilo de combate') && !c.feats.some((n) => styles.some((f) => f.n === n));
   const EXP_AT: Record<string, number[]> = { bard: [2, 9], rogue: [1, 6], ranger: [9] };
   const needExp = (EXP_AT[classId] || []).includes(newLv) ? 2 : 0;
@@ -143,7 +143,7 @@ export default function LevelUp({ c, data, lib, onClose, onDone }: { c: Characte
   const canSpell = rules.spells?.when === 'level';
   const pickedCantrips = picks.filter((id) => !spellIdx.get(id)?.l).length;
   const pickedSpells = picks.length - pickedCantrips;
-  const feats = [...data.feats.filter((f) => f.cat === 'general'), ...lib.feats.filter((f) => f.cat === 'general' && !data.feats.some((x) => norm(x.n) === norm(f.n)))];
+  const feats = [...data.feats.filter((f) => f.cat === 'general'), ...lib.feats.filter((f) => f.cat === 'general' && !data.feats.some((x) => sameFeat(x.n, f.n)))];
   const raise = (a: Abil, n: number) => Math.min(20, c.abil[a] + n);
 
   const rollHp = () => useStore.getState().roll({

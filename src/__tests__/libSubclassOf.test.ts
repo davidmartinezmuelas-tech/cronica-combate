@@ -16,3 +16,12 @@ describe('subclase de la biblioteca que dice la hoja', () => {
     expect(libSubclassOf('Otra cosa', 'paladin', lib)).toBe('');
   });
 });
+
+import { sameFeat } from '../engine/util';
+describe('nombres de dote', () => {
+  it('no distinguen plurales: la dote del libro no duplica la del SRD', () => {
+    expect(sameFeat('Combate con armas a dos manos', 'Combate con arma a dos manos')).toBe(true);
+    expect(sameFeat('Combate con dos armas', 'Combate con arma a dos manos')).toBe(false);
+    expect(sameFeat('Duro', 'Duro')).toBe(true);
+  });
+});
