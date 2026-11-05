@@ -166,6 +166,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const [smitePick, setSmitePick] = useState('');
   // castigos preparados en cada arma (como Marca del cazador): se suman al siguiente daño cuerpo a cuerpo de esa arma y se gastan ahí
   const [runicAsk, setRunicAsk] = useState(false);
+  const [touchPending, setTouchPending] = useState<{ label: string; parts: RollPart[]; hit: Hit; armKey?: string } | null>(null);
   const [smitePending, setSmitePending] = useState<{ label: string; parts: RollPart[]; hit: Hit; armKey: string } | null>(null);
   const [eldPick, setEldPick] = useState(false);
   // Marca del cazador y Maleficio duran: mientras estén activos, su daño va en cada tirada de daño con arma
@@ -391,7 +392,11 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   };
   type Hit = { melee: boolean; str: boolean; finesse: boolean; thrownMelee?: boolean };
   // con un arma cuerpo a cuerpo y un castigo disponible, al pulsar el daño se pregunta si se añade (y con qué espacio)
-  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string) => {
+  // Toque de la tumba (especie Forsaken): al hacer daño con un arma, se pregunta si se usa (PB d4 de daño necrótico extra y te curas otro tanto; una vez por descanso largo)
+  const touchRow = features.find((f) => ['touch of the grave', 'toque de la tumba'].includes(norm(f.n)));
+  const touchLeft = !!touchRow && (c.uses[touchRow.key] || 0) < (touchRow.max || 1);
+  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string, skipTouch = false) => {
+    if (touchLeft && !skipTouch) { setTouchPending({ label, parts, hit, armKey }); return; }
     const smiteMelee = hit.melee || !!hit.thrownMelee;
     if (armKey && smiteMelee && (smiteOpt || (armKey !== 'ua' && eldDice))) { setEldPick(false); setSmitePending({ label, parts, hit, armKey }); return; }
     doDamage(label, parts, hit);
@@ -405,7 +410,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     const piercing = parts[0]?.type === 'perforante';
     // cada parte con su origen: el arma y lo que se le suma (una fila por fuente en el resultado)
     const weapon = label.replace(/:.*$/, '');
-    const ps: RollPart[] = parts.map((p, i) => ({ ...p, src: weapon, ...(i === 0 && savage ? { best2: true } : {}), ...(i === 0 && pierce && piercing ? { rerollLow: true } : {}) }));
+    const ps: RollPart[] = parts.map((p, i) => ({ ...p, src: weapon, ...(p.src === 'Touch of the Grave' ? { src: p.src } : {}), ...(i === 0 && savage ? { best2: true } : {}), ...(i === 0 && pierce && piercing ? { rerollLow: true } : {}) }));
     if (charge && melee && d.fx.charge) ps.push({ expr: d.fx.charge, type: parts[0]?.type, src: 'Carga' });
     // solo si el daño es de un crítico: un dado más del arma (Perforador) y la puntuación aumentada (Don del ataque imparable)
     const critBonus: RollPart[] = [];
@@ -867,7 +872,6 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
               </div>
             </InfoDialog>
           )}
-          {runicAsk && runicPowerReady(c) && <RunicPowerDialog c={c} d={d} set={set} onClose={() => setRunicAsk(false)} />}
           {spTextOf && (
             <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
               <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
@@ -1315,6 +1319,22 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       </section>
 
       <ReactionPanel counted={rxCounted} c={c} d={d} set={set} spells={spellList.map((x) => ({ ...x.s!, k: x.k }))} extra={quick} onSpell={setSpText} rows={views.flatMap(({ v, dv }) => activeKits(v).map((k) => <KitPanel key={k.kit.id + v.classId} react c={v} d={dv} lib={lib} set={set} kit={k.kit} actions={k.actions} off={!!c.uses[REACTION]} onUse={() => update(c.id, (cur) => ({ uses: { ...cur.uses, [REACTION]: 1 } }))} />))} onHit={(a) => (a ? dmgRoll(a.w.name + ': daño', a.parts, { melee: true, str: a.abil === 'str', finesse: a.w.finesse, thrownMelee: (a.w.props || []).some((p) => norm(p) === 'arrojadiza') }, a.w.id) : d.unarmed && dmgRoll('ataque sin armas: daño', d.unarmed.parts, uaHit, 'ua'))} />
+      {touchPending && touchRow && (
+        <InfoDialog title="Toque de la tumba" onClose={() => setTouchPending(null)}>
+          <p className="muted small" style={{ margin: 0 }}>Al hacer daño a una criatura puedes tirar {d.pb}d4: daño necrótico extra y recuperas tantos PG como ese daño. Una vez por descanso largo.</p>
+          <div className="rollrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6, marginTop: 8 }}>
+            <button className="btn gold" onClick={() => {
+              const q = touchPending; setTouchPending(null);
+              let sum = 0; for (let i = 0; i < d.pb; i++) sum += 1 + Math.floor(Math.random() * 4);
+              const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+              update(c.id, { hp: Math.min(d.hpMax, cur.hp + sum), uses: { ...cur.uses, [touchRow.key]: (cur.uses[touchRow.key] || 0) + 1 } });
+              dmgRoll(q.label, [...q.parts, { expr: String(sum), type: 'necrótico', src: 'Touch of the Grave' }], q.hit, q.armKey, true);
+            }}>Usarlo: +{d.pb}d4 necrótico y curarme</button>
+            <button className="btn" onClick={() => { const q = touchPending; setTouchPending(null); dmgRoll(q.label, q.parts, q.hit, q.armKey, true); }}>No usarlo</button>
+          </div>
+        </InfoDialog>
+      )}
+      {runicAsk && runicPowerReady(c) && <RunicPowerDialog c={c} d={d} set={set} onClose={() => setRunicAsk(false)} />}
       <QuickActions rows={quick} c={c} d={d} set={set} data={data} views={views} />
 
       {views.map(({ v, dv }, i) => (

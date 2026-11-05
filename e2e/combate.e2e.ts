@@ -3641,3 +3641,30 @@ test('especie de un libro cargada desde la biblioteca: sale en el desplegable y 
   await page.getByRole('button', { name: 'Listo' }).first().click();
   await expect(page.getByText('Deathly Endurance').first()).toBeVisible();
 });
+
+test('Toque de la tumba (especie Forsaken): al hacer daño con un arma pregunta si se usa, suma el necrótico y se gasta una vez', async ({ page }) => {
+  const sp = { id: 'lib-especie-forsaken', n: 'Forsaken', en: 'Forsaken', size: ['Mediano'], speed: 30, dv: 60, res: [], type: 'No muerto',
+    t: [{ lv: 0, n: 'Touch of the Grave', d: 'When you deal damage to a creature, you can roll a number of d4s equal to your Proficiency Bonus. You deal extra Necrotic damage. Once you use this benefit, you can’t use it again until you finish a Long Rest.', u: { max: '1', per: 'lr' } }] };
+  const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [], subclasses: [], classes: [], species: [sp] };
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByLabel('Archivo de biblioteca').setInputFiles({ name: 'b.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(lib)) });
+  await expect(page.getByRole('status').filter({ hasText: '1 especies' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mi personaje', exact: true }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Sylvana');
+  await page.getByLabel('Especie', { exact: true }).selectOption({ label: 'Forsaken' });
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Pícaro' });
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const dlg = page.getByRole('dialog');
+  const dmg = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first();
+  await dmg.click();
+  await expect(dlg.getByRole('button', { name: /Usarlo: \+2d4/ })).toBeVisible();
+  await dlg.getByRole('button', { name: /Usarlo/ }).click();
+  await expect(page.locator('.plaque-rows')).toContainText('Touch of the Grave');
+  // gastado: ya no pregunta
+  await dmg.click();
+  await expect(dlg.getByRole('button', { name: /Usarlo/ })).toHaveCount(0);
+});
