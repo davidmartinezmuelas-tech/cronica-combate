@@ -2,6 +2,7 @@ import { modeFromLocation } from '../../app/mode';
 import type { Combatant, RollResult } from '../../data/types';
 import { addCondition, rollModifiers, type LogDraft } from '../../engine/combat';
 import { combineAdv, rollParts, type AdvMode, type RollOutcome } from '../../engine/dice';
+import { holdDamage } from '../damageGate';
 import type { Kit } from '../kit';
 import type { DiceSlice, GetState, SetState, State } from '../state';
 
@@ -12,6 +13,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
 
     roll(spec) {
       if (guard(() => get().roll(spec))) return;
+      if (spec.kind === 'damage' && !spec.heal && !spec.noGate && holdDamage(spec)) return;
       const s = get();
       // estados de quien tira: el combatiente de la mesa o, desde la hoja del jugador, sus propios estados
       const c = spec.cid ? s.combatants.find((x) => x.id === spec.cid) || null : spec.self ? ({ kind: 'pc', conds: spec.self.conds.map((k) => ({ k, r: null })), exh: spec.self.exh } as unknown as Combatant) : null;
@@ -67,7 +69,7 @@ export function createDiceSlice(set: SetState, get: GetState, { guard, animate }
         };
         if (spec.kind === 'damage') { patch.dmgTargets = {}; patch.dmgShots = []; }
         if (spec.after) {
-          const extra = spec.after(mods.autoFail ? -99 : out.total, out.nat) || {};
+          const extra = spec.after(mods.autoFail ? -99 : out.total, out.nat, out) || {};
           if (extra.resultNote && patch.result) { patch.result = { ...patch.result, note: extra.resultNote + (note ? ' · ' + note : '') }; }
           delete extra.resultNote;
           Object.assign(patch, extra);

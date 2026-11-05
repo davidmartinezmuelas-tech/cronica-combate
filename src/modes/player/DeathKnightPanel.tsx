@@ -12,7 +12,7 @@ export const isEbonBlade = (c: Character): boolean => c.classId === 'paladin' &&
 const COIL = 'Death Coil';
 const MASTERY = 'Runic Mastery';
 const CHANNEL = 'Canalización divina';
-const RUNE_KEY = 'dk.rune';
+export const RUNE_KEY = 'dk.rune';
 const STRIKE = 'dk.strike'; // Rune Strike lanzado: habilita Runic Power
 const TURN = 'dk.turn'; // el primer golpe del turno con arma Pesada (runa Profana) ya se ha hecho
 const LIGHT = 'dk.light'; // el próximo golpe es el ataque extra de la propiedad Ligera (runa de Escarcha)

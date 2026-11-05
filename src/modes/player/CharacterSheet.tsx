@@ -45,7 +45,8 @@ import SpellRolls, { spellCastFor } from './SpellRolls';
 import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
-import DeathKnightPanel, { isEbonBlade, RUNE_STRIKE, dkPassives, runicPowerReady, RunicPowerDialog } from './DeathKnightPanel';
+import { setDamageGate } from '../../store/damageGate';
+import DeathKnightPanel, { isEbonBlade, RUNE_KEY, RUNE_STRIKE, dkPassives, runicPowerReady, RunicPowerDialog } from './DeathKnightPanel';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -166,7 +167,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const [smitePick, setSmitePick] = useState('');
   // castigos preparados en cada arma (como Marca del cazador): se suman al siguiente daño cuerpo a cuerpo de esa arma y se gastan ahí
   const [runicAsk, setRunicAsk] = useState(false);
-  const [touchPending, setTouchPending] = useState<{ label: string; parts: RollPart[]; hit: Hit; armKey?: string } | null>(null);
+  const [touchPending, setTouchPending] = useState<RollSpec | null>(null);
+  const [touchRes, setTouchRes] = useState<'none' | 'res' | 'imm'>('none');
   const [smitePending, setSmitePending] = useState<{ label: string; parts: RollPart[]; hit: Hit; armKey: string } | null>(null);
   const [eldPick, setEldPick] = useState(false);
   // Marca del cazador y Maleficio duran: mientras estén activos, su daño va en cada tirada de daño con arma
@@ -395,8 +397,16 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // Toque de la tumba (especie Forsaken): al hacer daño con un arma, se pregunta si se usa (PB d4 de daño necrótico extra y te curas otro tanto; una vez por descanso largo)
   const touchRow = features.find((f) => ['touch of the grave', 'toque de la tumba'].includes(norm(f.n)));
   const touchLeft = !!touchRow && (c.uses[touchRow.key] || 0) < (touchRow.max || 1);
-  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string, skipTouch = false) => {
-    if (touchLeft && !skipTouch) { setTouchPending({ label, parts, hit, armKey }); return; }
+  // cualquier tirada de daño de la hoja (arma, conjuro, rasgo) pasa por aquí: si el Toque de la tumba está disponible, se pregunta antes
+  useEffect(() => {
+    if (readOnly) return;
+    setDamageGate((spec) => {
+      if (!touchLeft || spec.parts.some((p) => p.src === 'Touch of the Grave')) return false;
+      setTouchRes('none'); setTouchPending(spec); return true;
+    });
+    return () => setDamageGate(null);
+  });
+  const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string) => {
     const smiteMelee = hit.melee || !!hit.thrownMelee;
     if (armKey && smiteMelee && (smiteOpt || (armKey !== 'ua' && eldDice))) { setEldPick(false); setSmitePending({ label, parts, hit, armKey }); return; }
     doDamage(label, parts, hit);
@@ -1322,15 +1332,29 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       {touchPending && touchRow && (
         <InfoDialog title="Toque de la tumba" onClose={() => setTouchPending(null)}>
           <p className="muted small" style={{ margin: 0 }}>Al hacer daño a una criatura puedes tirar {d.pb}d4: daño necrótico extra y recuperas tantos PG como ese daño. Una vez por descanso largo.</p>
+          <label className="small" style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>Necrótico del objetivo
+            <select className="input pc-slot-pick" aria-label="Necrótico del objetivo" value={touchRes} onChange={(e) => setTouchRes(e.target.value as 'none' | 'res' | 'imm')}>
+              <option value="none">Sin resistencia</option><option value="res">Resistente (curas la mitad)</option><option value="imm">Inmune (no curas)</option>
+            </select>
+          </label>
+          {isEbonBlade(c) && c.choices?.[RUNE_KEY]?.[0] === 'Unholy' && <p className="muted small" style={{ margin: '4px 0 0' }}>Tu runa Profana ignora la resistencia al necrótico.</p>}
           <div className="rollrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6, marginTop: 8 }}>
             <button className="btn gold" onClick={() => {
               const q = touchPending; setTouchPending(null);
-              let sum = 0; for (let i = 0; i < d.pb; i++) sum += 1 + Math.floor(Math.random() * 4);
-              const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
-              update(c.id, { hp: Math.min(d.hpMax, cur.hp + sum), uses: { ...cur.uses, [touchRow.key]: (cur.uses[touchRow.key] || 0) + 1 } });
-              dmgRoll(q.label, [...q.parts, { expr: String(sum), type: 'necrótico', src: 'Touch of the Grave' }], q.hit, q.armKey, true);
+              const ignores = isEbonBlade(c) && c.choices?.[RUNE_KEY]?.[0] === 'Unholy';
+              const res = touchRes;
+              roll({ ...q, noGate: true, parts: [...q.parts, { expr: d.pb + 'd4', type: 'necrótico', src: 'Touch of the Grave' }],
+                after: (t, n, out) => {
+                  const base = q.after?.(t, n, out) || {};
+                  const sum = out?.rows.filter((r) => r.src === 'Touch of the Grave').reduce((a, r) => a + r.sub, 0) || 0;
+                  const healed = res === 'imm' ? 0 : res === 'res' && !ignores ? Math.floor(sum / 2) : sum;
+                  const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+                  update(c.id, { hp: Math.min(d.hpMax, cur.hp + healed), uses: { ...cur.uses, [touchRow.key]: (cur.uses[touchRow.key] || 0) + 1 } });
+                  const note = 'Toque de la tumba: recuperas ' + healed + ' PG.';
+                  return { ...base, resultNote: [base.resultNote, note].filter(Boolean).join(' · ') };
+                } });
             }}>Usarlo: +{d.pb}d4 necrótico y curarme</button>
-            <button className="btn" onClick={() => { const q = touchPending; setTouchPending(null); dmgRoll(q.label, q.parts, q.hit, q.armKey, true); }}>No usarlo</button>
+            <button className="btn" onClick={() => { const q = touchPending; setTouchPending(null); roll({ ...q, noGate: true }); }}>No usarlo</button>
           </div>
         </InfoDialog>
       )}

@@ -3662,6 +3662,7 @@ test('Toque de la tumba (especie Forsaken): al hacer daño con un arma pregunta 
   const dmg = page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first();
   await dmg.click();
   await expect(dlg.getByRole('button', { name: /Usarlo: \+2d4/ })).toBeVisible();
+  await dlg.getByLabel('Necrótico del objetivo').selectOption({ label: 'Resistente (curas la mitad)' });
   await dlg.getByRole('button', { name: /Usarlo/ }).click();
   await expect(page.locator('.plaque-rows')).toContainText('Touch of the Grave');
   // gastado: ya no pregunta
