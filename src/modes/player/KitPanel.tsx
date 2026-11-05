@@ -3,13 +3,14 @@ import type { Abil } from '../../data/player';
 import { fmt, rollDie, sgn } from '../../engine/dice';
 import { usesMax, type Character, type Derived } from '../../engine/character';
 import { firstSentence } from '../../engine/actionKind';
-import { atLevel, resourceMax, resourcePer, type KitAction, type SubclassKit } from '../../engine/subclassActions';
+import { atLevel, KITS, resourceMax, resourcePer, type KitAction, type SubclassKit } from '../../engine/subclassActions';
 import { optionItems, subclassText, type SubclassText } from '../../engine/subclassChoices';
 import { norm } from '../../engine/util';
 import Card from '../../shared/Card';
 import InfoPop from '../../shared/InfoPop';
 import Pips from '../../shared/Pips';
 import type { LibraryData } from '../../store/library';
+import { usePlayer } from '../../store/player';
 import { useStore } from '../../store/useStore';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
@@ -22,7 +23,7 @@ function kitText(src: SubclassText | null, names: string[]): { n: string; d: str
   const ft = src.f.find((f) => want.includes(norm(f.n)));
   if (ft) return ft;
   for (const f of src.f) {
-    const o = optionItems(f.d).find((x) => want.includes(norm(x.n)));
+    const o = optionItems(f.d).find((x) => want.includes(norm(x.n).replace(/\s*\(.*\)$/, '')));
     if (o) return o;
   }
   return null;
@@ -32,6 +33,7 @@ function kitText(src: SubclassText | null, names: string[]): { n: string; d: str
 const atLevel2 = (t: Record<number, string>, level: number, first: string) => Object.entries(t).reduce((e, [lv, x]) => (parseInt(lv, 10) <= level ? x : e), first);
 
 const FOCUS_COST = 'Concentración del monje';
+const COST_LABEL: Record<string, string> = { 'Concentración del monje': 'concentración', 'Fuente de magia': 'punto de hechicería', 'Canalizar Divinidad': 'Canalizar divinidad', 'Canalización divina': 'Canalización divina', Furia: 'Furia' };
 
 interface Btn { k: string; t: string; dmg?: boolean; off?: boolean; plain?: boolean; go: () => void }
 
@@ -54,6 +56,17 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
   const spend = (n = 1) => { if (res) set({ uses: { ...c.uses, [res.key]: Math.min(max, (c.uses[res.key] || 0) + n) } }); };
   const dcOf = (a: Abil | 'spell') => (a === 'spell' ? d.spell?.dc ?? 8 + d.pb + d.mods.cha : 8 + d.pb + d.mods[a]);
   const m = (a?: Abil) => (a ? d.mods[a] : 0);
+  // un recurso de clase que gasta una acción (Canalización divina, Furia, Concentración): sus usos y cuántos quedan
+  const costInfo = (key: string) => {
+    const k = KITS.find((x) => x.cls === c.classId && x.res?.key === key);
+    const mx = k?.res ? resourceMax(k.res, c.level, d.mods) : usesMax(d.cls?.f.find((f) => f.n === key)?.u, c, d.cls) || 0;
+    return { key, max: mx, left: mx - Math.min(mx, c.uses[key] || 0), label: COST_LABEL[key] || key };
+  };
+  const healSelf = (total: number) => {
+    const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+    usePlayer.getState().update(c.id, { hp: Math.min(d.hpMax, cur.hp + Math.max(0, total)) });
+    return { resultNote: 'Recuperas ' + Math.max(0, total) + ' PG.' };
+  };
   const [msg, setMsg] = useState<Record<string, string>>({});
   const [amt, setAmt] = useState('');
 
@@ -96,7 +109,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
               },
             });
           } else if (r.kind === 'spend') {
-            btns.push({ k: 's', t: r.label || (sides ? 'Gastar un dado (recuperar el uso)' : 'Usar (gasta un uso)'), plain: true, off: left <= 0, go: () => spend() });
+            btns.push({ k: 's', t: r.label || (sides ? 'Gastar un dado (recuperar el uso)' : 'Usar (gasta un uso)'), plain: true, off: left < (r.n || 1), go: () => spend(r.n || 1) });
           } else if (r.kind === 'extra') {
             const xe = r.exprAt ? atLevel2(r.exprAt, c.level, r.expr) : r.expr;
             d.attacks.forEach(({ w, parts, verParts }) => {
@@ -138,6 +151,38 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
               go: () => { if (r.uses) set({ uses: { ...c.uses, [name]: uused + 1 } }); if (r.cost) set({ uses: { ...c.uses, [r.cost]: (c.uses[r.cost] || 0) + 1 } }); roll({ label: label(), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }] }); },
             });
             if (r.freeAlt) btns.push({ k: 'f', t: what + ' · ' + r.freeAlt, go: () => roll({ label: label(r.freeAlt), kind: r.type ? 'damage' : 'free', who, by: null, parts: [{ expr, type: r.type }] }) });
+          } else if (r.kind === 'multi') {
+            const umax = r.uses ? (typeof r.uses.max === 'number' ? r.uses.max : Math.max(1, m(r.uses.max))) + (r.uses.plusHalfLevel ? Math.floor(c.level / 2) : 0) : 0;
+            const uused = r.uses ? Math.min(umax, c.uses[name] || 0) : 0;
+            const ci = r.cost ? costInfo(r.cost) : null;
+            if (r.uses) usesEl = <span onClick={(e) => e.preventDefault()}><Pips max={umax} used={uused} label={'Usos de ' + name} onSet={(v) => set({ uses: { ...c.uses, [name]: Math.max(0, Math.min(umax, v)) } })} /></span>;
+            else if (ci) usesEl = <span className="chip-tag">{ci.left} de {ci.max} {ci.label}</span>;
+            // «{rage}»: el daño de Furia (el número de dados de las opciones de Furia)
+            const rage = Math.max(1, Number(d.scale('barbarian.rage-damage')) || 2);
+            r.buttons.forEach((b, i) => {
+              const base0 = b.exprAt ? atLevel2(b.exprAt, c.level, b.expr || '') : b.expr || '';
+              const base = base0.replace('{rage}', String(rage));
+              const plus = m(b.plus) + (b.plusLevel ? c.level : 0) + (b.plusPb ? d.pb : 0);
+              const expr = base ? base + (plus ? sgn(plus) : '') : plus ? String(plus) : '';
+              const bonus = b.as === 'attack' ? (b.atk === 'spell' || !b.atk ? d.spell?.atk ?? d.pb + d.mods.cha : d.pb + d.mods[b.atk]) : 0;
+              const text = b.t + (b.as === 'attack' ? ' ' + fmt(bonus) : expr ? ' ' + expr : '') + (b.type ? ' ' + b.type : '') + (b.pay ? ' · −1' + (ci ? ' ' + ci.label : '') : '') + (b.res ? ' · −' + b.res : '');
+              const off = !!b.pay && ((!!r.uses && uused >= umax) || (!!ci && ci.left < 1)) || (!!b.res && left < b.res);
+              const go = () => {
+                const u = { ...c.uses };
+                if (b.pay && r.uses) u[name] = uused + 1;
+                if (b.pay && ci) u[ci.key] = (c.uses[ci.key] || 0) + 1;
+                if (b.res && res) u[res.key] = Math.min(max, (c.uses[res.key] || 0) + b.res);
+                const spent = !!b.pay || !!b.res;
+                const n = parseInt(expr, 10) || 0;
+                if (b.as === 'heal-self') { set({ ...(spent ? { uses: u } : {}), hp: Math.min(d.hpMax, c.hp + Math.max(0, n)) }); return; }
+                if (b.as === 'temp') { set({ ...(spent ? { uses: u } : {}), temp: Math.max(c.temp, Math.max(1, n)) }); return; }
+                if (spent) set({ uses: u });
+                if (b.as === 'attack') roll({ label: label(b.t), kind: 'attack', who, parts: [{ expr: '1d20' + sgn(bonus) }] });
+                else if (b.as === 'damage') roll({ label: label(b.t), kind: 'damage', who, by: null, parts: [{ expr, type: b.type }], ...(b.selfHeal ? { after: healSelf } : {}) });
+                else if (b.as === 'free') roll({ label: label(b.t), kind: 'free', parts: [{ expr }] });
+              };
+              btns.push({ k: 'm' + i, t: text, dmg: b.as === 'damage', plain: b.as === 'none' || b.as === 'heal-self' || b.as === 'temp', off, go });
+            });
           } else if (r.kind === 'ward') {
             const wmax = Math.max(0, 2 * c.level + d.mods.int);
             const cur = Math.min(wmax, c.uses[name] || 0);
@@ -192,6 +237,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
                 <InfoPop label={name} title={name}>{a.note && <p className="muted small">{a.note}</p>}{text ? <p>{text.d}</p> : <p className="muted small">El texto de este rasgo sale de tu libro: impórtalo en «Biblioteca».</p>}</InfoPop>
                 {res && r.kind !== 'info' && <span className="chip-tag">{left} de {max}{die ? ' ' + die : ''}</span>}
                 {a.save && <span className="chip-tag">CD {dcOf(a.save.dc)} {ABIL_N[a.save.abil]}</span>}
+                {usesEl}
                 <span className="rollrow">
                   {btns.map((b) => <button key={b.k} className={b.plain ? 'btn small' : b.dmg ? 'rollbtn dmg' : 'rollbtn'} disabled={b.off || off} onClick={() => { b.go(); onUse?.(); }}>{b.t}</button>)}
                   {!btns.length && <button className="btn small" disabled={off} onClick={onUse}>Usar</button>}

@@ -15,12 +15,13 @@ export interface DiceResource {
   count: Record<number, number> | 'level+1' | { abil: Abil }; // nivel -> dados, nivel + 1 o el modificador (mínimo 1)
   die: Record<number, number>; // nivel -> caras
   dc: Abil[]; // la CD es 8 + competencia + la mejor de estas características
+  bonus?: Record<number, number>; // se suma al número de usos desde estos niveles
 }
 
 /** Usos o dados del recurso a un nivel (con el modificador si dependen de él). */
 export function resourceMax(res: DiceResource, level: number, mods?: Partial<Record<Abil, number>>): number {
   if (res.count === 'level+1') return level + 1;
-  if ('abil' in res.count) return Math.max(1, mods?.[res.count.abil as Abil] ?? 0);
+  if ('abil' in res.count) return Math.max(1, mods?.[res.count.abil as Abil] ?? 0) + (res.bonus ? atLevel(res.bonus, level) : 0);
   return atLevel(res.count as Record<number, number>, level);
 }
 
@@ -74,9 +75,25 @@ export function optionAction(text: string, skills: Record<string, string>): Opti
  * de cada rasgo se muestra desde el SRD o desde la biblioteca propia. `n`: nombres del rasgo o de la opción dentro de
  * un rasgo (libro y SRD).
  */
+/**
+ * Botón de una acción con varias tiradas. «{rage}» en la expresión es el daño de Furia (el número de dados).
+ * `pay`: este botón gasta un uso de la acción (`uses`) o de su coste; `res`: gasta tantos usos del recurso de la subclase.
+ */
+export interface KitBtn {
+  t: string;
+  as?: 'attack' | 'damage' | 'free' | 'heal-self' | 'temp' | 'none';
+  expr?: string; exprAt?: Record<number, string>;
+  plus?: Abil; plusLevel?: boolean; plusPb?: boolean;
+  atk?: Abil | 'spell'; // ataque: competencia + esta característica (o la de conjuros)
+  type?: string;
+  pay?: boolean; res?: number;
+  selfHeal?: boolean; // te curas el total de la tirada
+}
+
 export type KitRoll =
   | { kind: 'die'; plus?: Abil; type?: string; spend?: boolean; mult?: number; unit?: string } // tira un dado del recurso
-  | { kind: 'spend'; label?: string } // gasta un uso o dado del recurso (para usar el rasgo o recuperar su uso)
+  | { kind: 'spend'; label?: string; n?: number } // gasta un uso o dado del recurso (para usar el rasgo o recuperar su uso)
+  | { kind: 'multi'; cost?: string; uses?: { max: Abil | number; per: 'sr' | 'lr'; plusHalfLevel?: boolean }; buttons: KitBtn[] } // varios botones, cada uno con su tirada; gastan un uso propio o un recurso de clase (Canalización divina, Furia…)
   | { kind: 'regain'; label: string } // recupera un uso del recurso (p. ej. gastando un espacio de conjuro)
   | { kind: 'unarmed'; abil: Abil } // ataque sin armas que hace el dado del recurso + característica (no lo gasta)
   | { kind: 'extra'; expr: string; exprAt?: Record<number, string>; type?: string } // daño adicional con cada arma (por nivel; con su tipo o el del arma)
@@ -318,6 +335,93 @@ export const KITS: SubclassKit[] = [
     id: 'hunter', cls: 'ranger', subs: ['Cazador', 'Hunter'], title: 'Cazador',
     actions: [
       { n: ['Azote de colosos', 'Matacolosos'], lv: 3, roll: { kind: 'extra', expr: '1d8' }, when: { choice: 'hunter.prey', is: ['Azote de colosos', 'Matacolosos'] }, note: 'Una vez por turno, si al objetivo le faltan PG.' },
+    ],
+  },
+  // ---- World of Warcraft (libro del usuario): las subclases se reconocen por su nombre en inglés ----
+  {
+    id: 'wow-demon-hunter', cls: 'ranger', subs: ['Demon Hunter', 'Cazador de demonios'], title: 'Cazador de demonios',
+    res: { key: 'Soul Fragments', n: 'Fragmentos de alma', per: 'lr', count: { abil: 'wis' }, bonus: { 13: 1, 17: 2 }, die: {}, dc: ['wis'] },
+    actions: [
+      { n: ['Soul Fragments'], lv: 3, roll: { kind: 'regain', label: 'Recuperar un fragmento (reacción: muere un enemigo a 9 m)' }, note: 'Los ganas al acabar un descanso largo y duran hasta el siguiente.' },
+      { n: ['Double Jump'], lv: 3, roll: { kind: 'spend', label: 'Lanzar Caída de pluma o Salto (gasta un fragmento)' } },
+      {
+        n: ['Soul Cleave'], lv: 3, save: { abil: 'dex', dc: 'spell' }, note: 'Una vez por turno, en lugar de uno de tus ataques: emanación de 3 m. Si fallan, el daño; tú recuperas tu modificador de Sabiduría en PG.',
+        roll: { kind: 'multi', buttons: [{ t: 'Daño', as: 'damage', expr: '1d12', exprAt: { 3: '1d12', 15: '2d12' }, plus: 'wis', type: 'psíquico', res: 1 }, { t: 'Curarme', as: 'heal-self', plus: 'wis' }] },
+      },
+      { n: ['Torment'], lv: 7, roll: { kind: 'multi', buttons: [{ t: 'Chaos Strike', as: 'damage', expr: '1d8', type: 'fuego' }, { t: 'Aura of Pain: resta', as: 'free', expr: '1d4' }] }, note: 'Una vez por turno, al impactar a la criatura marcada con Marca del cazador.' },
+      { n: ['Disrupt'], lv: 11, roll: { kind: 'spend', n: 2, label: 'Lanzar Contraconjuro (gasta dos fragmentos)' } },
+      { n: ['Warglaive Mastery'], lv: 11, roll: { kind: 'spend', label: 'Lanzar Throw Glaive (gasta un fragmento)' }, note: 'Acción adicional.' },
+      { n: ['Soul Shatter'], lv: 15, roll: { kind: 'info' }, note: 'Soul Cleave hace 2d12 + Sabiduría. Al tirar iniciativa recuperas un fragmento si no tienes ninguno.' },
+    ],
+  },
+  {
+    id: 'wow-mystic-brews', cls: 'monk', subs: ['Warrior of Mystic Brews', 'Guerrero de los brebajes místicos'], title: 'Brebajes místicos',
+    actions: [
+      { n: ['Cinnamon Dragon'], lv: 6, roll: { kind: 'roll', expr: '4d6', exprAt: { 1: '4d6', 5: '4d8', 11: '4d10', 17: '4d12' }, type: 'fuego' }, save: { abil: 'dex', dc: 'wis' }, note: 'Acción de Magia, cono de 9 m: cuatro dados de Artes marciales; mitad si superan la salvación. Y Envenenado hasta el final de su siguiente turno si fallan.' },
+      { n: ['Refreshing Dip'], lv: 6, roll: { kind: 'multi', uses: { max: 'wis', per: 'lr', plusHalfLevel: true }, buttons: [{ t: 'Curación extra: dado de Artes marciales', as: 'free', expr: '1d6', exprAt: MARTIAL, pay: true }] }, note: 'Cuando recuperes PG, gasta un dado de la reserva y suma lo que salga.' },
+      { n: ['Redirect Attack'], lv: 6, react: true, roll: { kind: 'multi', cost: FOCUS, buttons: [{ t: 'Redirigir el ataque', as: 'none', pay: true }] } },
+      { n: ['Intoxicated Frenzy'], lv: 17, roll: { kind: 'info' }, save: { abil: 'dex', dc: 'wis' } },
+    ],
+  },
+  {
+    id: 'wow-holy', cls: 'paladin', subs: ['Oath of the Holy', 'Juramento de lo Sagrado'], title: 'Juramento de lo Sagrado',
+    actions: [
+      { n: ['Beacon of Light'], lv: 3, roll: { kind: 'multi', cost: 'Canalización divina', buttons: [{ t: 'Usar (acción de Magia)', as: 'none', pay: true }] } },
+      { n: ['Lightbringer’s Aura', "Lightbringer's Aura"], lv: 7, roll: { kind: 'roll', expr: '1d6' }, note: 'Curación extra a una criatura maltrecha dentro de tu aura al curarla con un conjuro o Imposición de manos.' },
+      { n: ['Infusion of Light'], lv: 15, roll: { kind: 'info' }, note: 'Tras un conjuro de daño radiante, tu reserva de Imposición de manos recupera PG igual al total tirado (máximo 5 × tu nivel). Súmalos a mano en la tarjeta de Imposición de manos.' },
+      { n: ['Holy Deliverance'], lv: 20, roll: { kind: 'multi', uses: { max: 1, per: 'lr' }, buttons: [{ t: 'Activar (acción adicional)', as: 'none', pay: true }, { t: 'Curación al empezar su turno un aliado maltrecho', as: 'free', plus: 'cha', plusPb: true }] }, note: 'Restaurar el uso cuesta un espacio de nivel 5.' },
+    ],
+  },
+  {
+    id: 'wow-discipline', cls: 'cleric', subs: ['Discipline Domain', 'Dominio de Disciplina'], title: 'Dominio de Disciplina',
+    actions: [
+      {
+        n: ['Holy Bolt'], lv: 3, note: 'Acción adicional: ataque de conjuro a distancia a 18 m. Si impacta, daño radiante; además, una criatura que veas a 18 m recupera PG.',
+        roll: { kind: 'multi', cost: 'Canalizar Divinidad', buttons: [{ t: 'Ataque de conjuro', as: 'attack', atk: 'spell', pay: true }, { t: 'Daño', as: 'damage', expr: '2d10', plus: 'wis', type: 'radiante' }, { t: 'Curar', as: 'free', expr: '1d10', plus: 'wis' }] },
+      },
+      { n: ['Atonement'], lv: 3, roll: { kind: 'info' } },
+      { n: ['Luminous Barrier'], lv: 6, roll: { kind: 'multi', cost: 'Canalizar Divinidad', buttons: [{ t: 'PG temporales para ti (nivel + Sabiduría)', as: 'temp', plusLevel: true, plus: 'wis', pay: true }] }, note: 'Cada criatura bendecida por Atonement los gana, con resistencia a todo el daño mientras los conserve.' },
+      { n: ['Ultimate Penitence'], lv: 17, roll: { kind: 'info' } },
+    ],
+  },
+  {
+    id: 'wow-shadow', cls: 'cleric', subs: ['Shadow Domain', 'Dominio de las Sombras'], title: 'Dominio de las Sombras',
+    actions: [
+      { n: ['Shadowform'], lv: 3, roll: { kind: 'multi', cost: 'Canalizar Divinidad', buttons: [{ t: 'Adoptar Shadowform (acción adicional)', as: 'none', pay: true }, { t: 'Void Empowerment', as: 'free', expr: '1d6' }] }, note: 'Dura 1 minuto. El d6 se suma al daño psíquico o necrótico de un conjuro con espacio.' },
+      { n: ['Devouring Plague'], lv: 3, roll: { kind: 'multi', uses: { max: 'wis', per: 'lr' }, buttons: [{ t: 'Daño', as: 'damage', expr: '1d10', type: 'necrótico', pay: true, selfHeal: true }] }, note: 'Cuando una criatura a 9 m falla una salvación. Tú recuperas los PG del daño necrótico hecho.' },
+      { n: ['Dispersion'], lv: 6, react: true, roll: { kind: 'multi', uses: { max: 1, per: 'sr' }, buttons: [{ t: 'Usar', as: 'none', pay: true }] }, note: 'Al terminar puedes gastar hasta la mitad de tus dados de golpe.' },
+      { n: ['Vampiric Embrace'], lv: 17, roll: { kind: 'info' }, note: 'Con Shadowform activa, cada d6 de Void Empowerment cura esa cantidad a una criatura a 9 m.' },
+    ],
+  },
+  {
+    id: 'wow-swashbuckler', cls: 'rogue', subs: ['Swashbuckler', 'Espadachín'], title: 'Espadachín',
+    actions: [
+      { n: ['Rakish Audacity'], lv: 3, roll: { kind: 'info' }, tag: (x) => (x.mods.cha >= 0 ? '+' : '') + x.mods.cha + ' a la iniciativa' },
+      { n: ['Goad'], lv: 9, roll: { kind: 'info' }, save: { abil: 'wis', dc: 'dex' }, tag: () => 'coste 1d6', note: 'Opción de Golpe astuto: resta esos dados al daño del Ataque furtivo.' },
+      { n: ['Awe'], lv: 9, roll: { kind: 'info' }, save: { abil: 'wis', dc: 'dex' }, tag: () => 'coste 3d6', note: 'Opción de Golpe astuto: resta esos dados al daño del Ataque furtivo.' },
+      { n: ['Invigorate'], lv: 13, roll: { kind: 'roll', expr: '1d6' }, tag: () => 'coste 2d6', note: 'Opción de Golpe astuto. Quien reciba el efecto suma ese dado a un ataque o salvación.' },
+      { n: ['Parrying Stance'], lv: 13, roll: { kind: 'roll', expr: '1d6' }, tag: () => 'coste 2d6', note: 'Opción de Golpe astuto. Bonificador a tu CA hasta el principio de tu siguiente turno.' },
+      { n: ['Master Duelist'], lv: 17, roll: { kind: 'info' } },
+    ],
+  },
+  {
+    id: 'wow-elements', cls: 'barbarian', subs: ['Path of the Elements', 'Senda de los Elementos'], title: 'Senda de los Elementos',
+    actions: [
+      { n: ['Icefury'], lv: 3, roll: { kind: 'multi', buttons: [{ t: 'Ataque de conjuro (Constitución)', as: 'attack', atk: 'con' }, { t: 'Daño', as: 'damage', expr: '{rage}d8', type: 'frío' }, { t: 'Extra si recibe fuego', as: 'damage', expr: '1d10', type: 'fuego' }] }, note: 'Al activar la Furia (o con una acción adicional mientras dure): tira tantos d8 como tu daño de Furia.' },
+      { n: ['Lava Burst'], lv: 3, save: { abil: 'dex', dc: 'con' }, roll: { kind: 'multi', buttons: [{ t: 'Daño', as: 'damage', expr: '{rage}d4', type: 'fuego' }, { t: 'Extra si recibe relámpago', as: 'damage', expr: '1d8', type: 'relámpago' }] }, note: 'Tantos d4 como tu daño de Furia. Mitad si supera la salvación.' },
+      { n: ['Lightning Bolt'], lv: 3, save: { abil: 'dex', dc: 'con' }, roll: { kind: 'multi', buttons: [{ t: 'Daño', as: 'damage', expr: '{rage}d6', type: 'relámpago' }, { t: 'Extra si recibe frío', as: 'damage', expr: '1d6', type: 'frío' }] }, note: 'Tantos d6 como tu daño de Furia. Mitad si supera la salvación.' },
+      { n: ['Echo of the Elements'], lv: 6, roll: { kind: 'multi', cost: 'Furia', buttons: [{ t: 'Lanzar Daylight, Water Walk o Wind Wall', as: 'none', pay: true }] } },
+      { n: ['Primordial Bond'], lv: 10, roll: { kind: 'info' } },
+      { n: ['Elemental Overload'], lv: 14, roll: { kind: 'info' }, note: 'Tus opciones de Raging Elements ganan efectos extra, con o sin impacto o fallo de la salvación.' },
+    ],
+  },
+  {
+    id: 'wow-spiritual-guardian', cls: 'barbarian', subs: ['Path of the Spiritual Guardian', 'Senda del Guardián espiritual'], title: 'Senda del Guardián espiritual',
+    actions: [
+      { n: ['Strike'], lv: 3, roll: { kind: 'extra', expr: '1d4', type: 'frío' }, note: 'Con la Furia activa, al impactar: 1d4 extra de frío, fuego o relámpago a tu elección (aquí se cuenta como frío).' },
+      { n: ['Spirit Shield'], lv: 6, react: true, roll: { kind: 'multi', buttons: [{ t: 'Reducir el daño', as: 'free', expr: '{rage}d6' }] }, note: 'Con la Furia activa: otra criatura a 9 m recibe daño.' },
+      { n: ['Consult the Spirits'], lv: 10, roll: { kind: 'multi', uses: { max: 1, per: 'sr' }, buttons: [{ t: 'Usar (Augury o Clairvoyance)', as: 'none', pay: true }] } },
+      { n: ['Spirits’ Fury', "Spirits' Fury"], lv: 14, roll: { kind: 'info' }, note: 'Con un 18-20 en el d20 de un ataque cuerpo a cuerpo de la acción de Atacar: un ataque adicional con la misma arma. Una vez por turno.' },
     ],
   },
 ];

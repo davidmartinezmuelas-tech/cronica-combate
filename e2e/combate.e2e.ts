@@ -3669,3 +3669,46 @@ test('Toque de la tumba (especie Forsaken): al hacer daño con un arma pregunta 
   await dmg.click();
   await expect(dlg.getByRole('button', { name: /Usarlo/ })).toHaveCount(0);
 });
+
+test('subclases de WoW: Shadow Domain gasta Canalizar divinidad en Shadowform y cuenta los usos de Devouring Plague', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByLabel('Nombre de la subclase').fill('Shadow Domain');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Tyrande');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Clérigo' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.locator('#ce-subsel').selectOption({ label: 'Shadow Domain (propia)' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sec = page.locator('section[aria-label="Dominio de las Sombras"]');
+  await expect(sec).toBeVisible();
+  await sec.getByRole('button', { name: /Adoptar Shadowform/ }).click();
+  await expect(sec.getByText(/\d+ de \d+ Canalizar divinidad/).first()).toBeVisible();
+  await expect(sec.getByRole('button', { name: /Daño 1d10 necrótico/ })).toBeEnabled();
+});
+
+test('subclases de WoW: Path of the Elements tira tantos dados como el daño de Furia', async ({ page }) => {
+  await page.goto('/#/jugador');
+  await page.getByRole('button', { name: 'Biblioteca', exact: true }).click();
+  await page.getByRole('button', { name: 'Crear subclase' }).click();
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Bárbaro' });
+  await page.getByLabel('Nombre de la subclase').fill('Path of the Elements');
+  await page.getByRole('button', { name: 'Guardar subclase' }).click();
+  await page.getByRole('button', { name: 'Mi personaje' }).click();
+  await page.getByRole('button', { name: 'Nuevo personaje' }).click();
+  await page.getByLabel('Nombre del personaje').fill('Thrall');
+  await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Bárbaro' });
+  await page.getByLabel('Nivel', { exact: true }).fill('5');
+  await page.locator('#ce-subsel').selectOption({ label: 'Path of the Elements (propia)' });
+  await page.getByRole('button', { name: /Matriz estándar/ }).click();
+  await page.getByRole('button', { name: 'Listo' }).first().click();
+  const sec = page.locator('section[aria-label="Senda de los Elementos"]');
+  await expect(sec).toBeVisible();
+  await expect(sec.getByRole('button', { name: /Daño 2d8 frío/ })).toBeVisible();
+  await expect(sec.getByRole('button', { name: /Daño 2d6 relámpago/ })).toBeVisible();
+});
