@@ -121,7 +121,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   // multiclase: cada clase vista por separado (su nivel y sus datos) para sus paneles de acciones y elecciones
   const views = useMemo(() => classEntries(c).map((e, i): { v: Character; dv: Derived } => ({ v: i === 0 ? c : asClass(c, e), dv: { ...d, cls: data?.classes.find((x) => x.id === e.classId) } })), [c, d, data]);
   // los usos que ya tienen sus círculos en un panel de acciones no se repiten en «Rasgos y dotes»
-  const panelKeys = useMemo(() => new Set(views.flatMap(({ v }) => [...classPanelKeys(v, data), ...actionPanelKeys(v, data, lib)])), [views, data, lib]);
+  const panelKeys = useMemo(() => new Set(views.flatMap(({ v }) => [...classPanelKeys(v, data), ...actionPanelKeys(v, data, lib), ...(isEbonBlade(v) ? ['Runic Mastery'] : [])])), [views, data, lib]);
   // rasgos con usos que se gastan desde su propia tarjeta (Astucia mágica, Afinidad con la piedra, Arma de aliento…);
   // Furia y Castigo del paladín se usan desde «Ataques»
   const usable = features.filter((f) => (f.max || (f.fx && f.fx.kind !== 'bonus' && f.fx.kind !== 'hit')) && !panelKeys.has(f.key) && !panelKeys.has(f.n) && !['Furia', 'Castigo del paladín'].includes(f.key));

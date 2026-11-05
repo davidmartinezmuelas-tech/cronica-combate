@@ -474,10 +474,13 @@ const DMG_EN: Record<string, string> = { acid: 'ácido', bludgeoning: 'contunden
 const TYPE_EN: Record<string, string> = { humanoid: 'Humanoide', undead: 'No muerto', construct: 'Autómata', dragon: 'Dragón', fey: 'Feérico', fiend: 'Infernal', celestial: 'Celestial', elemental: 'Elemental', aberration: 'Aberración', beast: 'Bestia', monstrosity: 'Monstruosidad', giant: 'Gigante', plant: 'Planta', ooze: 'Cieno' };
 const TRAIT_START = /^([A-Z][\p{L}’'-]*(?: (?:of|the|and|to|for|[A-Z][\p{L}’'-]*|\p{Ll}[\p{L}’'-]*)){0,4})\.\s+(\S.*)$/u;
 /** Usos de un rasgo por su texto: «a number of times equal to your Proficiency Bonus… Long Rest». */
+const ABIL_EN: Record<string, string> = { strength: 'str', dexterity: 'dex', constitution: 'con', intelligence: 'int', wisdom: 'wis', charisma: 'cha' };
 function usesEn(text: string): Uses | undefined {
   const per = /Short or Long Rest/i.test(text) ? 'sr' : /Long Rest/i.test(text) ? 'lr' : /Short Rest/i.test(text) ? 'sr' : '';
   if (/number of times equal to your Proficiency Bonus/i.test(text) && per) return { max: '@prof', per };
-  if (/can’t use (?:it|this trait) again until you finish/i.test(text) && per) return { max: '1', per };
+  const ab = /number of times equal to your (Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) modifier/i.exec(text);
+  if (ab && per) return { max: 'max(1, @abilities.' + ABIL_EN[ab[1].toLowerCase()] + '.mod)', per };
+  if (/can[’'](?:t) (?:use (?:it|this (?:trait|feature))|do so) again until you finish/i.test(text) && per) return { max: '1', per };
   return undefined;
 }
 
@@ -529,11 +532,13 @@ export function parseSpeciesEn(lines: Line[]): LibSpecies[] {
 
 const CLASS_EN: Record<string, string> = { barbarian: 'barbarian', bard: 'bard', cleric: 'cleric', druid: 'druid', fighter: 'fighter', monk: 'monk', paladin: 'paladin', ranger: 'ranger', rogue: 'rogue', sorcerer: 'sorcerer', warlock: 'warlock', wizard: 'wizard' };
 const SUB_HEAD_EN = /^(.{3,60}?)\s*\((\p{L}+) Subclass\)\s*$/u;
+/** Títulos de clase sueltos (el libro de World of Warcraft añade Chamán, Sacerdote…): marcan que la última subclase ya acabó. */
+const BOOK_CLASS = new Set([...Object.keys(CLASS_EN), 'priest', 'shaman', 'mage', 'hunter', 'warrior', 'death knight', 'demon hunter', 'evoker', 'monk'].map(norm));
 const FEATURE_EN = /^Level (\d{1,2}):\s*(.+)$/;
 /** Subclases del libro en inglés: «Nombre (Paladin Subclass)», una introducción y rasgos «Level 3: Nombre». */
 export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
   const out: LibSubclass[] = [];
-  let cur: { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[]; rows: string[]; multi: boolean } | null } | null = null;
+  let cur: { s: LibSubclass; intro: string[]; feat: { lv: number; n: string; body: string[]; rows: string[]; multi: boolean; table?: boolean } | null } | null = null;
   const closeFeat = () => {
     if (cur?.feat) {
       const ft = cur.feat;
@@ -542,7 +547,8 @@ export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
       const d = paragraphs(ft.body);
       // «This feature replaces the Paladin’s Smite feature of the Paladin class.»: el rasgo de clase que deja de tener
       const rep = /^This feature replaces the (.+?) feature/i.exec(d)?.[1];
-      cur.s.f.push({ lv: ft.lv, n: ft.n, d, ...(sp.length ? { sp } : {}), ...(rep ? { rep: rep.trim() } : {}) });
+      const u = usesEn(d);
+      cur.s.f.push({ lv: ft.lv, n: ft.n, d, ...(u ? { u } : {}), ...(sp.length ? { sp } : {}), ...(rep ? { rep: rep.trim() } : {}) });
       cur.feat = null;
     }
   };
@@ -553,6 +559,11 @@ export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
     const cls = sh ? CLASS_EN[norm(sh[2])] : '';
     if (sh && cls) { flush(); const name = sh[1].trim(); cur = { s: { id: id('lib-subclase-' + cls, name), n: name, cls, d: '', f: [] }, intro: [], feat: null }; continue; }
     if (!cur || sideNoise(l)) continue;
+    // el final de la última subclase de una clase: la cita («——Chromie»), el título de la clase siguiente, el crédito del
+    // artista o la lista de conjuros nuevos de la clase («Paladin Spells» + «The following new spells…»)
+    if (/^——/.test(t)) { cur.feat?.body.pop(); flush(); continue; }
+    const bare = t.replace(/[^\p{L} ]/gu, '').trim();
+    if (/^ARTIST\b/.test(t) || (headingLike(bare) && BOOK_CLASS.has(norm(bare))) || (/^[\p{L}' ]{3,30} Spells$/u.test(t) && /^The following\b/.test(lines[i + 1]?.t || ''))) { flush(); continue; }
     // lo que sigue a las subclases: apartados de dotes, de conjuros o de elección de nivel («Feats. Consider…»)
     const after = lines[i + 1]?.t || '';
     if (/ (Feats|Specialization)$/.test(t) || /^(Level \d+|Spells|Feats)\.\s/.test(t) || (headingLike(t) && (spellHead(after) || FEAT_CAT_EN.some(([re]) => re.test(after))))) { flush(); continue; }
@@ -562,8 +573,12 @@ export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
       if (parseInt(fm[1], 10) < Math.max(0, ...cur.s.f.map((f) => f.lv), cur.feat?.lv || 0)) { flush(); continue; }
       closeFeat(); cur.feat = { lv: parseInt(fm[1], 10), n: fm[2].trim(), body: [], rows: [], multi: false }; continue;
     }
+    // pies de ilustración («TYRANDE WHISPERWIND, A NIGHT ELF PRIEST»): no son texto del rasgo
+    if (isCaps(t) && t.split(' ').length >= 4) continue;
     if (cur.feat) {
-      cur.feat.body.push(t);
+      // el texto de un rasgo de conjuros acaba donde empieza su tabla (se guarda aparte, en filas)
+      if (/Spells$/.test(cur.feat.n) && /Spells$/.test(t) && cur.feat.body.length) cur.feat.table = true;
+      if (!cur.feat.table) cur.feat.body.push(t);
       if (/Spells$/.test(cur.feat.n)) {
         if (/Level.*\bSpells\b/.test(t) && (t.match(/Spells/g) || []).length > 1) cur.feat.multi = true;
         else if (/^\d{1,2}\s+\p{L}/u.test(t)) cur.feat.rows.push(t);
@@ -572,6 +587,18 @@ export function parseSubclassesEn(lines: Line[]): LibSubclass[] {
   }
   flush();
   return dedupe(out);
+}
+
+/**
+ * Subclases del libro en inglés leyendo cada página de dos maneras: por columnas (`cols`) y a todo el ancho (`wide`).
+ * El texto corrido de estos libros ocupa todo el ancho y partirlo por la mitad deja frases cortadas; si el libro sí va a
+ * dos columnas, la lectura a todo el ancho mezcla líneas y pierde rasgos, y entonces gana la de columnas.
+ */
+export function parseSubclassesBook(cols: Line[], wide: Line[]): LibSubclass[] {
+  const a = parseSubclassesEn(cols);
+  const b = new Map(parseSubclassesEn(wide).map((s) => [s.id, s]));
+  const merged = a.map((s) => { const w = b.get(s.id); b.delete(s.id); return w && w.f.length >= s.f.length ? w : s; });
+  return [...merged, ...b.values()];
 }
 
 /**

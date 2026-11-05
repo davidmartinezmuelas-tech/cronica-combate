@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpeciesEn, parseSpells, parseSubclasses, parseSubclassesEn, resolveSubSpells, titleCaseEn, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
+import { attachTables, fixDice, fixOcr, classifyPage, isCaps, isTitle, nameBackgrounds, pageLines, parseBackgrounds, levelTable, parseClassTable, parseClasses, parseFeats, parseFeatsEn, parseSpeciesEn, parseSpells, parseSubclasses, parseSubclassesBook, parseSubclassesEn, resolveSubSpells, titleCaseEn, repairCounts, subclassNamesIn, type Line } from '../engine/bookImport';
 
 // Libro inventado: misma estructura que el Manual del Jugador 2024 en español (títulos en mayúsculas, línea de
 // tipo debajo, campos con dos puntos), con nombres y textos de ejemplo.
@@ -347,6 +347,32 @@ describe('subclases de una clase nueva', () => {
     const sb = parseSubclassesEn(L('Oath of the Ebon Blade (Paladin Subclass)', 'Wield death', 'The Oath unites knights.', 'Level 1: Death Coil', 'Your type becomes Undead.', 'Level 3: Runeforging', 'You inscribe runes.', 'Level 20: Aspect', 'Final.', 'Level 3: Totems', 'Other thing.'));
     expect(sb).toHaveLength(1);
     expect([sb[0].n, sb[0].cls, sb[0].f.map((f) => f.lv + f.n).join()]).toEqual(['Oath of the Ebon Blade', 'paladin', '1Death Coil,3Runeforging,20Aspect']);
+  });
+  it('libros en inglés: tras el último rasgo no se pega la cita, el título de la clase siguiente ni la lista de conjuros nueva', () => {
+    const sb = parseSubclassesEn(L(
+      'Oath of the Holy (Paladin Subclass)', 'Intro.', 'Level 3: Beacon', 'Heal an ally.', 'Level 20: Deliverance', 'Bonus Action aura.', 'Sunlight. Bright light.', 'Paladin Spells', 'The following new spells are added.', 'Consecration',
+      'Swashbuckler (Rogue Subclass)', 'Intro.', 'Level 17: Master Duelist', 'Make another attack.', 'Anything worth doing is worth doing with panache.', '——Chromie', 'Shaman ↑', 'Shaman are spiritual adepts.',
+    ));
+    expect(sb.map((s) => s.f.map((f) => f.n).join())).toEqual(['Beacon,Deliverance', 'Master Duelist']);
+    expect(sb[0].f[1].d).toBe('Bonus Action aura.\n\nSunlight. Bright light.');
+    expect(sb[1].f[0].d).toBe('Make another attack.');
+  });
+  it('libros en inglés: los usos de un rasgo de subclase salen de su texto', () => {
+    const sb = parseSubclassesEn(L('Shadow Domain (Cleric Subclass)', 'Intro.', 'Level 3: Devouring Plague', 'You can use this feature a number of times equal to your Wisdom modifier (minimum of once), and you regain all expended uses when you finish a Long Rest.', 'Level 6: Dispersion', 'Once you use this feature, you can’t use it again until you finish a Short or Long Rest.', 'Level 17: Embrace', 'Once you use this feature, you can’t do so again until the start of your next turn.'));
+    expect(sb[0].f.map((f) => f.u)).toEqual([{ max: 'max(1, @abilities.wis.mod)', per: 'lr' }, { max: '1', per: 'sr' }, undefined]);
+  });
+  it('libros en inglés: la lectura a todo el ancho recupera las frases que la columna derecha cortaba', () => {
+    const cols = [
+      { t: 'Swashbuckler (Rogue Subclass)', col: 0, y: 800 }, { t: 'Level 9: Panache', col: 0, y: 780 }, { t: 'Goad. The target has Disadvantage on attack rolls against targets other than you and can’t', col: 0, y: 760 },
+      { t: 'condition until the end of your next turn.', col: 1, y: 760 },
+    ];
+    const wide = [
+      { t: 'Swashbuckler (Rogue Subclass)', col: 0, y: 800 }, { t: 'Level 9: Panache', col: 0, y: 780 }, { t: 'Goad. The target has Disadvantage on attack rolls against targets other than you and can’t', col: 0, y: 760 },
+      { t: 'make Opportunity Attacks.', col: 0, y: 748 },
+    ];
+    expect(parseSubclassesBook(cols, wide)[0].f[0].d).toContain('make Opportunity Attacks.');
+    // si la lectura ancha pierde rasgos (libro a dos columnas), gana la de columnas
+    expect(parseSubclassesBook(wide, wide.slice(0, 1))[0].f).toHaveLength(1);
   });
   it('libros en inglés: la tabla de conjuros de una subclase pasa a conjuros siempre preparados', () => {
     const subs = parseSubclassesEn(L(
