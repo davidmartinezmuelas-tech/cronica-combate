@@ -27,6 +27,7 @@ export interface SheetData {
   saveProf?: AbilKey[]; // salvaciones con casilla de competencia marcada (hojas que no escriben el bonificador)
   skillProf?: string[]; // habilidades con casilla de competencia marcada
   spellNames?: string[]; // nombres de los conjuros escritos en la hoja (solo la oficial de 2024 los trae en campos propios)
+  featureBlocks?: { scope: 'class' | 'sub' | 'species' | 'mixed'; text: string }[]; // bloques de texto con los rasgos de clase, subclase y especie escritos en la hoja
   feats?: string; // bloque de dotes de la hoja («LUCKY (origen): …», una por línea), si la hoja lo tiene aparte
 }
 
@@ -263,6 +264,19 @@ export function readSheet(fields: SheetField[]): SheetData | null {
     initb: init, pp, res: findResistances(traitText), extras, abil, saveBonus, skillBonus,
     ...(official ? { spellNames: fields.filter((f) => /^Text106(\.\d+)?$/.test(f.name)).map((f) => clean(f.value)).filter((v) => v && v !== 'Off'), feats: fields.find((f) => f.name === 'Text58')?.value || '' } : {}),
   };
+  // rasgos escritos en la hoja: en la oficial, cada bloque es de una cosa; en otras, «Class Features» mezcla clase y subclase
+  const blocks: NonNullable<SheetData['featureBlocks']> = official
+    ? ([['Text54', 'class'], ['Text55', 'sub'], ['Text57', 'species']] as const).map(([n, scope]) => ({ scope, text: String(fields.find((f) => f.name === n)?.value || '').trim() }))
+    : fields.flatMap((f): NonNullable<SheetData['featureBlocks']> => {
+      const text = String(f.value || '').trim();
+      const n = f.name.trim();
+      if (!text || ddb || italiana) return [];
+      if (/^(rasgos de clase|class features?)\s*\d*$/i.test(n)) return [{ scope: 'mixed' as const, text }];
+      if (/^(traits?|species traits?|rasgos de (la )?especie|species features?)\s*\d*$/i.test(n)) return [{ scope: 'species' as const, text }];
+      return [];
+    });
+  const usedBlocks = blocks.filter((b) => b.text);
+  if (usedBlocks.length) data.featureBlocks = usedBlocks;
   if (ddb) data.spellNames = ddbSpellNames(fields);
   else if (!official) {
     const names = fields.filter((f) => /^(nombre ?conjuro|spell ?name)/i.test(f.name.trim())).map((f) => clean(f.value)).filter((v) => v && v !== 'Off');

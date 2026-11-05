@@ -2,6 +2,7 @@ import { ABILS, type Abil, type ClassData, type PlayerData } from '../data/playe
 import { blankCharacter, derive, mod, profBonus, weaponFromData, type Character, type CustomFeat } from './character';
 import type { SheetData, SheetField } from './sheetImport';
 import { featCatOf, splitFeatText } from './featText';
+import { parseFeatureBlock } from './sheetFeatures';
 import { ELEMENTAL_KEY } from './metamagic';
 import { norm, uid } from './util';
 
@@ -189,6 +190,18 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
     customFeats.push({ id: 'f-' + uid(), n: pretty, d: m[3].trim(), cat, max: null, per: '' });
     // Adepto elemental: el elemento escrito entre paréntesis
     if (['elemental adept', 'adepto elemental'].includes(norm(name)) && elementOf(m[2] || '')) choices[ELEMENTAL_KEY] = [elementOf(m[2])];
+  }
+  // rasgos escritos en la hoja de lo que la app no conoce (clase, subclase o especie fuera del SRD y de la biblioteca): como rasgos propios con su texto y sus usos
+  const subKnown = !subRaw || !!(cls?.sub && same(subBase(subRaw), cls.sub.n, cls.sub.en)) || !!libSubclassOf(subRaw, cls?.id || '', libSubs);
+  const known = new Set([...(cls?.f || []), ...(cls?.sub?.f || []), ...(species?.t || [])].map((f) => norm(f.n)));
+  ['competencias', 'proficiencies', 'equipo', 'equipment'].forEach((n) => known.add(n));
+  for (const b of sheet.featureBlocks || []) {
+    const want = b.scope === 'class' ? !cls : b.scope === 'sub' ? !subKnown : b.scope === 'species' ? !species : !cls || !subKnown;
+    if (!want) continue;
+    for (const f of parseFeatureBlock(b.text)) {
+      if (known.has(norm(f.n)) || customFeats.some((x) => norm(x.n) === norm(f.n)) || data.feats.some((x) => same(f.n, x.n, x.en))) continue;
+      customFeats.push({ id: 'f-' + uid(), n: f.n, d: (f.lv ? 'Nivel ' + f.lv + '. ' : '') + f.d, cat: 'other', max: f.max, per: f.per });
+    }
   }
   // hechicero dracónico: el elemento de la subclase escrito entre paréntesis es su Afinidad elemental
   if (cls?.id === 'sorcerer' && same(subBase(subRaw), 'Hechicería dracónica', 'Draconic Sorcery') && elementOf(subParen(subRaw))) choices['draconic.affinity'] = [elementOf(subParen(subRaw))];

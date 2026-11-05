@@ -123,3 +123,33 @@ describe('trasfondo de la biblioteca en la hoja importada', () => {
     expect([c.backgroundId, c.backgroundName]).toEqual(['', 'Campesino']);
   });
 });
+
+describe('rasgos escritos en la hoja de lo que la app no conoce', () => {
+  const base = { Text1: 'Werhum', Text6: 'Granjero', Text7: 'Clérigo', Text8: 'Enano', Text9: 'Dominio de la Forja', Text11: '10', Text13: '23', Text16: '80', Text26: '+1', Text29: '15' };
+  const forja = ['DOMINIO DE LA FORJA (adaptado)', 'BENDICIÓN DE LA FORJA: tras un descanso largo, un arma se vuelve mágica.', 'ALMA DE LA FORJA (nv 6): resistencia al fuego. 1/desc. largo, la usas gratis.'].join('\n');
+  const clase = ['ORDEN DIVINA: Taumaturgo. Truco extra.', 'CANALIZAR DIVINIDAD: 3 usos. Recuperas 1 en descanso corto y todos en largo.', '- Chispa Divina: 30 ft.'].join('\n');
+  it('subclase desconocida: importa sus rasgos con texto y usos, y no los de la clase del SRD', () => {
+    const f = F({ ...base, Text54: clase, Text55: forja });
+    const c = sheetToCharacter(f, readSheet(f)!, data, spells);
+    const names = c.customFeats.map((x) => x.n);
+    expect(names).toEqual(expect.arrayContaining(['Bendición de la forja', 'Alma de la forja']));
+    expect(names).not.toContain('Orden divina');
+    const alma = c.customFeats.find((x) => x.n === 'Alma de la forja')!;
+    expect([alma.max, alma.per]).toEqual([1, 'lr']);
+    expect(alma.d).toContain('Nivel 6');
+  });
+  it('subclase de la biblioteca: no se importa nada del bloque', () => {
+    const f = F({ ...base, Text55: forja });
+    const c = sheetToCharacter(f, readSheet(f)!, data, spells, '', [{ n: 'Dominio de la Forja', cls: 'cleric' }]);
+    expect(c.customFeats.map((x) => x.n)).not.toContain('Bendición de la forja');
+  });
+  it('hoja en inglés: «Level 3: Nombre» y «Nombre. Texto» con la especie desconocida', () => {
+    const f = F({ Name: 'Korvak', Class: 'Paladin', Species: 'Forsaken', Subclass: 'Oath of the Ancients', Level: '5', AC: '18', 'Max HP': '40', 'STR SORE': '16', 'DEX SCORE': '10', 'CON SCORE': '14', 'INT SCORE': '10', 'WIS SCORE': '10', 'CHA SCORE': '14',
+      'CLASS FEATURES 1': 'Level 3: Sacred Weapon\r\nYou can expend one use of your Channel Divinity. 3 uses per Long Rest.',
+      TRAITS: 'Will of the Forsaken. You have advantage against being charmed.\r\n\r\nCannibalize. You regain hit points as a Bonus Action.' });
+    const c = sheetToCharacter(f, readSheet(f)!, data, spells);
+    const names = c.customFeats.map((x) => x.n);
+    expect(names).toEqual(expect.arrayContaining(['Will of the Forsaken', 'Cannibalize']));
+    expect(c.customFeats.find((x) => x.n === 'Will of the Forsaken')?.d).toContain('advantage');
+  });
+});
