@@ -82,7 +82,7 @@ const tidy = (s: string) => norm(s.replace(/\bS\/P\b/gi, '').replace(/\(.*?\)\s*
  * las armas, la armadura, el escudo, los conjuros y las dotes del SRD. Lo que no reconoce va a las notas o como
  * dote propia.
  */
-export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: PlayerData, spells: SpellRef[], fileName = '', libSubs: { n: string; cls: string }[] = []): Character {
+export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: PlayerData, spells: SpellRef[], fileName = '', libSubs: { n: string; cls: string }[] = [], libBgs: { id: string; n: string; skills: string[]; feat: string }[] = []): Character {
   const extra = (label: string) => sheet.extras.find((e) => e.label === label)?.value || '';
   const same = (a: string, ...b: string[]) => b.some((x) => norm(x) === norm(a));
   // multiclase: la primera clase es la principal; las demás van a «multi»
@@ -106,7 +106,9 @@ export function sheetToCharacter(fields: SheetField[], sheet: SheetData, data: P
   const species = data.species.find((s) => same(extra('Especie'), s.n, s.en)) || data.species.find((s) => norm(extra('Especie')).length > 2 && norm(s.n).startsWith(norm(extra('Especie'))))
     // «High Elf» / «Elfo alto» -> «Elfo, alto»: las mismas palabras en otro orden
     || data.species.find((s) => [s.n, s.en].some((x) => { const w = norm(x || '').split(/[^a-z]+/).filter(Boolean); const e = norm(extra('Especie')).split(/[^a-z]+/); return w.length > 1 && w.every((y) => e.includes(y)); }));
-  const bg = data.backgrounds.find((b) => same(extra('Trasfondo'), b.n, b.en));
+  // trasfondo del SRD o, si no, de la biblioteca (los de un libro cargado, como «Campesino»), por su nombre
+  const bg: { id: string; skills: string[]; feat?: string } | undefined = data.backgrounds.find((b) => same(extra('Trasfondo'), b.n, b.en))
+    || (norm(extra('Trasfondo')).length > 2 ? libBgs.find((b) => same(extra('Trasfondo'), b.n)) : undefined);
   const subRaw = mc ? pick(cls, mc[0].sub, 0) : extra('Subclase');
   const subclass = cls?.sub && subRaw && same(subBase(subRaw), cls.sub.n, cls.sub.en) ? cls.sub.n : (subRaw && libSubclassOf(subRaw, cls?.id || '', libSubs)) || subRaw || (cls?.sub && level >= cls.sub.lv ? cls.sub.n : '');
 

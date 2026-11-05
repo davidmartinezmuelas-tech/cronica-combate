@@ -110,3 +110,16 @@ describe('hoja oficial de 2024 de un hechicero dracónico (con aclaraciones entr
     expect(c.spells.length).toBeGreaterThan(15);
   });
 });
+
+describe('trasfondo de la biblioteca en la hoja importada', () => {
+  const f = F({ Name: 'Bram', Background: 'Campesino', Class: 'Fighter', Level: '1', 'STR SORE': '15', 'DEX SCORE': '12', 'CON SCORE': '14', 'INT SCORE': '10', 'WIS SCORE': '10', 'CHA SCORE': '8' });
+  it('reconoce un trasfondo de un libro cargado (no del SRD) y toma sus habilidades', () => {
+    const c = sheetToCharacter(f, readSheet(f)!, data, spells, '', [], [{ id: 'bg-campesino', n: 'Campesino', skills: ['ani', 'nat'], feat: '' }]);
+    expect([c.backgroundId, c.backgroundName]).toEqual(['bg-campesino', '']);
+    expect(c.skills).toEqual(expect.arrayContaining(['ani', 'nat']));
+  });
+  it('sin ese trasfondo en la biblioteca lo deja como nombre', () => {
+    const c = sheetToCharacter(f, readSheet(f)!, data, spells);
+    expect([c.backgroundId, c.backgroundName]).toEqual(['', 'Campesino']);
+  });
+});
