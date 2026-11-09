@@ -46,7 +46,7 @@ import LevelUp from './LevelUp';
 import RestSpells, { restSwapClasses } from './RestSpells';
 import SubclassChoices, { choiceRows, choiceSpells, resolveChoices } from './SubclassChoices';
 import { setDamageGate } from '../../store/damageGate';
-import DeathKnightPanel, { isEbonBlade, RUNE_KEY, RUNE_STRIKE, dkPassives, runicPowerReady, RunicPowerDialog } from './DeathKnightPanel';
+import DeathKnightPanel, { isEbonBlade, LIGHT as DK_LIGHT, RUNE_KEY, RUNE_STRIKE, dkPassives, runicPowerReady, RunicPowerDialog } from './DeathKnightPanel';
 
 const ABIL_N: Record<Abil, string> = { str: 'Fuerza', dex: 'Destreza', con: 'Constitución', int: 'Inteligencia', wis: 'Sabiduría', cha: 'Carisma' };
 const ABIL_S: Record<Abil, string> = { str: 'FUE', dex: 'DES', con: 'CON', int: 'INT', wis: 'SAB', cha: 'CAR' };
@@ -374,6 +374,8 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const boonAbil: 'str' | 'dex' = c.choices?.['feat.irresistible']?.[0] === 'dex' ? 'dex' : c.choices?.['feat.irresistible']?.[0] === 'str' ? 'str' : c.abil.dex > c.abil.str ? 'dex' : 'str';
   // números de clase a su nivel
   const rageDmg = classLevel(c, 'barbarian') ? Number(d.scale('barbarian.rage-damage')) || 0 : 0;
+  // Caballero de la Muerte con la runa de Escarcha en el arma: elige entre ataque normal y ataque de acción adicional (el extra de la propiedad Ligera suma 1d4 de frío)
+  const dkFrost = isEbonBlade(c) && c.choices?.[RUNE_KEY]?.[0] === 'Frost';
   const brutalDice = classLevel(c, 'barbarian') ? String(d.scale('barbarian.brutal-strike') || '') : '';
   const sneakDice = classLevel(c, 'rogue') ? String(d.scale('rogue.sneak-attack') || '') : '';
   const markDie = classLevel(c, 'ranger') ? String(d.scale('ranger.mark') || '') : '';
@@ -441,7 +443,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     const useEld = !!with_.eld && smiteMelee && !!eldDice;
     if (useSmite) ps.push({ expr: smOpt!.dice, type: smOpt!.type, src: smiteSpell!.n });
     // Caballero de la Muerte: efectos pasivos de Golpes rúnicos y de la runa del arma
-    const dkP = smiteMelee ? dkPassives(c, d, d.attacks.find((a) => a.w.name === weapon)?.w.props || []) : null;
+    const dkP = smiteMelee ? dkPassives(c, d, d.attacks.find((a) => a.w.name === weapon)?.w.props || [], label.endsWith(': ataque extra')) : null;
     if (dkP) ps.push(...dkP.parts);
     if (useEld) ps.push({ expr: eldDice, type: 'fuerza', src: 'Castigo arcano' });
     // los extras, como etiquetas del resultado
@@ -1211,8 +1213,14 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       <section className="panel" aria-label="Ataques">
         <div className="panel-head">
           <h3 className="eyebrow">Ataques</h3>
-          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!strikeDice || hitBuffs.length > 0) && (
+          {(d.fx.savage || d.fx.charge || d.fx.piercer || rageDmg > 0 || !!sneakDice || !!strikeDice || hitBuffs.length > 0 || dkFrost) && (
             <span className="rollrow">
+              {dkFrost && (
+                <span className="rollrow" role="group" aria-label="Tipo de golpe" title="Runa de Escarcha: el ataque extra de la propiedad Ligera suma 1d4 de frío. El botón «Acción adicional» de cada arma ya lo suma solo; aquí lo eliges para el siguiente daño de cualquier arma.">
+                  <button className={!c.uses[DK_LIGHT] ? 'chip on' : 'chip'} aria-pressed={!c.uses[DK_LIGHT]} onClick={() => set({ uses: { ...c.uses, [DK_LIGHT]: 0 } })}>Ataque normal</button>
+                  <button className={c.uses[DK_LIGHT] ? 'chip on' : 'chip'} aria-pressed={!!c.uses[DK_LIGHT]} onClick={() => set({ uses: { ...c.uses, [DK_LIGHT]: 1 } })}>Ataque de acción adicional</button>
+                </span>
+              )}
               {d.fx.savage && <button className={savage ? 'chip on' : 'chip'} aria-pressed={savage} title="Una vez por turno: el próximo daño con arma tira sus dados dos veces y usa el mejor" onClick={() => setSavage(!savage)}>Atacante salvaje</button>}
               {rageDmg > 0 && <button className={rage ? 'chip on' : 'chip'} aria-pressed={rage} title={'Mientras dure: +' + rageDmg + ' al daño de los ataques con Fuerza; resistencia a contundente, cortante y perforante. Entrar gasta un uso de Furia.'} onClick={toggleRage}>Furia +{rageDmg}</button>}
               {rageDmg > 0 && rageMax > 0 && <Pips max={rageMax} used={Math.min(rageMax, c.uses['Furia'] || 0)} label="Furias" onSet={(v) => set({ uses: { ...c.uses, Furia: Math.max(0, Math.min(rageMax, v)) } })} />}

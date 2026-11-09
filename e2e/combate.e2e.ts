@@ -1175,10 +1175,12 @@ test('Caballero de la Muerte: Rune Strike hace de Castigo divino, desbloquea Run
   await expect(dlg.getByRole('button', { name: /^Rune Strike · / })).toHaveText(['Rune Strike · Nivel 1 · 2d8 necrótico', 'Rune Strike · Nivel 2 · 3d8 necrótico']);
   await dlg.getByRole('button', { name: 'Solo el arma' }).click();
   // pasivo de Escarcha: el ataque extra de Ligera suma 1d4 de frío
-  await sec.getByRole('button', { name: /Ataque extra Ligera/ }).click();
+  await page.getByRole('group', { name: 'Tipo de golpe' }).getByRole('button', { name: 'Ataque de acción adicional' }).click();
   await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
   await dlg.getByRole('button', { name: 'Solo el arma' }).click();
   await expect(page.locator('.plaque-rows')).toContainText('Runa de escarcha');
+  // el golpe normal vuelve solo tras gastarse
+  await expect(page.getByRole('group', { name: 'Tipo de golpe' }).getByRole('button', { name: 'Ataque normal' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('Caballero de la Muerte: reserva de Death Coil, runa del arma y Runic Power gastan Canalización divina', async ({ page }) => {

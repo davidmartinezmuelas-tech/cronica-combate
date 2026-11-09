@@ -15,7 +15,7 @@ const CHANNEL = 'Canalización divina';
 export const RUNE_KEY = 'dk.rune';
 const STRIKE = 'dk.strike'; // Rune Strike lanzado: habilita Runic Power
 const TURN = 'dk.turn'; // el primer golpe del turno con arma Pesada (runa Profana) ya se ha hecho
-const LIGHT = 'dk.light'; // el próximo golpe es el ataque extra de la propiedad Ligera (runa de Escarcha)
+export const LIGHT = 'dk.light'; // el próximo golpe es el ataque extra de la propiedad Ligera (runa de Escarcha): se elige en el panel de ataques o sale solo con el botón «Acción adicional» de un arma
 
 /** Rune Strike como conjuro de castigo (acción adicional tras impactar): 2d8 necróticos, +1d8 por nivel de espacio sobre 1. Sale siempre preparado. */
 export const RUNE_STRIKE = {
@@ -24,14 +24,14 @@ export const RUNE_STRIKE = {
 };
 
 /** Efectos pasivos del Caballero de la Muerte en un golpe con arma cuerpo a cuerpo: Golpes rúnicos (nivel 11) y la runa del arma. */
-export function dkPassives(c: Character, d: Derived, props: string[]): { parts: { expr: string; type: string; src: string }[]; uses: Record<string, number> } | null {
+export function dkPassives(c: Character, d: Derived, props: string[], extra = false): { parts: { expr: string; type: string; src: string }[]; uses: Record<string, number> } | null {
   if (!isEbonBlade(c)) return null;
   const rune = c.choices?.[RUNE_KEY]?.[0] || '';
   const parts: { expr: string; type: string; src: string }[] = [];
   const uses: Record<string, number> = {};
   if (c.level >= 11) parts.push({ expr: '1d8', type: 'necrótico', src: 'Golpes rúnicos' });
   if (rune === 'Unholy' && !c.uses[TURN] && props.some((x) => norm(x) === 'pesada')) { parts.push({ expr: String(Math.max(1, d.mods.cha)), type: 'necrótico', src: 'Runa profana' }); uses[TURN] = 1; }
-  if (rune === 'Frost' && c.uses[LIGHT]) { parts.push({ expr: '1d4', type: 'frío', src: 'Runa de escarcha' }); uses[LIGHT] = 0; }
+  if (rune === 'Frost' && (extra || c.uses[LIGHT])) { parts.push({ expr: '1d4', type: 'frío', src: 'Runa de escarcha' }); uses[LIGHT] = 0; }
   return { parts, uses };
 }
 const RUNES = ['Blood', 'Frost', 'Unholy'] as const;
@@ -84,7 +84,6 @@ export default function DeathKnightPanel({ c, d, set }: { c: Character; d: Deriv
               <span className="muted small">una runa en tu arma cuerpo a cuerpo · se cambia en descanso largo o al subir de nivel</span>
               <div className="rollrow">
                 {RUNES.map((r) => <button key={r} className={rune === r ? 'chip on' : 'chip'} aria-pressed={rune === r} onClick={() => set({ choices: { ...(c.choices || {}), [RUNE_KEY]: [rune === r ? '' : r] } })}>{RUNE_ES[r]}</button>)}
-                {rune === 'Frost' && <button className="chip" aria-pressed={!!c.uses[LIGHT]} title="El siguiente golpe es el ataque extra de la propiedad Ligera: suma 1d4 de frío" onClick={() => set({ uses: { ...c.uses, [LIGHT]: c.uses[LIGHT] ? 0 : 1 } })}>Ataque extra Ligera +1d4</button>}
                 {rune === 'Unholy' && <button className="chip" aria-pressed={!c.uses[TURN]} title="La primera criatura que golpeas cada turno con un arma Pesada recibe necrótico extra. Pulsa para empezar un turno nuevo" onClick={() => set({ uses: { ...c.uses, [TURN]: 0 } })}>{c.uses[TURN] ? 'Nuevo turno' : 'Primer golpe pesado listo'}</button>}
                 {rune === 'Blood' && <button className="btn small" onClick={() => set({ temp: Math.max(c.temp, pgTemp) })}>PG temporales {fmt(pgTemp)}</button>}
               </div>
