@@ -1173,6 +1173,13 @@ test('Caballero de la Muerte: Rune Strike hace de Castigo divino, desbloquea Run
   // el gratis se gastó
   await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
   await expect(dlg.getByRole('button', { name: /^Rune Strike · / })).toHaveText(['Rune Strike · Nivel 1 · 2d8 necrótico', 'Rune Strike · Nivel 2 · 3d8 necrótico']);
+  // Runic Power desde la misma ventana: los 2d6 de Escarcha van en la misma tirada, con su fuente aparte, y no vuelve a preguntar
+  await dlg.getByLabel(/Runic Power \(Escarcha\)/).check();
+  await dlg.getByRole('button', { name: /· Nivel 1 ·/ }).click();
+  await expect(page.locator('.plaque-rows')).toContainText('Runic Power (explosión)');
+  await expect(page.locator('.plaque-rows')).toContainText('Rune Strike');
+  await expect(dlg).toHaveCount(0);
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
   await dlg.getByRole('button', { name: 'Solo el arma' }).click();
   // pasivo de Escarcha: el ataque extra de Ligera suma 1d4 de frío
   await page.getByRole('group', { name: 'Tipo de golpe' }).getByRole('button', { name: 'Ataque de acción adicional' }).click();
