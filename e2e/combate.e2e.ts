@@ -1164,21 +1164,20 @@ test('Caballero de la Muerte: Rune Strike hace de Castigo divino, desbloquea Run
   const dlg = page.getByRole('dialog');
   await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
   await expect(dlg.getByRole('button', { name: /^Rune Strike · / })).toHaveText(['Rune Strike · Gratis · 2d8 necrótico', 'Rune Strike · Nivel 1 · 2d8 necrótico', 'Rune Strike · Nivel 2 · 3d8 necrótico']);
+  // con runa de Escarcha, Runic Power viene marcado en la misma ventana: los 2d6 van en la misma tirada, con su fuente aparte, y no vuelve a preguntar
+  await expect(dlg.getByLabel(/Runic Power \(Escarcha\)/)).toBeChecked();
   await dlg.getByRole('button', { name: /· Gratis ·/ }).click();
   await expect(page.locator('.plaque-rows')).toContainText('Rune Strike');
-  // justo después sale la ventana de Runic Power con el efecto de la runa
-  await expect(dlg.getByRole('button', { name: /Escarcha: 2d6/ })).toBeVisible();
-  await dlg.getByRole('button', { name: 'No usarlo' }).click();
-  await expect(sec.getByRole('button', { name: 'Escarcha 2d6' })).toBeEnabled();
+  await expect(page.locator('.plaque-rows')).toContainText('Runic Power (explosión)');
+  await expect(dlg).toHaveCount(0);
   // el gratis se gastó
   await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
   await expect(dlg.getByRole('button', { name: /^Rune Strike · / })).toHaveText(['Rune Strike · Nivel 1 · 2d8 necrótico', 'Rune Strike · Nivel 2 · 3d8 necrótico']);
-  // Runic Power desde la misma ventana: los 2d6 de Escarcha van en la misma tirada, con su fuente aparte, y no vuelve a preguntar
-  await dlg.getByLabel(/Runic Power \(Escarcha\)/).check();
+  // desmarcado: sin Runic Power en la tirada y sin ventana después; queda para usarlo a mano desde el panel
+  await dlg.getByLabel(/Runic Power \(Escarcha\)/).uncheck();
   await dlg.getByRole('button', { name: /· Nivel 1 ·/ }).click();
-  await expect(page.locator('.plaque-rows')).toContainText('Runic Power (explosión)');
-  await expect(page.locator('.plaque-rows')).toContainText('Rune Strike');
   await expect(dlg).toHaveCount(0);
+  await expect(sec.getByRole('button', { name: 'Escarcha 2d6' })).toBeEnabled();
   await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
   await dlg.getByRole('button', { name: 'Solo el arma' }).click();
   // pasivo de Escarcha: el ataque extra de Ligera suma 1d4 de frío

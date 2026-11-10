@@ -411,7 +411,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   });
   const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string) => {
     const smiteMelee = hit.melee || !!hit.thrownMelee;
-    if (armKey && smiteMelee && (smiteOpt || (armKey !== 'ua' && eldDice))) { setEldPick(false); setSmitePending({ label, parts, hit, armKey }); return; }
+    if (armKey && smiteMelee && (smiteOpt || (armKey !== 'ua' && eldDice))) { setEldPick(false); setRunicFrost(true); setSmitePending({ label, parts, hit, armKey }); return; }
     doDamage(label, parts, hit);
   };
   const doDamage = (label: string, parts: RollPart[], hit: Hit, ch: { smite?: boolean; eld?: boolean; opt?: string; runic?: boolean } = {}) => {
@@ -468,7 +468,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
       const cur2 = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
       // con Runic Power ya aplicado en la tirada: gasta la Canalización divina y no vuelve a preguntar
       update(c.id, { uses: { ...cur2.uses, ...(dkP?.uses || {}), ...(useRunic ? { [DK_CHANNEL]: (cur2.uses[DK_CHANNEL] || 0) + 1 } : rs ? { 'dk.strike': 1 } : {}) } });
-      if (rs && !useRunic && runicPowerReady({ ...c, uses: { ...cur2.uses } })) setRunicAsk(true);
+      if (rs && !useRunic && !dkFrost && runicPowerReady({ ...c, uses: { ...cur2.uses } })) setRunicAsk(true);
     }
     if (useSmite || useEld) {
       const cur = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
