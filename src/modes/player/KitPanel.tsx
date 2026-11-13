@@ -3,7 +3,7 @@ import type { Abil } from '../../data/player';
 import { fmt, rollDie, sgn } from '../../engine/dice';
 import { usesMax, type Character, type Derived } from '../../engine/character';
 import { firstSentence } from '../../engine/actionKind';
-import { atLevel, KITS, resourceMax, resourcePer, type KitAction, type SubclassKit } from '../../engine/subclassActions';
+import { activeKits, atLevel, KITS, resourceMax, resourcePer, type KitAction, type SubclassKit } from '../../engine/subclassActions';
 import { optionItems, subclassText, type SubclassText } from '../../engine/subclassChoices';
 import { norm } from '../../engine/util';
 import Card from '../../shared/Card';
@@ -34,6 +34,47 @@ const atLevel2 = (t: Record<number, string>, level: number, first: string) => Ob
 
 const FOCUS_COST = 'Concentración del monje';
 const COST_LABEL: Record<string, string> = { 'Concentración del monje': 'concentración', 'Fuente de magia': 'punto de hechicería', 'Canalizar Divinidad': 'Canalizar divinidad', 'Canalización divina': 'Canalización divina', Furia: 'Furia' };
+
+/** Un daño extra al impactar que se puede marcar en la ventana de daño del arma. `why`: por qué no se puede usar ahora (vacío si se puede). `pay`: gasta lo que cuesta. */
+export interface HitOption { key: string; n: string; src: string; expr: string; type?: string; unarmed: boolean; why: string; pay: (u: Record<string, number>) => Record<string, number> }
+
+/** Los extras al impactar de los rasgos de clase y subclase del personaje (con su dado, tipo y coste a su nivel). */
+export function hitOptions(c: Character, d: Derived, lib: LibraryData, rage: boolean): HitOption[] {
+  const sub = subclassText(c, d.cls, lib.subclasses);
+  const src = { f: [...(sub?.f || []), ...(d.cls?.f || [])], x: sub?.x || [] };
+  const out: HitOption[] = [];
+  for (const { kit, actions } of activeKits(c)) {
+    const res = kit.res;
+    const max = res ? resourceMax(res, c.level, d.mods) : 0;
+    const sides = res ? atLevel(res.die, c.level) : 0;
+    for (const a of actions) {
+      const h = a.hit;
+      if (!h || (h.die && !sides)) continue;
+      const name = kitText(src, a.n)?.n || a.n[0];
+      const base = h.die ? '1d' + sides : h.exprAt ? atLevel2(h.exprAt, c.level, h.expr || '') : h.expr || '';
+      const plus = (h.plus ? d.mods[h.plus] : 0) + (h.plusHalfLevel ? Math.floor(c.level / 2) : 0);
+      let why = '';
+      let pay = (u: Record<string, number>): Record<string, number> => u;
+      if (h.need === 'rage' && !rage) why = 'requiere Furia';
+      const sp = h.spend;
+      if (sp === 'res' && res) {
+        if (max - Math.min(max, c.uses[res.key] || 0) < 1) why = 'sin ' + res.n.toLowerCase();
+        pay = (u) => ({ ...u, [res.key]: Math.min(max, (u[res.key] || 0) + 1) });
+      } else if (sp && typeof sp === 'object' && 'use' in sp) {
+        const umax = typeof sp.use.max === 'number' ? sp.use.max : Math.max(1, d.mods[sp.use.max]);
+        if (Math.min(umax, c.uses[name] || 0) >= umax) why = 'sin usos';
+        pay = (u) => ({ ...u, [name]: (u[name] || 0) + 1 });
+      } else if (sp && typeof sp === 'object' && 'cost' in sp) {
+        const key = sp.cost;
+        const cmax = usesMax(d.cls?.f.find((f) => f.n === key)?.u, c, d.cls) || 0;
+        if (cmax - Math.min(cmax, c.uses[key] || 0) < 1) why = 'sin ' + (COST_LABEL[key] || key);
+        pay = (u) => ({ ...u, [key]: (u[key] || 0) + 1 });
+      }
+      out.push({ key: kit.id + ':' + a.n[0], n: name, src: h.src || name, expr: base + (plus ? sgn(plus) : ''), type: h.type, unarmed: !!h.unarmed, why, pay });
+    }
+  }
+  return out;
+}
 
 interface Btn { k: string; t: string; dmg?: boolean; off?: boolean; plain?: boolean; go: () => void }
 
@@ -230,6 +271,8 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
             const n = Math.max(1, c.level + m(r.plus));
             btns.push({ k: 't', t: 'Ganar ' + n + ' PG temporales', plain: true, go: () => set({ temp: Math.max(c.temp, n) }) });
           }
+          // los extras al impactar se marcan en la ventana de daño del arma: aquí no llevan botón de daño
+          if (a.hit) { for (let i = btns.length - 1; i >= 0; i--) if (btns[i].dmg) btns.splice(i, 1); }
           if (react) {
             // fila compacta de la tarjeta Reacción: el nombre con su texto en una ventana, y los botones
             return (
@@ -262,6 +305,7 @@ export default function KitPanel({ c, d, lib, set, kit, actions: all, react, onU
                 </>}>
                 {a.selfHeal && <p className="muted small" style={{ margin: '4px 0' }}>{c.hp > Math.floor(d.hpMax / 2) ? 'Para curarte tienes que estar a la mitad de tus PG o menos (' + Math.floor(d.hpMax / 2) + ').' : 'Te curas hasta la mitad de tus PG máximos (' + Math.floor(d.hpMax / 2) + '); el resto lo repartes.'}</p>}
                 {a.note && <p className="muted small" style={{ margin: '4px 0' }}>{a.note}</p>}
+                {a.hit && <p className="muted small" style={{ margin: '4px 0' }}>Se suma al daño del arma: márcalo en la ventana que sale al pulsar su daño.</p>}
                 {text ? <p className="pc-text">{text.d}</p> : <p className="muted small" style={{ margin: 0 }}>El texto de este rasgo sale de tu libro: impórtalo en «Biblioteca».</p>}
               </Card>
             </li>

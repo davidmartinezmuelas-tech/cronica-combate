@@ -107,6 +107,20 @@ export type KitRoll =
   | { kind: 'portent' } // Presagio del adivino: 2 d20 (3 desde el nivel 14) tras el descanso largo; cada uno se gasta una vez
   | { kind: 'info' }; // sin tirada (solo la CD y el texto)
 
+/**
+ * Daño extra «al impactar»: no es un botón aparte, sale como casilla en la ventana de daño del arma y va en la misma
+ * tirada (con su propia fuente en el historial y con el crítico incluido). `die`: un dado del recurso de la subclase;
+ * `need`: solo con Furia; `unarmed`: solo con ataques sin armas; `spend`: lo que gasta al aplicarlo.
+ */
+export interface HitExtra {
+  expr?: string; exprAt?: Record<number, string>; die?: boolean;
+  plus?: Abil; plusHalfLevel?: boolean;
+  type?: string; // sin tipo: el del arma
+  src?: string; // fuente en el historial (por defecto, el nombre del rasgo)
+  need?: 'rage'; unarmed?: boolean;
+  spend?: 'res' | { use: { max: Abil | number } } | { cost: string };
+}
+
 export interface KitAction {
   n: string[];
   lv: number;
@@ -117,6 +131,7 @@ export interface KitAction {
   tag?: (x: { level: number; pb: number; mods: Record<Abil, number> }) => string; // número que se muestra al lado
   selfHeal?: (level: number) => number; // reparte curación que te puede incluir, hasta la mitad de tus PG máximos (Preservar vida)
   note?: string;
+  hit?: HitExtra; // daño extra al impactar con un arma (se aplica desde la ventana de daño del arma)
   react?: boolean; // se usa con la reacción: sale en la tarjeta Reacción y no en la de su subclase
 }
 
@@ -141,7 +156,7 @@ export const KITS: SubclassKit[] = [
   {
     id: 'psi-warrior', cls: 'fighter', subs: ['Guerrero psiónico', 'Psi Warrior'], title: 'Poder psiónico', res: psionic('int'),
     actions: [
-      { n: ['Golpe psiónico'], lv: 3, roll: { kind: 'die', plus: 'int', type: 'fuerza' }, note: 'Una vez por turno, tras acertar y dañar con un arma.' },
+      { n: ['Golpe psiónico'], lv: 3, hit: { die: true, plus: 'int', type: 'fuerza', spend: 'res' }, roll: { kind: 'die', plus: 'int', type: 'fuerza' }, note: 'Una vez por turno, tras acertar y dañar con un arma.' },
       { n: ['Campo protector'], lv: 3, react: true, roll: { kind: 'die', plus: 'int' }, note: 'Reduce el daño en el resultado (mínimo 1).' },
       { n: ['Movimiento telequinético'], lv: 3, roll: { kind: 'spend' } },
       { n: ['Empujón telequinético'], lv: 7, roll: { kind: 'info' }, save: { abil: 'str', dc: 'int' } },
@@ -245,7 +260,7 @@ export const KITS: SubclassKit[] = [
     id: 'zealot', cls: 'barbarian', subs: ['Senda del fanático', 'Path of the Zealot'], title: 'Senda del fanático',
     res: { key: 'Guerrero de los dioses', n: 'Dados de Guerrero de los dioses', per: 'lr', count: { 3: 4, 6: 5, 12: 6, 17: 7 }, die: { 3: 12 }, dc: ['con'] },
     actions: [
-      { n: ['Furia divina', 'Divine Fury'], lv: 3, roll: { kind: 'roll', expr: '1d6', plusHalfLevel: true, type: 'radiante' }, note: 'Con la Furia activa, al primer objetivo que impactes en tu turno: daño radiante o necrótico, a tu elección.' },
+      { n: ['Furia divina', 'Divine Fury'], lv: 3, hit: { expr: '1d6', plusHalfLevel: true, type: 'radiante', need: 'rage' }, roll: { kind: 'roll', expr: '1d6', plusHalfLevel: true, type: 'radiante' }, note: 'Con la Furia activa, al primer objetivo que impactes en tu turno: daño radiante o necrótico, a tu elección.' },
       { n: ['Guerrero de los dioses', 'Warrior of the Gods'], lv: 3, roll: { kind: 'pool', perUse: 'all' }, note: 'Acción adicional: gasta los dados que quieras y recuperas esos PG.' },
     ],
   },
@@ -260,13 +275,13 @@ export const KITS: SubclassKit[] = [
     id: 'mercy', cls: 'monk', subs: ['Guerrero de la misericordia', 'Warrior of Mercy'], title: 'Guerrero de la misericordia',
     actions: [
       { n: ['Mano de curación', 'Mano curativa', 'Hand of Healing'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', cost: FOCUS, freeAlt: 'gratis en Ráfaga' }, note: 'Acción de Magia, 1 Punto de concentración (o sustituye un golpe de la Ráfaga sin coste).' },
-      { n: ['Mano de aflicción', 'Mano dañina', 'Hand of Harm'], lv: 3, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico', cost: FOCUS }, note: 'Una vez por turno al impactar con un Golpe sin armas: 1 Punto de concentración.' },
+      { n: ['Mano de aflicción', 'Mano dañina', 'Hand of Harm'], lv: 3, hit: { expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico', unarmed: true, spend: { cost: FOCUS } }, roll: { kind: 'roll', expr: '1d6', exprAt: MARTIAL, plus: 'wis', type: 'necrótico', cost: FOCUS }, note: 'Una vez por turno al impactar con un Golpe sin armas: 1 Punto de concentración.' },
     ],
   },
   {
     id: 'fey-wanderer', cls: 'ranger', subs: ['Errante feérico', 'Fey Wanderer'], title: 'Errante feérico',
     actions: [
-      { n: ['Golpes pavorosos', 'Golpes aterradores', 'Dreadful Strikes'], lv: 3, roll: { kind: 'extra', expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, note: 'Una vez por turno al impactar con un arma.' },
+      { n: ['Golpes pavorosos', 'Golpes aterradores', 'Dreadful Strikes'], lv: 3, hit: { expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, roll: { kind: 'extra', expr: '1d4', exprAt: { 3: '1d4', 11: '1d6' }, type: 'psíquico' }, note: 'Una vez por turno al impactar con un arma.' },
     ],
   },
   {
@@ -298,7 +313,7 @@ export const KITS: SubclassKit[] = [
   {
     id: 'gloom-stalker', cls: 'ranger', subs: ['Acechador en la penumbra', 'Gloom Stalker'], title: 'Acechador en la penumbra',
     actions: [
-      { n: ['Emboscador pavoroso', 'Dread Ambusher'], lv: 3, roll: { kind: 'roll', expr: '2d6', type: 'psíquico', uses: { max: 'wis', per: 'lr' } }, note: 'Golpe pavoroso: una vez por turno, al acertar con un arma.' },
+      { n: ['Emboscador pavoroso', 'Dread Ambusher'], lv: 3, hit: { expr: '2d6', type: 'psíquico', spend: { use: { max: 'wis' } } }, roll: { kind: 'roll', expr: '2d6', type: 'psíquico', uses: { max: 'wis', per: 'lr' } }, note: 'Golpe pavoroso: una vez por turno, al acertar con un arma.' },
     ],
   },
   {
@@ -334,7 +349,7 @@ export const KITS: SubclassKit[] = [
   {
     id: 'hunter', cls: 'ranger', subs: ['Cazador', 'Hunter'], title: 'Cazador',
     actions: [
-      { n: ['Azote de colosos', 'Matacolosos'], lv: 3, roll: { kind: 'extra', expr: '1d8' }, when: { choice: 'hunter.prey', is: ['Azote de colosos', 'Matacolosos'] }, note: 'Una vez por turno, si al objetivo le faltan PG.' },
+      { n: ['Azote de colosos', 'Matacolosos'], lv: 3, hit: { expr: '1d8' }, roll: { kind: 'extra', expr: '1d8' }, when: { choice: 'hunter.prey', is: ['Azote de colosos', 'Matacolosos'] }, note: 'Una vez por turno, si al objetivo le faltan PG.' },
     ],
   },
   // ---- World of Warcraft (libro del usuario): las subclases se reconocen por su nombre en inglés ----
@@ -348,7 +363,7 @@ export const KITS: SubclassKit[] = [
         n: ['Soul Cleave'], lv: 3, save: { abil: 'dex', dc: 'spell' }, note: 'Una vez por turno, en lugar de uno de tus ataques: emanación de 3 m. Si fallan, el daño; tú recuperas tu modificador de Sabiduría en PG.',
         roll: { kind: 'multi', buttons: [{ t: 'Daño', as: 'damage', expr: '1d12', exprAt: { 3: '1d12', 15: '2d12' }, plus: 'wis', type: 'psíquico', res: 1 }, { t: 'Curarme', as: 'heal-self', plus: 'wis' }] },
       },
-      { n: ['Torment'], lv: 7, roll: { kind: 'multi', buttons: [{ t: 'Chaos Strike', as: 'damage', expr: '1d8', type: 'fuego' }, { t: 'Aura of Pain: resta', as: 'free', expr: '1d4' }] }, note: 'Una vez por turno, al impactar a la criatura marcada con Marca del cazador.' },
+      { n: ['Torment'], lv: 7, hit: { expr: '1d8', type: 'fuego', src: 'Chaos Strike' }, roll: { kind: 'multi', buttons: [{ t: 'Chaos Strike', as: 'damage', expr: '1d8', type: 'fuego' }, { t: 'Aura of Pain: resta', as: 'free', expr: '1d4' }] }, note: 'Una vez por turno, al impactar a la criatura marcada con Marca del cazador.' },
       { n: ['Disrupt'], lv: 11, roll: { kind: 'spend', n: 2, label: 'Lanzar Contraconjuro (gasta dos fragmentos)' } },
       { n: ['Warglaive Mastery'], lv: 11, roll: { kind: 'spend', label: 'Lanzar Throw Glaive (gasta un fragmento)' }, note: 'Acción adicional.' },
       { n: ['Soul Shatter'], lv: 15, roll: { kind: 'info' }, note: 'Soul Cleave hace 2d12 + Sabiduría. Al tirar iniciativa recuperas un fragmento si no tienes ninguno.' },
@@ -418,7 +433,7 @@ export const KITS: SubclassKit[] = [
   {
     id: 'wow-spiritual-guardian', cls: 'barbarian', subs: ['Path of the Spiritual Guardian', 'Senda del Guardián espiritual'], title: 'Senda del Guardián espiritual',
     actions: [
-      { n: ['Strike'], lv: 3, roll: { kind: 'extra', expr: '1d4', type: 'frío' }, note: 'Con la Furia activa, al impactar: 1d4 extra de frío, fuego o relámpago a tu elección (aquí se cuenta como frío).' },
+      { n: ['Strike'], lv: 3, hit: { expr: '1d4', type: 'frío', need: 'rage' }, roll: { kind: 'extra', expr: '1d4', type: 'frío' }, note: 'Con la Furia activa, al impactar: 1d4 extra de frío, fuego o relámpago a tu elección (aquí se cuenta como frío).' },
       { n: ['Spirit Shield'], lv: 6, react: true, roll: { kind: 'multi', buttons: [{ t: 'Reducir el daño', as: 'free', expr: '{rage}d6' }] }, note: 'Con la Furia activa: otra criatura a 9 m recibe daño.' },
       { n: ['Consult the Spirits'], lv: 10, roll: { kind: 'multi', uses: { max: 1, per: 'sr' }, buttons: [{ t: 'Usar (Augury o Clairvoyance)', as: 'none', pay: true }] } },
       { n: ['Spirits’ Fury', "Spirits' Fury"], lv: 14, roll: { kind: 'info' }, note: 'Con un 18-20 en el d20 de un ataque cuerpo a cuerpo de la acción de Atacar: un ataque adicional con la misma arma. Una vez por turno.' },

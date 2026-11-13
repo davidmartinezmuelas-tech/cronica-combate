@@ -31,7 +31,7 @@ import { plainText, useSpells } from './spells';
 import ClassPanel, { classPanelKeys } from './ClassPanel';
 import FeatPanel, { FEAT_PANEL_NAMES } from './FeatPanel';
 import ReactionPanel, { REACTION, REACTION_FEATS } from './ReactionPanel';
-import KitPanel from './KitPanel';
+import KitPanel, { hitOptions, type HitOption } from './KitPanel';
 import QuickActions, { quickRows, quickTag, RELENTLESS } from './QuickActions';
 import MetamagicPanel from './MetamagicPanel';
 import MagicItemsPanel from './MagicItemsPanel';
@@ -167,6 +167,7 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
   const [smitePick, setSmitePick] = useState('');
   // castigos preparados en cada arma (como Marca del cazador): se suman al siguiente daño cuerpo a cuerpo de esa arma y se gastan ahí
   const [runicAsk, setRunicAsk] = useState(false);
+  const [hitPick, setHitPick] = useState<string[]>([]); // extras al impactar marcados en la ventana de daño del arma
   const [runicFrost, setRunicFrost] = useState(false); // en la ventana del Rune Strike: aplicar ya los 2d6 de Escarcha de Runic Power
   const [touchPending, setTouchPending] = useState<RollSpec | null>(null);
   const [touchRes, setTouchRes] = useState<'none' | 'res' | 'imm'>('none');
@@ -409,12 +410,16 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     });
     return () => setDamageGate(null);
   });
+  // daños extra al impactar de los rasgos de clase y subclase (Furia divina, Golpe psiónico…): casillas en la ventana de daño del arma
+  const hitOpts = views.flatMap(({ v, dv }) => hitOptions(v, dv, lib, rage));
+  const smitePendingMelee = !!smitePending && (smitePending.hit.melee || !!smitePending.hit.thrownMelee);
+  const hitFor = (armKey?: string) => hitOpts.filter((o) => !o.unarmed || armKey === 'ua');
   const dmgRoll = (label: string, parts: RollPart[], hit: Hit, armKey?: string) => {
     const smiteMelee = hit.melee || !!hit.thrownMelee;
-    if (armKey && smiteMelee && (smiteOpt || (armKey !== 'ua' && eldDice))) { setEldPick(false); setRunicFrost(true); setSmitePending({ label, parts, hit, armKey }); return; }
+    if (armKey && ((smiteMelee && (smiteOpt || (armKey !== 'ua' && eldDice))) || hitFor(armKey).length)) { setEldPick(false); setHitPick([]); setRunicFrost(true); setSmitePending({ label, parts, hit, armKey }); return; }
     doDamage(label, parts, hit);
   };
-  const doDamage = (label: string, parts: RollPart[], hit: Hit, ch: { smite?: boolean; eld?: boolean; opt?: string; runic?: boolean } = {}) => {
+  const doDamage = (label: string, parts: RollPart[], hit: Hit, ch: { smite?: boolean; eld?: boolean; opt?: string; runic?: boolean; xs?: string[] } = {}) => {
     const melee = hit.melee;
     // los castigos valen con armas cuerpo a cuerpo, también lanzadas (lanza, jabalina, hacha de mano…)
     const smiteMelee = melee || !!hit.thrownMelee;
@@ -449,12 +454,15 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     // Caballero de la Muerte: efectos pasivos de Golpes rúnicos y de la runa del arma
     const dkP = smiteMelee ? dkPassives(c, d, d.attacks.find((a) => a.w.name === weapon)?.w.props || [], label.endsWith(': ataque extra')) : null;
     if (dkP) ps.push(...dkP.parts);
+    // extras al impactar marcados: en la misma tirada, cada uno con su fuente
+    const picked = (ch.xs || []).map((k) => hitOpts.find((o) => o.key === k)).filter((o): o is HitOption => !!o && !o.why);
+    for (const o of picked) ps.push({ expr: o.expr, type: o.type || type, src: o.src });
     if (useEld) ps.push({ expr: eldDice, type: 'fuerza', src: 'Castigo arcano' });
     // los extras, como etiquetas del resultado
     const tags = [savage ? 'Atacante salvaje' : '', charge && melee ? 'Carga' : '', pierce && piercing ? 'Perforador' : '',
       rage && hit.str && rageDmg ? 'Furia' : '', frenzy && hit.str && rageDmg ? 'Frenesí (solo al primer objetivo)' : '', brutal && hit.str && brutalDice ? 'Golpe brutal' : '', sneak && hit.finesse && sneakDice ? 'Ataque furtivo' : '',
       ...onBuffs.map((b) => b.n), strike && strikeDice ? strikeName : '',
-      useSmite ? smiteSpell!.n : '', useRunic ? 'Runic Power (Escarcha)' : '', useEld ? 'Castigo arcano' : ''].filter(Boolean);
+      useSmite ? smiteSpell!.n : '', useRunic ? 'Runic Power (Escarcha)' : '', useEld ? 'Castigo arcano' : '', ...picked.map((o) => o.n)].filter(Boolean);
     roll({ label: who + ' · ' + label, kind: 'damage', who, by: null, parts: ps, critBonus, tags });
     if (savage) setSavage(false);
     if (charge && melee) setCharge(false);
@@ -462,6 +470,10 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
     if (brutal && hit.str) setBrutal(false);
     if (sneak && hit.finesse) setSneak(false);
     if (strike) setStrike(false);
+    if (picked.length) {
+      const curX = usePlayer.getState().characters.find((x) => x.id === c.id) || c;
+      update(c.id, { uses: picked.reduce((u, o) => o.pay(u), { ...curX.uses }) });
+    }
     // gastos de los efectos pasivos y, tras Rune Strike, la marca para usar Runic Power
     const rs = useSmite && smiteSpell!.en === 'Rune Strike';
     if ((dkP && Object.keys(dkP.uses).length) || rs) {
@@ -867,31 +879,6 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
           )}
           {!spellList.length && <p className="muted small" style={{ margin: 0 }}>Añade tus conjuros en «Editar hoja».</p>}
           {spPieces[0].length > 0 && spellFlow(spPieces[0])}
-          {smitePending && (
-            <InfoDialog title={'Daño: ' + smitePending.label.replace(/:.*$/, '')} onClose={() => { setSmitePending(null); setRunicFrost(false); }}>
-              {smiteSpells.length > 1 && (
-                <label className="small" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>Castigo
-                  <select className="input pc-slot-pick" aria-label="Castigo" value={smiteSpell!.id} onChange={(e) => { setSmiteSel(e.target.value); setSmitePick(''); }}>{smiteSpells.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}</select>
-                </label>
-              )}
-              {smitePending.armKey !== 'ua' && eldDice && (
-                <label className="check small" style={{ marginBottom: 8 }}><input type="checkbox" checked={eldPick} onChange={(e) => setEldPick(e.target.checked)} />Castigo arcano (+{eldDice} de fuerza, gasta un espacio de pacto)</label>
-              )}
-              {smiteSpell?.en === 'Rune Strike' && dkFrost && runicPowerReady(c) && (
-                <label className="check small" style={{ marginBottom: 8 }}><input type="checkbox" checked={runicFrost} onChange={(e) => setRunicFrost(e.target.checked)} />Runic Power (Escarcha): +2d6 de frío al objetivo y a los enemigos a 10 pies, en la misma tirada (gasta Canalización divina)</label>
-              )}
-              <div className="rollrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
-                <button className="btn" onClick={() => { const q = smitePending; setSmitePending(null); doDamage(q.label, q.parts, q.hit, { eld: eldPick && !!eldDice && q.armKey !== 'ua' }); }}>Solo el arma{eldPick && eldDice ? ' y el Castigo arcano' : ''}</button>
-                {smiteOpts.map((o) => {
-                  const clash = o.key === 'p' && eldPick && !!eldDice && pactLeft < 2;
-                  return (
-                    <button key={o.key} className="btn gold" disabled={clash} title={clash ? 'Te queda un solo espacio de pacto' : undefined} onClick={() => { const q = smitePending; setSmitePending(null); setRunicFrost(false); doDamage(q.label, q.parts, q.hit, { smite: true, opt: o.key, eld: eldPick && !!eldDice && q.armKey !== 'ua', runic: runicFrost }); }}>{smiteSpell!.n} · {o.label} · {o.dice} {o.type}</button>
-                  );
-                })}
-                {!smiteOpts.length && hasSmite && <span className="muted small">{smiteSpell!.n}: sin espacios</span>}
-              </div>
-            </InfoDialog>
-          )}
           {spTextOf && (
             <InfoDialog title={spTextOf.s!.n} onClose={() => setSpText(null)}>
               <p className="muted small" style={{ margin: 0 }}>{spTextOf.s!.l ? 'Nivel ' + spTextOf.s!.l : 'Truco'}{spTextOf.s!.c ? ' · concentración' : ''}{spTextOf.s!.rit ? ' · ritual' : ''}{spTextOf.sub ? ' · ' + spTextOf.sub : ''}</p>
@@ -1371,6 +1358,38 @@ export default function CharacterSheet({ c, readOnly = false }: { c: Character; 
                 } });
             }}>Usarlo: +{d.pb}d4 necrótico y curarme</button>
             <button className="btn" onClick={() => { const q = touchPending; setTouchPending(null); roll({ ...q, noGate: true }); }}>No usarlo</button>
+          </div>
+        </InfoDialog>
+      )}
+      {/* ventana de daño del arma: castigos y extras al impactar (fuera del panel de conjuros, que no lo tienen todos) */}
+      {smitePending && (
+        <InfoDialog title={'Daño: ' + smitePending.label.replace(/:.*$/, '')} onClose={() => { setSmitePending(null); setRunicFrost(false); }}>
+          {smitePendingMelee && smiteSpells.length > 1 && (
+            <label className="small" style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>Castigo
+              <select className="input pc-slot-pick" aria-label="Castigo" value={smiteSpell!.id} onChange={(e) => { setSmiteSel(e.target.value); setSmitePick(''); }}>{smiteSpells.map((x) => <option key={x.id} value={x.id}>{x.n}</option>)}</select>
+            </label>
+          )}
+          {smitePendingMelee && smitePending.armKey !== 'ua' && eldDice && (
+            <label className="check small" style={{ marginBottom: 8 }}><input type="checkbox" checked={eldPick} onChange={(e) => setEldPick(e.target.checked)} />Castigo arcano (+{eldDice} de fuerza, gasta un espacio de pacto)</label>
+          )}
+          {smitePendingMelee && smiteSpell?.en === 'Rune Strike' && dkFrost && runicPowerReady(c) && (
+            <label className="check small" style={{ marginBottom: 8 }}><input type="checkbox" checked={runicFrost} onChange={(e) => setRunicFrost(e.target.checked)} />Runic Power (Escarcha): +2d6 de frío al objetivo y a los enemigos a 10 pies, en la misma tirada (gasta Canalización divina)</label>
+          )}
+          {hitFor(smitePending.armKey).map((o) => (
+            <label key={o.key} className="check small" style={{ marginBottom: 8 }}>
+              <input type="checkbox" disabled={!!o.why} checked={!o.why && hitPick.includes(o.key)} onChange={(e) => setHitPick(e.target.checked ? [...hitPick, o.key] : hitPick.filter((k) => k !== o.key))} />
+              {o.n}: +{o.expr}{o.type ? ' ' + o.type : ''}{o.why ? ' (' + o.why + ')' : ''}
+            </label>
+          ))}
+          <div className="rollrow" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 6 }}>
+            <button className="btn" onClick={() => { const q = smitePending; setSmitePending(null); doDamage(q.label, q.parts, q.hit, { eld: eldPick && !!eldDice && q.armKey !== 'ua', xs: hitPick }); }}>Solo el arma{eldPick && eldDice ? ' y el Castigo arcano' : ''}{hitPick.length ? ' y los extras marcados' : ''}</button>
+            {smitePendingMelee && smiteOpts.map((o) => {
+              const clash = o.key === 'p' && eldPick && !!eldDice && pactLeft < 2;
+              return (
+                <button key={o.key} className="btn gold" disabled={clash} title={clash ? 'Te queda un solo espacio de pacto' : undefined} onClick={() => { const q = smitePending; setSmitePending(null); setRunicFrost(false); doDamage(q.label, q.parts, q.hit, { smite: true, opt: o.key, eld: eldPick && !!eldDice && q.armKey !== 'ua', runic: runicFrost, xs: hitPick }); }}>{smiteSpell!.n} · {o.label} · {o.dice} {o.type}</button>
+              );
+            })}
+            {smitePendingMelee && !smiteOpts.length && hasSmite && <span className="muted small">{smiteSpell!.n}: sin espacios</span>}
           </div>
         </InfoDialog>
       )}

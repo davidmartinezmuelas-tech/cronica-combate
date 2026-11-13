@@ -686,7 +686,12 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
   await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
-  await expect(page.locator('section[aria-label="Cazador"]').getByRole('button', { name: 'Daño con Espada larga a dos manos + 1d8' })).toBeVisible();
+  // el extra del Cazador ya no es un botón: es una casilla en la ventana de daño del arma y va en la misma tirada
+  await expect(page.locator('section[aria-label="Cazador"]').getByRole('button', { name: /^Daño con/ })).toHaveCount(0);
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
+  await page.getByRole('dialog').getByLabel(/Matacolosos: \+1d8/).check();
+  await page.getByRole('dialog').getByRole('button', { name: /^Solo el arma/ }).click();
+  await expect(page.locator('.plaque-rows')).toContainText("Matacolosos");
 
   // guerrero psiónico con su texto en la biblioteca: los dados se gastan y el descanso corto recupera uno
   const lib = { app: 'cronica-combate', tipo: 'biblioteca', v: 1, source: 'x', feats: [], backgrounds: [], spells: [],
@@ -702,7 +707,11 @@ test('rasgos de subclase con tirada: patrón infernal y cazador (SRD) y guerrero
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const psi = page.locator('section[aria-label="Poder psiónico"]');
   await expect(psi).toContainText('Dados de energía psiónica: 6 de 6 (d8)');
-  await psi.locator('.card', { hasText: 'Golpe psiónico' }).getByRole('button', { name: /^Daño d8/ }).click();
+  await expect(psi.locator('.card', { hasText: 'Golpe psiónico' }).getByRole('button', { name: /^Daño/ })).toHaveCount(0);
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
+  await page.getByRole('dialog').getByLabel(/Golpe psiónico: \+1d8/).check();
+  await page.getByRole('dialog').getByRole('button', { name: /^Solo el arma/ }).click();
+  await expect(page.locator('.plaque-rows')).toContainText('Golpe psiónico');
   await expect(psi).not.toContainText('Campo protector');
   await page.locator('section[aria-label="Reacción"] li', { hasText: 'Campo protector' }).getByRole('button', { name: /^Tirar d8/ }).click();
   await expect(psi).toContainText('4 de 6');
@@ -3248,7 +3257,11 @@ test('Salvaguarda arcana absorbe daño y Mano de aflicción gasta un Punto de co
   await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Guerrero de la misericordia' });
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const mercy = page.locator('section[aria-label="Guerrero de la misericordia"]');
-  await mercy.locator('.card', { hasText: 'Mano de aflicción' }).getByRole('button', { name: /−1 concentración/ }).click();
+  // la Mano de aflicción solo sale con un ataque sin armas y gasta la concentración al aplicarla
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Ataque sin armas' }).locator('.rollbtn.dmg').first().click();
+  await page.getByRole('dialog').getByLabel(/Mano de aflicción: \+/).check();
+  await page.getByRole('dialog').getByRole('button', { name: /^Solo el arma/ }).click();
+  await expect(page.locator('.plaque-rows')).toContainText('Mano de aflicción');
   await expect(page.getByRole('group', { name: 'Concentración del monje: 4 de 5 disponibles' })).toBeVisible();
   await mercy.locator('.card', { hasText: 'Mano de curación' }).getByRole('button', { name: /gratis en Ráfaga/ }).click();
   await expect(page.getByRole('group', { name: 'Concentración del monje: 4 de 5 disponibles' })).toBeVisible();
@@ -3311,9 +3324,14 @@ test('Doblegar la suerte gasta un punto de hechicería y Golpe pavoroso sus usos
   await page.getByRole('button', { name: 'Editar hoja' }).click();
   await page.getByLabel('Clase', { exact: true }).selectOption({ label: 'Explorador' });
   await page.getByLabel('Subclase (desde el nivel 3)').selectOption({ label: 'Acechador en la penumbra' });
+  await page.getByLabel('Arma para añadir').selectOption({ label: 'Espada larga (1d8 cortante)' });
+  await page.getByRole('button', { name: 'Añadir', exact: true }).click();
   await page.getByRole('button', { name: 'Listo' }).first().click();
   const gs = page.locator('section[aria-label="Acechador en la penumbra"] .card', { hasText: 'Emboscador pavoroso' });
-  await gs.getByRole('button', { name: /^Daño 2d6 psíquico/ }).click();
+  await page.locator('section[aria-label="Ataques"] .pc-attack', { hasText: 'Espada larga' }).locator('.rollbtn.dmg').first().click();
+  await page.getByRole('dialog').getByLabel(/Emboscador pavoroso: \+2d6/).check();
+  await page.getByRole('dialog').getByRole('button', { name: /^Solo el arma/ }).click();
+  await expect(page.locator('.plaque-rows')).toContainText('Emboscador pavoroso');
   await expect(gs.getByRole('group', { name: /Usos de Emboscador pavoroso/ })).toBeVisible();
 });
 
